@@ -50,12 +50,16 @@
 <body>
 <div class="container">
   <h1>✦ 文心笔匠 v2 增强引擎 · 综合分析面板</h1>
-  <div class="subtitle">5 大引擎 · 钩子强度 / 伏笔追踪 / 反套路检测 / 人设矛盾 / 世界观逻辑</div>
+  <div class="subtitle">9 大引擎 · 钩子强度 / 伏笔追踪 / 反套路检测 / 人设矛盾 / 世界观逻辑 / 伏笔网络 / 章节因果 / 节奏参考 / 概念展开</div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="detail">📝 细纲分析（钩子+伏笔+反套路）</button>
-    <button class="tab-btn" data-tab="chars">👥 人设分析（矛盾层+崩溃点）</button>
-    <button class="tab-btn" data-tab="world">🌍 世界观逻辑（势力博弈+力量体系）</button>
+    <button class="tab-btn active" data-tab="detail">📝 细纲分析</button>
+    <button class="tab-btn" data-tab="chars">👥 人设分析</button>
+    <button class="tab-btn" data-tab="world">🌍 世界观逻辑</button>
+    <button class="tab-btn" data-tab="fnet">🕸 伏笔网络</button>
+    <button class="tab-btn" data-tab="causality">⚖ 章节因果</button>
+    <button class="tab-btn" data-tab="rhythm">🎵 节奏参考</button>
+    <button class="tab-btn" data-tab="concept">🚀 概念展开</button>
   </div>
 
   <!-- Tab 1: 细纲 -->
@@ -163,23 +167,7 @@
     <div class="grid">
       <div class="card">
         <h2>🌍 世界观设定 <span class="badge">输入</span></h2>
-        <textarea id="world-input" placeholder="粘贴你的世界观设定，格式示例：
-
-【大陆格局】
-九曜大陆，三大家族鼎立——东方林家掌灵脉，西方萧氏掌兵戈，南方慕容氏掌商贾。
-表面三足鼎立，实则林家势微，其灵脉资源正在被萧氏暗中侵蚀。
-
-【力量体系】
-练气 → 筑基 → 金丹 → 元婴 → 化神 → 合体 → 大乘 → 渡劫
-每阶九品，九为极。但千年来无人能跨越化神桎梏——传言需要残缺的"天衍录"方能突破。
-
-【核心矛盾】
-萧氏联合慕容氏，意图吞并林家灵脉。林家少主林青寒表面隐忍，暗中调查二十年前家族内乱真相。
-实则那一场内乱并非简单的权力斗争，而是涉及一位被从历史中抹去的"第九人"。
-
-【历史背景】
-千年前九曜大陆本为一体，因一场"分天之灾"被撕裂成九块。
-二十年前林家发生了一场"极小"的家族内斗——但这场内斗留下的影响，至今仍在发酵。"></textarea>
+        <textarea id="world-input" placeholder="粘贴你的世界观设定"></textarea>
         <div class="btn-row">
           <button class="btn" onclick="analyzeWorld()">🔍 逻辑一致性检测</button>
           <button class="btn secondary" onclick="loadDemoWorld()">加载示例</button>
@@ -195,11 +183,119 @@
     </div>
   </div>
 
+  <!-- Tab 4: 伏笔网络 -->
+  <div class="tab-panel hidden" id="tab-fnet">
+    <div class="grid">
+      <div class="card">
+        <h2>🕸 细纲 + 人设 + 世界观 <span class="badge">三处文本</span></h2>
+        <textarea id="fnet-detail" placeholder="粘贴章节细纲（必填）"></textarea>
+        <textarea id="fnet-chars" placeholder="粘贴人设（可选）" style="margin-top:8px;min-height:100px;"></textarea>
+        <textarea id="fnet-world" placeholder="粘贴世界观（可选）" style="margin-top:8px;min-height:100px;"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeForeshadowNetwork()">🔍 构建伏笔网络</button>
+          <button class="btn secondary" onclick="loadDemoForeshadowNet()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🕸 伏笔网络健康度 <span class="badge">ForeshadowNetworkEngine</span></h2>
+        <div id="fnet-score" class="score-big">—</div>
+        <div class="score-label" id="fnet-score-label">点击"构建伏笔网络"</div>
+        <div id="fnet-metrics"></div>
+        <div id="fnet-result" class="result">
+          <div class="tip">分析后显示：主线伏笔链 / 即将回收伏笔 / 休眠风险 / 埋设建议</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 5: 章节因果 -->
+  <div class="tab-panel hidden" id="tab-causality">
+    <div class="grid">
+      <div class="card">
+        <h2>⚖ 章节正文 / 细纲 <span class="badge">5项检查</span></h2>
+        <textarea id="causality-chapter" placeholder="粘贴当前章节的正文或细纲（必须包含"决定/揭示/爆发/出手"等事件节点）"></textarea>
+        <textarea id="causality-chars" placeholder="粘贴主角人设（用于一致性检查）" style="margin-top:8px;min-height:100px;"></textarea>
+        <textarea id="causality-world" placeholder="粘贴世界观规则（用于规则一致性检查）" style="margin-top:8px;min-height:100px;"></textarea>
+        <textarea id="causality-outline" placeholder="粘贴前置章节/长伏笔（用于支撑检查，可选）" style="margin-top:8px;min-height:100px;"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeCausality()">🔍 因果一致性检测</button>
+          <button class="btn secondary" onclick="loadDemoCausality()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⚖ 章节因果报告 <span class="badge">ChapterCausalityEngine</span></h2>
+        <div id="causality-score" class="score-big">—</div>
+        <div class="score-label" id="causality-score-label">待检测</div>
+        <div id="causality-result" class="result">
+          <div class="tip">分析后显示：人设一致性 / 伏笔支撑度 / 世界观规则 / 情感递进 / 实力崩坏 / 综合建议</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 6: 节奏参考 -->
+  <div class="tab-panel hidden" id="tab-rhythm">
+    <div class="grid">
+      <div class="card">
+        <h2>🎵 平台 + 细纲 <span class="badge">曲线对比</span></h2>
+        <textarea id="rhythm-detail" placeholder="粘贴章节细纲（引擎从"爽点爆点/伏笔/章尾钩子"等字段提取节拍类型）"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeRhythm('番茄')">🍅 番茄风格</button>
+          <button class="btn" onclick="analyzeRhythm('起点')">🏔 起点风格</button>
+          <button class="btn secondary" onclick="loadDemoRhythm()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎵 节奏健康度报告 <span class="badge">RhythmReferenceEngine</span></h2>
+        <div id="rhythm-score" class="score-big">—</div>
+        <div class="score-label" id="rhythm-score-label">待检测</div>
+        <div id="rhythm-result" class="result">
+          <div class="tip">分析后显示：匹配度评分 / 疲劳区 / 密集区 / 节拍分布图 / 下一章建议</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 7: 概念展开 -->
+  <div class="tab-panel hidden" id="tab-concept">
+    <div class="grid">
+      <div class="card">
+        <h2>🚀 一句话概念 <span class="badge">自动展开</span></h2>
+        <textarea id="concept-input" placeholder="输入概念，例如：
+
+一个被家族放逐的少年，在废弃宗门遗址获得上古传承，踏上颠覆修仙界的道路。
+
+或：
+
+重生回到末世降临前三天，带着前世被背叛的记忆，这一次他要建立自己的势力，找出毁灭真相。"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeConcept('番茄')">🍅 番茄展开</button>
+          <button class="btn" onclick="analyzeConcept('起点')">🏔 起点展开</button>
+          <button class="btn secondary" onclick="loadDemoConcept()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🚀 概念展开报告 <span class="badge">ConceptExpansionEngine</span></h2>
+        <div id="concept-result" class="result">
+          <div class="tip">分析后显示：关键词提取 / 模板匹配 / 多卷大纲 / 角色骨架 / 矛盾链 / 信息增量</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="assets/js/engines-hook-foreshadow.js"></script>
 <script src="assets/js/engines-anti-cliche-char.js"></script>
 <script src="assets/js/engines-world-logic.js"></script>
+<script src="assets/js/engines-foreshadow-network.js"></script>
+<script src="assets/js/engines-causality.js"></script>
+<script src="assets/js/engines-rhythm.js"></script>
+<script src="assets/js/engines-concept-expand.js"></script>
 
 <script>
 // =================== Tab 切换 ===================
@@ -483,6 +579,288 @@ function analyzeWorld() {
   }
 
   document.getElementById('world-result').innerHTML = html;
+}
+
+// =================== 伏笔网络 ===================
+function loadDemoForeshadowNet() {
+  document.getElementById('fnet-detail').value =
+    "第1章 青云试剑\n  伏笔：[玉佩与母亲的来历]\n  章尾钩子：[藏经阁有人醒了]\n\n" +
+    "第2章 暗处来人\n  伏笔：[二十年前那场风暴]\n  章尾钩子：[长老知道了什么]\n\n" +
+    "第3章 夜探禁地\n  伏笔：[封印石碑上被抹去的林姓]\n  章尾钩子：[有人等了二十年]\n\n" +
+    "第4章 身份疑云\n  伏笔：[沈墨用林家秘传方言]\n  章尾钩子：[沈墨真实身份更可怕]\n\n" +
+    "第5章 分天\n  伏笔：[使用天衍录的模糊背影]\n  伏笔：[那人在说对不起]\n  章尾钩子：[萧氏大军铁蹄声逼近]";
+  document.getElementById('fnet-chars').value =
+    "【林青寒】性格：外冷内热，对背叛敏感，实则皇族后裔\n【沈墨】身份：林家暗线，能力：推演天机，弱点：无法对林青寒撒谎";
+  document.getElementById('fnet-world').value =
+    "九曜大陆 · 三大家族鼎立 · 千年前分天之灾 · 林家二十年前内乱 · 化神桎梏 · 天衍录传说";
+}
+function analyzeForeshadowNetwork() {
+  var d = document.getElementById('fnet-detail').value.trim();
+  var c = document.getElementById('fnet-chars').value.trim();
+  var w = document.getElementById('fnet-world').value.trim();
+  if (!d) { alert('请输入细纲'); return; }
+
+  var fos = ForeshadowNetworkEngine.extractForeshadowsFromOutline(d, c, w);
+  var net = ForeshadowNetworkEngine.buildNetwork(fos);
+  var health = ForeshadowNetworkEngine.analyzeNetworkHealth(net, net.nodes.length || 5);
+
+  document.getElementById('fnet-score').innerText = health.score + '/100';
+  document.getElementById('fnet-score').style.color = health.score >= 70 ? '#27ae60' : health.score >= 40 ? '#e67e22' : '#e74c3c';
+  document.getElementById('fnet-score-label').innerText = '伏笔网络健康度';
+
+  var html = '';
+  html += '<div class="metric-row"><span>🔗 识别伏笔</span><span class="val">' + (net.nodes ? net.nodes.length : 0) + ' 条</span></div>';
+  html += '<div class="metric-row"><span>🕸 网络连接</span><span class="val">' + (net.edges ? net.edges.length : 0) + ' 处</span></div>';
+  html += '<div class="metric-row"><span>📈 伏笔密度</span><span class="val">' + health.dimensions.density + '</span></div>';
+  html += '<div class="metric-row"><span>🔥 热伏笔数</span><span class="val">' + (health.hotForeshadows ? health.hotForeshadows.length : 0) + '</span></div>';
+  if (health.dimensions) {
+    html += '<div class="panel-section"><h3>📊 7维度评分</h3>';
+    var keys = Object.keys(health.dimensions);
+    keys.forEach(function(k) { html += '<div class="metric-row"><span>' + k + '</span><span class="val">' + health.dimensions[k] + '</span></div>'; });
+    html += '</div>';
+  }
+  if (net.mainChain && net.mainChain.length > 0) {
+    html += '<div class="panel-section"><h3>⛓ 主线伏笔链</h3>';
+    net.mainChain.slice(0, 8).forEach(function(f) {
+      html += '<div style="padding:5px 0;font-size:12px;border-bottom:1px dashed #eee;">[第' + f.chapter + '章] <span class="item-chip orange">' + f.type + '</span> ' + (f.text || '').slice(0, 60) + '</div>';
+    });
+    html += '</div>';
+  }
+  if (health.hotForeshadows && health.hotForeshadows.length > 0) {
+    html += '<div class="panel-section"><h3>🔥 即将回收的热伏笔</h3>';
+    health.hotForeshadows.forEach(function(f) {
+      html += '<div style="padding:5px 0;font-size:12px;border-bottom:1px dashed #eee;">[第' + f.chapter + '章 · ' + f.type + '] ' + (f.text || '').slice(0, 60) + '</div>';
+    });
+    html += '</div>';
+  }
+  if (health.abandoned && health.abandoned.length > 0) {
+    html += '<div class="panel-section"><h3>😴 休眠风险（超过15章未提及）</h3>';
+    health.abandoned.forEach(function(f) {
+      html += '<div style="padding:5px 0;font-size:12px;color:#e74c3c;border-bottom:1px dashed #eee;">[第' + f.chapter + '章 · ' + f.type + '] ' + (f.text || '').slice(0, 60) + '</div>';
+    });
+    html += '</div>';
+  }
+  if (health.issues && health.issues.length > 0) {
+    html += '<div class="panel-section"><h3>⚠ 问题清单</h3>';
+    health.issues.forEach(function(i) { html += '<div class="tip">' + i + '</div>'; });
+    html += '</div>';
+  }
+  var suggest = ForeshadowNetworkEngine.suggestNextForeshadowPlacement(net, net.nodes ? net.nodes[net.nodes.length - 1].chapter + 1 : 5, '番茄');
+  if (suggest && (suggest.suggestPlant.length > 0 || suggest.suggestRecover.length > 0)) {
+    html += '<div class="panel-section"><h3>💡 下一章建议</h3>';
+    suggest.suggestPlant.slice(0, 3).forEach(function(s) { html += '<div style="padding:4px 0;font-size:12px;"><span class="item-chip green">埋设</span> ' + s + '</div>'; });
+    suggest.suggestRecover.slice(0, 3).forEach(function(s) { html += '<div style="padding:4px 0;font-size:12px;"><span class="item-chip orange">回收</span> ' + s + '</div>'; });
+    html += '</div>';
+  }
+  document.getElementById('fnet-result').innerHTML = html;
+}
+
+// =================== 章节因果 ===================
+function loadDemoCausality() {
+  document.getElementById('causality-chapter').value =
+    "林青寒站在封印之前，终于下定决心出手——他要破开这道封印，查明二十年前家族内乱的真相。\n" +
+    "原来那道封印并非敌人留下，而是林家先祖自己布下。\n" +
+    "想到母亲临终前的那句『不要回头』，林青寒眼中闪过一丝痛楚，但他还是踏出了那一步。\n" +
+    "他以筑基之身，悍然对抗化神级别的封印反噬——体内的天衍录残篇骤然苏醒，一道金光从他体内喷薄而出。";
+  document.getElementById('causality-chars').value =
+    "【林青寒】性格：外冷内热，谨慎克制，对家族真相执念极深；能力：身怀天衍录残篇；弱点：对母亲遗物和真相相关事件会打破谨慎做出冲动决定";
+  document.getElementById('causality-world').value =
+    "九曜大陆 · 力量体系：练气→筑基→金丹→元婴→化神→合体→大乘→渡劫；千年来无人跨越化神桎梏；化神级别力量绝非筑基可对抗，除非有天衍录这类外挂级传承。";
+  document.getElementById('causality-outline').value =
+    "此前章节伏笔：母亲留下的玉佩、长老提到的『二十年前那场风暴』、封印石碑上被抹去的『林』字、禁地深处气息与林青寒灵脉共鸣。";
+}
+function analyzeCausality() {
+  var ch = document.getElementById('causality-chapter').value.trim();
+  var cs = document.getElementById('causality-chars').value.trim();
+  var wd = document.getElementById('causality-world').value.trim();
+  var ol = document.getElementById('causality-outline').value.trim();
+  if (!ch) { alert('请输入章节内容'); return; }
+
+  var res = ChapterCausalityEngine.fullCausalityCheck(1, ch, cs, wd, ol, '');
+
+  document.getElementById('causality-score').innerText = res.overallScore + '/100';
+  document.getElementById('causality-score').style.color = res.overallScore >= 80 ? '#27ae60' : res.overallScore >= 60 ? '#e67e22' : '#e74c3c';
+  document.getElementById('causality-score-label').innerText = '章节因果一致性';
+
+  var html = '';
+  html += '<div class="metric-row"><span>① 人设一致性</span><span class="val">' + res.dimensionScores.characterConsistency + '</span></div>';
+  html += '<div class="metric-row"><span>② 伏笔支撑度</span><span class="val">' + res.dimensionScores.foreshadowSupport + '</span></div>';
+  html += '<div class="metric-row"><span>③ 世界观规则</span><span class="val">' + res.dimensionScores.worldConsistency + '</span></div>';
+  html += '<div class="metric-row"><span>④ 情感递进</span><span class="val">' + res.dimensionScores.emotionalProgression + '</span></div>';
+  html += '<div class="metric-row"><span>⑤ 实力逻辑</span><span class="val">' + res.dimensionScores.powerConsistency + '</span></div>';
+  html += '<div class="metric-row"><span>🔍 检测事件数</span><span class="val">' + res.decisionsAnalyzed + ' 个</span></div>';
+
+  if (res.criticalIssues && res.criticalIssues.length > 0) {
+    html += '<div class="panel-section"><h3>🚨 严重问题</h3>';
+    res.criticalIssues.forEach(function(i) { html += '<div class="tip" style="background:#fff0f0;border-left-color:#e74c3c;color:#b71c1c;">' + i + '</div>'; });
+    html += '</div>';
+  }
+  if (res.warnings && res.warnings.length > 0) {
+    html += '<div class="panel-section"><h3>⚠ 警告</h3>';
+    res.warnings.forEach(function(i) { html += '<div class="tip">' + i + '</div>'; });
+    html += '</div>';
+  }
+  if (res.suggestions && res.suggestions.length > 0) {
+    html += '<div class="panel-section"><h3>💡 改进建议</h3>';
+    res.suggestions.forEach(function(s, i) { html += '<div style="padding:4px 0;font-size:12px;border-bottom:1px dashed #eee;">【' + (i + 1) + '】' + s + '</div>'; });
+    html += '</div>';
+  }
+  if (res.highlights && res.highlights.length > 0) {
+    html += '<div class="panel-section"><h3>✨ 亮点</h3>';
+    res.highlights.forEach(function(h) { html += '<div style="padding:4px 0;font-size:12px;color:#27ae60;">✓ ' + h + '</div>'; });
+    html += '</div>';
+  }
+  document.getElementById('causality-result').innerHTML = html;
+}
+
+// =================== 节奏参考 ===================
+function loadDemoRhythm() {
+  document.getElementById('rhythm-detail').value =
+    "第1章 开端\n  爽点爆点：[主角被逐出家族时反手一巴掌打脸嫡子]\n  伏笔：[母亲的玉佩]\n  章尾钩子：[远处有人在看]\n\n" +
+    "第2章 古戒\n  爽点爆点：[玉佩中浮现上古功法]\n  伏笔：[传承来自被抹去的先祖]\n  章尾钩子：[气息惊动了城里的强者]\n\n" +
+    "第3章 觉醒\n  爽点爆点：[修炼一晚突破三重天，同辈瞠目结舌]\n  章尾钩子：[家族长辈深夜到访，神色不善]\n\n" +
+    "第4章 暗流\n  准备：[布局，收集信息]\n  章尾钩子：[发现长辈与外姓人密谋]\n\n" +
+    "第5章 摊牌\n  爽点爆点：[当场揭露阴谋，反将一军]\n  关键对话：[与长辈的对峙对话]\n  章尾钩子：[对方狗急跳墙，祭出禁器]\n\n" +
+    "第6章 远走\n  过渡：[离开村落，前往宗门]\n  章尾钩子：[路上偶遇神秘少女，身份成谜]";
+}
+function analyzeRhythm(platform) {
+  var text = document.getElementById('rhythm-detail').value.trim();
+  if (!text) { alert('请输入细纲'); return; }
+  var report = RhythmReferenceEngine.generateVolumeRhythmReport(platform, '修仙', text);
+
+  document.getElementById('rhythm-score').innerText = report.matchScore + '/100';
+  document.getElementById('rhythm-score').style.color = report.matchScore >= 70 ? '#27ae60' : report.matchScore >= 50 ? '#e67e22' : '#e74c3c';
+  document.getElementById('rhythm-score-label').innerText = platform + '风格匹配度';
+
+  var html = '';
+  if (report.visualText) {
+    html += '<div class="panel-section"><h3>📈 节奏曲线</h3><pre class="white" style="font-size:11px;">' + report.visualText + '</pre></div>';
+  }
+  html += '<div class="metric-row"><span>📖 识别章节</span><span class="val">' + report.totalChapters + ' 章</span></div>';
+  html += '<div class="metric-row"><span>🎯 节拍总数</span><span class="val">' + report.totalBeats + ' 个</span></div>';
+
+  if (report.typeBalance) {
+    html += '<div class="panel-section"><h3>🎭 节拍分布</h3>';
+    var tkeys = Object.keys(report.typeBalance);
+    tkeys.forEach(function(k) {
+      html += '<span class="item-chip">' + k + ' ×' + report.typeBalance[k] + '</span>';
+    });
+    html += '</div>';
+  }
+  if (report.rhythmIssues && report.rhythmIssues.length > 0) {
+    html += '<div class="panel-section"><h3>⚠ 节奏问题</h3>';
+    report.rhythmIssues.forEach(function(i) { html += '<div class="tip">' + i + '</div>'; });
+    html += '</div>';
+  }
+  if (report.fatigueZones && report.fatigueZones.length > 0) {
+    html += '<div class="panel-section"><h3>💤 疲劳区</h3>';
+    report.fatigueZones.forEach(function(z) {
+      html += '<div style="padding:4px 0;font-size:12px;color:#e67e22;">第' + z.from + '-' + z.to + '章：' + (z.reason || '连续无爆点') + '</div>';
+    });
+    html += '</div>';
+  }
+  if (report.overSaturatedZones && report.overSaturatedZones.length > 0) {
+    html += '<div class="panel-section"><h3>⚡ 密集区</h3>';
+    report.overSaturatedZones.forEach(function(z) {
+      html += '<div style="padding:4px 0;font-size:12px;">第' + z.from + '-' + z.to + '章：' + (z.reason || '爆点密集，读者可能审美疲劳') + '</div>';
+    });
+    html += '</div>';
+  }
+  if (report.nextBeatSuggestion) {
+    html += '<div class="panel-section"><h3>🎯 下一章建议</h3>';
+    html += '<div style="padding:4px 0;font-size:12px;"><span class="item-chip green">' + report.nextBeatSuggestion.recommendedType + '</span> ' + (report.nextBeatSuggestion.reason || '') + '</div>';
+    if (report.nextBeatSuggestion.alternatives && report.nextBeatSuggestion.alternatives.length > 0) {
+      html += '<div style="padding:4px 0;font-size:12px;">备选：';
+      report.nextBeatSuggestion.alternatives.forEach(function(a) { html += '<span class="item-chip" style="margin-left:4px;">' + a + '</span>'; });
+      html += '</div>';
+    }
+    if (report.nextBeatSuggestion.avoid && report.nextBeatSuggestion.avoid.length > 0) {
+      html += '<div style="padding:4px 0;font-size:12px;color:#b71c1c;">避免：' + report.nextBeatSuggestion.avoid.join('、') + '</div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('rhythm-result').innerHTML = html;
+}
+
+// =================== 概念展开 ===================
+function loadDemoConcept() {
+  document.getElementById('concept-input').value =
+    "一个被家族放逐的少年，在废弃宗门遗址获得上古传承，踏上颠覆修仙界的道路。";
+}
+function analyzeConcept(platform) {
+  var text = document.getElementById('concept-input').value.trim();
+  if (!text) { alert('请输入概念'); return; }
+
+  var result = ConceptExpansionEngine.fullExpansion(text, platform, 3);
+
+  var html = '';
+  // 关键词
+  if (result.conceptAnalysis) {
+    html += '<div class="panel-section"><h3>🔑 概念关键词提取</h3>';
+    var a = result.conceptAnalysis;
+    if (a.genreSignals && a.genreSignals.length) { html += '<div style="padding:3px 0;font-size:12px;"><b>题材：</b>'; a.genreSignals.forEach(function(s) { html += '<span class="item-chip">' + s + '</span>'; }); html += '</div>'; }
+    if (a.protagonistState && a.protagonistState.length) { html += '<div style="padding:3px 0;font-size:12px;"><b>主角：</b>'; a.protagonistState.forEach(function(s) { html += '<span class="item-chip green">' + s + '</span>'; }); html += '</div>'; }
+    if (a.powerMechanism && a.powerMechanism.length) { html += '<div style="padding:3px 0;font-size:12px;"><b>金手指：</b>'; a.powerMechanism.forEach(function(s) { html += '<span class="item-chip orange">' + s + '</span>'; }); html += '</div>'; }
+    if (a.coreConflict && a.coreConflict.length) { html += '<div style="padding:3px 0;font-size:12px;"><b>冲突：</b>'; a.coreConflict.forEach(function(s) { html += '<span class="item-chip red">' + s + '</span>'; }); html += '</div>'; }
+    html += '</div>';
+  }
+  // 模板
+  if (result.templateMatches && result.templateMatches.length > 0) {
+    html += '<div class="panel-section"><h3>📚 最佳匹配模板</h3>';
+    result.templateMatches.slice(0, 3).forEach(function(t, i) {
+      html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><span class="item-chip">' + (i + 1) + '#</span> <b>' + t.name + '</b> · 匹配度 ' + (t.matchScore || 0) + ' · ' + (t.volumes ? '预计' + t.volumes + '卷' : '') + '</div>';
+    });
+    html += '</div>';
+  }
+  // 卷大纲
+  if (result.volumeOutline && result.volumeOutline.length > 0) {
+    html += '<div class="panel-section"><h3>📖 多卷大纲骨架</h3>';
+    result.volumeOutline.forEach(function(v) {
+      html += '<div style="padding:8px 0;border-bottom:1px dashed #eee;">';
+      html += '<div style="font-size:13px;font-weight:600;color:#6366f1;">第' + v.volume + '卷 · ' + (v.title || '') + ' (' + v.chapters + '章)</div>';
+      html += '<div style="font-size:12px;color:#555;margin-top:4px;"><b>核心冲突：</b>' + (v.coreConflict || '') + '</div>';
+      if (v.mainEvents && v.mainEvents.length) {
+        html += '<div style="font-size:12px;color:#555;margin-top:3px;"><b>关键事件：</b><ul style="margin:3px 0 0 16px;">';
+        v.mainEvents.forEach(function(e) { html += '<li style="padding:2px 0;">' + e + '</li>'; });
+        html += '</ul></div>';
+      }
+      if (v.foreshadowNeeded && v.foreshadowNeeded.length) {
+        html += '<div style="font-size:12px;color:#e67e22;margin-top:3px;"><b>需埋伏笔：</b>' + v.foreshadowNeeded.slice(0, 3).join('；') + '</div>';
+      }
+      if (v.endHook) html += '<div style="font-size:12px;color:#b71c1c;margin-top:3px;"><b>卷尾钩子：</b>' + v.endHook + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  // 角色骨架
+  if (result.characterSkeleton) {
+    html += '<div class="panel-section"><h3>👥 角色骨架</h3>';
+    var sk = result.characterSkeleton;
+    if (sk.protagonist) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>主角：</b>' + sk.protagonist.tagline + ' · 核心矛盾：' + (sk.protagonist.keyConflicts ? sk.protagonist.keyConflicts.slice(0, 2).join(' / ') : '') + '</div>'; }
+    if (sk.rivals && sk.rivals.length) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>对手：</b>' + sk.rivals[0].role + ' / ' + sk.rivals[0].archetype + '</div>'; }
+    if (sk.mentors && sk.mentors.length) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>导师：</b>' + sk.mentors[0].role + ' / ' + sk.mentors[0].archetype + '</div>'; }
+    if (sk.allies && sk.allies.length) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>伙伴：</b>' + sk.allies[0].role + ' / ' + sk.allies[0].archetype + '</div>'; }
+    if (sk.loveInterests && sk.loveInterests.length) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>感情线：</b>' + sk.loveInterests[0].role + ' / ' + sk.loveInterests[0].archetype + '</div>'; }
+    if (sk.villains && sk.villains.length) { html += '<div style="padding:6px 0;font-size:12px;border-bottom:1px dashed #eee;"><b>反派：</b>' + sk.villains[0].role + ' / ' + sk.villains[0].archetype + '</div>'; }
+    html += '</div>';
+  }
+  // 矛盾链
+  if (result.conflictChain && result.conflictChain.length > 0) {
+    html += '<div class="panel-section"><h3>⛓ 核心矛盾升级链</h3>';
+    result.conflictChain.forEach(function(c) {
+      html += '<div style="padding:5px 0;font-size:12px;border-bottom:1px dashed #eee;">第' + c.volume + '卷：' + c.mainConflict + ' → ' + c.escalationPoint + '</div>';
+    });
+    html += '</div>';
+  }
+  // 信息增量
+  if (result.infoIncrementPlan && result.infoIncrementPlan.length > 0) {
+    html += '<div class="panel-section"><h3>💡 信息增量计划</h3>';
+    result.infoIncrementPlan.slice(0, 5).forEach(function(info) {
+      html += '<div style="padding:4px 0;font-size:12px;border-bottom:1px dashed #eee;">' + info + '</div>';
+    });
+    html += '</div>';
+  }
+  document.getElementById('concept-result').innerHTML = html;
 }
 </script>
 </body>
