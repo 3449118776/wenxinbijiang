@@ -1,0 +1,2345 @@
+{
+  "result": [
+    {
+      "id": "0e9a7160-716e-4cfb-854d-fcca96ab7216",
+      "short_id": "0e9a7160",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://0e9a7160.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T17:17:19.225007Z",
+      "modified_on": "2026-06-16T17:17:41.61982Z",
+      "latest_stage": {
+        "name": "build",
+        "started_on": "2026-06-16T17:17:34.549477Z",
+        "ended_on": "2026-06-16T17:17:41.61982Z",
+        "status": "failure"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-eWpAqF",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T17:17:19.864199Z",
+          "ended_on": "2026-06-16T17:17:19.867782Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T17:17:19.867782Z",
+          "ended_on": "2026-06-16T17:17:25.524227Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T17:17:25.524227Z",
+          "ended_on": "2026-06-16T17:17:34.549477Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T17:17:34.549477Z",
+          "ended_on": "2026-06-16T17:17:41.61982Z",
+          "status": "failure"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": null,
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": null
+    },
+    {
+      "id": "166a1513-8f4a-4f36-96f9-88b8139edb3f",
+      "short_id": "166a1513",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://166a1513.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T17:15:03.428807Z",
+      "modified_on": "2026-06-16T17:15:06.900552Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T17:15:06.900552Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: [REDACTED]\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": true
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T17:15:03.428807Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T17:15:06.900552Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": [
+        "https://production.wenxin-bijiang.pages.dev"
+      ],
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "d8d1622e-50fd-4298-a00a-dfe472548516",
+      "short_id": "d8d1622e",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://d8d1622e.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T17:09:37.544772Z",
+      "modified_on": "2026-06-16T17:09:55.281095Z",
+      "latest_stage": {
+        "name": "build",
+        "started_on": "2026-06-16T17:09:48.990822Z",
+        "ended_on": "2026-06-16T17:09:55.281095Z",
+        "status": "failure"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-eWpAqF",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T17:09:37.737454Z",
+          "ended_on": "2026-06-16T17:09:37.741512Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T17:09:37.741512Z",
+          "ended_on": "2026-06-16T17:09:41.011Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T17:09:41.011Z",
+          "ended_on": "2026-06-16T17:09:48.990822Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T17:09:48.990822Z",
+          "ended_on": "2026-06-16T17:09:55.281095Z",
+          "status": "failure"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": null,
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": null
+    },
+    {
+      "id": "939b16f7-2362-4d74-a435-d5e1e80141f7",
+      "short_id": "939b16f7",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://939b16f7.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T17:08:45.60939Z",
+      "modified_on": "2026-06-16T17:09:12.195035Z",
+      "latest_stage": {
+        "name": "build",
+        "started_on": "2026-06-16T17:09:03.991207Z",
+        "ended_on": "2026-06-16T17:09:12.195035Z",
+        "status": "failure"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-eWpAqF",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T17:08:45.819089Z",
+          "ended_on": "2026-06-16T17:08:45.82523Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T17:08:45.82523Z",
+          "ended_on": "2026-06-16T17:08:50.645893Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T17:08:50.645893Z",
+          "ended_on": "2026-06-16T17:09:03.991207Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T17:09:03.991207Z",
+          "ended_on": "2026-06-16T17:09:12.195035Z",
+          "status": "failure"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": null,
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": null
+    },
+    {
+      "id": "17397dca-6dfd-44b6-b69f-31cb0bfa379e",
+      "short_id": "17397dca",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://17397dca.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:31:04.220686Z",
+      "modified_on": "2026-06-16T11:31:16.467329Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:31:10.767931Z",
+        "ended_on": "2026-06-16T11:31:16.467329Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-OqqfSb",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:31:04.379992Z",
+          "ended_on": "2026-06-16T11:31:04.385205Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:31:04.385205Z",
+          "ended_on": "2026-06-16T11:31:06.007728Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:31:06.007728Z",
+          "ended_on": "2026-06-16T11:31:07.435105Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:31:07.435105Z",
+          "ended_on": "2026-06-16T11:31:10.767931Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:31:10.767931Z",
+          "ended_on": "2026-06-16T11:31:16.467329Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": [
+        "https://trae-solo-agent-oqqfsb.wenxin-bijiang.pages.dev"
+      ],
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "f6d795c5-add5-4dba-adc0-76eca608a898",
+      "short_id": "f6d795c5",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://f6d795c5.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:26:33.808084Z",
+      "modified_on": "2026-06-16T11:26:52.923048Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:26:42.534948Z",
+        "ended_on": "2026-06-16T11:26:52.923048Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-OqqfSb",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:26:33.944539Z",
+          "ended_on": "2026-06-16T11:26:33.946362Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:26:33.946362Z",
+          "ended_on": "2026-06-16T11:26:36.586269Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:26:36.586269Z",
+          "ended_on": "2026-06-16T11:26:38.508425Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:26:38.508425Z",
+          "ended_on": "2026-06-16T11:26:42.534948Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:26:42.534948Z",
+          "ended_on": "2026-06-16T11:26:52.923048Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "ba46e382-b3f8-4e79-8e74-20222638456d",
+      "short_id": "ba46e382",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://ba46e382.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:25:53.302005Z",
+      "modified_on": "2026-06-16T11:26:07.519325Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:26:01.444229Z",
+        "ended_on": "2026-06-16T11:26:07.519325Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": true
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:25:53.427323Z",
+          "ended_on": "2026-06-16T11:25:53.434081Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:25:53.434081Z",
+          "ended_on": "2026-06-16T11:25:55.822657Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:25:55.822657Z",
+          "ended_on": "2026-06-16T11:25:57.382918Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:25:57.382918Z",
+          "ended_on": "2026-06-16T11:26:01.444229Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:26:01.444229Z",
+          "ended_on": "2026-06-16T11:26:07.519325Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "cfcdb05f-0042-4110-88fb-fd3dc8566600",
+      "short_id": "cfcdb05f",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://cfcdb05f.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:22:02.831286Z",
+      "modified_on": "2026-06-16T11:22:16.768749Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:22:10.533967Z",
+        "ended_on": "2026-06-16T11:22:16.768749Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": true
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:22:03.061517Z",
+          "ended_on": "2026-06-16T11:22:03.066897Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:22:03.066897Z",
+          "ended_on": "2026-06-16T11:22:05.924701Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:22:05.924701Z",
+          "ended_on": "2026-06-16T11:22:07.395599Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:22:07.395599Z",
+          "ended_on": "2026-06-16T11:22:10.533967Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:22:10.533967Z",
+          "ended_on": "2026-06-16T11:22:16.768749Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "cf93d117-ea25-4d94-9850-e6176ef286ee",
+      "short_id": "cf93d117",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://cf93d117.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:14:32.047775Z",
+      "modified_on": "2026-06-16T11:14:33.743508Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T11:14:33.743508Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:14:32.047775Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T11:14:33.743508Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "a39b2be4-b92b-46b4-a556-c2c8f99a5e2c",
+      "short_id": "a39b2be4",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://a39b2be4.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:14:02.335866Z",
+      "modified_on": "2026-06-16T11:14:03.985335Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T11:14:03.985335Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "HEAD",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:14:02.335866Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T11:14:03.985335Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": [
+        "https://head.wenxin-bijiang.pages.dev"
+      ],
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "d261cc18-f8b8-4570-9093-89d37e4d2c27",
+      "short_id": "d261cc18",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://d261cc18.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:05:33.821599Z",
+      "modified_on": "2026-06-16T11:05:49.375617Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:05:40.974096Z",
+        "ended_on": "2026-06-16T11:05:49.375617Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": true
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:05:34.0176Z",
+          "ended_on": "2026-06-16T11:05:34.021244Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:05:34.021244Z",
+          "ended_on": "2026-06-16T11:05:35.738741Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:05:35.738741Z",
+          "ended_on": "2026-06-16T11:05:37.330795Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:05:37.330795Z",
+          "ended_on": "2026-06-16T11:05:40.974096Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:05:40.974096Z",
+          "ended_on": "2026-06-16T11:05:49.375617Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "9a82b294-aca2-4be0-852f-0a3ffd65411c",
+      "short_id": "9a82b294",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://9a82b294.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:04:34.845175Z",
+      "modified_on": "2026-06-16T11:04:47.671025Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:04:42.508044Z",
+        "ended_on": "2026-06-16T11:04:47.671025Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-OqqfSb",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:04:35.028158Z",
+          "ended_on": "2026-06-16T11:04:35.030874Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:04:35.030874Z",
+          "ended_on": "2026-06-16T11:04:37.634958Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:04:37.634958Z",
+          "ended_on": "2026-06-16T11:04:39.00425Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:04:39.00425Z",
+          "ended_on": "2026-06-16T11:04:42.508044Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:04:42.508044Z",
+          "ended_on": "2026-06-16T11:04:47.671025Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "4923af19-2966-404f-bc6d-cbec5633f5e9",
+      "short_id": "4923af19",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://4923af19.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:02:55.791451Z",
+      "modified_on": "2026-06-16T11:03:08.531426Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:03:02.921854Z",
+        "ended_on": "2026-06-16T11:03:08.531426Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-OqqfSb",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:02:55.915783Z",
+          "ended_on": "2026-06-16T11:02:55.917091Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:02:55.917091Z",
+          "ended_on": "2026-06-16T11:02:58.172652Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:02:58.172652Z",
+          "ended_on": "2026-06-16T11:02:59.806978Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:02:59.806978Z",
+          "ended_on": "2026-06-16T11:03:02.921854Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:03:02.921854Z",
+          "ended_on": "2026-06-16T11:03:08.531426Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "66f8bd3c-cc67-471f-bd76-0693baa69243",
+      "short_id": "66f8bd3c",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://66f8bd3c.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T11:02:06.626062Z",
+      "modified_on": "2026-06-16T11:36:27.440016Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T11:02:16.102024Z",
+        "ended_on": "2026-06-16T11:02:22.62633Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "fix: 修复 work-list.html 中多余的结束括号",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T11:02:09.298435Z",
+          "ended_on": "2026-06-16T11:02:09.307706Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T11:02:09.307706Z",
+          "ended_on": "2026-06-16T11:02:11.827883Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T11:02:11.827883Z",
+          "ended_on": "2026-06-16T11:02:13.135653Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T11:02:13.135653Z",
+          "ended_on": "2026-06-16T11:02:16.102024Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T11:02:16.102024Z",
+          "ended_on": "2026-06-16T11:02:22.62633Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "84a9b776-16b2-4f37-bb58-ddb4c3d7da9a",
+      "short_id": "84a9b776",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://84a9b776.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:54:41.034808Z",
+      "modified_on": "2026-06-16T10:54:43.484241Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T10:54:43.484241Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "fix: 修复 work-list.html 中多余的结束括号",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:54:41.034808Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T10:54:43.484241Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "ebb7c581-f32b-4a52-99c6-7b1591476668",
+      "short_id": "ebb7c581",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://ebb7c581.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:53:44.222653Z",
+      "modified_on": "2026-06-16T11:35:54.61991Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T10:53:51.814944Z",
+        "ended_on": "2026-06-16T10:53:59.11349Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "fix: 修复 work-list.html 中多余的结束括号",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:53:44.380593Z",
+          "ended_on": "2026-06-16T10:53:44.387268Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T10:53:44.387268Z",
+          "ended_on": "2026-06-16T10:53:46.282374Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T10:53:46.282374Z",
+          "ended_on": "2026-06-16T10:53:47.732033Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T10:53:47.732033Z",
+          "ended_on": "2026-06-16T10:53:51.814944Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T10:53:51.814944Z",
+          "ended_on": "2026-06-16T10:53:59.11349Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "49620a76-2db1-401a-86b8-606ea937fbc9",
+      "short_id": "49620a76",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://49620a76.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:49:23.802394Z",
+      "modified_on": "2026-06-16T11:37:06.201636Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T10:49:30.510661Z",
+        "ended_on": "2026-06-16T10:49:37.24918Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "fix: 启用云同步，修复 work-list.html 中 cloud-sync.js 引用",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:49:23.908822Z",
+          "ended_on": "2026-06-16T10:49:23.913339Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T10:49:23.913339Z",
+          "ended_on": "2026-06-16T10:49:25.702983Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T10:49:25.702983Z",
+          "ended_on": "2026-06-16T10:49:27.10467Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T10:49:27.10467Z",
+          "ended_on": "2026-06-16T10:49:30.510661Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T10:49:30.510661Z",
+          "ended_on": "2026-06-16T10:49:37.24918Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "fc476f31-bad3-451c-8bef-4597c0416838",
+      "short_id": "fc476f31",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://fc476f31.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:38:09.919816Z",
+      "modified_on": "2026-06-16T10:38:30.146198Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T10:38:18.150484Z",
+        "ended_on": "2026-06-16T10:38:30.146198Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:38:10.06352Z",
+          "ended_on": "2026-06-16T10:38:10.065823Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T10:38:10.065823Z",
+          "ended_on": "2026-06-16T10:38:12.742945Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T10:38:12.742945Z",
+          "ended_on": "2026-06-16T10:38:14.273992Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T10:38:14.273992Z",
+          "ended_on": "2026-06-16T10:38:18.150484Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T10:38:18.150484Z",
+          "ended_on": "2026-06-16T10:38:30.146198Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "93d07db8-11d5-4008-b106-9c96bd339b7f",
+      "short_id": "93d07db8",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://93d07db8.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:14:22.297794Z",
+      "modified_on": "2026-06-16T10:14:35.764108Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T10:14:30.050767Z",
+        "ended_on": "2026-06-16T10:14:35.764108Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "trae/solo-agent-OqqfSb",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:14:22.505274Z",
+          "ended_on": "2026-06-16T10:14:22.50677Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T10:14:22.50677Z",
+          "ended_on": "2026-06-16T10:14:25.615805Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T10:14:25.615805Z",
+          "ended_on": "2026-06-16T10:14:27.134067Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T10:14:27.134067Z",
+          "ended_on": "2026-06-16T10:14:30.050767Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T10:14:30.050767Z",
+          "ended_on": "2026-06-16T10:14:35.764108Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "6398b2a8-02f4-4491-a8e4-996e60a18576",
+      "short_id": "6398b2a8",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://6398b2a8.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:07:01.472808Z",
+      "modified_on": "2026-06-16T11:38:36.714961Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T10:07:03.383883Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:07:01.472808Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T10:07:03.383883Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "776371a3-931a-4965-ae6c-6780bc41cb4b",
+      "short_id": "776371a3",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://776371a3.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T10:01:16.635495Z",
+      "modified_on": "2026-06-16T10:01:29.735179Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T10:01:24.793515Z",
+        "ended_on": "2026-06-16T10:01:29.735179Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T10:01:16.869084Z",
+          "ended_on": "2026-06-16T10:01:16.877162Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T10:01:16.877162Z",
+          "ended_on": "2026-06-16T10:01:18.923762Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T10:01:18.923762Z",
+          "ended_on": "2026-06-16T10:01:21.544435Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T10:01:21.544435Z",
+          "ended_on": "2026-06-16T10:01:24.793515Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T10:01:24.793515Z",
+          "ended_on": "2026-06-16T10:01:29.735179Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "832ae8f5-abcc-4db9-a8eb-6ac372465eba",
+      "short_id": "832ae8f5",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://832ae8f5.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T09:57:13.625153Z",
+      "modified_on": "2026-06-16T09:57:25.232666Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T09:57:20.45187Z",
+        "ended_on": "2026-06-16T09:57:25.232666Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 恢复Cloudflare Pages部署配置并修复bug\n\n- 恢复wrangler.toml和functions/（Cloudflare Pages Functions API）\n- 恢复www/_headers\n- 修复settings.html缺少cloud-sync.js引入\n- 修复architecture.html tab CSS与其他页面不一致",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T09:57:13.787581Z",
+          "ended_on": "2026-06-16T09:57:13.797584Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T09:57:13.797584Z",
+          "ended_on": "2026-06-16T09:57:15.973022Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T09:57:15.973022Z",
+          "ended_on": "2026-06-16T09:57:17.358004Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T09:57:17.358004Z",
+          "ended_on": "2026-06-16T09:57:20.45187Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T09:57:20.45187Z",
+          "ended_on": "2026-06-16T09:57:25.232666Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "bf47e775-beb9-4e43-9386-3c6c99e30125",
+      "short_id": "bf47e775",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://bf47e775.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T09:50:07.046114Z",
+      "modified_on": "2026-06-16T11:23:23.569871Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T09:50:17.147547Z",
+        "ended_on": "2026-06-16T09:50:24.126501Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T09:50:08.210429Z",
+          "ended_on": "2026-06-16T09:50:08.214485Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T09:50:08.214485Z",
+          "ended_on": "2026-06-16T09:50:12.26242Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T09:50:12.26242Z",
+          "ended_on": "2026-06-16T09:50:13.604812Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T09:50:13.604812Z",
+          "ended_on": "2026-06-16T09:50:17.147547Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T09:50:17.147547Z",
+          "ended_on": "2026-06-16T09:50:24.126501Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "d740daf2-836e-4369-bd16-c7981c7faa76",
+      "short_id": "d740daf2",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "production",
+      "url": "https://d740daf2.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T09:47:51.506422Z",
+      "modified_on": "2026-06-16T11:24:04.943452Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": "2026-06-16T09:48:01.197469Z",
+        "ended_on": "2026-06-16T09:48:07.649862Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "github:push",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T09:47:51.633153Z",
+          "ended_on": "2026-06-16T09:47:51.636922Z",
+          "status": "success"
+        },
+        {
+          "name": "initialize",
+          "started_on": "2026-06-16T09:47:51.636922Z",
+          "ended_on": "2026-06-16T09:47:54.509537Z",
+          "status": "success"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": "2026-06-16T09:47:54.509537Z",
+          "ended_on": "2026-06-16T09:47:56.262173Z",
+          "status": "success"
+        },
+        {
+          "name": "build",
+          "started_on": "2026-06-16T09:47:56.262173Z",
+          "ended_on": "2026-06-16T09:48:01.197469Z",
+          "status": "success"
+        },
+        {
+          "name": "deploy",
+          "started_on": "2026-06-16T09:48:01.197469Z",
+          "ended_on": "2026-06-16T09:48:07.649862Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    },
+    {
+      "id": "e8e6adcf-d5fc-4782-932c-0bdc27232064",
+      "short_id": "e8e6adcf",
+      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "project_name": "wenxin-bijiang",
+      "environment": "preview",
+      "url": "https://e8e6adcf.wenxin-bijiang.pages.dev",
+      "created_on": "2026-06-16T09:45:05.478865Z",
+      "modified_on": "2026-06-16T09:45:08.31404Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-06-16T09:45:08.31404Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "production",
+          "commit_hash": "[REDACTED]",
+          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+          "commit_dirty": true
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-06-16T09:45:05.478865Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T09:45:08.31404Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "build_caching": null,
+        "root_dir": "",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "repo_name": "-",
+          "production_branch": "main",
+          "pr_comments_enabled": false
+        }
+      },
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "[REDACTED]"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "bundled",
+      "aliases": null,
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": true
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result_info": {
+    "page": 1,
+    "per_page": 25,
+    "count": 25,
+    "total_count": 288,
+    "total_pages": 12
+  }
+}

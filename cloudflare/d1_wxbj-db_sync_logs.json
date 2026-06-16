@@ -1,0 +1,38 @@
+{
+  "result": [
+    {
+      "results": [
+        {
+          "id": 1,
+          "user_id": 1,
+          "work_id": "1",
+          "action": "create",
+          "device": "",
+          "ip": "115.190.92.241",
+          "created_at": "2026-06-12 20:44:00"
+        }
+      ],
+      "success": true,
+      "meta": {
+        "served_by": "v3-prod",
+        "served_by_region": "WNAM",
+        "served_by_colo": "SJC",
+        "served_by_primary": true,
+        "timings": {
+          "sql_duration_ms": 0.2781
+        },
+        "duration": 0.2781,
+        "changes": 0,
+        "last_row_id": 0,
+        "changed_db": false,
+        "size_after": 69632,
+        "rows_read": 1,
+        "rows_written": 0,
+        "total_attempts": 1
+      }
+    }
+  ],
+  "errors": [],
+  "messages": [],
+  "success": true
+}

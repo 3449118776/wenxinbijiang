@@ -1,0 +1,104 @@
+{
+  "result": [
+    {
+      "results": [
+        {
+          "name": "_cf_KV",
+          "type": "table",
+          "sql": "CREATE TABLE _cf_KV (\n        key TEXT PRIMARY KEY,\n        value BLOB\n      ) WITHOUT ROWID"
+        },
+        {
+          "name": "users",
+          "type": "table",
+          "sql": "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,nickname TEXT DEFAULT \"\",avatar TEXT,visit_count INTEGER DEFAULT 0,last_visit_at TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+        },
+        {
+          "name": "sqlite_autoindex_users_1",
+          "type": "index",
+          "sql": null
+        },
+        {
+          "name": "sqlite_sequence",
+          "type": "table",
+          "sql": "CREATE TABLE sqlite_sequence(name,seq)"
+        },
+        {
+          "name": "idx_users_email",
+          "type": "index",
+          "sql": "CREATE INDEX idx_users_email ON users(email)"
+        },
+        {
+          "name": "works",
+          "type": "table",
+          "sql": "CREATE TABLE works (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,work_id TEXT NOT NULL,title TEXT DEFAULT \"\",category TEXT DEFAULT \"\",synopsis TEXT DEFAULT \"\",payload TEXT DEFAULT \"\",version INTEGER DEFAULT 1,chapter_count INTEGER DEFAULT 0,total_words INTEGER DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP,updated_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+        },
+        {
+          "name": "idx_works_user_id",
+          "type": "index",
+          "sql": "CREATE INDEX idx_works_user_id ON works(user_id, work_id)"
+        },
+        {
+          "name": "idx_works_updated",
+          "type": "index",
+          "sql": "CREATE INDEX idx_works_updated ON works(user_id, updated_at DESC)"
+        },
+        {
+          "name": "work_snapshots",
+          "type": "table",
+          "sql": "CREATE TABLE work_snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT,work_id INTEGER NOT NULL,payload TEXT NOT NULL,payload_hash TEXT,version INTEGER DEFAULT 0,size INTEGER DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+        },
+        {
+          "name": "idx_snap_work",
+          "type": "index",
+          "sql": "CREATE INDEX idx_snap_work ON work_snapshots(work_id)"
+        },
+        {
+          "name": "idx_snap_version",
+          "type": "index",
+          "sql": "CREATE INDEX idx_snap_version ON work_snapshots(work_id, version DESC)"
+        },
+        {
+          "name": "sync_logs",
+          "type": "table",
+          "sql": "CREATE TABLE sync_logs (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,work_id TEXT,action TEXT,device TEXT,ip TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+        },
+        {
+          "name": "idx_logs_user",
+          "type": "index",
+          "sql": "CREATE INDEX idx_logs_user ON sync_logs(user_id)"
+        },
+        {
+          "name": "reset_codes",
+          "type": "table",
+          "sql": "CREATE TABLE reset_codes (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,code TEXT NOT NULL,expires_at TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+        },
+        {
+          "name": "idx_reset_code",
+          "type": "index",
+          "sql": "CREATE INDEX idx_reset_code ON reset_codes(code)"
+        }
+      ],
+      "success": true,
+      "meta": {
+        "served_by": "v3-prod",
+        "served_by_region": "WNAM",
+        "served_by_colo": "SJC",
+        "served_by_primary": true,
+        "timings": {
+          "sql_duration_ms": 0.6577
+        },
+        "duration": 0.6577,
+        "changes": 0,
+        "last_row_id": 0,
+        "changed_db": false,
+        "size_after": 69632,
+        "rows_read": 15,
+        "rows_written": 0,
+        "total_attempts": 1
+      }
+    }
+  ],
+  "errors": [],
+  "messages": [],
+  "success": true
+}
