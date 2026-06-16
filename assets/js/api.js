@@ -22,10 +22,7 @@ const API_PROVIDERS = {
   together:    { name: 'Together',   url: 'https://api.together.xyz/v1/chat/completions', type: 'openai' },
   anthropic:   { name: 'Anthropic',  url: 'https://api.anthropic.com/v1/messages', type: 'claude' },
   stepfun:      { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
-  qwenlm:       { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' },
-  openrouter:   { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', type: 'openai' },
-  custom:       { name: '自定义(OpenAI兼容)', url: '', type: 'openai' },
-  free:         { name: '🆓 免费模式(内置社区端点)', url: '', type: 'free' }
+  qwenlm:       { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' }
 };
 
 const MODEL_CONFIGS = {
