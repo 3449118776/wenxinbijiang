@@ -110,15 +110,17 @@ textarea {min-height:80px;resize:none;line-height:1.6;}
 <button class="submit-btn" onclick="submitNewBook()">创建小说作品</button>
 
 <div class="tab-bar">
-  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
-  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
-  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+  <div class="tab-item active" onclick="location.href='index.html'"><div class="tab-icon">&#127968;</div><div>首页</div></div>
+  <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">&#128295;</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">&#9881;&#65039;</div><div>设置</div></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/db.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/nav-helper.js"></script>
 <script>
 var CATEGORIES={
   '玄幻':['东方玄幻','异世转生','洪荒封神','高武世界','低武玄幻','系统玄幻','宗门争霸','杀伐流','黑暗种田','克苏鲁修仙'],
@@ -231,7 +233,7 @@ function selectedStylesArr(ss) {
 }
 
 function initAll(){
-  try { DB.init(); } catch(e) { console.error('DB init:', e); }
+  try { if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; } } catch(e) { console.error('DB init:', e); }
   try { initCategories(); } catch(e) { console.error('Categories init:', e); }
 }
 if (document.readyState === 'loading') {

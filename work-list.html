@@ -151,7 +151,7 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 .ch-add-btn:active{background:#e0e2ff;}
 
 /* 底部导航 */
-.tab-bar {position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-bar {position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
 .tab-item {display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
 .tab-item.active {color:#6366f1;}
 .tab-icon {font-size:22px;line-height:1;}
@@ -260,7 +260,8 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 <!-- 底部导航 -->
 <div class="tab-bar">
   <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
-  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item active"><div class="tab-icon">📚</div><div>作品</div></div>
+  <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
   <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
 </div>
 
@@ -294,9 +295,12 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/db.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/nav-helper.js"></script>
 <script>
-// ===== 四级导航核心逻辑 =====
+// ===== 作品管理页核心逻辑 =====
+// 全局状态变量（放在全局作用域，确保HTML onclick可访问）
 var _currentLevel = 1;
 var _selectedWorkId = '';
 var _selectedModule = 'world';
@@ -1050,12 +1054,31 @@ function closeDeleteModal() {
   document.getElementById('delete-modal').classList.remove('open');
   deleteTargetId = null;
 }
-function confirmDelete() {
+async function confirmDelete() {
   if (!deleteTargetId) return;
-  DB.deleteWork(deleteTargetId);
-  closeDeleteModal();
-  renderLevel2();
-  showToast('已删除');
+  
+  var modal = document.getElementById('delete-modal');
+  var btns = modal.querySelectorAll('.btns button');
+  btns.forEach(function(b){ b.disabled = true; b.textContent = '删除中...'; });
+  
+  try {
+    if (window.cloud && window.cloud.isLoggedIn()) {
+      try {
+        await window.cloud.deleteWork(deleteTargetId);
+      } catch(e) {
+        console.warn('云端删除失败:', e);
+      }
+    }
+    
+    DB.deleteWork(deleteTargetId);
+    closeDeleteModal();
+    renderLevel2();
+    showToast('已删除');
+  } finally {
+    btns.forEach(function(b){ b.disabled = false; });
+    document.querySelector('.btns button').textContent = '取消';
+    document.querySelector('.btns button.primary').textContent = '删除';
+  }
 }
 
 // ===== 回收站 =====
@@ -1104,7 +1127,7 @@ function showToast(msg) {
 }
 
 // ===== 初始化 =====
-window.addEventListener('DOMContentLoaded', function(){
+window.addEventListener('DOMContentLoaded', function() {
   try { DB.init(); } catch(e) { console.error('DB init:', e); }
 
   var lastId = localStorage.getItem('last_edit_work');

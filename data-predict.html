@@ -36,10 +36,9 @@ input,select{width:100%;height:48px;border:1px solid #e5e7eb;border-radius:10px;
 .empty{padding:24px 16px;text-align:center;color:#888;line-height:1.8;font-size:14px;background:#fff;margin-top:8px}
 .toast{position:fixed;top:78px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:12px 20px;border-radius:22px;font-size:14px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
 .toast.show{opacity:1}
-.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent}
-.tab-item.active{color:#6366f1}
-.tab-icon{font-size:22px;line-height:1}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#999;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:6px 0;gap:2px}
+.tab-icon{font-size:22px;line-height:1.2}
 </style>
 </head>
 <body>
@@ -82,6 +81,10 @@ input,select{width:100%;height:48px;border:1px solid #e5e7eb;border-radius:10px;
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
+<script src="assets/js/nav-helper.js"></script>
+<script src="assets/js/api.js"></script>
 <script>
 var selectedPlatform='qidian';
 var selectedWorkId='';
@@ -106,7 +109,7 @@ function fillFromWork(w){
   document.querySelectorAll('.quick-item').forEach(function(x){x.classList.toggle('active',x.dataset.id===selectedWorkId)})
 }
 function renderWorks(){
-  DB.init();
+  if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; }
   works=DB.works||[];
   var last=localStorage.getItem('last_edit_work')||'';
   var list=$('quick-list');
@@ -156,7 +159,6 @@ function startPredict(){
   setTimeout(function(){location.href='predict-result.html?from=entry&t='+Date.now()},120);
 }
 $('predict-btn').addEventListener('click',startPredict);
-$('predict-btn').addEventListener('touchend',function(e){e.preventDefault();startPredict()},{passive:false});
 renderWorks();
 </script>
 </body>

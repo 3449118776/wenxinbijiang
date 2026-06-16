@@ -1,79 +1,41 @@
-/**
- * Cloudflare Pages - JWT 认证中间件
- * 将后端 Express 的 authMiddleware 转换为 Pages Functions 语法
- */
-
-async function verifyJWT(token, secret) {
-  // 简易 HS256 JWT 验证（避免外部依赖）
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-
-  const encoder = new TextEncoder();
-  const data = parts[0] + '.' + parts[1];
-
-  // 计算签名
-  const keyData = encoder.encode(secret);
-  const key = await crypto.subtle.importKey(
-    'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const signature = base64UrlDecode(parts[2]);
-  const valid = await crypto.subtle.verify('HMAC', key, signature, encoder.encode(data));
-  if (!valid) return null;
-
-  const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1])));
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-  return payload;
-}
-
-function base64UrlDecode(str) {
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = base64.length % 4;
-  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
-  const bin = atob(padded);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function base64UrlEncode(bytes) {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
+// 全局 CORS 中间件
 export async function onRequest(context) {
-  const { request, env, next } = context;
+  const request = context.request;
   const url = new URL(request.url);
 
-  // 公开路由
-  const publicPaths = ['/api/auth/register', '/api/auth/login'];
-  if (publicPaths.some(p => url.pathname.startsWith(p))) {
-    return next();
-  }
-  // 非 API 请求直接放行
-  if (!url.pathname.startsWith('/api/')) {
-    return next();
-  }
-
-  const auth = request.headers.get('Authorization') || '';
-  const token = auth.replace(/^Bearer\s+/i, '');
-  if (!token) {
-    return new Response(JSON.stringify({ error: '请先登录' }), { status: 401, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+  // OPTIONS 预检请求
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+      }
+    });
   }
 
-  try {
-    const secret = env.WXBJ_SECRET || 'wxbj_cloud_secret_2026';
-    const decoded = await verifyJWT(token, secret);
-    if (!decoded) throw new Error('invalid');
-
-    // 将用户信息放入请求头传递给下游
-    const newHeaders = new Headers(request.headers);
-    newHeaders.set('X-User-Id', decoded.userId);
-    newHeaders.set('X-User-Email', decoded.email || '');
-
-    const newRequest = new Request(request, { headers: newHeaders });
-    return context.next();
-  } catch (err) {
-    return new Response(JSON.stringify({ error: '登录已过期，请重新登录' }), { status: 401, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+  // 暴露环境变量（KV binding）到全局
+  for (const key of Object.keys(context.env || {})) {
+    globalThis[key] = context.env[key];
   }
+  // JWT 密钥从环境变量读取
+  if (context.env && context.env.WXBJ_SECRET) {
+    globalThis.__JWT_SECRET = context.env.WXBJ_SECRET;
+  }
+
+  const response = await context.next();
+
+  // 添加 CORS 响应头
+  const newHeaders = new Headers(response.headers);
+  newHeaders.set('Access-Control-Allow-Origin', '*');
+  newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders
+  });
 }

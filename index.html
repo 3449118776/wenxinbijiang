@@ -9,32 +9,58 @@
 <title>文心笔匠 - 首页 v2</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
-body{background:#f6f7f9;color:#222;padding-bottom:82px}
-.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:10}
-.page-title{flex:1;text-align:center;font-size:17px;font-weight:700}
-.placeholder{width:32px}
-.section{background:#fff;margin-top:8px;padding:16px}
-.section-title{font-size:15px;font-weight:700;margin-bottom:12px}
-.quick-list{display:flex;flex-direction:column;gap:8px}
-.quick-item{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:12px}
+html,body{height:100%;overflow:hidden}
+body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
+
+/* 顶部标题栏 */
+.page-header{background:#fff;height:48px;min-height:48px;display:flex;align-items:center;padding:0 12px;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);flex-shrink:0}
+.page-title{flex:1;text-align:center;font-size:16px;font-weight:700}
+.placeholder{width:24px}
+.cloud-btn{display:flex;align-items:center;gap:4px;font-size:12px;padding:5px 9px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.cloud-btn.offline{background:#e5e7eb;color:#6b7280}
+.cloud-btn .cb-icon{font-size:14px;line-height:1}
+
+/* 主内容区：7 个按钮铺满剩余空间 */
+.quick-list{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px;padding-bottom:68px;min-height:0;overflow-y:auto}
+.quick-item{flex:1;border:1px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:12px;padding:0 14px;min-height:0}
 .quick-item:active{border-color:#6366f1;background:#f0f2ff}
-.quick-item .qi-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.quick-item .qi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .quick-item .qi-info{flex:1;min-width:0}
-.quick-item .qi-name{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quick-item .qi-desc{font-size:12px;color:#777;margin-top:3px}
-.quick-item .qi-arrow{color:#d1d5db;font-size:16px;flex-shrink:0}
+.quick-item .qi-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-item .qi-desc{font-size:12px;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-item .qi-arrow{color:#d1d5db;font-size:20px;flex-shrink:0}
 .qi-icon.purple{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff}
 .qi-icon.green{background:#ecf9f2;color:#16a34a}
 .qi-icon.blue{background:#f0f2ff;color:#6366f1}
 .qi-icon.pink{background:#fef2f7;color:#ec4899}
 .qi-icon.gray{background:#f1f5f9;color:#64748b}
 .qi-icon.orange{background:#fff7ed;color:#f97316}
-.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent}
+
+/* 底部导航 */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;min-height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#999;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:6px 0;gap:2px}
 .tab-item.active{color:#6366f1}
 .tab-icon{font-size:22px;line-height:1}
-.toast{position:fixed;top:78px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:12px 20px;border-radius:22px;font-size:14px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
+
+/* Toast */
+.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
 .toast.show{opacity:1}
+
+/* 登录面板遮罩 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000}
+.mask.show{display:flex}
+.panel{width:84%;max-width:360px;background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.15)}
+.panel h3{font-size:16px;font-weight:800;margin-bottom:12px;color:#111827}
+.panel p{font-size:12px;color:#6b7280;margin-bottom:12px;line-height:1.5}
+.panel label{font-size:12px;color:#374151;font-weight:600;display:block;margin:8px 0 4px}
+.panel input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px;outline:none;background:#f9fafb}
+.panel input:focus{border-color:#6366f1;background:#fff}
+.panel .row{display:flex;gap:8px;margin-top:14px}
+.panel button{flex:1;padding:11px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
+.panel button.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.panel button.secondary{background:#f3f4f6;color:#374151}
+.panel button.danger{background:#fff7ed;color:#f97316}
+.panel .switch{font-size:12px;color:#6366f1;cursor:pointer;margin-top:10px;text-align:center}
 </style>
 </head>
 <body>
@@ -42,59 +68,44 @@ body{background:#f6f7f9;color:#222;padding-bottom:82px}
 <div class="page-header">
   <div class="placeholder"></div>
   <div class="page-title">文心笔匠</div>
-  <div class="placeholder"></div>
+  <div class="cloud-btn" id="cloud-btn" onclick="toggleLoginPanel()"><span class="cb-icon">☁️</span><span id="cloud-btn-text">未登录</span></div>
 </div>
 
-<div class="section">
-  <div class="section-title">创作流程</div>
-  <div class="quick-list">
-    <div class="quick-item" onclick="location.href='new-book.html'">
-      <div class="qi-icon purple">✨</div>
-      <div class="qi-info"><div class="qi-name">新建小说</div><div class="qi-desc">定名+简介+全维度题材</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
-    <div class="quick-item" onclick="location.href='architecture.html'">
-      <div class="qi-icon purple">📋</div>
-      <div class="qi-info"><div class="qi-name">架构设计</div><div class="qi-desc">递进构建四大架构模块</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
+<div class="quick-list">
+  <div class="quick-item" onclick="location.href='new-book.html'">
+    <div class="qi-icon purple">✨</div>
+    <div class="qi-info"><div class="qi-name">新建小说</div><div class="qi-desc">定名+简介+全维度题材</div></div>
+    <div class="qi-arrow">›</div>
   </div>
-</div>
-
-<div class="section">
-  <div class="section-title">工具</div>
-  <div class="quick-list">
-    <div class="quick-item" onclick="location.href='write.html'">
-      <div class="qi-icon blue">✍</div>
-      <div class="qi-info"><div class="qi-name">AI写作</div><div class="qi-desc">AI辅助创作与编辑</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
-    <div class="quick-item" onclick="location.href='work-list.html'">
-      <div class="qi-icon green">📂</div>
-      <div class="qi-info"><div class="qi-name">作品管理</div><div class="qi-desc">管理小说与架构</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
-    <div class="quick-item" onclick="location.href='template-library.html'">
-      <div class="qi-icon pink">📄</div>
-      <div class="qi-info"><div class="qi-name">模板管理</div><div class="qi-desc">架构模板与词句库</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
-    <div class="quick-item" onclick="location.href='center.html'">
-      <div class="qi-icon purple">🧭</div>
-      <div class="qi-info"><div class="qi-name">创作中枢</div><div class="qi-desc">记忆/备份/体检/看板</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
+  <div class="quick-item" onclick="location.href='architecture.html'">
+    <div class="qi-icon purple">📋</div>
+    <div class="qi-info"><div class="qi-name">架构设计</div><div class="qi-desc">递进构建四大架构模块</div></div>
+    <div class="qi-arrow">›</div>
   </div>
-</div>
-
-<div class="section">
-  <div class="section-title">分析</div>
-  <div class="quick-list">
-    <div class="quick-item" onclick="location.href='data-predict.html'">
-      <div class="qi-icon gray">📈</div>
-      <div class="qi-info"><div class="qi-name">数据预测</div><div class="qi-desc">选择作品后进入AI预测界面</div></div>
-      <div class="qi-arrow">›</div>
-    </div>
+  <div class="quick-item" onclick="location.href='write.html'">
+    <div class="qi-icon blue">✍</div>
+    <div class="qi-info"><div class="qi-name">AI写作</div><div class="qi-desc">AI辅助创作与编辑</div></div>
+    <div class="qi-arrow">›</div>
+  </div>
+  <div class="quick-item" onclick="location.href='work-list.html'">
+    <div class="qi-icon green">📂</div>
+    <div class="qi-info"><div class="qi-name">作品管理</div><div class="qi-desc">管理小说与架构</div></div>
+    <div class="qi-arrow">›</div>
+  </div>
+  <div class="quick-item" onclick="location.href='template-library.html'">
+    <div class="qi-icon pink">📄</div>
+    <div class="qi-info"><div class="qi-name">模板管理</div><div class="qi-desc">架构模板与词句库</div></div>
+    <div class="qi-arrow">›</div>
+  </div>
+  <div class="quick-item" onclick="location.href='center.html'">
+    <div class="qi-icon purple">🧭</div>
+    <div class="qi-info"><div class="qi-name">创作中枢</div><div class="qi-desc">记忆/备份/体检/看板</div></div>
+    <div class="qi-arrow">›</div>
+  </div>
+  <div class="quick-item" onclick="location.href='data-predict.html'">
+    <div class="qi-icon gray">📈</div>
+    <div class="qi-info"><div class="qi-name">数据预测</div><div class="qi-desc">选择作品后进入AI预测界面</div></div>
+    <div class="qi-arrow">›</div>
   </div>
 </div>
 
@@ -106,13 +117,330 @@ body{background:#f6f7f9;color:#222;padding-bottom:82px}
 
 <div class="toast" id="toast"></div>
 
+<div class="mask" id="login-mask">
+  <div class="panel" id="login-panel"></div>
+</div>
+
+<script src="assets/js/nav-helper.js"></script>
 <script src="assets/js/db.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
 <script>
-function initAll(){
-  try { DB.init(); } catch(e) { console.error('DB init:', e); }
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAll);else initAll();
+// 初始化云端同步
+var API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787/api'
+  : location.origin + '/api';
+window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });
+</script>
+<script>
+
+(function(){
+  var API_BASE = location.protocol === 'file:' ? '/api' : '/api';
+  var mode = 'login';
+
+  function getToken(){ try{ return localStorage.getItem('wxbj_cloud_token')||''; }catch(e){ return ''; } }
+  function getUser(){ try{ return JSON.parse(localStorage.getItem('wxbj_cloud_user')||'null'); }catch(e){ return null; } }
+  function setToken(token, user){
+    try{ localStorage.setItem('wxbj_cloud_token', token); }catch(e){}
+    try{ localStorage.setItem('wxbj_cloud_user', JSON.stringify(user)); }catch(e){}
+    updateCloudBtn();
+  }
+  function clearToken(){ try{ localStorage.removeItem('wxbj_cloud_token'); }catch(e){} try{ localStorage.removeItem('wxbj_cloud_user'); }catch(e){} updateCloudBtn(); }
+
+  function updateCloudBtn(){
+    var token = getToken();
+    var user = getUser();
+    var btn = document.getElementById('cloud-btn');
+    var text = document.getElementById('cloud-btn-text');
+    if(token && user){
+      btn.classList.remove('offline');
+      text.textContent = user.nickname ? user.nickname : (user.email || '已登录');
+    } else {
+      btn.classList.add('offline');
+      text.textContent = '未登录';
+    }
+  }
+
+  function rebuildLoginPanel(){
+    document.getElementById('login-panel').innerHTML =
+      '<h3 id="panel-title">登录云端</h3>' +
+      '<p id="panel-msg">登录后可在多设备间同步作品与备份。</p>' +
+      '<label>邮箱</label>' +
+      '<input type="email" id="login-email" placeholder="your@email.com">' +
+      '<label>密码</label>' +
+      '<input type="password" id="login-password" placeholder="至少6位">' +
+      '<div id="login-nickname-wrap" style="display:none">' +
+      '<label>昵称（可选）</label>' +
+      '<input type="text" id="login-nickname" placeholder="显示你的昵称">' +
+      '</div>' +
+      '<div class="row">' +
+      '<button class="secondary" onclick="toggleLoginPanel()">取消</button>' +
+      '<button class="primary" id="login-submit" onclick="submitCloudLogin()">登录</button>' +
+      '</div>' +
+      '<div class="switch" id="login-switch" onclick="switchMode()">没有账号？注册</div>' +
+      '<div class="switch" id="forgot-link" onclick="showForgotPanel()" style="margin-top:4px">忘记密码？</div>';
+    mode = 'login';
+  }
+
+  window.toggleLoginPanel = function(){
+    var mask = document.getElementById('login-mask');
+    var token = getToken();
+    var user = getUser();
+    if(token && user){ showLogoutPanel(); } else { rebuildLoginPanel(); }
+    mask.classList.toggle('show');
+  };
+
+  function showLoginPanel(){
+    mode = 'login';
+    var el = document.getElementById('panel-title'); if(el) el.textContent = '登录云端';
+    el = document.getElementById('panel-msg'); if(el) el.textContent = '登录后可在多设备间同步作品与备份。';
+    el = document.getElementById('login-nickname-wrap'); if(el) el.style.display = 'none';
+    el = document.getElementById('login-switch'); if(el) el.textContent = '没有账号？注册';
+    el = document.getElementById('login-submit'); if(el) el.textContent = '登录';
+  }
+
+  window.switchMode = function(){
+    if(mode === 'login'){
+      mode = 'register';
+      document.getElementById('panel-title').textContent = '注册云端';
+      document.getElementById('panel-msg').textContent = '创建账号后可在多设备间同步作品与备份。';
+      document.getElementById('login-nickname-wrap').style.display = 'block';
+      document.getElementById('login-switch').textContent = '已有账号？登录';
+      document.getElementById('login-submit').textContent = '注册';
+    } else {
+      rebuildLoginPanel();
+    }
+  };
+
+  // ========== 忘记密码 ==========
+  window.showForgotPanel = function(){
+    mode = 'forgot';
+    document.getElementById('login-panel').innerHTML =
+      '<h3>找回密码</h3>' +
+      '<p style="font-size:12px;color:#666;line-height:1.6">请输入注册时使用的邮箱，我们将为你生成一个 6 位验证码（15 分钟有效）。</p>' +
+      '<label>邮箱</label>' +
+      '<input type="email" id="forgot-email" placeholder="your@email.com">' +
+      '<div class="row">' +
+      '<button class="secondary" onclick="backToLogin()">返回</button>' +
+      '<button class="primary" id="forgot-submit" onclick="submitForgotPassword()">发送验证码</button>' +
+      '</div>';
+  };
+
+  window.backToLogin = function(){
+    rebuildLoginPanel();
+  };
+
+  window.submitForgotPassword = function(){
+    var email = document.getElementById('forgot-email').value.trim();
+    if(!email){ showToast('请输入邮箱'); return; }
+
+    document.getElementById('forgot-submit').textContent = '发送中...';
+    fetch(API_BASE + '/auth/forgot-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email })
+    }).then(function(r){ return r.text().then(function(t){ try{return JSON.parse(t);}catch(e){return{error:'服务器返回异常'};}}); })
+      .then(function(data){
+        if(data.error){ showToast(data.error); document.getElementById('forgot-submit').textContent = '发送验证码'; return; }
+        showResetPanel(email, data.code);
+      }).catch(function(){
+        showToast('网络异常，请稍后重试');
+        document.getElementById('forgot-submit').textContent = '发送验证码';
+      });
+  };
+
+  function showResetPanel(email, code){
+    document.getElementById('login-panel').innerHTML =
+      '<h3>设置新密码</h3>' +
+      '<p style="font-size:12px;color:#666">邮箱：' + email + '</p>' +
+      (code ? '<p style="font-size:13px;background:#fef9c3;padding:8px 10px;border-radius:8px;margin-bottom:10px;color:#854d0e;line-height:1.5"><b>验证码：' + code + '</b><br><span style="font-size:11px;color:#a16207">（本版本为单机使用，直接展示验证码；生产环境需接入邮件发送服务）</span></p>' : '') +
+      '<label>验证码</label>' +
+      '<input type="text" id="reset-code" placeholder="6 位数字验证码">' +
+      '<label>新密码</label>' +
+      '<input type="password" id="reset-password" placeholder="至少6位">' +
+      '<label>确认新密码</label>' +
+      '<input type="password" id="reset-password2" placeholder="再次输入新密码">' +
+      '<div class="row">' +
+      '<button class="secondary" onclick="showForgotPanel()">返回</button>' +
+      '<button class="primary" id="reset-submit" onclick="submitResetPassword(\'' + email + '\')">确认重置</button>' +
+      '</div>';
+  }
+
+  window.submitResetPassword = function(email){
+    var code = document.getElementById('reset-code').value.trim();
+    var password = document.getElementById('reset-password').value.trim();
+    var password2 = document.getElementById('reset-password2').value.trim();
+
+    if(!code){ showToast('请输入验证码'); return; }
+    if(!password || !password2){ showToast('请输入新密码'); return; }
+    if(password.length < 6){ showToast('密码至少6位'); return; }
+    if(password !== password2){ showToast('两次输入的密码不一致'); return; }
+
+    document.getElementById('reset-submit').textContent = '提交中...';
+    fetch(API_BASE + '/auth/reset-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, code: code, password: password })
+    }).then(function(r){ return r.text().then(function(t){ try{return JSON.parse(t);}catch(e){return{error:'服务器返回异常'};}}); })
+      .then(function(data){
+        if(data.error){ showToast(data.error); document.getElementById('reset-submit').textContent = '确认重置'; return; }
+        // 重置成功，自动登录
+        setToken(data.token, data.user);
+        document.getElementById('login-mask').classList.remove('show');
+        showToast('密码重置成功，已自动登录');
+      }).catch(function(){
+        showToast('网络异常，请稍后重试');
+        document.getElementById('reset-submit').textContent = '确认重置';
+      });
+  };
+
+  function showLogoutPanel(){
+    var user = getUser();
+    var email = user ? user.email : '';
+    document.getElementById('login-panel').innerHTML =
+      '<h3>云端同步</h3>' +
+      '<p>已登录账号：' + email + '</p>' +
+      '<div class="row">' +
+      '<button class="secondary" onclick="toggleLoginPanel()">关闭</button>' +
+      '<button class="primary" onclick="location.href=\'center.html\'">进入中枢</button>' +
+      '</div>' +
+      '<div class="row" style="margin-top:10px">' +
+      '<button class="danger" onclick="doCloudLogout()">退出登录</button>' +
+      '</div>';
+  }
+
+  window.doCloudLogout = function(){
+    clearToken();
+    document.getElementById('login-mask').classList.remove('show');
+    showToast('已退出登录');
+  };
+
+  window.submitCloudLogin = function(){
+    var email = document.getElementById('login-email').value.trim();
+    var password = document.getElementById('login-password').value.trim();
+    if(!email || !password){ showToast('请填写邮箱和密码'); return; }
+    if(password.length < 6){ showToast('密码至少6位'); return; }
+
+    var url = mode === 'login' ? API_BASE + '/auth/login' : API_BASE + '/auth/register';
+    var body = { email: email, password: password };
+    if(mode === 'register'){
+      var nick = document.getElementById('login-nickname').value.trim();
+      if(nick) body.nickname = nick;
+    }
+
+    document.getElementById('login-submit').textContent = mode === 'login' ? '登录中...' : '注册中...';
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).then(function(r){ return r.text().then(function(t){ try{return JSON.parse(t);}catch(e){return{error:'服务器返回异常'};}}); })
+      .then(function(data){
+        if(data.error){ showToast(data.error); document.getElementById('login-submit').textContent = mode === 'login' ? '登录' : '注册'; return; }
+        setToken(data.token, data.user);
+        document.getElementById('login-mask').classList.remove('show');
+        showToast((mode === 'login' ? '登录' : '注册') + '成功，正在同步数据...');
+        // 登录成功后自动同步：推送本地作品到云端 + 从云端拉取作品
+        if(window.cloud && window.cloud.isLoggedIn()){
+          window.cloud.smartSync().then(function(report){
+            var msg = '同步完成';
+            if(report.pushed > 0) msg += '，上传' + report.pushed + '部作品';
+            if(report.pulled > 0) msg += '，下载' + report.pulled + '部作品';
+            if(report.errors > 0) msg += '，' + report.errors + '个失败';
+            showToast(msg, {duration: 3000});
+            // 刷新页面显示同步后的数据
+            if(report.pulled > 0) setTimeout(function(){ location.reload(); }, 1500);
+          }).catch(function(e){
+            showToast('同步失败：' + e.message);
+          });
+        }
+      }).catch(function(){
+        showToast('网络异常，请稍后重试');
+        document.getElementById('login-submit').textContent = mode === 'login' ? '登录' : '注册';
+      });
+  };
+
+  function showToast(msg, opts){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    if(opts && opts.error) el.style.background = '#fef2f2';
+    else el.style.background = '';
+    clearTimeout(window._toastTimer);
+    var duration = (opts && opts.duration) ? opts.duration : 2200;
+    window._toastTimer = setTimeout(function(){ el.classList.remove('show'); }, duration);
+  }
+
+  window.toggleLoginPanel = toggleLoginPanel;
+  window.showToast = showToast;
+  updateCloudBtn();
+})();
+</script>
+<!-- ===== 自动更新检测 ===== -->
+<script>
+(function() {
+  var LOCAL_VERSION = '1.0.0';
+  var REMOTE_VERSION_URL = 'https://wenxin-bijiang.pages.dev/version.json';
+  var lastCheckKey = 'wxbj_last_update_check';
+
+  function isAndroidApp() {
+    try {
+      if (typeof window.Capacitor !== 'undefined') return true;
+      if (navigator.userAgent.indexOf('wv') >= 0) return true;
+      if (window.location.protocol === 'file:') return true;
+    } catch(e) {}
+    return false;
+  }
+
+  function checkUpdate(silent) {
+    if (!isAndroidApp()) return;
+    try {
+      var now = Date.now();
+      var lastCheck = parseInt(localStorage.getItem(lastCheckKey) || '0');
+      if (silent && now - lastCheck < 4 * 3600 * 1000) return;
+      localStorage.setItem(lastCheckKey, now.toString());
+
+      fetch(REMOTE_VERSION_URL + '?t=' + now, { cache: 'no-store' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data || !data.versionCode) return;
+          if (data.versionCode > 1) {
+            showUpdateDialog(data);
+          }
+        })
+        .catch(function(e) { console.warn('更新检测失败', e); });
+    } catch(e) {}
+  }
+
+  function showUpdateDialog(data) {
+    try {
+      var html = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;" id="wxbj-update-dialog">'
+        + '<div style="background:#fff;border-radius:16px;padding:20px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">'
+        + '<div style="font-size:18px;font-weight:700;color:#1a1a2e;margin-bottom:8px;">✨ 发现新版本 v' + (data.version || '') + '</div>'
+        + '<div style="font-size:13px;color:#666;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">' + (data.releaseNotes || '点击下方按钮下载更新') + '</div>'
+        + '<button id="wxbj-update-btn" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">立即下载更新</button>'
+        + '<button id="wxbj-update-cancel" style="width:100%;padding:10px;margin-top:8px;border:none;background:transparent;color:#999;font-size:13px;cursor:pointer;">稍后再说</button>'
+        + '</div></div>';
+      document.body.insertAdjacentHTML('beforeend', html);
+      document.getElementById('wxbj-update-btn').onclick = function() {
+        window.open(data.downloadUrl || REMOTE_VERSION_URL, '_system');
+      };
+      document.getElementById('wxbj-update-cancel').onclick = function() {
+        var d = document.getElementById('wxbj-update-dialog');
+        if (d) d.remove();
+      };
+    } catch(e) { console.warn(e); }
+  }
+
+  // 页面加载后自动检测
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { checkUpdate(true); });
+  } else {
+    checkUpdate(true);
+  }
+
+  // 暴露手动检测入口
+  window.checkAppUpdate = function() { checkUpdate(false); };
+})();
 </script>
 </body>
 </html>
