@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>作品管理诊断</title>
+<style>
+body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+.pass { color: green; }
+.fail { color: red; }
+.info { color: blue; }
+pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>作品管理诊断</h1>
+<div id="results"></div>
+
+<script src="assets/js/db.js"></script>
+<script>
+function log(msg, type) {
+  var div = document.createElement('div');
+  div.className = type || 'info';
+  div.innerHTML = msg;
+  document.getElementById('results').appendChild(div);
+}
+
+function runDiagnostics() {
+  log('<h2>1. 环境检测</h2>');
+
+  // localStorage
+  try {
+    localStorage.setItem('test', 'test');
+    localStorage.removeItem('test');
+    log('✅ localStorage: 可用', 'pass');
+  } catch (e) {
+    log('❌ localStorage: 不可用 (' + e.message + ')', 'fail');
+  }
+
+  // IndexedDB
+  var idbAvailable = 'indexedDB' in window;
+  log((idbAvailable ? '✅' : '❌') + ' IndexedDB: ' + (idbAvailable ? '可用' : '不可用'), idbAvailable ? 'pass' : 'fail');
+
+  // localStorage 数据大小
+  var totalSize = 0;
+  var keys = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      var v = localStorage.getItem(k);
+      if (k && v) {
+        totalSize += v.length;
+        keys.push({key: k, size: v.length});
+      }
+    }
+    keys.sort(function(a, b) { return b.size - a.size; });
+    log('📊 localStorage 总大小: ' + (totalSize / 1024 / 1024).toFixed(2) + ' MB', 'info');
+    log('📊 localStorage key 数量: ' + localStorage.length, 'info');
+
+    log('<h3>最大的 10 个 key:</h3>', 'info');
+    var top10 = keys.slice(0, 10);
+    top10.forEach(function(item) {
+      log(item.key + ': ' + (item.size / 1024).toFixed(1) + ' KB', 'info');
+    });
+  } catch (e) {
+    log('❌ 读取 localStorage 失败: ' + e.message, 'fail');
+  }
+
+  // DB 初始化
+  log('<h2>2. 数据库初始化</h2>');
+  try {
+    DB.init();
+    log('✅ DB.init() 执行成功', 'pass');
+    log('📊 DB.works 数量: ' + (DB.works || []).length, 'info');
+    log('📊 DB.works[0] 存在: ' + !!(DB.works && DB.works[0]), 'info');
+  } catch (e) {
+    log('❌ DB.init() 失败: ' + e.message, 'fail');
+    log('错误详情: ' + e.stack, 'fail');
+  }
+
+  // 检查主 key
+  log('<h2>3. 数据完整性</h2>');
+  try {
+    var mainKey = localStorage.getItem('wxbj_data_v4');
+    if (mainKey) {
+      log('✅ 主 key (wxbj_data_v4) 存在，长度: ' + (mainKey.length / 1024).toFixed(1) + ' KB', 'pass');
+      try {
+        var data = JSON.parse(mainKey);
+        log('✅ JSON 解析成功，works 数量: ' + (data.works || []).length, 'pass');
+      } catch (e) {
+        log('❌ JSON 解析失败: ' + e.message, 'fail');
+      }
+    } else {
+      log('❌ 主 key (wxbj_data_v4) 不存在', 'fail');
+    }
+  } catch (e) {
+    log('❌ 检查主 key 失败: ' + e.message, 'fail');
+  }
+
+  // 检查备份 key
+  try {
+    var backupKey = localStorage.getItem('wxbj_data_v4_backup');
+    if (backupKey) {
+      log('✅ 备份 key (wxbj_data_v4_backup) 存在，长度: ' + (backupKey.length / 1024).toFixed(1) + ' KB', 'pass');
+    } else {
+      log('⚠️ 备份 key 不存在', 'info');
+    }
+  } catch (e) {
+    log('⚠️ 检查备份 key 失败: ' + e.message, 'info');
+  }
+
+  // 检查拆分 key
+  try {
+    var splitKeys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('wxbj_w_') === 0) {
+        splitKeys.push(k);
+      }
+    }
+    if (splitKeys.length > 0) {
+      log('📊 拆分 key 数量: ' + splitKeys.length, 'info');
+      log('📊 拆分 key 示例: ' + splitKeys.slice(0, 3).join(', '), 'info');
+    } else {
+      log('ℹ️ 没有拆分 key', 'info');
+    }
+  } catch (e) {}
+
+  // IndexedDB 检查
+  log('<h2>4. IndexedDB 检查</h2>');
+  if (idbAvailable) {
+    var req = indexedDB.open('wxbj_app_memory_v1');
+    req.onsuccess = function() {
+      var db = req.result;
+      log('✅ IndexedDB 打开成功', 'pass');
+
+      // 检查 store
+      var storeNames = [];
+      for (var name of db.objectStoreNames) {
+        storeNames.push(name);
+      }
+      log('📊 Object stores: ' + storeNames.join(', '), 'info');
+
+      db.close();
+    };
+    req.onerror = function() {
+      log('❌ IndexedDB 打开失败: ' + req.error, 'fail');
+    };
+  }
+
+  log('<h2>5. Cloudflare Pages 部署信息</h2>');
+  log('当前页面协议: ' + window.location.protocol, 'info');
+  log('当前页面域名: ' + window.location.hostname, 'info');
+  log('Cloudflare Pages 没有固定 IP，使用 anycast 技术在全球分布', 'info');
+  log('Cloudflare Pages URL 格式: https://[account].pages.dev 或自定义域名', 'info');
+}
+
+runDiagnostics();
+</script>
+</body>
+</html>

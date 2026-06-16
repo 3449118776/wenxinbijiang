@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>文心笔匠 - 创作中枢 v47</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body{background:#f6f7fb;color:#111827;padding-bottom:76px;height:auto!important;overflow:auto!important;-webkit-user-select:auto;user-select:auto;}
+.page-header{height:48px;background:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;box-shadow:0 1px 4px rgba(0,0,0,.04);position:sticky;top:0;z-index:10;}
+.back-btn{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;color:#111827;}
+.page-title{font-size:18px;font-weight:800;}
+.sub{padding:14px 16px 6px;color:#6b7280;font-size:13px;line-height:1.55;}
+.section{margin:12px 16px;background:#fff;border-radius:18px;padding:14px;box-shadow:0 2px 10px rgba(15,23,42,.05);border:1px solid #eef2f7;}
+.section-title{font-size:15px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tool-btn{min-height:72px;border:none;border-radius:14px;background:#f8fafc;padding:10px;text-align:left;cursor:pointer;border:1px solid #e5e7eb;transition:transform .1s;will-change:transform;-webkit-tap-highlight-color:transparent;}
+.tool-btn:active{transform:scale(.97);}
+.tool-btn.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;}
+.tool-btn.danger{background:#fff7ed;border-color:#fed7aa;}
+.tool-name{font-size:14px;font-weight:800;margin-bottom:4px;}
+.tool-desc{font-size:11px;color:#6b7280;line-height:1.35;}
+.tool-btn.primary .tool-desc{color:rgba(255,255,255,.86);}
+.report{margin:12px 16px;background:#fff;border-radius:16px;padding:14px;font-size:12px;color:#4b5563;line-height:1.65;min-height:54px;border:1px solid #e5e7eb;word-break:break-word;}
+.report b{font-size:14px;color:#111827;}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;will-change:transform;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent;transition:color .15s;}
+.tab-item.active{color:#6366f1;}
+.tab-icon{font-size:22px;line-height:1;}
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;max-width:86%;text-align:center;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="page-header">
+  <div class="back-btn" onclick="location.href='index.html'">‹</div>
+  <div class="page-title">创作中枢</div>
+</div>
+<div class="sub">把高级功能集中到这里：记忆、备份、体检、搜索、导出、看板、瘦身。设置页只保留基础配置。</div>
+
+<div class="section">
+  <div class="section-title">🧠 App 级记忆</div>
+  <div class="tool-grid">
+    <button class="tool-btn primary" onclick="forceAppMemoryMirror()"><div class="tool-name">立即保存镜像</div><div class="tool-desc">把当前数据写入 App 级大容量记忆</div></button>
+    <button class="tool-btn" onclick="forceChapterShards()"><div class="tool-name">整理章节分片</div><div class="tool-desc">补齐百万字工程的章节正文分片</div></button>
+    <button class="tool-btn" onclick="checkAppMemoryHealth()"><div class="tool-name">App记忆体检</div><div class="tool-desc">查看字数、分片、镜像和存储状态</div></button>
+    <button class="tool-btn danger" onclick="restoreAppMemoryMirror()"><div class="tool-name">镜像恢复</div><div class="tool-desc">从 App 级镜像恢复快速存储</div></button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">💾 备份与恢复</div>
+  <div class="tool-grid">
+    <button class="tool-btn" onclick="chooseAutoBackupDir()"><div class="tool-name">选择备份文件夹</div><div class="tool-desc">支持时自动写出 JSON 备份文件</div></button>
+    <button class="tool-btn primary" onclick="forceAutoBackupFile()"><div class="tool-name">立即生成备份</div><div class="tool-desc">生成内部备份，支持时同步文件备份</div></button>
+    <button class="tool-btn" onclick="checkBackupStatus()"><div class="tool-name">备份状态</div><div class="tool-desc">查看内部备份、文件夹权限、历史版本</div></button>
+    <button class="tool-btn" onclick="exportSingleWorkBackup()"><div class="tool-name">导出当前书</div><div class="tool-desc">只导出当前作品，不影响其他作品</div></button>
+    <button class="tool-btn" onclick="importSingleWorkBackup()"><div class="tool-name">导入单本备份</div><div class="tool-desc">恢复单本作品并生成新 ID</div></button>
+    <button class="tool-btn" onclick="exportCurrentWorkTxt()"><div class="tool-name">导出 TXT</div><div class="tool-desc">导出当前作品全文纯文本</div></button>
+  </div>
+</div>
+
+<!-- v46: 云端同步 -->
+<div class="section" id="cloud-section">
+  <div class="section-title" style="display:flex;align-items:center;gap:10px;">
+    ☁️ 云端同步 <span id="cloud-badge" style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e5e7eb;color:#6b7280;">未登录</span>
+  </div>
+  <div class="tool-grid" id="cloud-logged-out">
+    <button class="tool-btn primary" onclick="showLoginPanel()"><div class="tool-name">登录 / 注册</div><div class="tool-desc">启用多设备同步与云端备份</div></button>
+  </div>
+  <div class="tool-grid" id="cloud-logged-in" style="display:none;">
+    <button class="tool-btn primary" onclick="cloudSmartSync()"><div class="tool-name">🔄 智能同步</div><div class="tool-desc">双向对比版本号，自动拉取或推送</div></button>
+    <button class="tool-btn" onclick="cloudPullAll()"><div class="tool-name">⬇️ 从云端拉取</div><div class="tool-desc">用云端数据覆盖本地</div></button>
+    <button class="tool-btn" onclick="cloudPushAll()"><div class="tool-name">⬆️ 推送到云端</div><div class="tool-desc">将本地所有作品上传</div></button>
+    <button class="tool-btn" onclick="cloudSnapshots()"><div class="tool-name">📋 云端快照</div><div class="tool-desc">查看和恢复历史版本</div></button>
+    <button class="tool-btn danger" onclick="cloudLogout()"><div class="tool-name">退出登录</div><div class="tool-desc" id="cloud-user-info"></div></button>
+  </div>
+  <div id="cloud-status" style="font-size:12px;color:#888;margin-top:6px;"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🩺 体检与搜索</div>
+  <div class="tool-grid">
+    <button class="tool-btn primary" onclick="runGlobalHealthCheck()"><div class="tool-name">全书体检</div><div class="tool-desc">检查架构、字数、长记忆和缺失项</div></button>
+    <button class="tool-btn" onclick="runSlimHealthCheck()"><div class="tool-name">正文瘦身体检</div><div class="tool-desc">评估大 JSON 体积和正文占用</div></button>
+    <button class="tool-btn" onclick="runGlobalSearch()"><div class="tool-name">全书搜索</div><div class="tool-desc">搜人名、道具、伏笔、地点和正文</div></button>
+    <button class="tool-btn danger" onclick="safeSlimCurrentWork()"><div class="tool-name">安全正文瘦身</div><div class="tool-desc">旧章节正文移入分片，降低存储压力</div></button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📊 长篇看板</div>
+  <div class="tool-grid">
+    <button class="tool-btn" onclick="showForeshadowBoard()"><div class="tool-name">伏笔看板</div><div class="tool-desc">查看未解线索、钩子和回收状态</div></button>
+    <button class="tool-btn" onclick="showCharacterBoard()"><div class="tool-name">人物看板</div><div class="tool-desc">查看人物状态、位置和关系数量</div></button>
+    <button class="tool-btn" onclick="showTimelineBoard()"><div class="tool-name">时间轴看板</div><div class="tool-desc">查看章节事件和时间线</div></button>
+  </div>
+</div>
+
+<div class="report" id="app-memory-report">点击上方功能后，结果会显示在这里。</div>
+
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<link rel="stylesheet" href="assets/css/common.css">
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
+<script src="assets/js/center-tools.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded',function(){
+  try { DB.init(); } catch(e) { console.error('DB init:', e); }
+  try { checkAppMemoryHealth(); } catch(e) {}
+});
+</script>
+</body>
+</html>

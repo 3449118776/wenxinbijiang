@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>文心笔匠 - 预测结果 v24</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+body{background:#f6f7f9;color:#222;padding-bottom:82px}
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:10}
+.back-btn{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:#f5f5f5;cursor:pointer}
+.page-title{flex:1;text-align:center;font-size:17px;font-weight:700}.placeholder{width:32px}
+.hero{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;margin:8px 0 0;padding:18px 16px}
+.hero-title{font-size:18px;font-weight:800}.hero-sub{font-size:12px;opacity:.9;margin-top:6px;line-height:1.6}
+.section{background:#fff;margin-top:8px;padding:16px}.section-title{font-size:15px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.badge{font-size:11px;border-radius:999px;padding:4px 8px;background:#eef2ff;color:#4f46e5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:#f8fafc;border:1px solid #edf0f4;border-radius:14px;padding:14px;text-align:center}
+.num{font-size:24px;font-weight:800;color:#6366f1}.label{font-size:12px;color:#777;margin-top:4px}.tag{display:inline-block;font-size:11px;border-radius:99px;padding:3px 8px;margin-top:6px}.green{background:#ecfdf5;color:#16a34a}.yellow{background:#fefce8;color:#ca8a04}.red{background:#fef2f2;color:#ef4444}
+.analysis{font-size:13px;line-height:1.85;color:#444;white-space:pre-wrap;background:#f9fafb;border-radius:12px;padding:12px}
+.weak-list{display:flex;flex-direction:column;gap:8px}.weak-item{border:1px solid #eee;border-radius:12px;padding:10px;background:#fff}.weak-head{font-size:13px;font-weight:700;display:flex;justify-content:space-between}.weak-body{font-size:12px;color:#666;line-height:1.7;margin-top:5px}
+.table{width:100%;border-collapse:collapse;font-size:12px}.table th{background:#f0f2ff;text-align:left;padding:8px}.table td{border-bottom:1px solid #eee;padding:8px}
+.loading{padding:40px 20px;text-align:center;color:#777}.spin{width:34px;height:34px;border:3px solid #e5e7eb;border-top-color:#6366f1;border-radius:50%;margin:0 auto 12px;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.btn{height:44px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}.btn.primary{background:#6366f1;color:#fff}.btn.light{background:#eef2ff;color:#4f46e5}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent}
+.tab-item.active{color:#6366f1}
+.tab-icon{font-size:22px;line-height:1}
+.toast{position:fixed;top:78px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:12px 20px;border-radius:22px;font-size:14px;z-index:999;opacity:0;pointer-events:none;transition:.25s}.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="page-header"><div class="back-btn" id="back-btn">‹</div><div class="page-title">AI预测结果</div><div class="placeholder"></div></div>
+<div class="hero"><div class="hero-title" id="hero-title">正在读取作品...</div><div class="hero-sub" id="hero-sub">所有预测集中在这里：平台数据、收益、潜力、黄金三章、追读、薄弱点。</div></div>
+<div id="loading" class="loading"><div class="spin"></div><div>正在生成预测结果...</div></div>
+<div id="content" style="display:none">
+  <div class="section"><div class="section-title">核心预测 <span class="badge" id="source-badge">AI+本地兜底</span></div><div class="grid">
+    <div class="card"><div class="num" id="pred-read">--</div><div class="label" id="read-label">预估在读/收藏</div><span class="tag yellow" id="read-tag">--</span></div>
+    <div class="card"><div class="num" id="pred-income">--</div><div class="label">预估月收入</div><span class="tag yellow" id="income-tag">--</span></div>
+    <div class="card"><div class="num" id="pred-score">--</div><div class="label">作品潜力分</div><span class="tag yellow" id="score-tag">--</span></div>
+    <div class="card"><div class="num" id="pred-heat">--</div><div class="label">热度评级</div><span class="tag yellow" id="heat-tag">--</span></div>
+  </div></div>
+  <div class="section"><div class="section-title">AI综合判断</div><div class="analysis" id="analysis"></div></div>
+  <div class="section"><div class="section-title">十个薄弱点加强</div><div class="weak-list" id="weak-list"></div></div>
+  <div class="section"><div class="section-title">平台专项预测</div><table class="table"><thead><tr><th>指标</th><th>当前</th><th>目标/均值</th><th>判断</th></tr></thead><tbody id="compare-body"></tbody></table></div>
+  <div class="section"><div class="section-title">下一步</div><div class="actions"><button class="btn primary" onclick="rerunPredict()">重新预测</button><button class="btn light" onclick="location.href='data-predict.html?t='+Date.now()">返回入口</button></div></div>
+</div>
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/api.js"></script>
+<script>
+var summary=null,predictData=null;
+function $(id){return document.getElementById(id)}
+function showToast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2200)}
+function safe(v){return (v==null?'':String(v)).trim()}
+function countWords(w){return (w.chapters||[]).reduce(function(s,ch){return s+(ch.content||'').length},0)}
+function getGenre(w){return safe((w.settings&&w.settings.genre)||w.genre||(w.category&&w.category.cat1)||'未设定')}
+function readSummary(){
+  DB.init();
+  var manual={};try{manual=JSON.parse(localStorage.getItem('predict_manual_data')||'{}')}catch(e){}
+  var id=localStorage.getItem('predict_work_id')||manual.id||'';
+  var w=(DB.works||[]).find(function(x){return x.id===id})||null;
+  var platform=localStorage.getItem('predict_platform')||manual.platform||'qidian';
+  if(w){
+    var chs=w.chapters||[], words=countWords(w);
+    var snippets=chs.slice(0,3).map(function(ch,i){var c=ch.content||'';return '【'+(ch.title||('第'+(i+1)+'章'))+'】开头：'+c.slice(0,220)+'\n结尾：'+c.slice(-220)}).join('\n\n');
+    return {id:w.id,title:w.title||manual.title||'未命名作品',genre:getGenre(w)||manual.genre,chapters:chs.length||manual.chapters||0,totalWords:words||Math.round((manual.wordsWan||0)*10000),daily:manual.daily||4000,platform:platform,world:(w.world||'').slice(0,600),chars:(w.chars||'').slice(0,500),outline:(w.outline||'').slice(0,500),detail:(w.detail||'').slice(0,700),snippets:snippets};
+  }
+  return {title:manual.title||'未命名作品',genre:manual.genre||'未设定',chapters:manual.chapters||0,totalWords:Math.round((manual.wordsWan||0)*10000),daily:manual.daily||4000,platform:platform,world:'',chars:'',outline:'',detail:'',snippets:''};
+}
+function localPredict(s){
+  var wan=s.totalWords/10000, pf=s.platform, genre=s.genre;
+  var gf=({'玄幻':1.25,'仙侠':1.12,'都市':1.16,'历史':0.88,'末世':1.2,'武侠':0.76,'言情':1.18,'种田':1.05,'争霸':1.1}[genre]||1);
+  var q=pf==='qidian';
+  var read=Math.max(0,Math.round((q?wan*550:wan*2100)*gf + s.chapters*(q?55:220)));
+  var income=Math.round(read*(q?0.045:0.0035)*gf);
+  var baseScore=Math.min(100,Math.round((wan*(q?2.2:1.6)+s.chapters*(q?4.8:3.2)+Math.min(s.daily/1000,8)*3)*gf));
+  var heat=read>(q?50000:100000)?'大火':read>(q?18000:50000)?'中火':read>(q?5000:20000)?'小火':read>1000?'潜力':'冷启动';
+  var weak=buildWeakness(s,baseScore);
+  return {source:'本地兜底',read:read,income:income,score:baseScore,heat:heat,analysis:'当前预测基于作品字数、章节数、题材、平台和更新量计算。若已配置API，系统会优先调用AI分析世界观、人设、细纲和前三章片段；API不可用时自动使用本地模型，保证预测界面一定有结果。',weaknesses:weak,compare:buildCompare(s,read,income)};
+}
+function buildWeakness(s,score){
+  var avg=s.chapters?Math.round(s.totalWords/s.chapters):0;
+  return [
+    ['黄金三章吸引力',s.chapters<3?'章节不足，先补齐前三章':'检查前三章是否每章都有冲突、爽点、悬念','前三章要按开局钩子、身份危机、第一次爽点兑现来打磨'],
+    ['章节字数',avg<1500?'单章偏短':avg>4500?'单章偏长':'字数基本合理','起点建议2500-4000，番茄建议1500-3000'],
+    ['更新稳定性',s.daily<4000?'日更偏低':'日更达标','番茄至少4000，起点建议6000形成更新优势'],
+    ['题材匹配度',s.genre==='未设定'?'题材未设定':'题材已设定','题材应绑定平台：番茄重快节奏，起点重长线设定'],
+    ['细纲可执行度',s.detail?'已有细纲':'缺少细纲','预测要依赖细纲判断后续爆点密度'],
+    ['人物辨识度',s.chars?'有人设':'缺少人设','主角目标、弱点、口头禅、关系网要明确'],
+    ['世界观卖点',s.world?'有世界观':'缺少世界观','一句话卖点要能支撑推荐语'],
+    ['追读钩子',s.snippets?'可分析前三章片段':'缺少正文片段','每章结尾必须留下未解决问题'],
+    ['商业化节点',s.totalWords<80000?'未到验证期':'进入验证期','番茄看8万字首秀，起点看签约/推荐/上架节点'],
+    ['风险控制',score<50?'潜力分偏低':'风险可控','先修最低分项，不要盲目堆功能或加剧情']
+  ].map(function(x,i){return {name:x[0],problem:x[1],fix:x[2],score:Math.max(35,Math.min(90,score+i*3-8))}});
+}
+function buildCompare(s,read,income){
+  var q=s.platform==='qidian';
+  return q?[{name:'收藏/万收',yours:(read/10000).toFixed(1),avg:'2.5万',judge:read>=25000?'达标':'偏低'},{name:'均订预估',yours:Math.round(read*.03),avg:'800',judge:read*.03>=800?'达标':'偏低'},{name:'上架准备',yours:(s.totalWords/10000).toFixed(1)+'万字',avg:'30万字',judge:s.totalWords>=300000?'可上架':'继续积累'}]:[{name:'在读',yours:read,avg:'8万+',judge:read>=80000?'达标':'偏低'},{name:'日收益',yours:'¥'+Math.round(income/30),avg:'¥80+',judge:income/30>=80?'达标':'偏低'},{name:'首秀验证',yours:(s.totalWords/10000).toFixed(1)+'万字',avg:'8万字',judge:s.totalWords>=80000?'可验证':'继续更新'}];
+}
+function aiPrompt(s){return '你是资深网文数据分析师。请基于作品数据预测'+(s.platform==='qidian'?'起点':'番茄')+'表现，并输出严格JSON：{"read":数字,"income":数字,"score":0到100,"heat":"冷启动/潜力/小火/中火/大火/爆款","analysis":"200字以内","weaknesses":[{"name":"薄弱点","problem":"问题","fix":"加强方式","score":数字}], "compare":[{"name":"指标","yours":"当前","avg":"目标/均值","judge":"判断"}]}。必须给满10个weaknesses。\n作品：'+s.title+'\n题材：'+s.genre+'\n章节：'+s.chapters+'\n总字数：'+s.totalWords+'\n日更：'+s.daily+'\n世界观：'+s.world+'\n人设：'+s.chars+'\n大纲：'+s.outline+'\n细纲：'+s.detail+'\n前三章片段：'+s.snippets}
+async function runPredict(){
+  summary=readSummary();
+  $('hero-title').textContent=summary.title+' · '+(summary.platform==='qidian'?'起点':'番茄')+'预测';
+  $('hero-sub').textContent=summary.genre+' · '+summary.chapters+'章 · '+(summary.totalWords>=10000?(summary.totalWords/10000).toFixed(1)+'万字':summary.totalWords+'字')+' · 日更'+summary.daily;
+  var data=null;
+  try{var raw=await callRealAPIWithFallback(aiPrompt(summary),null);if(raw){raw=raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();var m=raw.match(/\{[\s\S]*\}/);data=JSON.parse(m?m[0]:raw);data.source='AI预测'}}catch(e){console.log('AI预测失败，使用兜底',e)}
+  if(!data)data=localPredict(summary);
+  if(!data.weaknesses||data.weaknesses.length<10)data.weaknesses=buildWeakness(summary,data.score||50);
+  if(!data.compare||!data.compare.length)data.compare=buildCompare(summary,data.read||0,data.income||0);
+  predictData=data;render(data);
+}
+function clsBy(v){return v>=70?'green':v>=45?'yellow':'red'}
+function render(d){
+  $('loading').style.display='none';$('content').style.display='block';$('source-badge').textContent=d.source||'AI+本地兜底';
+  $('pred-read').textContent=d.read>=10000?(d.read/10000).toFixed(1)+'万':d.read;$('read-label').textContent=summary.platform==='qidian'?'预估收藏/在读':'预估在读';$('read-tag').textContent=d.read>10000?'可冲':'待提升';$('read-tag').className='tag '+(d.read>10000?'green':'yellow');
+  $('pred-income').textContent='¥'+(d.income||0);$('income-tag').textContent=d.income>1000?'可观':'早期';$('income-tag').className='tag '+(d.income>1000?'green':'yellow');
+  $('pred-score').textContent=d.score||0;$('score-tag').textContent=(d.score>=80?'S级':d.score>=60?'A级':d.score>=40?'B级':'C级');$('score-tag').className='tag '+clsBy(d.score||0);
+  $('pred-heat').textContent=d.heat||'冷启动';$('heat-tag').textContent=['大火','爆款','中火'].indexOf(d.heat)>=0?'冲榜潜力':'稳步积累';
+  $('analysis').textContent=d.analysis||'暂无分析';
+  $('weak-list').innerHTML=(d.weaknesses||[]).slice(0,10).map(function(w,i){return '<div class="weak-item"><div class="weak-head"><span>'+(i+1)+'. '+w.name+'</span><span>'+Math.round(w.score||50)+'分</span></div><div class="weak-body">问题：'+(w.problem||'待检查')+'<br>加强：'+(w.fix||'按平台规则补强')+'</div></div>'}).join('');
+  $('compare-body').innerHTML=(d.compare||[]).map(function(x){return '<tr><td>'+x.name+'</td><td>'+x.yours+'</td><td>'+x.avg+'</td><td>'+x.judge+'</td></tr>'}).join('');
+}
+function rerunPredict(){$('content').style.display='none';$('loading').style.display='block';runPredict()}
+$('back-btn').addEventListener('click',function(){location.href='data-predict.html?t='+Date.now()});
+runPredict();
+</script>
+</body>
+</html>

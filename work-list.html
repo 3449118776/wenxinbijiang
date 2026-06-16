@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>文心笔匠 - 作品管理</title>
+<style>
+* {margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+
+/* 顶部导航 */
+.page-header {background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;}
+.back-btn {font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
+.page-title {flex:1;font-size:17px;font-weight:600;text-align:center;}
+.header-btn {padding:6px 14px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;}
+
+/* 面包屑导航 */
+.breadcrumb{display:flex;align-items:center;padding:8px 16px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;gap:4px;font-size:12px;color:#999;overflow-x:auto;white-space:nowrap;}
+.breadcrumb .bc-item{cursor:pointer;color:#6366f1;transition:color .2s;}
+.breadcrumb .bc-item:hover{color:#4f46e5;}
+.breadcrumb .bc-sep{color:#d1d5db;margin:0 2px;}
+.breadcrumb .bc-current{color:#333;font-weight:600;cursor:default;}
+
+/* 四级视图 */
+.level-view{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.level-view.active{display:flex;}
+
+/* 一级：作品管理入口 */
+.level1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
+.level1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
+.level1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
+.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
+.level1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
+.level1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
+
+/* 二级：选择作品 */
+.level2-body{flex:1;overflow-y:auto;padding:0 16px 80px;-webkit-overflow-scrolling:touch;}
+.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+.work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
+.work-card .wc-info{flex:1;min-width:0;}
+.work-card .wc-title{font-size:15px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
+.work-card .wc-meta{font-size:12px;color:#999;display:flex;gap:10px;flex-wrap:wrap;}
+.work-card .wc-meta span{display:flex;align-items:center;gap:3px;}
+.work-card .wc-progress{display:flex;gap:4px;margin-top:4px;}
+.work-card .wc-progress .prog-dot{width:8px;height:8px;border-radius:50%;background:#e5e7eb;}
+.work-card .wc-progress .prog-dot.done{background:#10b981;}
+.work-card .wc-arrow{color:#d1d5db;font-size:16px;}
+.work-card .wc-actions{display:flex;gap:6px;flex-shrink:0;}
+.work-card .wc-actions button{padding:6px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:#666;}
+.work-card .wc-actions button.danger{color:#ef4444;border-color:#fecaca;background:#fef2f2;}
+
+.level2-empty{text-align:center;padding:60px 20px;color:#9ca3af;}
+.level2-empty .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.level2-empty .empty-text{font-size:14px;line-height:1.6;margin-bottom:16px;}
+.level2-empty .empty-btn{display:inline-block;padding:10px 24px;border-radius:10px;background:#6366f1;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;}
+
+/* 三级：模块选择 */
+.level3-body{flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;}
+.level3-work-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f2ff;border-radius:10px;margin-bottom:12px;font-size:13px;color:#6366f1;font-weight:500;}
+.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.module-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.module-card .mc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.module-card .mc-icon.world-icon{background:#eff6ff;color:#2563eb;}
+.module-card .mc-icon.chars-icon{background:#fdf4ff;color:#9333ea;}
+.module-card .mc-icon.outline-icon{background:#ecfdf5;color:#059669;}
+.module-card .mc-icon.detail-icon{background:#fffbeb;color:#d97706;}
+.module-card .mc-icon.memory-icon{background:#fef3c7;color:#9333ea;}
+.module-card .mc-icon.detect-icon{background:#fee2e2;color:#dc2626;}
+.module-card .mc-icon.chapters-icon{background:#e0f2fe;color:#0369a1;}
+.module-card .mc-info{flex:1;min-width:0;}
+.module-card .mc-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:2px;}
+.module-card .mc-desc{font-size:12px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.module-card .mc-status{font-size:11px;padding:3px 8px;border-radius:10px;flex-shrink:0;font-weight:500;}
+.module-card .mc-status.pending{background:#f3f4f6;color:#9ca3af;}
+.module-card .mc-status.done{background:#ecfdf5;color:#10b981;}
+.module-card .mc-arrow{color:#d1d5db;font-size:16px;}
+
+/* 四级：编辑页 */
+.level4-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;display:flex;flex-direction:column;}
+.level4-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;}
+.level4-header .l4-back{background:none;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;color:#666;font-family:inherit;}
+.level4-header .l4-back:active{background:#f3f4f6;}
+.level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
+.level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
+
+/* 编辑器 */
+.edit-area{flex:1;padding:16px;background:#fff;}
+.edit-area textarea{width:100%;min-height:400px;border:1px solid #e5e7eb;border-radius:10px;padding:14px;font-size:14px;line-height:1.8;color:#333;outline:none;resize:vertical;background:#fafbfc;}
+.edit-area textarea:focus{border-color:#6366f1;background:#fff;}
+.edit-actions{display:flex;gap:8px;padding:12px 16px;background:#fff;border-top:1px solid #f0f0f0;flex-shrink:0;flex-wrap:wrap;}
+.edit-actions button{padding:10px 18px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;cursor:pointer;color:#666;font-family:inherit;transition:all .15s;}
+.edit-actions button:active{transform:scale(.96);}
+.edit-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;}
+.edit-actions button.danger{color:#ef4444;border-color:#fecaca;background:#fef2f2;}
+.edit-info{padding:6px 16px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center;flex-shrink:0;}
+
+/* 记忆检测页 */
+.memory-section{padding:12px 16px;background:#fff;border-bottom:1px solid #f0f0f0;}
+.memory-section .ms-title{font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.memory-section .ms-title .ms-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.memory-section .ms-badge.good{background:#ecfdf5;color:#10b981;}
+.memory-section .ms-badge.warn{background:#fef3c7;color:#d97706;}
+.memory-section .ms-badge.bad{background:#fef2f2;color:#ef4444;}
+.memory-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f9fafb;border-radius:8px;margin-bottom:6px;font-size:13px;color:#333;}
+.memory-item .mi-label{color:#6b7280;min-width:60px;font-size:12px;}
+.memory-item .mi-value{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.detect-btn{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin:12px 0;}
+.detect-btn:active{transform:scale(.98);}
+.detect-result{padding:12px 16px;background:#fff;}
+.detect-result .dr-score{text-align:center;font-size:36px;font-weight:700;margin:8px 0;}
+.detect-result .dr-score.good{color:#10b981;}
+.detect-result .dr-score.warn{color:#d97706;}
+.detect-result .dr-score.bad{color:#ef4444;}
+.detect-result .dr-dims{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.detect-result .dr-dim{padding:4px 10px;border-radius:8px;font-size:12px;background:#f3f4f6;color:#666;}
+.detect-result .dr-dim.good{background:#ecfdf5;color:#10b981;}
+.detect-result .dr-dim.warn{background:#fef3c7;color:#d97706;}
+.detect-result .dr-dim.bad{background:#fef2f2;color:#ef4444;}
+.detect-result .dr-issues{margin-top:8px;}
+.detect-result .dr-issue{padding:8px 12px;background:#fef2f2;border-radius:8px;margin-bottom:4px;font-size:12px;color:#991b1b;display:flex;align-items:flex-start;gap:6px;}
+.detect-result .dr-issue .dri-icon{flex-shrink:0;}
+
+/* 章节管理页 */
+.volume-group{background:#fff;margin-bottom:8px;border-radius:10px;overflow:hidden;margin:0 16px 8px;}
+.volume-header{display:flex;align-items:center;gap:8px;padding:12px 14px;background:#f0f2ff;cursor:pointer;font-size:14px;font-weight:600;color:#4f46e5;user-select:none;}
+.volume-header:active{background:#e0e2ff;}
+.volume-header .vh-arrow{transition:transform .2s;font-size:12px;}
+.volume-header .vh-arrow.open{transform:rotate(90deg);}
+.volume-header .vh-count{font-size:11px;color:#9ca3af;font-weight:400;margin-left:auto;}
+.volume-body{display:none;padding:4px 0;}
+.volume-body.open{display:block;}
+.ch-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:13px;}
+.ch-item:active{background:#f0f2ff;}
+.ch-item:last-child{border-bottom:none;}
+.ch-item .ch-num{width:28px;height:28px;border-radius:50%;background:#f0f2ff;color:#6366f1;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.ch-item .ch-info{flex:1;min-width:0;}
+.ch-item .ch-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;}
+.ch-item .ch-meta{font-size:11px;color:#9ca3af;margin-top:2px;}
+.ch-item .ch-badge{font-size:10px;padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.ch-item .ch-badge.done{background:#ecfdf5;color:#10b981;}
+.ch-item .ch-badge.draft{background:#fef2f2;color:#ef4444;}
+.ch-item .ch-actions{display:flex;gap:4px;}
+.ch-item .ch-actions button{padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#666;}
+.ch-item .ch-actions button:active{background:#f3f4f6;}
+.ch-empty{text-align:center;padding:40px 20px;color:#9ca3af;font-size:14px;}
+.ch-add-btn{display:block;width:calc(100% - 32px);margin:8px 16px;padding:10px;background:#f0f2ff;border:1px dashed #6366f1;border-radius:8px;color:#6366f1;font-size:13px;cursor:pointer;text-align:center;}
+.ch-add-btn:active{background:#e0e2ff;}
+
+/* 底部导航 */
+.tab-bar {position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item {display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
+.tab-item.active {color:#6366f1;}
+.tab-icon {font-size:22px;line-height:1;}
+
+/* Toast */
+.toast {position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show {opacity:1;}
+
+/* 确认弹窗 */
+.modal-overlay {position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open {display:flex !important;}
+.modal-box {background:#fff;border-radius:16px;padding:20px;width:85%;max-width:320px;text-align:center;}
+.modal-box .title {font-size:16px;font-weight:600;margin-bottom:8px;}
+.modal-box .msg {font-size:14px;color:#666;margin-bottom:16px;}
+.modal-box .btns {display:flex;gap:10px;}
+.modal-box .btns button {flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:14px;cursor:pointer;}
+.modal-box .btns button.primary {background:#ef4444;color:#fff;border-color:#ef4444;}
+
+/* 回收站弹窗 */
+.modal-box .trash-list{text-align:left;font-size:14px;margin:8px 0;max-height:50vh;overflow:auto;}
+.trash-item{padding:10px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;}
+.trash-item .ti-title{font-weight:500;}
+.trash-item .ti-days{font-size:12px;color:#9ca3af;}
+.trash-item .ti-restore{padding:6px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="page-header">
+  <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">&#8249;</div>
+  <div class="page-title" id="global-page-title">作品管理</div>
+  <button class="header-btn" id="header-new-btn" onclick="location.href='new-book.html'">+ 新建</button>
+</div>
+
+<!-- 面包屑 -->
+<div class="breadcrumb" id="breadcrumb">
+  <span class="bc-item" onclick="goToLevel(1)">作品管理</span>
+</div>
+
+<!-- ===== 一级：作品管理入口 ===== -->
+<div class="level-view active" id="level1">
+  <div class="level1-body">
+    <div class="l1-icon">📚</div>
+    <div class="l1-title">作品管理</div>
+    <div class="l1-desc">管理你的所有作品，编辑世界观、人设、大纲和细纲。</div>
+    <button class="l1-start" onclick="goToLevel(2)">选择作品</button>
+    </div>
+  </div>
+
+<!-- ===== 二级：选择作品 ===== -->
+<div class="level-view" id="level2">
+  <div style="padding:0 16px;margin-bottom:8px;"><button onclick="openTrash()" style="width:100%;padding:10px;background:#fff;border:1px dashed #d1d5db;border-radius:8px;color:#6b7280;font-size:14px;cursor:pointer;">🗑️ 回收站（30天内可恢复）</button></div>
+  <div class="level2-body" id="level2-body"></div>
+</div>
+
+<!-- ===== 三级：模块选择 ===== -->
+<div class="level-view" id="level3">
+  <div class="level3-body" id="level3-body">
+    <div class="level3-work-info" id="level3-work-info">📖 当前作品</div>
+    <div id="level3-modules"></div>
+  </div>
+</div>
+
+<!-- ===== 四级：编辑页 ===== -->
+<div class="level-view" id="level4">
+  <div class="level4-header">
+    <button class="l4-back" onclick="goToLevel(3)">← 返回</button>
+    <div class="l4-title" id="level4-title">世界观</div>
+    <span class="l4-action" id="level4-action" onclick="exportModule()">导出</span>
+  </div>
+  <div class="level4-body" id="level4-body">
+
+    <!-- 编辑子视图（世界观/人设/大纲/细纲） -->
+    <div id="level4-edit">
+      <div class="edit-area">
+        <textarea id="edit-textarea" placeholder="在此编辑内容..."></textarea>
+      </div>
+      <div class="edit-info" id="edit-info">0字</div>
+      <div class="edit-actions">
+        <button class="primary" onclick="saveModuleEdit()">💾 保存</button>
+        <button onclick="goToArch()">🤖 去AI生成</button>
+        <button onclick="importModule()">📥 导入</button>
+        <button class="danger" onclick="clearModule()">🗑 清空</button>
+      </div>
+    </div>
+
+    <!-- 记忆子视图 -->
+    <div id="level4-memory" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div id="memory-content"></div>
+    </div>
+
+    <!-- 全书检测子视图 -->
+    <div id="level4-detect" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div id="detect-content"></div>
+    </div>
+
+    <!-- 章节管理子视图 -->
+    <div id="level4-chapters" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 0;">
+      <div id="chapters-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal-box">
+    <div class="title">⚠️ 确认删除</div>
+    <div class="msg">删除后无法恢复，是否继续？</div>
+    <div class="btns">
+      <button onclick="closeDeleteModal()">取消</button>
+      <button class="primary" onclick="confirmDelete()">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 回收站弹窗 -->
+<div class="modal-overlay" id="trash-modal">
+  <div class="modal-box" style="max-height:80vh;overflow:auto;">
+    <div class="title">🗑️ 回收站</div>
+    <div class="trash-list" id="trash-list"></div>
+    <div class="btns">
+      <button onclick="closeTrash()">关闭</button>
+      <button class="primary" onclick="emptyTrashConfirm()" style="background:#ef4444;">清空</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入文件隐藏input -->
+<input type="file" id="import-file-input" accept=".json,.md,.txt" style="display:none;" onchange="handleImportFile(event)">
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+// ===== 四级导航核心逻辑 =====
+var _currentLevel = 1;
+var _selectedWorkId = '';
+var _selectedModule = 'world';
+
+var MODULE_INFO = {
+  world:   { name: '世界观', icon: '🌍', iconClass: 'world-icon', desc: '时代背景、地理、势力、力量体系', field: 'world' },
+  chars:   { name: '人物人设', icon: '👤', iconClass: 'chars-icon', desc: '主角、配角、反派、人物关系', field: 'chars' },
+  outline: { name: '全书大纲', icon: '📋', iconClass: 'outline-icon', desc: '主线结构、卷章划分、转折点', field: 'outline' },
+  detail:  { name: '章节细纲', icon: '📑', iconClass: 'detail-icon', desc: '逐章场景、剧情节点、爆点设计', field: 'detail' },
+  memory:  { name: '记忆', icon: '🧠', iconClass: 'memory-icon', desc: '长记忆状态、角色/伏笔/线索管理', field: 'memory' },
+  detect:  { name: '全书检测', icon: '🔍', iconClass: 'detect-icon', desc: '一致性检测、全书体检、问题排查', field: 'detect' },
+  chapters:{ name: '章节管理', icon: '📖', iconClass: 'chapters-icon', desc: '按卷分组、章节列表、批量操作', field: 'chapters' }
+};
+
+var deleteTargetId = null;
+
+function he(s){return s?s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';}
+
+// ===== 导航 =====
+function goToLevel(level) {
+  _currentLevel = level;
+  for (var i = 1; i <= 4; i++) {
+    var el = document.getElementById('level' + i);
+    if (el) el.classList.toggle('active', i === level);
+  }
+  updateBreadcrumb();
+  updateHeader();
+
+  if (level === 1) renderLevel1();
+  if (level === 2) renderLevel2();
+  if (level === 3) renderLevel3();
+  if (level === 4) renderLevel4();
+}
+
+function handleGlobalBack() {
+  if (_currentLevel > 1) goToLevel(_currentLevel - 1);
+  else location.href = 'index.html';
+}
+
+function updateBreadcrumb() {
+  var bc = document.getElementById('breadcrumb');
+  var html = '<span class="bc-item" onclick="goToLevel(1)">作品管理</span>';
+  if (_currentLevel >= 2) {
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(2)">选择作品</span>';
+  }
+  if (_currentLevel >= 3) {
+    var w = getWorkById(_selectedWorkId);
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(3)">' + he(w ? w.title : '模块选择') + '</span>';
+  }
+  if (_currentLevel >= 4) {
+    var mi = MODULE_INFO[_selectedModule];
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-current">' + (mi ? mi.name : '编辑') + '</span>';
+  }
+  bc.innerHTML = html;
+}
+
+function updateHeader() {
+  var backBtn = document.getElementById('global-back-btn');
+  var pageTitle = document.getElementById('global-page-title');
+  var newBtn = document.getElementById('header-new-btn');
+
+  if (_currentLevel === 1) {
+    backBtn.onclick = function(){ location.href = 'index.html'; };
+    pageTitle.textContent = '作品管理';
+    newBtn.style.display = '';
+  } else {
+    backBtn.onclick = handleGlobalBack;
+    if (_currentLevel === 2) pageTitle.textContent = '选择作品';
+    else if (_currentLevel === 3) {
+      var w = getWorkById(_selectedWorkId);
+      pageTitle.textContent = w ? w.title : '模块选择';
+    }
+    else if (_currentLevel === 4) {
+      var mi = MODULE_INFO[_selectedModule];
+      pageTitle.textContent = mi ? mi.name : '编辑';
+    }
+    newBtn.style.display = 'none';
+  }
+}
+
+function getWorkById(id) {
+  if (!id) return null;
+  return (DB.works || []).find(function(w){ return w.id === id; });
+}
+
+// ===== 一级：作品管理入口 =====
+function renderLevel1() {
+}
+
+// ===== 二级：选择作品 =====
+function renderLevel2() {
+  var works = DB.works || [];
+  var body = document.getElementById('level2-body');
+
+  if (works.length === 0) {
+    body.innerHTML = '<div class="level2-empty">' +
+      '<div class="empty-icon">📝</div>' +
+      '<div class="empty-text">还没有作品<br>先去创建一部吧</div>' +
+      '<a class="empty-btn" href="new-book.html">新建作品</a>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  works.slice().reverse().forEach(function(w) {
+    var chCount = 0, wordCount = 0;
+    (w.chapters || []).forEach(function(ch){ chCount++; wordCount += (ch.content || '').length; });
+    var genre = w.category ? (w.category.cat1 + (w.category.cat2 ? ' / ' + w.category.cat2 : '')) : (w.genre || '未分类');
+
+    html += '<div class="work-card">';
+    html += '<div class="wc-icon" onclick="selectWork(\'' + he(w.id) + '\')">📖</div>';
+    html += '<div class="wc-info" onclick="selectWork(\'' + he(w.id) + '\')">';
+    html += '<div class="wc-title">' + he(w.title || '未命名') + '</div>';
+    html += '<div class="wc-meta">';
+    html += '<span>📄 ' + chCount + '章</span>';
+    html += '<span>✍️ ' + (wordCount/10000).toFixed(1) + '万字</span>';
+    html += '<span>🌍 ' + he(genre) + '</span>';
+    html += '</div>';
+    html += '<div class="wc-progress">';
+    html += '<div class="prog-dot' + (w.world ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.chars ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.outline ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.detail ? ' done' : '') + '"></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="wc-actions">';
+    html += '<button onclick="event.stopPropagation();goWrite(\'' + he(w.id) + '\')">写作</button>';
+    html += '<button onclick="event.stopPropagation();goArch(\'' + he(w.id) + '\')">架构</button>';
+    html += '<button class="danger" onclick="event.stopPropagation();askDelete(\'' + he(w.id) + '\')">删除</button>';
+    html += '</div>';
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+}
+
+function selectWork(workId) {
+  _selectedWorkId = workId;
+  localStorage.setItem('last_edit_work', workId);
+  goToLevel(3);
+}
+
+function goWrite(id) {
+  localStorage.setItem('last_edit_work', id);
+  location.href = 'write.html?mode=edit';
+}
+
+function goArch(id) {
+  localStorage.setItem('last_edit_work', id);
+  location.href = 'architecture.html';
+}
+
+// ===== 三级：模块选择 =====
+function renderLevel3() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) { goToLevel(2); return; }
+
+  var infoEl = document.getElementById('level3-work-info');
+  if (infoEl) infoEl.innerHTML = '📖 当前作品：' + he(w.title || '未命名');
+
+  var modulesEl = document.getElementById('level3-modules');
+  var html = '';
+  var moduleKeys = ['world', 'chars', 'outline', 'detail', 'memory', 'detect', 'chapters'];
+  moduleKeys.forEach(function(key) {
+    var mi = MODULE_INFO[key];
+    var hasContent = false;
+    var preview = '';
+    if (key === 'memory') {
+      var lm = w.longMemory || {};
+      var memCount = (lm.charStates||[]).length + (lm.foreshadows||[]).length + (lm.plotThreads||[]).length;
+      hasContent = memCount > 0;
+      preview = hasContent ? '角色' + (lm.charStates||[]).length + ' 伏笔' + (lm.foreshadows||[]).length + ' 线索' + (lm.plotThreads||[]).length : '';
+    } else if (key === 'detect') {
+      hasContent = (w.chapters || []).length > 0;
+      preview = hasContent ? (w.chapters||[]).length + '章可检测' : '';
+    } else if (key === 'chapters') {
+      hasContent = (w.chapters || []).length > 0;
+      preview = hasContent ? (w.chapters||[]).length + '章' : '';
+    } else {
+      hasContent = !!(w[key] && w[key].trim());
+      preview = hasContent ? w[key].substring(0, 60).replace(/\n/g, ' ') + '...' : '';
+    }
+    var statusClass = hasContent ? 'done' : 'pending';
+    var statusText = hasContent ? '已完成' : '未填写';
+
+    html += '<div class="module-card" onclick="selectModule(\'' + key + '\')">';
+    html += '<div class="mc-icon ' + mi.iconClass + '">' + mi.icon + '</div>';
+    html += '<div class="mc-info">';
+    html += '<div class="mc-title">' + mi.name + '</div>';
+    html += '<div class="mc-desc">' + (preview || mi.desc) + '</div>';
+    html += '</div>';
+    html += '<span class="mc-status ' + statusClass + '">' + statusText + '</span>';
+    html += '<div class="mc-arrow">›</div>';
+    html += '</div>';
+  });
+
+  modulesEl.innerHTML = html;
+}
+
+function selectModule(module) {
+  _selectedModule = module;
+  goToLevel(4);
+}
+
+// ===== 四级：编辑页/功能页 =====
+function renderLevel4() {
+  var mi = MODULE_INFO[_selectedModule];
+  var titleEl = document.getElementById('level4-title');
+  if (titleEl && mi) titleEl.textContent = mi.name;
+
+  // 更新头部操作按钮
+  var actionEl = document.getElementById('level4-action');
+  if (_selectedModule === 'memory' || _selectedModule === 'detect' || _selectedModule === 'chapters') {
+    actionEl.style.display = 'none';
+  } else {
+    actionEl.style.display = '';
+  }
+
+  // 隐藏所有四级子视图
+  document.getElementById('level4-edit').style.display = 'none';
+  document.getElementById('level4-memory').style.display = 'none';
+  document.getElementById('level4-detect').style.display = 'none';
+  document.getElementById('level4-chapters').style.display = 'none';
+
+  if (_selectedModule === 'memory') {
+    renderMemoryPage();
+  } else if (_selectedModule === 'detect') {
+    renderDetectPage();
+  } else if (_selectedModule === 'chapters') {
+    renderChaptersPage();
+  } else {
+    renderEditPage();
+  }
+}
+
+// ===== 编辑页（世界观/人设/大纲/细纲） =====
+function renderEditPage() {
+  document.getElementById('level4-edit').style.display = '';
+  var w = getWorkById(_selectedWorkId);
+  var textarea = document.getElementById('edit-textarea');
+  if (w && textarea) {
+    textarea.value = w[_selectedModule] || '';
+    updateEditInfo();
+  }
+}
+
+function updateEditInfo() {
+  var textarea = document.getElementById('edit-textarea');
+  var info = document.getElementById('edit-info');
+  if (textarea && info) {
+    var len = textarea.value.length;
+    info.textContent = len + '字';
+  }
+}
+
+// 编辑器输入监听
+document.addEventListener('input', function(e){
+  if (e.target && e.target.id === 'edit-textarea') {
+    updateEditInfo();
+  }
+});
+
+// 保存编辑
+function saveModuleEdit() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) { showToast('无作品'); return; }
+  var textarea = document.getElementById('edit-textarea');
+  if (!textarea) return;
+
+  w[_selectedModule] = textarea.value;
+  try { DB.save(); } catch(e) { console.error('Save error:', e); }
+  showToast('已保存');
+  renderLevel3();
+}
+
+// ===== 记忆页 =====
+function renderMemoryPage() {
+  document.getElementById('level4-memory').style.display = '';
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+
+  var lm = w.longMemory || {};
+  var container = document.getElementById('memory-content');
+
+  // 统计记忆状态
+  var charCount = (lm.charStates || []).length;
+  var foreshadowCount = (lm.foreshadows || []).length;
+  var threadCount = (lm.plotThreads || []).length;
+  var arcCount = (lm.charArcs || []).length;
+  var timelineCount = (lm.timelineEvents || []).length;
+  var chapterIdxCount = (lm.chapterIndex || []).length;
+  var totalChapters = (w.chapters || []).length;
+
+  var html = '';
+
+  // 记忆概览
+  html += '<div class="memory-section">';
+  html += '<div class="ms-title">📊 记忆概览</div>';
+  html += '<div class="memory-item"><span class="mi-label">角色状态</span><span class="mi-value">' + charCount + ' 个角色</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">伏笔</span><span class="mi-value">' + foreshadowCount + ' 条</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">剧情线索</span><span class="mi-value">' + threadCount + ' 条</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">角色弧线</span><span class="mi-value">' + arcCount + ' 条</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">时间线</span><span class="mi-value">' + timelineCount + ' 个事件</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">章节索引</span><span class="mi-value">' + chapterIdxCount + ' / ' + totalChapters + ' 章</span></div>';
+  var memDebt = (lm.memoryDebt || []).length;
+  html += '<div class="memory-item"><span class="mi-label">记忆债务</span><span class="mi-value">' + memDebt + ' 条' + (memDebt > 0 ? ' ⚠️' : '') + '</span></div>';
+  html += '</div>';
+
+  // 角色列表
+  if (charCount > 0) {
+    html += '<div class="memory-section">';
+    html += '<div class="ms-title">👤 角色状态</div>';
+    (lm.charStates || []).forEach(function(c) {
+      html += '<div class="memory-item"><span class="mi-label">' + he(c.name || '?') + '</span><span class="mi-value">' + he((c.status || '').substring(0, 50)) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // 伏笔
+  if (foreshadowCount > 0) {
+    html += '<div class="memory-section">';
+    html += '<div class="ms-title">🪝 伏笔追踪</div>';
+    (lm.foreshadows || []).forEach(function(f) {
+      var resolved = f.resolved ? '✅' : '⏳';
+      html += '<div class="memory-item"><span class="mi-label">' + resolved + '</span><span class="mi-value">' + he((f.desc || f.description || '').substring(0, 60)) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // 剧情线索
+  if (threadCount > 0) {
+    html += '<div class="memory-section">';
+    html += '<div class="ms-title">🧵 剧情线索</div>';
+    (lm.plotThreads || []).forEach(function(t) {
+      html += '<div class="memory-item"><span class="mi-label">线索</span><span class="mi-value">' + he((t.desc || t.name || '').substring(0, 60)) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // 滚动摘要
+  if (lm.rollingSummary) {
+    html += '<div class="memory-section">';
+    html += '<div class="ms-title">📝 滚动摘要</div>';
+    html += '<div style="padding:8px 12px;background:#f9fafb;border-radius:8px;font-size:12px;line-height:1.6;color:#555;">' + he(lm.rollingSummary.substring(0, 500)) + (lm.rollingSummary.length > 500 ? '...' : '') + '</div>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+// ===== 全书检测页 =====
+function renderDetectPage() {
+  document.getElementById('level4-detect').style.display = '';
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+
+  var chapters = w.chapters || [];
+  var container = document.getElementById('detect-content');
+
+  var html = '';
+
+  // 快速概览
+  html += '<div class="memory-section">';
+  html += '<div class="ms-title">📊 全书概览</div>';
+  var totalWords = 0;
+  chapters.forEach(function(ch){ totalWords += (ch.content || '').length; });
+  html += '<div class="memory-item"><span class="mi-label">总章节</span><span class="mi-value">' + chapters.length + ' 章</span></div>';
+  html += '<div class="memory-item"><span class="mi-label">总字数</span><span class="mi-value">约 ' + (totalWords/10000).toFixed(1) + ' 万字</span></div>';
+  var emptyCh = chapters.filter(function(ch){ return !(ch.content || '').length; }).length;
+  html += '<div class="memory-item"><span class="mi-label">空白章节</span><span class="mi-value">' + emptyCh + ' 章' + (emptyCh > 0 ? ' ⚠️' : '') + '</span></div>';
+  var confirmedCh = chapters.filter(function(ch){ return ch.confirmed; }).length;
+  html += '<div class="memory-item"><span class="mi-label">已确认</span><span class="mi-value">' + confirmedCh + ' / ' + chapters.length + ' 章</span></div>';
+  html += '</div>';
+
+  // 检测按钮
+  html += '<div style="padding:12px 16px;">';
+  html += '<button class="detect-btn" onclick="runFullDetect()">🔍 全书一致性检测</button>';
+  html += '</div>';
+
+  // 检测结果容器
+  html += '<div id="detect-result-area"></div>';
+
+  container.innerHTML = html;
+}
+
+function runFullDetect() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+  var chapters = w.chapters || [];
+  if (chapters.length === 0) {
+    showToast('暂无章节，无法检测');
+    return;
+  }
+
+  var area = document.getElementById('detect-result-area');
+  area.innerHTML = '<div style="text-align:center;padding:20px;color:#6366f1;">正在检测中...</div>';
+
+  // 延迟执行避免UI卡顿
+  setTimeout(function() {
+    var issues = [];
+    var lm = w.longMemory || {};
+    var genre = w.category ? (w.category.cat1 || '') : (w.genre || '');
+
+    // 1. 章节连续性检测
+    var emptyChapters = 0;
+    var shortChapters = 0;
+    var totalWords = 0;
+    chapters.forEach(function(ch, idx) {
+      var len = (ch.content || '').length;
+      totalWords += len;
+      if (len === 0) emptyChapters++;
+      else if (len < 500) shortChapters++;
+    });
+
+    if (emptyChapters > 0) issues.push({type:'bad', text:'有 ' + emptyChapters + ' 个空白章节'});
+    if (shortChapters > 0) issues.push({type:'warn', text:'有 ' + shortChapters + ' 个章节字数不足500字'});
+
+    // 2. 角色一致性
+    var charNames = (lm.charStates || []).map(function(c){ return c.name; }).filter(Boolean);
+    var mainChar = charNames[0];
+    if (mainChar) {
+      var missingChapters = [];
+      var streak = 0;
+      chapters.forEach(function(ch, idx) {
+        if ((ch.content || '').indexOf(mainChar) < 0) {
+          streak++;
+          if (streak >= 3) missingChapters.push('第' + (idx+1) + '章');
+        } else {
+          streak = 0;
+        }
+      });
+      if (missingChapters.length > 0) {
+        issues.push({type:'warn', text:'主角「' + mainChar + '」连续3章以上未出场：' + missingChapters.slice(0,3).join('、')});
+      }
+    }
+
+    // 3. 伏笔未回收
+    var unresolved = (lm.foreshadows || []).filter(function(f){ return !f.resolved; });
+    if (unresolved.length > 5) {
+      issues.push({type:'warn', text:'有 ' + unresolved.length + ' 条伏笔未回收，可能导致读者遗忘'});
+    }
+
+    // 4. 记忆债务
+    var memDebt = (lm.memoryDebt || []).length;
+    if (memDebt > 0) {
+      issues.push({type:'bad', text:'记忆债务 ' + memDebt + ' 条，建议尽快处理'});
+    }
+
+    // 5. 章节索引覆盖
+    var idxCount = (lm.chapterIndex || []).length;
+    if (idxCount < chapters.length * 0.8) {
+      issues.push({type:'warn', text:'章节索引覆盖率仅 ' + Math.round(idxCount/Math.max(1,chapters.length)*100) + '%，部分章节缺少记忆提取'});
+    }
+
+    // 6. 题材违禁词检测
+    if (genre && genre.indexOf('历史') >= 0) {
+      var banWords = ['空间戒指','灵气','炼丹','系统面板','修仙者'];
+      var found = [];
+      chapters.forEach(function(ch) {
+        banWords.forEach(function(bw) {
+          if ((ch.content||'').indexOf(bw) >= 0 && found.indexOf(bw) < 0) found.push(bw);
+        });
+      });
+      if (found.length > 0) {
+        issues.push({type:'bad', text:'历史题材出现违禁元素：' + found.join('、')});
+      }
+    }
+
+    // 7. 重复章节标题检测
+    var titles = chapters.map(function(ch){ return (ch.title || '').trim(); });
+    var dupTitles = {};
+    titles.forEach(function(t){ if(t) dupTitles[t] = (dupTitles[t]||0)+1; });
+    var dups = Object.keys(dupTitles).filter(function(t){ return dupTitles[t] > 1; });
+    if (dups.length > 0) {
+      issues.push({type:'warn', text:'存在重复章节标题：' + dups.slice(0,3).join('、')});
+    }
+
+    // 计算总分
+    var score = 100;
+    issues.forEach(function(issue) {
+      if (issue.type === 'bad') score -= 15;
+      else if (issue.type === 'warn') score -= 8;
+    });
+    score = Math.max(0, score);
+
+    var scoreClass = score >= 80 ? 'good' : (score >= 60 ? 'warn' : 'bad');
+
+    var html = '<div class="detect-result">';
+    html += '<div class="dr-score ' + scoreClass + '">' + score + '分</div>';
+
+    // 维度标签
+    html += '<div class="dr-dims">';
+    var dims = [
+      {name:'章节完整性', ok: emptyChapters === 0},
+      {name:'角色一致性', ok: !issues.some(function(i){ return i.text.indexOf('主角') >= 0; })},
+      {name:'伏笔管理', ok: unresolved.length <= 5},
+      {name:'记忆健康', ok: memDebt === 0},
+      {name:'索引覆盖', ok: idxCount >= chapters.length * 0.8},
+      {name:'标题唯一', ok: dups.length === 0}
+    ];
+    dims.forEach(function(d) {
+      html += '<span class="dr-dim ' + (d.ok ? 'good' : 'bad') + '">' + d.name + (d.ok ? ' ✓' : ' ✗') + '</span>';
+    });
+    html += '</div>';
+
+    // 问题列表
+    if (issues.length > 0) {
+      html += '<div class="dr-issues">';
+      issues.forEach(function(issue) {
+        html += '<div class="dr-issue"><span class="dri-icon">' + (issue.type === 'bad' ? '🔴' : '🟡') + '</span>' + he(issue.text) + '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="text-align:center;padding:16px;color:#10b981;font-size:14px;">✅ 全书检测通过，未发现明显问题</div>';
+    }
+
+    html += '</div>';
+    area.innerHTML = html;
+  }, 100);
+}
+
+// ===== 章节管理页 =====
+function renderChaptersPage() {
+  document.getElementById('level4-chapters').style.display = '';
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+
+  var chapters = w.chapters || [];
+  var container = document.getElementById('chapters-content');
+
+  if (chapters.length === 0) {
+    container.innerHTML = '<div class="ch-empty">暂无章节<br>点击下方按钮添加</div>' +
+      '<button class="ch-add-btn" onclick="addChapter()">+ 添加第一章</button>';
+    return;
+  }
+
+  // 按卷分组（每50章一卷，或根据细纲中的卷标记）
+  var volumes = buildVolumes(w, chapters);
+
+  var html = '';
+  volumes.forEach(function(vol, vi) {
+    html += '<div class="volume-group">';
+    html += '<div class="volume-header" onclick="toggleVolume(' + vi + ')">';
+    html += '<span class="vh-arrow" id="vh-arrow-' + vi + '">›</span>';
+    html += '<span>' + he(vol.name) + '</span>';
+    html += '<span class="vh-count">' + vol.chapters.length + '章 · 约' + (vol.totalWords/10000).toFixed(1) + '万字</span>';
+    html += '</div>';
+    html += '<div class="volume-body" id="vb-' + vi + '">';
+    vol.chapters.forEach(function(ch) {
+      var len = (ch.content || '').length;
+      var badge = ch.confirmed ? '<span class="ch-badge done">已确认</span>' : '<span class="ch-badge draft">草稿</span>';
+      html += '<div class="ch-item" onclick="editChapter(' + ch.idx + ')">';
+      html += '<div class="ch-num">' + (ch.idx + 1) + '</div>';
+      html += '<div class="ch-info">';
+      html += '<div class="ch-name">' + he(ch.title || '第' + (ch.idx+1) + '章') + '</div>';
+      html += '<div class="ch-meta">' + len + '字' + (ch._quality ? ' · 质量' + ch._quality.score + '分' : '') + '</div>';
+      html += '</div>';
+      html += badge;
+      html += '<div class="ch-actions">';
+      html += '<button onclick="event.stopPropagation();moveChapter(' + ch.idx + ',-1)">↑</button>';
+      html += '<button onclick="event.stopPropagation();moveChapter(' + ch.idx + ',1)">↓</button>';
+      html += '<button onclick="event.stopPropagation();deleteChapter(' + ch.idx + ')">🗑</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+  });
+
+  html += '<button class="ch-add-btn" onclick="addChapter()">+ 添加新章节</button>';
+
+  container.innerHTML = html;
+
+  // 默认展开第一卷
+  if (volumes.length > 0) toggleVolume(0);
+}
+
+// 构建卷结构
+function buildVolumes(work, chapters) {
+  var volumes = [];
+  var VOLUME_SIZE = 50; // 默认每50章一卷
+
+  // 尝试从细纲中提取卷信息
+  var detail = work.detail || '';
+  var volMarkers = [];
+  if (detail) {
+    var volRegex = /第[一二三四五六七八九十百千\d]+[卷部]/g;
+    var match;
+    while ((match = volRegex.exec(detail)) !== null) {
+      // 找到卷标记对应的章节号
+      var beforeText = detail.substring(0, match.index);
+      var chMatch = beforeText.match(/第(\d+)[章节]/g);
+      var startCh = chMatch ? parseInt(chMatch[chMatch.length-1].match(/\d+/)[0]) - 1 : 0;
+      volMarkers.push({name: match[0], startIdx: startCh});
+    }
+  }
+
+  if (volMarkers.length > 1) {
+    // 按细纲的卷标记分组
+    volMarkers.forEach(function(vm, vi) {
+      var endIdx = vi < volMarkers.length - 1 ? volMarkers[vi+1].startIdx : chapters.length;
+      var volChapters = [];
+      var totalWords = 0;
+      for (var i = vm.startIdx; i < endIdx && i < chapters.length; i++) {
+        var ch = chapters[i];
+        volChapters.push({idx: i, title: ch.title, content: ch.content, confirmed: ch.confirmed, _quality: ch._quality});
+        totalWords += (ch.content || '').length;
+      }
+      volumes.push({name: vm.name, chapters: volChapters, totalWords: totalWords});
+    });
+  } else {
+    // 默认按50章一卷
+    var volCount = Math.ceil(chapters.length / VOLUME_SIZE);
+    for (var v = 0; v < volCount; v++) {
+      var start = v * VOLUME_SIZE;
+      var end = Math.min(start + VOLUME_SIZE, chapters.length);
+      var volChapters = [];
+      var totalWords = 0;
+      for (var i = start; i < end; i++) {
+        var ch = chapters[i];
+        volChapters.push({idx: i, title: ch.title, content: ch.content, confirmed: ch.confirmed, _quality: ch._quality});
+        totalWords += (ch.content || '').length;
+      }
+      volumes.push({
+        name: '第' + (v+1) + '卷（第' + (start+1) + '-' + end + '章）',
+        chapters: volChapters,
+        totalWords: totalWords
+      });
+    }
+  }
+
+  return volumes;
+}
+
+function toggleVolume(vi) {
+  var body = document.getElementById('vb-' + vi);
+  var arrow = document.getElementById('vh-arrow-' + vi);
+  if (!body) return;
+  if (body.classList.contains('open')) {
+    body.classList.remove('open');
+    if (arrow) arrow.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    if (arrow) arrow.classList.add('open');
+  }
+}
+
+function editChapter(idx) {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+  localStorage.setItem('last_edit_work', w.id);
+  localStorage.setItem('last_edit_chapter', idx);
+  location.href = 'write.html?mode=edit&ch=' + idx;
+}
+
+function addChapter() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) return;
+  if (!w.chapters) w.chapters = [];
+  var num = w.chapters.length + 1;
+  w.chapters.push({title: '第' + num + '章', content: '', confirmed: false});
+  try { DB.save(); } catch(e) {}
+  showToast('已添加第' + num + '章');
+  renderChaptersPage();
+}
+
+function moveChapter(idx, dir) {
+  var w = getWorkById(_selectedWorkId);
+  if (!w || !w.chapters) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= w.chapters.length) return;
+  var temp = w.chapters[idx];
+  w.chapters[idx] = w.chapters[newIdx];
+  w.chapters[newIdx] = temp;
+  try { DB.save(); } catch(e) {}
+  showToast('已移动');
+  renderChaptersPage();
+}
+
+function deleteChapter(idx) {
+  var w = getWorkById(_selectedWorkId);
+  if (!w || !w.chapters) return;
+  if (!confirm('确定删除第' + (idx+1) + '章「' + (w.chapters[idx].title || '') + '」？')) return;
+  w.chapters.splice(idx, 1);
+  try { DB.save(); } catch(e) {}
+  showToast('已删除');
+  renderChaptersPage();
+}
+
+// 去AI生成
+function goToArch() {
+  localStorage.setItem('last_edit_work', _selectedWorkId);
+  location.href = 'architecture.html';
+}
+
+// 导出模块
+function exportModule() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) { showToast('无作品'); return; }
+  var mi = MODULE_INFO[_selectedModule];
+  var text = '《' + w.title + '》' + mi.name + '\n\n' + (w[_selectedModule] || '未填写');
+  var blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = w.title + '_' + mi.name + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出');
+}
+
+// 导入模块
+function importModule() {
+  document.getElementById('import-file-input').click();
+}
+
+function handleImportFile(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var textarea = document.getElementById('edit-textarea');
+    if (textarea) {
+      textarea.value = e.target.result;
+      updateEditInfo();
+      showToast('已导入，请保存');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// 清空模块
+function clearModule() {
+  if (!confirm('确定清空当前模块内容？')) return;
+  var textarea = document.getElementById('edit-textarea');
+  if (textarea) {
+    textarea.value = '';
+    updateEditInfo();
+  }
+}
+
+// ===== 删除作品 =====
+function askDelete(id) {
+  deleteTargetId = id;
+  document.getElementById('delete-modal').classList.add('open');
+}
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('open');
+  deleteTargetId = null;
+}
+function confirmDelete() {
+  if (!deleteTargetId) return;
+  DB.deleteWork(deleteTargetId);
+  closeDeleteModal();
+  renderLevel2();
+  showToast('已删除');
+}
+
+// ===== 回收站 =====
+function openTrash() {
+  var box = document.getElementById('trash-list');
+  var trash = DB.listTrash ? DB.listTrash() : [];
+  if (!trash.length) {
+    box.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:30px 0;">回收站为空</div>';
+  } else {
+    box.innerHTML = trash.map(function(t){
+      var w = t.work || {};
+      var days = Math.floor((Date.now() - (t.deletedAt||0)) / (24*3600*1000));
+      var left = Math.max(0, 30 - days);
+      return '<div class="trash-item">'
+        + '<div><div class="ti-title">' + he(w.title||'未命名') + '</div>'
+        + '<div class="ti-days">剩余 ' + left + ' 天</div></div>'
+        + '<button class="ti-restore" onclick="restoreOne(\'' + w.id + '\')">恢复</button>'
+        + '</div>';
+    }).join('');
+  }
+  document.getElementById('trash-modal').classList.add('open');
+}
+function closeTrash() { document.getElementById('trash-modal').classList.remove('open'); }
+function restoreOne(id) {
+  if (DB.restoreFromTrash && DB.restoreFromTrash(id)) {
+    showToast('已恢复');
+    openTrash();
+    renderLevel2();
+  } else {
+    showToast('恢复失败');
+  }
+}
+function emptyTrashConfirm() {
+  if (!confirm('清空回收站后将永久删除全部条目，确认？')) return;
+  if (DB.emptyTrash) DB.emptyTrash();
+  closeTrash();
+  showToast('已清空');
+}
+
+// ===== Toast =====
+function showToast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2000);
+}
+
+// ===== 初始化 =====
+window.addEventListener('DOMContentLoaded', function(){
+  try { DB.init(); } catch(e) { console.error('DB init:', e); }
+
+  var lastId = localStorage.getItem('last_edit_work');
+  if (lastId && DB.works && DB.works.find(function(w){ return w.id === lastId; })) {
+    _selectedWorkId = lastId;
+    goToLevel(2);
+  } else {
+    goToLevel(1);
+  }
+});
+</script>
+</body>
+</html>

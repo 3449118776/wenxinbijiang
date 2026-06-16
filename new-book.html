@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>新建小说 v2</title>
+<style>
+* {margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body {background:#f6f7f9;color:#333;padding-bottom:78px;}
+
+/* 顶部导航 */
+.page-header {background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
+.back-btn {font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
+.page-title {flex:1;font-size:17px;font-weight:600;text-align:center;}
+
+/* 表单区块 */
+.block {background:#fff;border-radius:12px;padding:16px;margin:12px 16px;}
+.block-title {font-size:14px;font-weight:600;margin-bottom:10px;color:#222;}
+input,textarea {width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:14px;outline:none;background:#fff;}
+textarea {min-height:80px;resize:none;line-height:1.6;}
+
+/* 标签选择 */
+.tag-scroll {display:flex;gap:8px;overflow-x:auto;padding:4px 0;scrollbar-width:none;-ms-overflow-style:none;}
+.tag-scroll::-webkit-scrollbar {display:none;}
+.tag {flex-shrink:0;padding:6px 12px;border-radius:16px;font-size:13px;white-space:nowrap;cursor:pointer;}
+.tag-first {background:#f0f2ff;color:#6366f1;}
+.tag-first.active {background:#6366f1;color:#fff;}
+.tag-second {background:#f1f5f9;color:#64748b;}
+.tag-second.active {background:#6366f1;color:#fff;}
+.tag-third {background:#f9fafb;color:#777;}
+.tag-third.active {background:#1a1a1a;color:#fff;}
+
+/* 提交按钮 */
+.submit-btn {
+  margin:20px 16px;
+  display:block;
+  width:calc(100% - 32px);
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:#fff;
+  text-align:center;
+  padding:14px 0;
+  border-radius:10px;
+  font-size:15px;
+  border:none;
+  cursor:pointer;
+}
+.tip {font-size:12px;color:#999;margin-top:4px;}
+
+/* 底部导航 */
+.tab-bar {
+  position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;
+  display:flex;align-items:center;justify-content:space-around;
+  box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;
+}
+.tab-item {display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
+.tab-item.active {color:#6366f1;}
+.tab-icon {font-size:22px;line-height:1;}
+
+/* Toast */
+.toast {position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show {opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="page-header">
+  <div class="back-btn" onclick="location.href='index.html'">&#8249;</div>
+  <div class="page-title">新建小说作品</div><span style="background:#ef4444;color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;">v21</span>
+  <div style="width:24px;"></div>
+</div>
+
+<div class="block">
+  <div class="block-title">作品名称</div>
+  <input type="text" id="book-name" placeholder="输入小说书名">
+</div>
+<div class="block">
+  <div class="block-title">作品简介</div>
+  <textarea id="book-desc" placeholder="简单描述小说核心看点、主线风格"></textarea>
+</div>
+<div class="block">
+  <div class="block-title">目标平台</div>
+  <div style="display:flex;gap:10px;" id="platform-pick">
+    <div class="pf-opt pf-qidian active" onclick="pickPlatform(this,'qidian')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:2px solid #6366f1;background:#f0f2ff;">
+      <div style="font-size:16px;font-weight:700;color:#6366f1;">📡 起点</div>
+      <div style="font-size:11px;color:#888;margin-top:2px;">订阅制·慢热·世界深厚</div>
+    </div>
+    <div class="pf-opt pf-fanqie" onclick="pickPlatform(this,'fanqie')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:2px solid #e5e7eb;background:#fff;">
+      <div style="font-size:16px;font-weight:700;color:#333;">🍅 番茄</div>
+      <div style="font-size:11px;color:#888;margin-top:2px;">免费制·快节奏·爽点密集</div>
+    </div>
+  </div>
+</div>
+<div class="block">
+  <div class="block-title">一级题材大类（必选）</div>
+  <div class="tag-scroll" id="cat1-list"></div>
+</div>
+<div class="block">
+  <div class="block-title">二级细分品类（必选）</div>
+  <div class="tag-scroll" id="cat2-list"></div>
+</div>
+<div class="block">
+  <div class="block-title">三级风格流派（可选，可多选）</div>
+  <div class="tag-scroll" id="cat3-list"></div>
+  <div class="tip">多选贴合小说叙事风格</div>
+</div>
+<button class="submit-btn" onclick="submitNewBook()">创建小说作品</button>
+
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+var CATEGORIES={
+  '玄幻':['东方玄幻','异世转生','洪荒封神','高武世界','低武玄幻','系统玄幻','宗门争霸','杀伐流','黑暗种田','克苏鲁修仙'],
+  '仙侠':['古典仙侠','现代修仙','凡人流','仙魔大战','御剑长生','诡道修仙','宗门历练','渡劫飞升'],
+  '都市':['都市异能','都市战神','都市神医','都市奶爸','豪门商战','都市系统','娱乐圈','都市灵异','职业神医','商战争霸'],
+  '历史':['穿越历史','架空王朝','乱世争霸','帝王权谋','军旅征战','种田经营','文人风骨','考公科举','基建种田'],
+  '科幻':['星际远航','机甲战争','末世求生','赛博朋克','基因进化','外星文明','废土世界','A生存'],
+  '规则怪谈':['民俗怪谈','校园规则','无限副本','密室求生','诡异医院','动物园规则','中式克苏鲁','都市传说'],
+  '悬疑灵异':['民俗探秘','山村诡事','盗墓探险','灵异复苏','都市探灵','怪异收容','恐怖无限流','诡道民俗'],
+  '发疯/癫文':['穿书发疯','炮灰觉醒','癫人设','对抗剧情','反套路系统','轻松吐槽','直播弹幕体'],
+  '游戏异界':['游戏穿越','副本闯关','网游重生','卡牌体系','职业竞技','规则怪谈无限流','串珠式副本'],
+  '武侠':['江湖恩怨','快意恩仇','门派争斗','轻功武学','江湖探案','乱世武侠'],
+  '西式奇幻':['魔法世界','精灵兽人','龙族传说','骑士冒险','恶魔契约','异世界冒险','西方种田'],
+  '现实生活':['职场奋斗','校园日常','家庭情感','创业纪实','乡土生活','都市纪实','职业成长','竞技体育'],
+  '短剧向':['强钩子开局','高反转节奏','冲突前置','三章一爆','身份反差','逆袭打脸','复仇爽文','信息差博弈'],
+  '经营建设':['领地争霸','商业帝国','末日基建','种田经营','宗门建设','生态模拟','科技攀爬']
+};
+var STYLES=['无敌流','隐忍流','群像剧','单主角','多女主','纯热血','偏悬疑','轻搞笑','硬核设定','日常向','快节奏','慢热叙事','复仇主线','成长流','生存流','发疯文学','反套路','短剧化','游戏化','信息差博弈','段子化日常','暗黑向','中式恐怖','非典型主角','职业硬核风','经营模拟风'];
+var selectedCat1='玄幻',selectedCat2='',selectedStyles=new Set(),selectedPlatform='qidian';
+function pickPlatform(el, pf) {
+  selectedPlatform = pf;
+  var all = document.querySelectorAll('.pf-opt');
+  for (var i = 0; i < all.length; i++) {
+    all[i].style.border = '2px solid #e5e7eb';
+    all[i].style.background = '#fff';
+    all[i].querySelector('div').style.color = '#333';
+    all[i].classList.remove('active');
+  }
+  el.style.border = '2px solid #6366f1';
+  el.style.background = '#f0f2ff';
+  el.querySelector('div').style.color = '#6366f1';
+  el.classList.add('active');
+}
+function initCategories(){
+  document.getElementById('cat1-list').innerHTML=Object.keys(CATEGORIES).map(function(n){
+    return '<div class="tag tag-first'+(n===selectedCat1?' active':'')+'" onclick="selectCat1(\''+n+'\')">'+n+'</div>';
+  }).join('');
+  updateCat2();updateCat3();
+}
+function selectCat1(n){selectedCat1=n;selectedCat2='';initCategories();}
+function selectCat2(n){selectedCat2=n;
+  // 清除错误高亮
+  document.querySelectorAll('.tag-second').forEach(function(t){t.style.border='';});
+  updateCat2();
+}
+function toggleStyle(n){if(selectedStyles.has(n))selectedStyles.delete(n);else selectedStyles.add(n);updateCat3();}
+function updateCat2(){
+  var cats = CATEGORIES[selectedCat1]||[];
+  // 默认选中第一个二级品类
+  if (cats.length > 0 && !selectedCat2) {
+    selectedCat2 = cats[0];
+  }
+  document.getElementById('cat2-list').innerHTML=cats.map(function(n){
+    return '<div class="tag tag-second'+(n===selectedCat2?' active':'')+'" onclick="selectCat2(\''+n+'\')">'+n+'</div>';
+  }).join('');
+}
+function updateCat3(){
+  document.getElementById('cat3-list').innerHTML=STYLES.map(function(n){
+    return '<div class="tag tag-third'+(selectedStyles.has(n)?' active':'')+'" onclick="toggleStyle(\''+n+'\')">'+n+'</div>';
+  }).join('');
+}
+function submitNewBook(){
+  try {
+  var name=document.getElementById('book-name').value.trim();
+  var desc=document.getElementById('book-desc').value.trim();
+  // 清除之前的错误高亮
+  document.getElementById('book-name').style.border='';
+  var cat2List = document.getElementById('cat2-list');
+  // 兼容旧浏览器的 forEach
+  var tags = cat2List.querySelectorAll('.tag');
+  for (var ti = 0; ti < tags.length; ti++) { tags[ti].style.border = ''; }
+  
+  if(!name){
+    document.getElementById('book-name').style.border='2px solid #ef4444';
+    document.getElementById('book-name').focus();
+    showToast('请输入作品名称', {error: true, duration: 3000});
+    return;
+  }
+  if(!selectedCat2){
+    // 高亮二级品类区域
+    for (var tj = 0; tj < tags.length; tj++) { tags[tj].style.border = '1px solid #ef4444'; }
+    showToast('请选择二级细分品类（点击上方标签）', {error: true, duration: 3000});
+    return;
+  }
+
+  var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStyles ? selectedStylesArr(selectedStyles) : []});
+
+  // 保存题材信息到作品根字段，供AI模块使用
+  work.genre = selectedCat1;
+  work.plotType = selectedCat2;
+  work._platform = selectedPlatform;
+  DB.saveWork(work);
+
+  showToast('创建成功');
+  setTimeout(function(){location.href='architecture.html';},500);
+  } catch(e) {
+    var errMsg = '创建失败：' + (e.message || '未知错误');
+    try { showToast(errMsg, {error: true, duration: 5000}); } catch(e2) {}
+    alert(errMsg);
+  }
+}
+
+// 兼容旧浏览器：Set → Array
+function selectedStylesArr(ss) {
+  var arr = [];
+  if (ss && ss.forEach) {
+    ss.forEach(function(v) { arr.push(v); });
+  }
+  return arr;
+}
+
+function initAll(){
+  try { DB.init(); } catch(e) { console.error('DB init:', e); }
+  try { initCategories(); } catch(e) { console.error('Categories init:', e); }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAll);
+} else {
+  initAll();
+}
+</script>
+</body>
+</html>

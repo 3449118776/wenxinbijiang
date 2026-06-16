@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  wxbj:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: wenxin-bijiang
+    ports:
+      - "3456:3456"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-wxbj_cloud_secret_change_me}
+      - PORT=3456

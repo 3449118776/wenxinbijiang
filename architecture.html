@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>架构设计 - 四级导航版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+html,body{width:100%;height:100dvh;overflow:hidden;background:#f6f7f9;color:#333;}
+body{display:flex;flex-direction:column;}
+
+/* ===== 固定顶部区域 ===== */
+.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+
+.page-header{height:42px;display:flex;align-items:center;padding:0 16px;gap:10px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;}
+.page-title{font-size:16px;font-weight:600;flex:1;}
+.more-btn{color:#6366f1;font-size:16px;cursor:pointer;}
+
+.select-wrap{display:flex;align-items:center;padding:6px 16px 8px;gap:8px;}
+.select-wrap .select-label{font-size:13px;color:#666;white-space:nowrap;}
+.select-wrap select{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px;min-width:120px;background:#fff;outline:none;}
+
+.btn-pipeline{padding:6px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;}
+.btn-pipeline:hover{transform:scale(1.03);box-shadow:0 4px 16px rgba(99,102,241,0.4);}
+.btn-pipeline:active{transform:scale(0.97);}
+
+/* 架构标签 — 固定于顶部 */
+.arch-tab{display:flex;margin:0;border-top:1px solid #f0f0f0;}
+.arch-tab-item{flex:1;text-align:center;padding:10px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;}
+.arch-tab-item:last-child{border-right:none;}
+.arch-tab-item.active{background:#6366f1;color:#fff;}
+.arch-tab-item.finish{background:#f0fdf4;}
+.arch-tab-item.finish::after{content:"✓";position:absolute;top:2px;right:3px;font-size:9px;color:#10b981;}
+.arch-tab-item.lock{background:#f3f4f6;color:#aaa;cursor:not-allowed;}
+.arch-tab-item.lock::before{content:"🔒";font-size:10px;}
+
+/* ===== 中间滚动区（App页面主体） ===== */
+.app-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0 0;}
+
+/* 每个模块是一个"页面" */
+.module-page{display:none;min-height:100%;}
+.module-page.current{display:block;}
+
+/* 构思输入区 */
+.idea-bar{background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;margin:0 12px 10px;padding:10px 12px;display:flex;align-items:center;gap:8px;}
+.idea-bar textarea{flex:1;border:none;outline:none;background:transparent;font-size:13px;line-height:1.5;resize:none;min-height:36px;max-height:72px;color:#333;}
+.idea-bar textarea::placeholder{color:#d4a574;}
+.idea-bar .speech-btn{padding:6px 10px;border-radius:8px;background:#6366f1;color:#fff;border:none;font-size:13px;cursor:pointer;flex-shrink:0;}
+.idea-bar .speech-btn.recording{background:#ef4444;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* 平台选择 */
+.page-pf-selector{display:flex;gap:6px;margin:0 12px 10px;font-size:12px;align-items:center;}
+.page-pf-selector .pf-item{flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid #eee;background:#fff;color:#666;}
+.page-pf-selector .pf-item.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+
+/* 数量选择 */
+.page-count-selector{display:flex;align-items:center;gap:8px;margin:0 12px 10px;font-size:13px;color:#666;}
+
+/* 操作按钮 */
+.page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;}
+.page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;}
+.page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
+
+/* 进度条 */
+.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
+.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.page-progress .prog-title{font-size:12px;color:#6366f1;font-weight:600;}
+.page-progress .prog-cancel{padding:2px 10px;border:1px solid #ef4444;border-radius:5px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;}
+.page-progress .prog-bg-btn{padding:2px 10px;border:1px solid #6366f1;border-radius:5px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;}
+#bg-gen-indicator{transition:all 0.3s;}
+.page-progress .prog-bar-wrap{background:#eee;border-radius:8px;height:6px;overflow:hidden;}
+.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s ease;}
+.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.page-progress .prog-bar.working{background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
+.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#999;}
+
+/* 前置预览条 */
+.preview-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;margin:0 12px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;cursor:pointer;font-size:12px;color:#b45309;}
+.preview-body{display:none;margin:0 12px 10px;padding:8px 12px;background:#fff;border:1px solid #f0f0f0;border-radius:8px;font-size:12px;line-height:1.6;color:#555;max-height:180px;overflow-y:auto;white-space:pre-wrap;}
+
+/* 内容区 — 填满剩余空间，可滚动 */
+.module-content{background:#fff;border-radius:10px;margin:0 12px 20px;border:1px solid #f0f0f0;overflow:hidden;}
+.module-content .raw-area{padding:10px 12px;}
+.module-content .raw-area textarea{width:100%;min-height:360px;border:none;outline:none;font-size:13px;line-height:1.6;resize:vertical;background:transparent;color:#333;overflow-y:auto;}
+.detail-pager,.arch-display-pager{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px 10px;background:#fafbff;border-top:1px solid #eee;flex-wrap:wrap;}
+.detail-pager .pager-btn,.arch-display-pager .pager-btn{padding:4px 12px;border:1px solid #6366f1;border-radius:6px;background:#fff;color:#6366f1;font-size:12px;cursor:pointer;}
+.detail-pager .pager-btn:disabled,.arch-display-pager .pager-btn:disabled{opacity:0.35;cursor:default;}
+.detail-pager .pager-info,.arch-display-pager .pager-info{font-size:11px;color:#999;min-width:120px;text-align:center;}
+.arch-display-pager .pager-btn.strong{background:#6366f1;color:#fff;}
+
+/* 卷选卡片 */
+.vol-cards{margin:0 12px 10px;}
+.vol-card{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;background:#fff;margin-bottom:5px;transition:all 0.15s;}
+.vol-card.checked{border-color:#6366f1;background:#f0f2ff;}
+.vol-card input{accent-color:#6366f1;width:16px;height:16px;flex-shrink:0;margin:0;}
+.vol-card .vc-info{flex:1;min-width:0;}
+.vol-card .vc-name{font-size:13px;font-weight:600;color:#1a1a2e;}
+.vol-card .vc-desc{font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vol-card .vc-ch{font-size:11px;font-weight:700;color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:6px;flex-shrink:0;}
+.vol-override{font-size:11px;color:#999;margin:0 12px 8px;}
+
+/* 导入区 */
+.import-area{margin:0 12px 10px;background:#fff;border-radius:10px;padding:12px;border:1px solid #e5e7eb;}
+.import-area .label{font-size:13px;font-weight:600;color:#333;margin-bottom:6px;}
+.import-area textarea{width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;min-height:60px;resize:vertical;background:#f9f9f9;outline:none;line-height:1.5;}
+.import-area textarea:focus{border-color:#6366f1;}
+.import-btns{display:flex;gap:6px;margin-top:6px;}
+.import-btns button{flex:1;padding:6px;border-radius:6px;border:none;font-size:12px;cursor:pointer;}
+.import-btns .btn-primary{background:#6366f1;color:#fff;}
+.import-btns .btn-secondary{background:#f1f5f9;color:#666;}
+
+/* API 警告 */
+.api-warn{display:none;margin:0 12px 8px;padding:8px 12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;font-size:12px;color:#92400e;}
+
+/* ===== 底部导航 ===== */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent}
+.tab-item.active{color:#6366f1}
+.tab-icon{font-size:22px;line-height:1}
+
+/* Toast */
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+
+/* loading */
+.loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.8);z-index:99999;}
+
+/* 右键菜单 */
+.rmenu{position:fixed;top:70px;right:0;background:#fff;border-radius:0 0 0 12px;box-shadow:0 2px 12px rgba(0,0,0,0.15);z-index:200;display:none;min-width:140px;}
+.rmenu.show{display:block;}
+.ritem{display:block;width:100%;padding:12px 14px;border:none;background:none;font-size:13px;color:#333;text-align:left;cursor:pointer;border-bottom:1px solid #f0f0f0;}
+.ritem:last-child{border-bottom:none;}
+
+/* 保存确认弹窗 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;}
+.modal-overlay .modal-card{background:#fff;border-radius:16px;padding:20px;width:85%;max-width:300px;text-align:center;}
+.modal-overlay .modal-title{font-size:16px;font-weight:600;margin-bottom:6px;}
+.modal-overlay .modal-desc{font-size:13px;color:#666;margin-bottom:14px;}
+.modal-overlay .modal-btns{display:flex;gap:8px;}
+.modal-overlay .modal-btns button{flex:1;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;}
+.modal-overlay .modal-btns .btn-cancel{border:1px solid #e5e7eb;background:#fff;}
+.modal-overlay .modal-btns .btn-confirm{border:none;background:#6366f1;color:#fff;}
+
+/* 卡片表单复用 */
+.card-form h3{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f0f0f0;}
+.cf-section{margin-bottom:10px;background:#f9f9fb;border-radius:8px;padding:8px;border:1px solid #eef0f5;}
+.cf-label{font-size:12px;font-weight:600;color:#6366f1;margin-bottom:6px;}
+.cf-row{margin-bottom:6px;}
+.cf-row label{display:block;font-size:11px;color:#888;margin-bottom:2px;}
+.cf-row-inline{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.cf-row-inline label{font-size:11px;color:#888;white-space:nowrap;}
+.cf-input{width:100%;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;background:#fff;}
+.cf-input:focus{border-color:#6366f1;}
+.cf-input-sm{flex:1;min-width:50px;padding:5px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;outline:none;background:#fff;}
+.cf-input-sm:focus{border-color:#6366f1;}
+.cf-textarea{width:100%;min-height:50px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;resize:vertical;background:#fff;line-height:1.5;}
+.cf-textarea:focus{border-color:#6366f1;}
+.cf-select{padding:4px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;outline:none;background:#fff;}
+.cf-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.cf-chip{padding:3px 10px;background:#f0f2ff;color:#6366f1;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid transparent;user-select:none;}
+.cf-chip.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+.cf-add-btn{padding:4px 10px;background:#6366f1;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer;}
+
+/* ===== 四级导航样式 ===== */
+.level-view{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.level-view.active{display:flex;}
+
+/* 面包屑导航 */
+.breadcrumb{display:flex;align-items:center;padding:8px 16px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;gap:4px;font-size:12px;color:#999;overflow-x:auto;white-space:nowrap;}
+.breadcrumb .bc-item{cursor:pointer;color:#6366f1;transition:color .2s;}
+.breadcrumb .bc-item:hover{color:#4f46e5;}
+.breadcrumb .bc-sep{color:#d1d5db;margin:0 2px;}
+.breadcrumb .bc-current{color:#333;font-weight:600;cursor:default;}
+
+/* 一级：架构设计入口 */
+.level1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
+.level1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
+.level1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
+.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
+.level1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
+.level1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
+
+/* 二级：选择作品 */
+.level2-body{flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;}
+.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
+.work-card .wc-info{flex:1;min-width:0;}
+.work-card .wc-title{font-size:15px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
+.work-card .wc-meta{font-size:12px;color:#9ca3af;}
+.work-card .wc-arrow{color:#d1d5db;font-size:16px;}
+.work-card .wc-progress{display:flex;gap:4px;margin-top:4px;}
+.work-card .wc-progress .prog-dot{width:8px;height:8px;border-radius:50%;background:#e5e7eb;}
+.work-card .wc-progress .prog-dot.done{background:#10b981;}
+.work-card .wc-progress .prog-dot.current{background:#6366f1;}
+.level2-empty{text-align:center;padding:60px 20px;color:#9ca3af;}
+.level2-empty .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.level2-empty .empty-text{font-size:14px;line-height:1.6;margin-bottom:16px;}
+.level2-empty .empty-btn{display:inline-block;padding:10px 24px;border-radius:10px;background:#6366f1;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;}
+
+/* 三级：模块选择 */
+.level3-body{flex:1;overflow-y:auto;padding:12px 16px;-webkit-overflow-scrolling:touch;}
+.level3-work-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f2ff;border-radius:10px;margin-bottom:12px;font-size:13px;color:#6366f1;font-weight:500;}
+.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.module-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.module-card .mc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.module-card .mc-icon.world-icon{background:#eff6ff;color:#2563eb;}
+.module-card .mc-icon.chars-icon{background:#fdf4ff;color:#9333ea;}
+.module-card .mc-icon.outline-icon{background:#ecfdf5;color:#059669;}
+.module-card .mc-icon.detail-icon{background:#fffbeb;color:#d97706;}
+.module-card .mc-info{flex:1;min-width:0;}
+.module-card .mc-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:2px;}
+.module-card .mc-desc{font-size:12px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.module-card .mc-status{font-size:11px;padding:3px 8px;border-radius:10px;flex-shrink:0;font-weight:500;}
+.module-card .mc-status.pending{background:#f3f4f6;color:#9ca3af;}
+.module-card .mc-status.done{background:#ecfdf5;color:#10b981;}
+.module-card .mc-status.locked{background:#fef3c7;color:#d97706;}
+.module-card .mc-arrow{color:#d1d5db;font-size:16px;}
+
+/* 四级：AI生成页 */
+.level4-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;}
+.level4-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;}
+.level4-header .l4-back{background:none;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;color:#666;font-family:inherit;}
+.level4-header .l4-back:active{background:#f3f4f6;}
+.level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
+.level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
+</style>
+</head>
+<body>
+
+<!-- ===== 固定顶部 ===== -->
+<div class="top-shell">
+  <div class="page-header">
+    <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">‹</div>
+    <div class="page-title" id="global-page-title">架构设计</div>
+    <span style="font-size:10px;color:#ccc;margin-right:4px;">v66</span>
+    <div class="more-btn" onclick="showRMenu()">⋯</div>
+  </div>
+  <!-- 面包屑导航 -->
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="bc-item" onclick="goToLevel(1)">架构设计</span>
+  </div>
+  <!-- 全局进度条（四级可见） -->
+  <div class="page-progress" id="detail-progress">
+    <div class="prog-header"><span class="prog-title" id="prog-title">正在生成...</span><div style="display:flex;gap:6px;"><button class="prog-bg-btn" id="prog-bg-btn" onclick="switchToBackgroundGen()">🔽 后台</button><button class="prog-cancel" id="prog-cancel" onclick="cancelGeneration()">✕ 取消</button></div></div>
+    <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-info"><span id="prog-detail"></span><span id="prog-pct">0%</span></div>
+  </div>
+  <!-- 后台生成浮动指示器 -->
+  <div id="bg-gen-indicator" style="display:none;position:fixed;bottom:20px;left:20px;background:#fff;border-radius:14px;padding:12px 16px;box-shadow:0 4px 24px rgba(99,102,241,0.25);z-index:9998;min-width:240px;cursor:pointer;transition:all 0.3s;border:1px solid #e0e0ff;" onclick="switchToFrontGen()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="width:20px;height:20px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:bg-spin 0.8s linear infinite;"></div>
+      <span style="font-size:13px;font-weight:600;color:#333;" id="bg-gen-title">AI 后台生成中</span>
+    </div>
+    <div style="background:#f0f0ff;border-radius:4px;height:6px;overflow:hidden;">
+      <div id="bg-gen-bar" style="height:100%;background:#6366f1;border-radius:4px;width:0%;transition:width 0.5s;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+      <span style="font-size:11px;color:#888;" id="bg-gen-task">准备中...</span>
+      <span style="font-size:11px;color:#6366f1;font-weight:600;" id="bg-gen-pct">0%</span>
+    </div>
+  </div>
+  <style>@keyframes bg-spin{100%{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- ===== 一级：架构设计入口 ===== -->
+<div class="level-view active" id="level1">
+  <div class="level1-body">
+    <div class="l1-icon">🏗️</div>
+    <div class="l1-title">架构设计</div>
+    <div class="l1-desc">从世界观到章节细纲，递进构建你的故事骨架。选择作品，逐步完善架构。</div>
+    <button class="l1-start" onclick="goToLevel(2)">选择作品</button>
+  </div>
+</div>
+
+<!-- ===== 二级：选择作品 ===== -->
+<div class="level-view" id="level2">
+  <div class="level2-body" id="level2-body">
+    <!-- 动态渲染作品列表 -->
+  </div>
+</div>
+
+<!-- ===== 三级：模块选择 ===== -->
+<div class="level-view" id="level3">
+  <div class="level3-body" id="level3-body">
+    <div class="level3-work-info" id="level3-work-info">📖 当前作品</div>
+    <div id="level3-modules">
+      <!-- 动态渲染模块卡片 -->
+    </div>
+  </div>
+</div>
+
+<!-- ===== 四级：AI生成页 ===== -->
+<div class="level-view" id="level4">
+  <div class="level4-header">
+    <button class="l4-back" onclick="goToLevel(3)">← 返回</button>
+    <div class="l4-title" id="level4-title">世界观</div>
+    <span class="l4-action" id="level4-action" onclick="showRMenu()">⋯</span>
+  </div>
+  <div class="level4-body" id="level4-body">
+
+    <!-- 世界观页 -->
+    <div class="module-page current" id="page-world">
+      <div class="api-warn" id="api-warn"></div>
+      <div class="idea-bar">
+        <textarea id="idea-world" placeholder="输入构思，AI补全世界观..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-world')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-world" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-world" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-world">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 人物人设页 -->
+    <div class="module-page" id="page-chars">
+      <div class="preview-bar" id="prev-chars-bar" onclick="toggleMiniPreview('chars')"><span>💡 世界观预览</span><span id="prev-chars-icon">▶</span></div>
+      <div class="preview-body" id="prev-chars-body"></div>
+      <div class="idea-bar">
+        <textarea id="idea-chars" placeholder="输入构思，AI补全人物人设..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-chars')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" onclick="showRelationGraph()">👥 关系图</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-chars" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-chars" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-chars">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全书大纲页 -->
+    <div class="module-page" id="page-outline">
+      <div class="preview-bar" id="prev-outline-bar" onclick="toggleMiniPreview('outline')"><span>💡 前置架构预览</span><span id="prev-outline-icon">▶</span></div>
+      <div class="preview-body" id="prev-outline-body"></div>
+      <div class="page-pf-selector" id="pf-select-outline"></div>
+      <div class="idea-bar">
+        <textarea id="idea-outline" placeholder="输入构思，AI补全大纲..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-outline')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-count-selector" id="count-select-outline"></div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-outline" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-outline" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-outline">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 章节细纲页 -->
+    <div class="module-page" id="page-detail">
+      <div class="preview-bar" id="prev-detail-bar" onclick="toggleMiniPreview('detail')"><span>💡 前置架构预览</span><span id="prev-detail-icon">▶</span></div>
+      <div class="preview-body" id="prev-detail-body"></div>
+      <div class="idea-bar">
+        <textarea id="idea-detail" placeholder="输入构思，AI补全细纲..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-detail')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-count-selector" id="count-select-detail"></div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" onclick="strengthenDetailOutlineV46()">🔥 细纲补强</button>
+        <button class="sec-btn" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+      </div>
+      <div class="import-area" id="detail-import-area" style="display:none;">
+        <div class="label">📥 导入已有细纲</div>
+        <textarea id="detail-import-text" placeholder="粘贴已有细纲文本（每章一行：第X章 《标题》 | 场景：XX | 人物：XX | 剧情：XX | 爆点：XX）"></textarea>
+        <div class="import-btns">
+          <button class="btn-secondary" onclick="hideImportArea()">取消</button>
+          <button class="btn-primary" onclick="importDetailText()">解析导入</button>
+        </div>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-detail" placeholder="AI生成内容将显示在这里..." style="min-height:200px;"></textarea></div>
+        <div class="detail-pager" id="detail-pager" style="display:none;">
+          <button class="pager-btn" id="detail-pager-prev" onclick="detailPrevPage()">← 上一批(100章)</button>
+          <span class="pager-info" id="detail-pager-info">第1/1页</span>
+          <button class="pager-btn" id="detail-pager-next" onclick="detailNextPage()">下一批(100章) →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== 底部导航 ===== -->
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<!-- 右键菜单 -->
+<div class="rmenu" id="rmenu">
+  <button class="ritem" onclick="location.href='new-book.html';hideRMenu()">✨ 新建作品</button>
+  <button class="ritem" onclick="exportArch()">📤 导出架构</button>
+  <button class="ritem" onclick="hideRMenu()">✕ 关闭</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 保存确认弹窗 -->
+<div class="modal-overlay" id="save-confirm-modal">
+  <div class="modal-card">
+    <div class="modal-title">💾 确认保存</div>
+    <div class="modal-desc">保存后将覆盖当前模块并解锁下一模块</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cancelSave()">取消</button>
+      <button class="btn-confirm" onclick="confirmSave()">确认保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ai-local.js"></script>
+<script src="assets/js/speech.js"></script>
+<script src="assets/js/cards.js"></script>
+<script src="assets/js/architecture.js"></script>
+<script>
+// ===== 四级导航核心逻辑 =====
+var _currentLevel = 1;
+var _selectedWorkId = '';
+var _selectedModule = 'world';
+
+var MODULE_INFO = {
+  world:   { name: '世界观', icon: '🌍', iconClass: 'world-icon', desc: '时代背景、地理、势力、力量体系' },
+  chars:   { name: '人物人设', icon: '👤', iconClass: 'chars-icon', desc: '主角、配角、反派、人物关系' },
+  outline: { name: '全书大纲', icon: '📋', iconClass: 'outline-icon', desc: '主线结构、卷章划分、转折点' },
+  detail:  { name: '章节细纲', icon: '📑', iconClass: 'detail-icon', desc: '逐章场景、剧情节点、爆点设计' }
+};
+
+// 导航到指定级别
+function goToLevel(level, opts) {
+  opts = opts || {};
+  _currentLevel = level;
+
+  // 隐藏所有级别
+  for (var i = 1; i <= 4; i++) {
+    var el = document.getElementById('level' + i);
+    if (el) el.classList.toggle('active', i === level);
+  }
+
+  // 更新面包屑
+  updateBreadcrumb();
+
+  // 更新顶部标题和返回按钮
+  var backBtn = document.getElementById('global-back-btn');
+  var pageTitle = document.getElementById('global-page-title');
+
+  if (level === 1) {
+    backBtn.onclick = function(){ location.href = 'index.html'; };
+    pageTitle.textContent = '架构设计';
+  } else {
+    backBtn.onclick = handleGlobalBack;
+    if (level === 2) pageTitle.textContent = '选择作品';
+    else if (level === 3) {
+      var w = getWorkById(_selectedWorkId);
+      pageTitle.textContent = w ? w.title : '模块选择';
+    }
+    else if (level === 4) {
+      var mi = MODULE_INFO[_selectedModule];
+      pageTitle.textContent = mi ? mi.name : 'AI生成';
+    }
+  }
+
+  // 渲染各级内容
+  if (level === 1) renderLevel1();
+  if (level === 2) renderLevel2();
+  if (level === 3) renderLevel3();
+  if (level === 4) renderLevel4();
+}
+
+// 全局返回
+function handleGlobalBack() {
+  if (_currentLevel > 1) goToLevel(_currentLevel - 1);
+  else location.href = 'index.html';
+}
+
+// 更新面包屑
+function updateBreadcrumb() {
+  var bc = document.getElementById('breadcrumb');
+  var html = '<span class="bc-item" onclick="goToLevel(1)">架构设计</span>';
+
+  if (_currentLevel >= 2) {
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(2)">选择作品</span>';
+  }
+  if (_currentLevel >= 3) {
+    var w = getWorkById(_selectedWorkId);
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(3)">' + he(w ? w.title : '模块选择') + '</span>';
+  }
+  if (_currentLevel >= 4) {
+    var mi = MODULE_INFO[_selectedModule];
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-current">' + (mi ? mi.name : 'AI生成') + '</span>';
+  }
+
+  bc.innerHTML = html;
+}
+
+// 获取作品
+function getWorkById(id) {
+  if (!id) return null;
+  return (DB.works || []).find(function(w){ return w.id === id; });
+}
+
+// ===== 一级：架构设计入口 =====
+function renderLevel1() {
+}
+
+// ===== 二级：选择作品 =====
+function renderLevel2() {
+  var works = DB.works || [];
+  var body = document.getElementById('level2-body');
+
+  if (works.length === 0) {
+    body.innerHTML = '<div class="level2-empty">' +
+      '<div class="empty-icon">📝</div>' +
+      '<div class="empty-text">还没有作品<br>先去创建一部吧</div>' +
+      '<a class="empty-btn" href="new-book.html">新建作品</a>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  works.forEach(function(w) {
+    var wc = 0, chCount = 0;
+    (w.chapters || []).forEach(function(ch){ chCount++; wc += (ch.content || '').length; });
+    // 计算架构完成度
+    var archStatus = w.archStatus || {};
+    var doneCount = 0;
+    if (w.world) doneCount++;
+    if (w.chars) doneCount++;
+    if (w.outline) doneCount++;
+    if (w.detail) doneCount++;
+
+    html += '<div class="work-card" onclick="selectWork(\'' + he(w.id) + '\')">';
+    html += '<div class="wc-icon">📖</div>';
+    html += '<div class="wc-info">';
+    html += '<div class="wc-title">' + he(w.title || '未命名') + '</div>';
+    html += '<div class="wc-meta">' + chCount + '章 · 约' + wc + '字</div>';
+    html += '<div class="wc-progress">';
+    html += '<div class="prog-dot' + (w.world ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.chars ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.outline ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.detail ? ' done' : '') + '"></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="wc-arrow">›</div>';
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+}
+
+function selectWork(workId) {
+  _selectedWorkId = workId;
+  localStorage.setItem('last_edit_work', workId);
+  goToLevel(3);
+}
+
+// ===== 三级：模块选择 =====
+function renderLevel3() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) { goToLevel(2); return; }
+
+  // 更新作品信息
+  var infoEl = document.getElementById('level3-work-info');
+  if (infoEl) infoEl.innerHTML = '📖 当前作品：' + he(w.title || '未命名');
+
+  var modulesEl = document.getElementById('level3-modules');
+  var html = '';
+
+  // 一键全部生成按钮
+  html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;" onclick="generateAllPipeline()" title="4位AI专家协作：世界观→人设→大纲→细纲 全自动生成">🚀 一键全部生成</button>';
+
+  var moduleKeys = ['world', 'chars', 'outline', 'detail'];
+  moduleKeys.forEach(function(key) {
+    var mi = MODULE_INFO[key];
+    var hasContent = !!(w[key]);
+    var statusClass = hasContent ? 'done' : 'pending';
+    var statusText = hasContent ? '已完成' : '未生成';
+
+    html += '<div class="module-card" onclick="selectModule(\'' + key + '\')">';
+    html += '<div class="mc-icon ' + mi.iconClass + '">' + mi.icon + '</div>';
+    html += '<div class="mc-info">';
+    html += '<div class="mc-title">' + mi.name + '</div>';
+    html += '<div class="mc-desc">' + mi.desc + '</div>';
+    html += '</div>';
+    html += '<span class="mc-status ' + statusClass + '">' + statusText + '</span>';
+    html += '<div class="mc-arrow">›</div>';
+    html += '</div>';
+  });
+
+  modulesEl.innerHTML = html;
+}
+
+function selectModule(module) {
+  _selectedModule = module;
+  goToLevel(4);
+}
+
+// ===== 四级：AI生成页 =====
+function renderLevel4() {
+  var mi = MODULE_INFO[_selectedModule];
+  var titleEl = document.getElementById('level4-title');
+  if (titleEl && mi) titleEl.textContent = mi.name;
+
+  // 切换到对应的 module-page
+  switchArchModule(_selectedModule);
+}
+
+// ===== 兼容原有 switchArchModule =====
+var _origSwitchArchModule = window.switchArchModule;
+window.switchArchModule = function(mod) {
+  _selectedModule = mod;
+  // 隐藏所有 module-page，显示目标
+  var pages = document.querySelectorAll('.module-page');
+  pages.forEach(function(p){ p.classList.remove('current'); });
+  var target = document.getElementById('page-' + mod);
+  if (target) target.classList.add('current');
+
+  // 如果在四级视图中，确保在level4
+  if (_currentLevel !== 4) {
+    goToLevel(4);
+  }
+
+  // 调用原始初始化逻辑
+  if (typeof initArchPage === 'function') {
+    // 确保当前作品已设置
+    if (_selectedWorkId) localStorage.setItem('last_edit_work', _selectedWorkId);
+    initArchPage();
+  }
+};
+
+// ===== 兼容原有 onWorkChange =====
+function onWorkChange(id) {
+  _selectedWorkId = id;
+  localStorage.setItem('last_edit_work', id);
+  try {
+    window._moduleDirty = {};
+    window._genCheckpoint = null;
+    window._lastArchFix = null;
+    window._detailPage = {idx:0, size:100};
+  } catch(e) {}
+  if (typeof initArchPage === 'function') initArchPage();
+}
+
+// ===== 其他原有功能 =====
+document.addEventListener('input', function(e){
+  if (e.target && /^raw-/.test(e.target.id || '')) {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.max(360, Math.min(e.target.scrollHeight + 24, 1800)) + 'px';
+  }
+});
+
+function he(s){return s?s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';}
+function showRMenu(){document.getElementById('rmenu').classList.add('show');}
+function hideRMenu(){document.getElementById('rmenu').classList.remove('show');}
+
+function clearCurrentIdea(){
+  var el = document.getElementById('idea-' + (_selectedModule || 'world')) || document.querySelector('.module-page.current textarea[id^="idea-"]');
+  if (!el) return;
+  if (!confirm('确定清空当前模块构思？清空后会从作品草稿里删除。')) return;
+  el.value = '';
+  var module = (el.id || '').replace('idea-', '') || (_selectedModule || 'world');
+  if (window.saveModuleIdea) window.saveModuleIdea(module, '');
+}
+
+function toggleMiniPreview(module){
+  var body = document.getElementById('prev-'+module+'-body');
+  var icon = document.getElementById('prev-'+module+'-icon');
+  if(body.style.display==='block'){body.style.display='none';icon.textContent='▶';}
+  else{body.style.display='block';icon.textContent='▼';}
+}
+
+function handleArchFileImport(event){
+  var file=event.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var mod = _selectedModule || 'world';
+    var raw = document.getElementById('raw-'+mod);
+    if(raw){raw.value=e.target.result;showToast('已导入到'+MODULE_INFO[mod].name+'编辑区');}
+  };
+  reader.readAsText(file);
+  setTimeout(function(){event.target.value='';},800);
+}
+
+function exportArch(){
+  var w=getWork();if(!w){showToast('无作品');return;}
+  var text='《'+w.title+'》架构设计\n\n';
+  text+='【世界观】\n'+(w.world||'未填写')+'\n\n';
+  text+='【人物人设】\n'+(w.chars||'未填写')+'\n\n';
+  text+='【全书大纲】\n'+(w.outline||'未填写')+'\n\n';
+  text+='【章节细纲】\n'+(w.detail||'未填写')+'\n\n';
+  var html='<html><head><meta charset="UTF-8"><title>'+he(w.title)+'</title><style>*{margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f5;color:#333;padding:20px}pre{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;white-space:pre-wrap;word-break:break-all}</style></head><body><h1>'+he(w.title)+' - 架构设计</h1><pre>'+he(text)+'</pre></body></html>';
+  var blob=new Blob([html],{type:'text/html'});var url=URL.createObjectURL(blob);window.open(url,'_blank');hideRMenu();
+}
+
+var MODULE_MAP = {world:1, chars:2, outline:3, detail:4};
+
+// 初始化
+window.addEventListener('DOMContentLoaded',function(){
+  try{
+    DB.init();
+    // 如果有上次编辑的作品，自动跳到二级
+    var lastId = localStorage.getItem('last_edit_work');
+    if (lastId && DB.works && DB.works.find(function(w){ return w.id === lastId; })) {
+      _selectedWorkId = lastId;
+      goToLevel(2);
+    } else {
+      goToLevel(1);
+    }
+  } catch(e){
+    console.error('Init error:',e);
+    goToLevel(1);
+  }
+});
+
+// 安全兜底
+setTimeout(function(){
+  var ca = document.getElementById('card-world');
+  if(ca && (!ca.innerHTML||ca.innerHTML.trim()==='')){
+    ca.innerHTML='<div style="padding:30px;text-align:center;color:#999;"><p>正在加载…</p><p style="font-size:12px;margin-top:6px;">如长时间无响应，请<a href="new-book.html" style="color:#6366f1;">新建作品</a>后重试</p></div>';
+  }
+},2000);
+</script>
+</body>
+</html>

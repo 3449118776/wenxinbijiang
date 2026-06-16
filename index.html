@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>文心笔匠 - 首页 v2</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+body{background:#f6f7f9;color:#222;padding-bottom:82px}
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:10}
+.page-title{flex:1;text-align:center;font-size:17px;font-weight:700}
+.placeholder{width:32px}
+.section{background:#fff;margin-top:8px;padding:16px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:12px}
+.quick-list{display:flex;flex-direction:column;gap:8px}
+.quick-item{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:12px}
+.quick-item:active{border-color:#6366f1;background:#f0f2ff}
+.quick-item .qi-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.quick-item .qi-info{flex:1;min-width:0}
+.quick-item .qi-name{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-item .qi-desc{font-size:12px;color:#777;margin-top:3px}
+.quick-item .qi-arrow{color:#d1d5db;font-size:16px;flex-shrink:0}
+.qi-icon.purple{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff}
+.qi-icon.green{background:#ecf9f2;color:#16a34a}
+.qi-icon.blue{background:#f0f2ff;color:#6366f1}
+.qi-icon.pink{background:#fef2f7;color:#ec4899}
+.qi-icon.gray{background:#f1f5f9;color:#64748b}
+.qi-icon.orange{background:#fff7ed;color:#f97316}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;-webkit-tap-highlight-color:transparent}
+.tab-item.active{color:#6366f1}
+.tab-icon{font-size:22px;line-height:1}
+.toast{position:fixed;top:78px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:12px 20px;border-radius:22px;font-size:14px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="placeholder"></div>
+  <div class="page-title">文心笔匠</div>
+  <div class="placeholder"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">创作流程</div>
+  <div class="quick-list">
+    <div class="quick-item" onclick="location.href='new-book.html'">
+      <div class="qi-icon purple">✨</div>
+      <div class="qi-info"><div class="qi-name">新建小说</div><div class="qi-desc">定名+简介+全维度题材</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+    <div class="quick-item" onclick="location.href='architecture.html'">
+      <div class="qi-icon purple">📋</div>
+      <div class="qi-info"><div class="qi-name">架构设计</div><div class="qi-desc">递进构建四大架构模块</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">工具</div>
+  <div class="quick-list">
+    <div class="quick-item" onclick="location.href='write.html'">
+      <div class="qi-icon blue">✍</div>
+      <div class="qi-info"><div class="qi-name">AI写作</div><div class="qi-desc">AI辅助创作与编辑</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+    <div class="quick-item" onclick="location.href='work-list.html'">
+      <div class="qi-icon green">📂</div>
+      <div class="qi-info"><div class="qi-name">作品管理</div><div class="qi-desc">管理小说与架构</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+    <div class="quick-item" onclick="location.href='template-library.html'">
+      <div class="qi-icon pink">📄</div>
+      <div class="qi-info"><div class="qi-name">模板管理</div><div class="qi-desc">架构模板与词句库</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+    <div class="quick-item" onclick="location.href='center.html'">
+      <div class="qi-icon purple">🧭</div>
+      <div class="qi-info"><div class="qi-name">创作中枢</div><div class="qi-desc">记忆/备份/体检/看板</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">分析</div>
+  <div class="quick-list">
+    <div class="quick-item" onclick="location.href='data-predict.html'">
+      <div class="qi-icon gray">📈</div>
+      <div class="qi-info"><div class="qi-name">数据预测</div><div class="qi-desc">选择作品后进入AI预测界面</div></div>
+      <div class="qi-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab-item active" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+function initAll(){
+  try { DB.init(); } catch(e) { console.error('DB init:', e); }
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAll);else initAll();
+</script>
+</body>
+</html>
