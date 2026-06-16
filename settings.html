@@ -134,10 +134,12 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
           <option value="together">Together AI</option>
           <option value="stepfun">阶跃星辰 (StepFun)</option>
           <option value="qwenlm">QwenLM</option>
+          <option value="openrouter">OpenRouter (聚合，含免费模型)</option>
+          <option value="custom">自定义 (填入任何 OpenAI 兼容地址)</option>
         </select>
 
-        <label>API 地址（自动填充）</label>
-        <input type="text" id="api-url" readonly>
+        <label>API 地址（可手动修改，选自定义时请填入完整地址）</label>
+        <input type="text" id="api-url">
 
         <label>模型</label>
         <select id="api-model">
@@ -145,6 +147,11 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
           <option value="qwen-plus">qwen-plus</option>
           <option value="qwen-turbo">qwen-turbo (快速)</option>
         </select>
+
+        <div id="custom-model-row" style="display:none;">
+          <label>自定义模型名（选 custom 服务商时必填）</label>
+          <input type="text" id="custom-model-input" placeholder="例如：gpt-4o-mini 或 qwen/qwen2.5-7b-instruct">
+        </div>
 
         <button onclick="saveApiProviderConfig()">保存服务商配置</button>
       </div>
