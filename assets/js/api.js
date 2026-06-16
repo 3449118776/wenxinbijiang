@@ -21,8 +21,11 @@ const API_PROVIDERS = {
   cohere:      { name: 'Cohere',     url: 'https://api.cohere.com/v1/chat', type: 'openai' },
   together:    { name: 'Together',   url: 'https://api.together.xyz/v1/chat/completions', type: 'openai' },
   anthropic:   { name: 'Anthropic',  url: 'https://api.anthropic.com/v1/messages', type: 'claude' },
-  stepfun:      { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
-  qwenlm:       { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' }
+  stepfun:     { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
+  qwenlm:    { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' },
+  openrouter: { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', type: 'openai' },
+  custom:     { name: '自定义',      url: '', type: 'openai' },
+  free:       { name: '免费模式(内置端点)', url: '', type: 'free' }
 };
 
 const MODEL_CONFIGS = {
@@ -147,6 +150,17 @@ const MODEL_CONFIGS = {
     { value: 'qwen3-max',       label: 'Qwen3 Max (推荐)' },
     { value: 'qwen3-coder',     label: 'Qwen3 Coder' },
     { value: 'qwen2.5-72b-instruct', label: 'Qwen2.5 72B' }
+  ],
+  openrouter: [
+    { value: 'mistralai/ministral-3b',   label: 'Mistral 3B (免费)' },
+    { value: 'deepseek/deepseek-chat',   label: 'DeepSeek V3' },
+    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+    { value: 'openai/gpt-4o-mini',       label: 'GPT-4o Mini' },
+    { value: 'meta-llama/llama-3.1-8b-instruct', label: 'Llama 3.1 8B' },
+    { value: 'google/gemma-3-27b-it',    label: 'Gemma 3 27B' }
+  ],
+  custom: [
+    { value: 'custom-model',             label: '自定义模型（请在下方输入）' }
   ]
 };
 
@@ -613,6 +627,18 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   var isMsg = Array.isArray(prompt);
   let response, result = '';
 
+  // custom 模式：从 apiConfig 读取用户自定义的 URL 和模型名
+  var targetUrl = providerConfig.url;
+  var targetModel = model;
+  if (provider === 'custom') {
+    try {
+      var customCfg = (DB.getApiConfig && DB.getApiConfig()) || {};
+      if (customCfg.customUrl) targetUrl = customCfg.customUrl;
+      if (customCfg.customModel) targetModel = customCfg.customModel;
+    } catch(e) {}
+    if (!targetUrl) throw new Error('请在设置中填写自定义 API 地址');
+  }
+
   try {
     if (providerConfig.type === 'free') {
       // 🆓 免费模式：轮询内置 FREE_ENDPOINTS，任一个成功即返回
@@ -711,11 +737,11 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
     } else {
       // OpenAI 兼容
       var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
-      response = await fetch(providerConfig.url, {
+      response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
         body: JSON.stringify({
-          model: model || 'deepseek-chat',
+          model: targetModel || 'deepseek-chat',
           messages: messages,
           max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS,
           temperature: 0.7

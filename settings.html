@@ -135,6 +135,7 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
           <option value="stepfun">阶跃星辰 (StepFun)</option>
           <option value="qwenlm">QwenLM</option>
           <option value="openrouter">OpenRouter (聚合，含免费模型)</option>
+          <option value="free">🆓 免费模式（内置社区端点，无需密钥）</option>
           <option value="custom">自定义 (填入任何 OpenAI 兼容地址)</option>
         </select>
 
@@ -314,9 +315,40 @@ function applyThemeColor(color){
 function onProviderChange(){
   const provider=document.getElementById('api-provider').value;
   const prov=API_PROVIDERS[provider];
-  if(prov){document.getElementById('api-url').value=prov.url;}
+  const urlInput=document.getElementById('api-url');
+  const customRow=document.getElementById('custom-model-row');
+  // custom 模式：不自动填充 URL，让用户自己填；显示自定义模型输入框
+  if(provider==='custom'){
+    const cfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+    urlInput.value=cfg.customUrl||'';
+    urlInput.placeholder='请输入完整的 API 地址，例如 https://api.example.com/v1/chat/completions';
+    urlInput.readOnly=false;
+    if(customRow)customRow.style.display='block';
+  // free 模式：无 URL 配置，禁用输入框
+  }else if(provider==='free'){
+    urlInput.value='';
+    urlInput.placeholder='免费模式使用内置端点，无需配置 URL';
+    urlInput.readOnly=true;
+    if(customRow)customRow.style.display='none';
+  // 普通服务商：自动填充 URL，隐藏自定义模型输入框
+  }else if(prov){
+    urlInput.value=prov.url;
+    urlInput.placeholder='';
+    urlInput.readOnly=false;
+    if(customRow)customRow.style.display='none';
+  }
   updateModelOptions(provider);
+  // 若为 custom 模式，从 DB 读取之前保存的自定义模型名
+  if(provider==='custom'){
+    const cfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+    const cmInput=document.getElementById('custom-model-input');
+    if(cmInput&&cfg.customModel)cmInput.value=cfg.customModel;
+  }
   var config={provider:provider,model:document.getElementById('api-model').value};
+  // 切换服务商时保留已保存的 customUrl/customModel
+  const oldCfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+  if(oldCfg.customUrl)config.customUrl=oldCfg.customUrl;
+  if(oldCfg.customModel)config.customModel=oldCfg.customModel;
   DB.saveApiConfig(config);
   renderKeyList();
 }
@@ -326,6 +358,12 @@ function updateModelOptions(provider){
   if(!modelSelect)return;
   const models=MODEL_CONFIGS[provider]||[];
   modelSelect.innerHTML='';
+  // custom 和 free 模式隐藏模型下拉（改用自定义输入或不配置）
+  if(provider==='custom'||provider==='free'){
+    modelSelect.style.display='none';
+    return;
+  }
+  modelSelect.style.display='';
   models.forEach(function(m){
     var opt=document.createElement('option');
     opt.value=m.value;opt.textContent=m.label;
@@ -337,6 +375,15 @@ function saveApiProviderConfig(){
   const provider=document.getElementById('api-provider').value;
   const model=document.getElementById('api-model').value;
   var config={provider:provider,model:model};
+  // custom 模式：额外保存 URL 和模型名
+  if(provider==='custom'){
+    const urlInput=document.getElementById('api-url');
+    const cmInput=document.getElementById('custom-model-input');
+    config.customUrl=urlInput?urlInput.value.trim():'';
+    config.customModel=cmInput?cmInput.value.trim():'';
+    if(!config.customUrl){showToast('请填写自定义 API 地址');return;}
+    if(!config.customModel){showToast('请填写自定义模型名');return;}
+  }
   DB.saveApiConfig(config);
   renderKeyList();showToast('配置已保存');
 }
