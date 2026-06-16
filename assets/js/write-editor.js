@@ -2113,6 +2113,49 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '\n【最后一句提醒】\n';
   prompt += '写完本章后，不要加"下章预告"或作者旁白。章末的最后一句应该是让读者心跳加速的瞬间。\n';
 
+  // ===== 引擎 1: 向量 RAG（把前文相关章节内容作为记忆注入，避免 AI 写 50 章后忘记前情）
+  try {
+    if (typeof VectorRAG !== 'undefined' && work && work.chapters && work.chapters.length > 2) {
+      var ragIdx = VectorRAG.buildIndex(work);
+      if (ragIdx.size > 0) {
+        var query = (chTitle || '') + ' ' + (work.detail || '').substring(0, 400) + ' ' + (prevContent || '').substring(0, 400);
+        var ragRes = VectorRAG.retrieve(ragIdx, query, 4, { currentChapter: chapterIdx });
+        if (ragRes.length) {
+          prompt += '\n\n【⚠️ RAG 记忆片段 · 自动检索到的 ' + ragRes.length + ' 个前文相关片段（仅供一致性参考，不要原文引用）：\n';
+          for (var rx = 0; rx < ragRes.length; rx++) {
+            var rc = ragRes[rx].chunk;
+            prompt += (rx + 1) + '. ' + rc.title + '（相关度 ' + ragRes[rx].score.toFixed(3) + '）：' + rc.rawText + '\n';
+          }
+          prompt += '——请严格依据以上已发生的事实写作，不要编造尚未出现的情节/角色/关系。\n';
+        }
+      }
+    }
+  } catch (e) {}
+
+  // ===== 引擎 2: 作者风格签名（如果作品中保存了 styleSample 则注入，以保持写作风格一致）
+  try {
+    if (typeof StyleEngine !== 'undefined' && work && work.styleSample && work.styleSample.length >= 500) {
+      var sig = StyleEngine.extractSignature(work.styleSample, work.title || '作者风格');
+      if (sig && sig.signatureText) {
+        prompt += '\n\n【⚠️ 作者风格签名 · 以下风格签名是从用户提供的样本作品中自动提取的，请在本章写作中严格保持一致：\n';
+        prompt += sig.signatureText + '\n';
+      }
+    } else if (typeof StyleEngine !== 'undefined' && work && work.chapters && work.chapters.length >= 3) {
+      // 没有显式 styleSample 的情况下：用最近 3 章的风格作为参考
+      var merged = '';
+      for (var cx = Math.max(0, work.chapters.length - 3); cx < work.chapters.length; cx++) {
+        if (work.chapters[cx] && work.chapters[cx].content) merged += work.chapters[cx].content;
+      }
+      if (merged.length >= 2000) {
+        var sig2 = StyleEngine.extractSignature(merged, '最近章节风格');
+        if (sig2 && sig2.signatureText) {
+          prompt += '\n\n【⚠️ 作者风格签名（基于最近 3 章自动提取）：\n';
+          prompt += sig2.signatureText + '\n';
+        }
+      }
+    }
+  } catch (e) {}
+
   return prompt;
 }
 
