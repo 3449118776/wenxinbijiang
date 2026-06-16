@@ -1,1 +1,0 @@
-{"presets":[["@babel/preset-env",{"targets":{"browsers":["ios_saf >= 9","android >= 4.4"]}}]]}
