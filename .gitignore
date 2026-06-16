@@ -64,3 +64,16 @@ htmlcov/
 
 # ===== Internal =====
 /.work/
+
+# ===== Cloudflare Wrangler =====
+.wrangler/
+
+# ===== Database =====
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== Images / Assets =====
+*.png
+!assets/**/*.png
