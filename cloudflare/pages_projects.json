@@ -1,0 +1,511 @@
+{
+  "result": [
+    {
+      "id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
+      "name": "wxbj-main",
+      "subdomain": "wxbj-main.pages.dev",
+      "domains": [
+        "wxbj-main.pages.dev"
+      ],
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "3449118776",
+          "owner_id": "291264253",
+          "repo_name": "wenxinbijiang",
+          "repo_id": "1271473464",
+          "production_branch": "main",
+          "pr_comments_enabled": true,
+          "deployments_enabled": true,
+          "production_deployments_enabled": true,
+          "preview_deployment_setting": "all",
+          "preview_branch_includes": [
+            "*"
+          ],
+          "preview_branch_excludes": [],
+          "path_includes": [
+            "*"
+          ],
+          "path_excludes": []
+        }
+      },
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "root_dir": "",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "deployment_configs": {
+        "preview": {
+          "env_vars": {
+            "WXBJ_SECRET": "[REDACTED]"
+          },
+          "kv_namespaces": {
+            "WXBJ_DATA": {
+              "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+            }
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-01-01",
+          "compatibility_flags": [],
+          "build_image_major_version": 3,
+          "usage_model": "standard"
+        },
+        "production": {
+          "env_vars": {
+            "WXBJ_SECRET": "[REDACTED]"
+          },
+          "kv_namespaces": {
+            "WXBJ_DATA": {
+              "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+            }
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-01-01",
+          "compatibility_flags": [],
+          "build_image_major_version": 3,
+          "usage_model": "standard",
+          "wrangler_config_hash": "[REDACTED]"
+        }
+      },
+      "latest_deployment": {
+        "id": "b2985b1d-2e3a-45c6-bc86-1bf339f24d00",
+        "short_id": "b2985b1d",
+        "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
+        "project_name": "wxbj-main",
+        "environment": "production",
+        "url": "https://b2985b1d.wxbj-main.pages.dev",
+        "created_on": "2026-06-16T18:28:22.685319Z",
+        "modified_on": "2026-06-16T18:28:41.390538Z",
+        "latest_stage": {
+          "name": "deploy",
+          "started_on": "2026-06-16T18:28:35.363324Z",
+          "ended_on": "2026-06-16T18:28:41.390538Z",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "github:push",
+          "metadata": {
+            "branch": "main",
+            "commit_hash": "[REDACTED]",
+            "commit_message": "feat: 同步 Clo 代码到 Git\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-06-16T18:28:22.814561Z",
+            "ended_on": "2026-06-16T18:28:25.256285Z",
+            "status": "success"
+          },
+          {
+            "name": "initialize",
+            "started_on": "2026-06-16T18:28:25.256285Z",
+            "ended_on": "2026-06-16T18:28:28.475605Z",
+            "status": "success"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": "2026-06-16T18:28:28.475605Z",
+            "ended_on": "2026-06-16T18:28:30.924127Z",
+            "status": "success"
+          },
+          {
+            "name": "build",
+            "started_on": "2026-06-16T18:28:30.924127Z",
+            "ended_on": "2026-06-16T18:28:35.363324Z",
+            "status": "success"
+          },
+          {
+            "name": "deploy",
+            "started_on": "2026-06-16T18:28:35.363324Z",
+            "ended_on": "2026-06-16T18:28:41.390538Z",
+            "status": "success"
+          }
+        ],
+        "build_config": {
+          "build_command": "",
+          "destination_dir": "",
+          "build_caching": null,
+          "root_dir": "",
+          "web_analytics_tag": null,
+          "web_analytics_token": "[REDACTED]"
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "3449118776",
+            "repo_name": "wenxinbijiang",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "WXBJ_SECRET": "[REDACTED]"
+        },
+        "kv_namespaces": {
+          "WXBJ_DATA": {
+            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+          }
+        },
+        "compatibility_date": "2024-01-01",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": null,
+        "aliases": null,
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": false
+      },
+      "canonical_deployment": {
+        "id": "b2985b1d-2e3a-45c6-bc86-1bf339f24d00",
+        "short_id": "b2985b1d",
+        "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
+        "project_name": "wxbj-main",
+        "environment": "production",
+        "url": "https://b2985b1d.wxbj-main.pages.dev",
+        "created_on": "2026-06-16T18:28:22.685319Z",
+        "modified_on": "2026-06-16T18:28:41.390538Z",
+        "latest_stage": {
+          "name": "deploy",
+          "started_on": "2026-06-16T18:28:35.363324Z",
+          "ended_on": "2026-06-16T18:28:41.390538Z",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "github:push",
+          "metadata": {
+            "branch": "main",
+            "commit_hash": "[REDACTED]",
+            "commit_message": "feat: 同步 Clo 代码到 Git\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-06-16T18:28:22.814561Z",
+            "ended_on": "2026-06-16T18:28:25.256285Z",
+            "status": "success"
+          },
+          {
+            "name": "initialize",
+            "started_on": "2026-06-16T18:28:25.256285Z",
+            "ended_on": "2026-06-16T18:28:28.475605Z",
+            "status": "success"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": "2026-06-16T18:28:28.475605Z",
+            "ended_on": "2026-06-16T18:28:30.924127Z",
+            "status": "success"
+          },
+          {
+            "name": "build",
+            "started_on": "2026-06-16T18:28:30.924127Z",
+            "ended_on": "2026-06-16T18:28:35.363324Z",
+            "status": "success"
+          },
+          {
+            "name": "deploy",
+            "started_on": "2026-06-16T18:28:35.363324Z",
+            "ended_on": "2026-06-16T18:28:41.390538Z",
+            "status": "success"
+          }
+        ],
+        "build_config": {
+          "build_command": "",
+          "destination_dir": "",
+          "build_caching": null,
+          "root_dir": "",
+          "web_analytics_tag": null,
+          "web_analytics_token": "[REDACTED]"
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "3449118776",
+            "repo_name": "wenxinbijiang",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "WXBJ_SECRET": "[REDACTED]"
+        },
+        "kv_namespaces": {
+          "WXBJ_DATA": {
+            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+          }
+        },
+        "compatibility_date": "2024-01-01",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": null,
+        "aliases": null,
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": false
+      },
+      "created_on": "2026-06-16T17:23:48.936066Z",
+      "production_branch": "main",
+      "production_script_name": "pages-worker--15102360-production",
+      "preview_script_name": "pages-worker--15102360-preview",
+      "uses_functions": false,
+      "framework": "",
+      "framework_version": ""
+    },
+    {
+      "id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+      "name": "wenxin-bijiang",
+      "subdomain": "wenxin-bijiang.pages.dev",
+      "domains": [
+        "wenxin-bijiang.pages.dev"
+      ],
+      "build_config": {
+        "build_command": "",
+        "destination_dir": "",
+        "root_dir": ".",
+        "web_analytics_tag": null,
+        "web_analytics_token": "[REDACTED]"
+      },
+      "deployment_configs": {
+        "preview": {
+          "env_vars": {
+            "WXBJ_SECRET": "[REDACTED]"
+          },
+          "kv_namespaces": {
+            "WXBJ_DATA": {
+              "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+            }
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-01-01",
+          "compatibility_flags": [],
+          "build_image_major_version": 3,
+          "usage_model": "standard",
+          "wrangler_config_hash": "[REDACTED]"
+        },
+        "production": {
+          "env_vars": {
+            "WXBJ_SECRET": "[REDACTED]"
+          },
+          "kv_namespaces": {
+            "WXBJ_DATA": {
+              "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+            }
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-01-01",
+          "compatibility_flags": [],
+          "build_image_major_version": 3,
+          "usage_model": "standard",
+          "wrangler_config_hash": "[REDACTED]"
+        }
+      },
+      "latest_deployment": {
+        "id": "0e9a7160-716e-4cfb-854d-fcca96ab7216",
+        "short_id": "0e9a7160",
+        "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+        "project_name": "wenxin-bijiang",
+        "environment": "preview",
+        "url": "https://0e9a7160.wenxin-bijiang.pages.dev",
+        "created_on": "2026-06-16T17:17:19.225007Z",
+        "modified_on": "2026-06-16T17:17:41.61982Z",
+        "latest_stage": {
+          "name": "build",
+          "started_on": "2026-06-16T17:17:34.549477Z",
+          "ended_on": "2026-06-16T17:17:41.61982Z",
+          "status": "failure"
+        },
+        "deployment_trigger": {
+          "type": "github:push",
+          "metadata": {
+            "branch": "trae/solo-agent-eWpAqF",
+            "commit_hash": "[REDACTED]",
+            "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-06-16T17:17:19.864199Z",
+            "ended_on": "2026-06-16T17:17:19.867782Z",
+            "status": "success"
+          },
+          {
+            "name": "initialize",
+            "started_on": "2026-06-16T17:17:19.867782Z",
+            "ended_on": "2026-06-16T17:17:25.524227Z",
+            "status": "success"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": "2026-06-16T17:17:25.524227Z",
+            "ended_on": "2026-06-16T17:17:34.549477Z",
+            "status": "success"
+          },
+          {
+            "name": "build",
+            "started_on": "2026-06-16T17:17:34.549477Z",
+            "ended_on": "2026-06-16T17:17:41.61982Z",
+            "status": "failure"
+          },
+          {
+            "name": "deploy",
+            "started_on": null,
+            "ended_on": null,
+            "status": "idle"
+          }
+        ],
+        "build_config": {
+          "build_command": "",
+          "destination_dir": "",
+          "build_caching": null,
+          "root_dir": ".",
+          "web_analytics_tag": null,
+          "web_analytics_token": "[REDACTED]"
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "3449118776",
+            "repo_name": "-",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "WXBJ_SECRET": "[REDACTED]"
+        },
+        "kv_namespaces": {
+          "WXBJ_DATA": {
+            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+          }
+        },
+        "compatibility_date": "2024-01-01",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": null,
+        "aliases": null,
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": null
+      },
+      "canonical_deployment": {
+        "id": "6398b2a8-02f4-4491-a8e4-996e60a18576",
+        "short_id": "6398b2a8",
+        "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+        "project_name": "wenxin-bijiang",
+        "environment": "production",
+        "url": "https://6398b2a8.wenxin-bijiang.pages.dev",
+        "created_on": "2026-06-16T10:07:01.472808Z",
+        "modified_on": "2026-06-16T11:38:36.714961Z",
+        "latest_stage": {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-06-16T10:07:03.383883Z",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "ad_hoc",
+          "metadata": {
+            "branch": "main",
+            "commit_hash": "[REDACTED]",
+            "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-06-16T10:07:01.472808Z",
+            "ended_on": null,
+            "status": "active"
+          },
+          {
+            "name": "initialize",
+            "started_on": null,
+            "ended_on": null,
+            "status": "idle"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": null,
+            "ended_on": null,
+            "status": "idle"
+          },
+          {
+            "name": "build",
+            "started_on": null,
+            "ended_on": null,
+            "status": "idle"
+          },
+          {
+            "name": "deploy",
+            "started_on": null,
+            "ended_on": "2026-06-16T10:07:03.383883Z",
+            "status": "success"
+          }
+        ],
+        "build_config": {
+          "build_command": "",
+          "destination_dir": "",
+          "build_caching": null,
+          "root_dir": ".",
+          "web_analytics_tag": null,
+          "web_analytics_token": "[REDACTED]"
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "3449118776",
+            "repo_name": "-",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "WXBJ_SECRET": "[REDACTED]"
+        },
+        "kv_namespaces": {
+          "WXBJ_DATA": {
+            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+          }
+        },
+        "compatibility_date": "2024-01-01",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": "bundled",
+        "aliases": null,
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": true
+      },
+      "created_on": "2026-06-12T20:32:08.397425Z",
+      "production_branch": "main",
+      "production_script_name": "pages-worker--14940879-production",
+      "preview_script_name": "pages-worker--14940879-preview",
+      "uses_functions": true,
+      "framework": "",
+      "framework_version": ""
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result_info": {
+    "page": 1,
+    "per_page": 10,
+    "count": 2,
+    "total_count": 2,
+    "total_pages": 1
+  }
+}

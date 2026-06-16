@@ -1,0 +1,11 @@
+{
+  "id": 10,
+  "email": "[REDACTED]",
+  "nickname": "CF新用户",
+  "passwordHash": "[REDACTED]",
+  "visitCount": 0,
+  "lastVisitAt": null,
+  "resetToken": "[REDACTED]",
+  "resetExpiresAt": null,
+  "createdAt": "2026-06-16T09:49:12.594Z"
+}

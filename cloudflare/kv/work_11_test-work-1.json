@@ -1,0 +1,13 @@
+{
+  "userId": 11,
+  "workId": "test-work-1",
+  "title": "测试作品",
+  "category": "玄幻",
+  "synopsis": "测试简介",
+  "payload": "{\" chapters\":[]}",
+  "version": 1,
+  "chapterCount": 0,
+  "totalWords": 0,
+  "updatedAt": "2026-06-16T10:33:50.175Z",
+  "createdAt": "2026-06-16T10:33:50.175Z"
+}

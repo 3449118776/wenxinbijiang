@@ -1,0 +1,20 @@
+{
+  "userId": 2,
+  "workId": "w_1781530823226_203",
+  "title": "中世纪",
+  "category": {
+    "cat1": "西式奇幻",
+    "cat2": "西方种田",
+    "styles": [
+      "单主角",
+      "多女主"
+    ]
+  },
+  "synopsis": "",
+  "payload": "{\"id\":\"w_1781530823226_203\",\"title\":\"中世纪\",\"desc\":\"\",\"category\":{\"cat1\":\"西式奇幻\",\"cat2\":\"西方种田\",\"styles\":[\"单主角\",\"多女主\"]},\"world\":\"\",\"chars\":\"\",\"outline\":\"\",\"detail\":\"\",\"chapters\":[],\"archStatus\":{\"world\":\"pending\",\"chars\":\"locked\",\"outline\":\"locked\",\"detail\":\"locked\"},\"longMemory\":{\"charStates\":[],\"plotThreads\":[],\"foreshadows\":[],\"charArcs\":[],\"memoryAnchors\":{\"core\":[],\"characterTags\":[],\"relationships\":[],\"items\":[],\"locations\":[],\"promises\":[],\"timeline\":[],\"hooks\":[]},\"chapterIndex\":[],\"characterHistory\":{},\"rollingSummary\":\"\",\"memoryDebt\":[],\"lifecycle\":{\"lastCompressedAt\":-1,\"lastRebuildAt\":0},\"volumeMemories\":[],\"characterProfiles\":{},\"foreshadowLedger\":[],\"itemLedger\":{},\"factionGraph\":{},\"timelineEvents\":[],\"ultraMeta\":{\"volumeSize\":50,\"lastUltraUpdateAt\":-1},\"chainConsistency\":[]},\"settings\":{\"genre\":\"\",\"concept\":\"\",\"platform\":\"general\"},\"created\":\"2026-06-15T13:40:23.227Z\",\"_fingerprint\":\"fp_cmmpm7_26_203\",\"genre\":\"西式奇幻\",\"plotType\":\"西方种田\",\"_platform\":\"fanqie\",\"_moduleIdeas\":{\"world\":\"中世纪的的架空世界没有魔法就正常人，爵位是中世纪的爵位最低男爵6个爵位最高是国王，主角是穿越者，四大王国三大公国五大部落一大海盗\"},\"_archIdeas\":{\"world\":\"\"},\"idea\":\"\"}",
+  "version": 1,
+  "chapterCount": 0,
+  "totalWords": 0,
+  "updatedAt": "2026-06-15T23:49:47.865Z",
+  "createdAt": "2026-06-15T23:49:47.865Z"
+}

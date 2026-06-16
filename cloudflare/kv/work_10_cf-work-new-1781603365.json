@@ -1,0 +1,13 @@
+{
+  "userId": 10,
+  "workId": "cf-work-new-1781603365",
+  "title": "Cloudflare快照测试v3",
+  "category": "测试",
+  "synopsis": "",
+  "payload": "{\"chapters\":[{\"title\":\"第一章\",\"content\":\"更新内容v2\"}]}",
+  "version": 4,
+  "chapterCount": 0,
+  "totalWords": 0,
+  "updatedAt": "2026-06-16T09:49:41.691Z",
+  "createdAt": "2026-06-16T09:49:26.718Z"
+}

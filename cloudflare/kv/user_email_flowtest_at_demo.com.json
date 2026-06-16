@@ -1,0 +1,11 @@
+{
+  "id": 3,
+  "email": "[REDACTED]",
+  "nickname": "Flow测试",
+  "passwordHash": "[REDACTED]",
+  "visitCount": 0,
+  "lastVisitAt": null,
+  "resetToken": "[REDACTED]",
+  "resetExpiresAt": "2026-06-14T07:28:32.029Z",
+  "createdAt": "2026-06-14T07:13:29.949Z"
+}

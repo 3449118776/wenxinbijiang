@@ -1,0 +1,11 @@
+{
+  "id": 4,
+  "email": "[REDACTED]",
+  "nickname": "部署测试",
+  "passwordHash": "[REDACTED]",
+  "visitCount": 2,
+  "lastVisitAt": "2026-06-14T07:18:10.660Z",
+  "resetToken": "[REDACTED]",
+  "resetExpiresAt": null,
+  "createdAt": "2026-06-14T07:18:04.879Z"
+}

@@ -1,0 +1,57 @@
+{
+  "result": [
+    {
+      "results": [
+        {
+          "id": 1,
+          "user_id": 1,
+          "work_id": "123e4567-e89b-12d3-a456-426614174000",
+          "title": "我的第一部小说",
+          "category": "科幻",
+          "synopsis": "一部关于时间旅行的故事",
+          "payload": "{\"chapters\":[{\"title\":\"序章\",\"content\":\"一切从这里开始\"}]}",
+          "version": 1,
+          "chapter_count": 1,
+          "total_words": 0,
+          "created_at": "2026-06-12 20:44:00",
+          "updated_at": "2026-06-12T20:44:00.953Z"
+        },
+        {
+          "id": 2,
+          "user_id": 2,
+          "work_id": "demo-book-01",
+          "title": "Demo Book",
+          "category": "测试",
+          "synopsis": "测试synopsis",
+          "payload": "{\"meta\":{}}",
+          "version": 1,
+          "chapter_count": 0,
+          "total_words": 0,
+          "created_at": "2026-06-14T07:06:26.829Z",
+          "updated_at": "2026-06-14T07:06:26.829Z"
+        }
+      ],
+      "success": true,
+      "meta": {
+        "served_by": "v3-prod",
+        "served_by_region": "WNAM",
+        "served_by_colo": "SJC",
+        "served_by_primary": true,
+        "timings": {
+          "sql_duration_ms": 0.3451
+        },
+        "duration": 0.3451,
+        "changes": 0,
+        "last_row_id": 0,
+        "changed_db": false,
+        "size_after": 69632,
+        "rows_read": 2,
+        "rows_written": 0,
+        "total_attempts": 1
+      }
+    }
+  ],
+  "errors": [],
+  "messages": [],
+  "success": true
+}
