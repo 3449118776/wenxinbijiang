@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文心笔匠 v2 增强引擎 · 综合分析面板</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif; background: #f5f6f8; color: #222; padding: 20px; line-height: 1.6; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; color: #1a1a1a; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 16px; background: #fff; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .tab-btn:hover:not(.active) { border-color: #6366f1; color: #6366f1; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: #333; display: flex; align-items: center; gap: 8px; }
+  .card h2 .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #eef0ff; color: #6366f1; }
+  textarea { width: 100%; min-height: 180px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-family: "PingFang SC", sans-serif; font-size: 13px; resize: vertical; }
+  .btn-row { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { padding: 8px 16px; background: #6366f1; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .btn:hover { background: #5053d9; }
+  .btn.secondary { background: #f0f0f0; color: #555; }
+  .btn.secondary:hover { background: #e3e3e3; }
+  .result { margin-top: 14px; font-size: 13px; }
+  .score-big { font-size: 42px; font-weight: 700; text-align: center; padding: 12px 0; letter-spacing: -1px; }
+  .score-label { text-align: center; font-size: 12px; color: #999; margin-bottom: 10px; }
+  .metric-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-row .val { color: #6366f1; font-weight: 600; }
+  .issue-list { margin-top: 8px; padding-left: 16px; }
+  .issue-list li { padding: 3px 0; color: #e67e22; font-size: 12px; }
+  .item-chip { display: inline-block; padding: 3px 10px; background: #f5f6ff; color: #6366f1; border-radius: 12px; font-size: 12px; margin: 3px 4px 3px 0; }
+  .item-chip.red { background: #fff0f0; color: #e74c3c; }
+  .item-chip.green { background: #f0fff0; color: #27ae60; }
+  .item-chip.orange { background: #fff5e6; color: #e67e22; }
+  .panel-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0f0f0; }
+  .panel-section h3 { font-size: 13px; color: #555; margin-bottom: 8px; }
+  pre.white { background: #fafbfc; padding: 12px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; }
+  .hidden { display: none; }
+  .tip { background: #fff8e6; border-left: 3px solid #f39c12; padding: 10px 14px; border-radius: 4px; font-size: 12px; color: #7a5d00; margin-top: 8px; }
+  .color-ok { color: #27ae60; }
+  .color-warn { color: #e67e22; }
+  .color-danger { color: #e74c3c; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>✦ 文心笔匠 v2 增强引擎 · 综合分析面板</h1>
+  <div class="subtitle">5 大引擎 · 钩子强度 / 伏笔追踪 / 反套路检测 / 人设矛盾 / 世界观逻辑</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="detail">📝 细纲分析（钩子+伏笔+反套路）</button>
+    <button class="tab-btn" data-tab="chars">👥 人设分析（矛盾层+崩溃点）</button>
+    <button class="tab-btn" data-tab="world">🌍 世界观逻辑（势力博弈+力量体系）</button>
+  </div>
+
+  <!-- Tab 1: 细纲 -->
+  <div class="tab-panel" id="tab-detail">
+    <div class="grid">
+      <div class="card">
+        <h2>📝 章节细纲 <span class="badge">输入</span></h2>
+        <textarea id="detail-input" placeholder="粘贴你的细纲，格式示例：
+
+第1章 开端
+  章目标：[主角在宗门大会上崭露头角]
+  冲突：[长老对主角的灵根纯度产生怀疑]
+  爽点爆点：[一招震碎试灵石，全场侧目]
+  伏笔：[主角暗中收藏了一枚来历不明的玉佩]
+  章尾钩子：[然而就在这时，门外传来一道气息——有人发现了什么]
+
+第2章 暗流
+  章目标：[主角被传唤至藏经阁]
+  冲突：[一位深藏不露的长老对主角施压]
+  伏笔：[长老无意中提到"二十年前那场风波"]
+  章尾钩子：[长老笑了笑，但眼神里没有温度——他知道了什么]"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeDetail()">🔍 一键综合分析</button>
+          <button class="btn secondary" onclick="loadDemoDetail()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📊 综合评分 <span class="badge">实时</span></h2>
+        <div id="detail-score" class="score-big">—</div>
+        <div class="score-label" id="detail-score-label">点击左侧"一键综合分析"</div>
+        <div id="detail-metrics"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top: 16px;">
+      <div class="card">
+        <h2>🪝 钩子强度 <span class="badge">HookStrengthEngine</span></h2>
+        <div id="hook-result" class="result">
+          <div class="tip">分析后显示：每章钩子的强度评分、悬念类型分布、薄弱章节预警</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🌱 伏笔追踪 <span class="badge">ForeshadowTracker</span></h2>
+        <div id="foreshadow-result" class="result">
+          <div class="tip">分析后显示：伏笔总量、分布密度、健康度评分</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🚫 反套路检测 <span class="badge">AntiClicheEngine</span></h2>
+        <div id="cliche-result" class="result">
+          <div class="tip">分析后显示：套路指数、命中类型、去套路化建议</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>💡 改进建议汇总 <span class="badge">自动生成</span></h2>
+        <div id="detail-tips" class="result">
+          <div class="tip">分析后显示综合改进建议</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 人设 -->
+  <div class="tab-panel hidden" id="tab-chars">
+    <div class="grid">
+      <div class="card">
+        <h2>👤 人物人设 <span class="badge">输入</span></h2>
+        <textarea id="chars-input" placeholder="粘贴你的人物人设，格式示例：
+
+【林青寒】
+  身份：青云宗首席弟子，实则是被放逐的皇族后裔
+  性格：外冷内热，表面冷静克制，实则内心压抑着巨大愤怒与不甘
+  能力：青冥剑法（但每次使用都会消耗少量寿元）
+  核心动机：查明当年家族灭门真相，向幕后黑手复仇
+  弱点：对背叛极为敏感，一旦信任被打破会陷入极端
+  人物关系：与师弟沈墨关系微妙，对其既依赖又警惕
+
+【沈墨】
+  身份：表面是普通外门弟子，真实身份是潜伏多年的暗线
+  性格：温和随性，但所有行为都有精确的算计
+  能力：推演天机之术，代价是失去对未来的选择权
+  核心动机：保护林青寒——但这份保护本身就是一个更大的阴谋
+  弱点：无法对林青寒撒谎——这是他唯一的破绽"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeChars()">🔍 生成矛盾层</button>
+          <button class="btn secondary" onclick="loadDemoChars()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⚡ 人设矛盾层报告 <span class="badge">CharacterConflictLayer</span></h2>
+        <div id="chars-result" class="result">
+          <div class="tip">分析后显示：每个角色的多维矛盾、崩溃点、6步成长弧光</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: 世界观 -->
+  <div class="tab-panel hidden" id="tab-world">
+    <div class="grid">
+      <div class="card">
+        <h2>🌍 世界观设定 <span class="badge">输入</span></h2>
+        <textarea id="world-input" placeholder="粘贴你的世界观设定，格式示例：
+
+【大陆格局】
+九曜大陆，三大家族鼎立——东方林家掌灵脉，西方萧氏掌兵戈，南方慕容氏掌商贾。
+表面三足鼎立，实则林家势微，其灵脉资源正在被萧氏暗中侵蚀。
+
+【力量体系】
+练气 → 筑基 → 金丹 → 元婴 → 化神 → 合体 → 大乘 → 渡劫
+每阶九品，九为极。但千年来无人能跨越化神桎梏——传言需要残缺的"天衍录"方能突破。
+
+【核心矛盾】
+萧氏联合慕容氏，意图吞并林家灵脉。林家少主林青寒表面隐忍，暗中调查二十年前家族内乱真相。
+实则那一场内乱并非简单的权力斗争，而是涉及一位被从历史中抹去的"第九人"。
+
+【历史背景】
+千年前九曜大陆本为一体，因一场"分天之灾"被撕裂成九块。
+二十年前林家发生了一场"极小"的家族内斗——但这场内斗留下的影响，至今仍在发酵。"></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="analyzeWorld()">🔍 逻辑一致性检测</button>
+          <button class="btn secondary" onclick="loadDemoWorld()">加载示例</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🧩 世界观逻辑报告 <span class="badge">WorldLogicEngine</span></h2>
+        <div id="world-result" class="result">
+          <div class="tip">分析后显示：势力矩阵、力量体系评估、地理/资源/历史建议</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/js/engines-hook-foreshadow.js"></script>
+<script src="assets/js/engines-anti-cliche-char.js"></script>
+<script src="assets/js/engines-world-logic.js"></script>
+
+<script>
+// =================== Tab 切换 ===================
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.onclick = function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    var tab = this.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.add('hidden'); });
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+  };
+});
+
+// =================== Demo 数据 ===================
+function loadDemoDetail() {
+  document.getElementById('detail-input').value =
+    "第1章 青云试剑\n" +
+    "  章目标：[林青寒在宗门试剑会上崭露头角]\n" +
+    "  冲突：[长老团对林青寒的灵根纯度产生怀疑——他的灵脉反应远超常人]\n" +
+    "  爽点爆点：[林青寒一剑震碎三品试灵石，全场寂静]\n" +
+    "  伏笔：[他暗中将一枚碎裂的玉佩收入怀中——这是母亲留给他的唯一物件]\n" +
+    "  章尾钩子：[然而就在这时，藏经阁方向传来一道古老而微弱的气息——有人醒了]\n\n" +
+    "第2章 暗处来人\n" +
+    "  章目标：[林青寒被传唤至藏经阁面见神秘长老]\n" +
+    "  冲突：[长老明知林家旧事，却只旁敲侧击不肯明言]\n" +
+    "  爽点爆点：[长老以化神之威压向林青寒出手——却被后者以一种前所未见的方式化解]\n" +
+    "  伏笔：[长老无意中提到"二十年前那场风暴"，言罢便沉默不语]\n" +
+    "  章尾钩子：[长老笑了笑，但眼神里没有温度——他知道了什么]\n\n" +
+    "第3章 夜探禁地\n" +
+    "  章目标：[林青寒夜探禁地，寻找家族旧事线索]\n" +
+    "  冲突：[禁地深处的气息与他体内灵脉产生共鸣——那里封印的东西似乎认得他]\n" +
+    "  爽点爆点：[禁地封印在林青寒接近时自行松动，仿佛在迎接某位故人归来]\n" +
+    "  伏笔：[封印石碑上刻着一个被抹去的姓氏——笔画残缺，但能辨认出最后两笔是"林"]\n" +
+    "  章尾钩子：[黑暗中，一个沙哑的声音响起："你终于来了……我等了你……整整二十年"]\n\n" +
+    "第4章 身份疑云\n" +
+    "  章目标：[林青寒调查自己的身世，发现家族记录被人篡改]\n" +
+    "  冲突：[沈墨突然出现在林青寒面前，以一种从未见过的姿态警告他]\n" +
+    "  爽点爆点：[沈墨第一次在林青寒面前施展推演天机之术——代价是他眼中的未来瞬间灰暗了三年]\n" +
+    "  伏笔：[沈墨说："有些真相，不知道比知道更好"——这句话他用的是林家秘传方言]\n" +
+    "  章尾钩子：[林青寒猛然抬头——他终于意识到，沈墨的真实身份可能比他想象的更加可怕]\n\n" +
+    "第5章 分天\n" +
+    "  章目标：[林青寒在沈墨引导下接触"天衍录"残篇]\n" +
+    "  冲突：[残篇试图与林青寒的灵脉融合——这过程宛如被撕裂]\n" +
+    "  爽点爆点：[千年来无人能跨越的化神桎梏，在林青寒身上裂开了第一道缝隙]\n" +
+    "  伏笔：[融合完成的瞬间，林青寒看见一道模糊的背影——那人也在使用天衍录，却在对什么人说"对不起"]\n" +
+    "  章尾钩子：[门外，萧氏大军的铁蹄声已在山外响起——他们来得，比预想的还要早]\n";
+}
+
+function loadDemoChars() {
+  document.getElementById('chars-input').value =
+    "【林青寒】\n" +
+    "  身份：青云宗首席弟子，实则是被放逐的皇族后裔\n" +
+    "  性格：外冷内热，表面冷静克制，实则内心压抑着巨大愤怒与不甘\n" +
+    "  能力：青冥剑法（但每次使用都会消耗少量寿元）\n" +
+    "  核心动机：查明当年家族灭门真相，向幕后黑手复仇\n" +
+    "  弱点：对背叛极为敏感，一旦信任被打破会陷入极端\n\n" +
+    "【沈墨】\n" +
+    "  身份：表面是普通外门弟子，真实身份是潜伏多年的暗线\n" +
+    "  性格：温和随性，但所有行为都有精确的算计\n" +
+    "  能力：推演天机之术，代价是失去对未来的选择权\n" +
+    "  核心动机：保护林青寒——但这份保护本身就是一个更大的阴谋\n" +
+    "  弱点：无法对林青寒撒谎——这是他唯一的破绽\n\n" +
+    "【萧玄机】\n" +
+    "  身份：萧氏少主，表面是风度翩翩的世家公子\n" +
+    "  性格：极度理性，情感缺失症候群，视一切人为棋子\n" +
+    "  能力：天命推演（萧氏秘传）、九劫剑\n" +
+    "  核心动机：完成家族千年计划——将九曜大陆重新合为一体\n" +
+    "  弱点：无法理解非理性的情感决策——这是他计算中的盲区\n";
+}
+
+function loadDemoWorld() {
+  document.getElementById('world-input').value =
+    "【大陆格局】\n九曜大陆，三大家族鼎立——东方林家掌灵脉，西方萧氏掌兵戈，南方慕容氏掌商贾。\n表面三足鼎立，实则林家势微，其灵脉资源正在被萧氏暗中侵蚀。\n\n【力量体系】\n练气 → 筑基 → 金丹 → 元婴 → 化神 → 合体 → 大乘 → 渡劫。\n每阶九品，九为极。但千年来无人能跨越化神桎梏——传言需要残缺的"天衍录"方能突破。\n\n【核心矛盾】\n萧氏联合慕容氏，意图吞并林家灵脉。林家少主林青寒表面隐忍，暗中调查二十年前家族内乱真相。\n实则那一场内乱并非简单的权力斗争，而是涉及一位被从历史中抹去的"第九人"。\n\n【地理设定】\n青云山脉（林家总部）、西漠孤城（萧氏要塞）、南越七港（慕容氏商业中心）、九曜之渊（传说中天衍录埋藏之地）\n\n【历史背景】\n千年前九曜大陆本为一体，因一场"分天之灾"被撕裂成九块。\n二十年前林家发生了一场"极小"的家族内斗——但这场内斗留下的影响，至今仍在发酵。\n\n【稀缺资源】\n灵脉（修炼之源，林家控制最丰）、玄铁（锻造之源，萧氏掌控）、天机玉简（推演之术所需，慕容氏垄断交易）\n\n【隐藏规则】\n修炼者每突破一个大境界，会失去对突破前某个重要事件的清晰记忆——这是"天衍录"存在的另一个佐证。\n没有人记得千年前到底发生了什么，只记得"分天"两个字。\n";
+}
+
+// =================== 细纲分析 ===================
+function analyzeDetail() {
+  var text = document.getElementById('detail-input').value.trim();
+  if (!text) { alert('请输入细纲内容'); return; }
+
+  // Hook
+  var hook = HookStrengthEngine.analyzeAllHooks(text);
+
+  // Foreshadow
+  var foreshadow = ForeshadowTracker.analyzeDetailForeshadowHealth(text);
+
+  // Cliche
+  var cliche = AntiClicheEngine.analyzeDetailClicheDistribution(text);
+
+  // 综合分数（加权平均）
+  var overall = Math.round((hook.avgScore * 0.35 + (foreshadow.healthScore || 50) * 0.25 + cliche.overall.score * 0.4));
+
+  // 综合分数显示
+  document.getElementById('detail-score').innerText = overall + '/100';
+  var label = overall >= 80 ? '✦ 细纲质量优秀' : overall >= 60 ? '◇ 细纲质量良好' : overall >= 40 ? '⚠ 需加强改进' : '⚠⚠ 建议大幅重写';
+  document.getElementById('detail-score-label').innerText = label;
+  var scoreEl = document.getElementById('detail-score');
+  scoreEl.style.color = overall >= 80 ? '#27ae60' : overall >= 60 ? '#6366f1' : overall >= 40 ? '#e67e22' : '#e74c3c';
+
+  // 指标行
+  document.getElementById('detail-metrics').innerHTML =
+    '<div class="metric-row"><span>🪝 钩子平均分</span><span class="val">' + hook.avgScore + '</span></div>' +
+    '<div class="metric-row"><span>📑 识别章节数</span><span class="val">' + hook.total + ' 章</span></div>' +
+    '<div class="metric-row"><span>🌱 伏笔总数</span><span class="val">' + foreshadow.total + ' 处</span></div>' +
+    '<div class="metric-row"><span>🌱 伏笔密度</span><span class="val">' + foreshadow.perChapter + ' /章</span></div>' +
+    '<div class="metric-row"><span>🚫 套路指数</span><span class="val">' + cliche.overall.clicheIndex + '</span></div>' +
+    '<div class="metric-row"><span>🚫 套路程度</span><span class="val">' + cliche.overall.severity + '</span></div>';
+
+  // 钩子详情
+  var hookHTML = '<div class="metric-row"><span>平均钩子强度</span><span class="val">' + hook.avgScore + '</span></div>';
+  if (hook.weakChapters.length > 0) hookHTML += '<div class="panel-section"><h3>⚠ 薄弱章节（评分 &lt; 40）</h3>';
+  hook.weakChapters.forEach(function(c) {
+    hookHTML += '<span class="item-chip red">第' + c + '章</span>';
+  });
+  if (hook.weakChapters.length > 0) hookHTML += '</div>';
+  hookHTML += '<div class="panel-section"><h3>悬念类型分布</h3>';
+  var typeKeys = Object.keys(hook.typeDistribution);
+  if (typeKeys.length === 0) hookHTML += '<span class="tip">未检测到明确悬念类型标签</span>';
+  else typeKeys.forEach(function(t) { hookHTML += '<span class="item-chip">' + t + ' ×' + hook.typeDistribution[t] + '</span>'; });
+  hookHTML += '</div>';
+  hookHTML += '<div class="panel-section"><h3>逐章钩子评分</h3><pre class="white">';
+  hook.perChapter.forEach(function(c) {
+    var s = c.score >= 70 ? '●' : c.score >= 40 ? '○' : '✗';
+    var color = c.score >= 70 ? 'color:#27ae60' : c.score >= 40 ? 'color:#6366f1' : 'color:#e74c3c';
+    hookHTML += '[' + s + '] 第' + c.chapter + '章 · ' + c.type + ' · ' + c.score + '分  → ' + c.hook.slice(0, 50) + '\n';
+  });
+  hookHTML += '</pre></div>';
+  document.getElementById('hook-result').innerHTML = hookHTML;
+
+  // 伏笔详情
+  var fsHTML = '<div class="metric-row"><span>伏笔总数</span><span class="val">' + foreshadow.total + '</span></div>';
+  fsHTML += '<div class="metric-row"><span>每章平均</span><span class="val">' + foreshadow.perChapter + ' 处</span></div>';
+  fsHTML += '<div class="metric-row"><span>伏笔健康度</span><span class="val ' + (foreshadow.healthScore >= 70 ? 'color-ok' : foreshadow.healthScore >= 40 ? 'color-warn' : 'color-danger') + '">' + foreshadow.healthScore + '/100</span></div>';
+  if (foreshadow.topForeshadows && foreshadow.topForeshadows.length > 0) {
+    fsHTML += '<div class="panel-section"><h3>🔍 Top 伏笔定位</h3>';
+    foreshadow.topForeshadows.slice(0, 8).forEach(function(f) {
+      fsHTML += '<div style="padding:5px 0;font-size:12px;border-bottom:1px dashed #eee;">' + f + '</div>';
+    });
+    fsHTML += '</div>';
+  }
+  if (foreshadow.issues && foreshadow.issues.length > 0) {
+    fsHTML += '<ul class="issue-list">';
+    foreshadow.issues.forEach(function(i) { fsHTML += '<li>' + i + '</li>'; });
+    fsHTML += '</ul>';
+  }
+  document.getElementById('foreshadow-result').innerHTML = fsHTML;
+
+  // 反套路详情
+  var clHTML = '<div class="metric-row"><span>原创度评分</span><span class="val">' + cliche.overall.score + '/100</span></div>';
+  clHTML += '<div class="metric-row"><span>套路指数</span><span class="val">' + cliche.overall.clicheIndex + '</span></div>';
+  clHTML += '<div class="metric-row"><span>严重程度</span><span class="val">' + cliche.overall.severity + '</span></div>';
+  if (cliche.overall.matched && cliche.overall.matched.length > 0) {
+    clHTML += '<div class="panel-section"><h3>🎯 命中套路类型（按严重度排序）</h3>';
+    cliche.overall.matched.slice(0, 8).forEach(function(m) {
+      var label = m.scoreImpact <= -7 ? 'red' : m.scoreImpact <= -5 ? 'orange' : '';
+      clHTML += '<span class="item-chip ' + label + '">' + m.name + ' ×' + m.hits + '次 (' + m.scoreImpact + '分)</span>';
+    });
+    clHTML += '</div>';
+  }
+  var tips = AntiClicheEngine.generateDeforestationTips(cliche.overall);
+  if (tips && tips.length > 0) {
+    clHTML += '<div class="panel-section"><h3>💡 去套路化建议</h3>';
+    tips.slice(0, 5).forEach(function(t, i) {
+      clHTML += '<div style="padding:6px 0;border-bottom:1px dashed #eee;font-size:12px;">【' + (i + 1) + '】' + t + '</div>';
+    });
+    clHTML += '</div>';
+  }
+  if (cliche.worstChapters && cliche.worstChapters.length > 0) {
+    clHTML += '<div class="panel-section"><h3>⚠ 套路最严重章节</h3>';
+    cliche.worstChapters.slice(0, 5).forEach(function(c) {
+      clHTML += '<span class="item-chip red">第' + c.chapter + '章 ' + c.score + '分 → ' + c.topMatch + '</span>';
+    });
+    clHTML += '</div>';
+  }
+  document.getElementById('cliche-result').innerHTML = clHTML;
+
+  // 综合建议
+  var tipHTML = '<div style="padding:8px 0;">';
+  if (hook.avgScore < 60) tipHTML += '<div class="tip">🪝 钩子强度偏低（' + hook.avgScore + '分）。建议：在每章结尾不要用"继续推进剧情""接下来展开"等泛化表述，而是给出具体的——某人发现了什么、某件事即将发生、某个真相即将揭晓——读者必须想知道答案。</div>';
+  if (foreshadow.total < hook.total && hook.total > 0) tipHTML += '<div class="tip">🌱 伏笔密度偏低（' + foreshadow.perChapter + '/章）。建议：每3-5章埋下1个中长线伏笔，每1-2章埋下1个短线伏笔，形成层次感的悬念网络。</div>';
+  if (cliche.overall.score < 60) tipHTML += '<div class="tip">🚫 套路指数偏高（' + cliche.overall.severity + '）。建议：给检测到的套路事件增加"代价"或"反转"——例如英雄救美后，被救者反手就是一击，她不是受害者。</div>';
+  if (hook.weakChapters.length > Math.floor(hook.total * 0.3)) tipHTML += '<div class="tip">📉 超过30%章节的钩子偏弱。建议统一重写薄弱章节的结尾——给每个章节一个"必须翻页"的理由。</div>';
+  if (hook.avgScore >= 70 && foreshadow.healthScore >= 60 && cliche.overall.score >= 70) tipHTML += '<div class="tip" style="background:#f0fff0;border-left-color:#27ae60;color:#1e8449;">✦ 当前细纲质量良好！钩子、伏笔、原创度三维均达标。可以开始细化章节内容或进入正文写作。</div>';
+  tipHTML += '</div>';
+  document.getElementById('detail-tips').innerHTML = tipHTML;
+}
+
+// =================== 人设分析 ===================
+function analyzeChars() {
+  var text = document.getElementById('chars-input').value.trim();
+  if (!text) { alert('请输入人设内容'); return; }
+
+  var results = CharacterConflictLayer.generateForAll(text);
+  if (!results || results.length === 0) {
+    document.getElementById('chars-result').innerHTML = '<div class="tip">未检测到有效角色段落。请检查格式——每个角色用独立段落描述。</div>';
+    return;
+  }
+
+  var html = '<div class="metric-row"><span>识别角色数</span><span class="val">' + results.length + ' 个</span></div>';
+  results.forEach(function(r) {
+    html += '<div class="panel-section"><h3>⚡ ' + r.name + ' · 矛盾层</h3>';
+    r.conflicts.forEach(function(c, i) {
+      html += '<div style="padding:8px 0;border-bottom:1px dashed #eee;font-size:12px;">';
+      html += '<span class="item-chip orange">' + c.label + '</span>';
+      html += '<div style="margin-top:6px;color:#555;line-height:1.7;">' + c.description + '</div>';
+      html += '</div>';
+    });
+    html += '<div class="panel-section" style="margin-top:8px;"><h3>💥 崩溃点</h3>';
+    r.breakpoints.forEach(function(b) {
+      html += '<div style="padding:5px 0;font-size:12px;"><span class="item-chip red">' + b.label + '</span> ' + b.desc + '</div>';
+    });
+    html += '</div>';
+    html += '<div class="panel-section" style="margin-top:8px;"><h3>🌟 6步成长弧光</h3>';
+    r.arc.forEach(function(step, i) {
+      html += '<div style="padding:4px 0;font-size:12px;color:#666;">' + step + '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+  });
+
+  html += '<div class="panel-section" style="margin-top:16px;"><h3>💡 写作应用建议</h3>';
+  html += '<div class="tip">① 将"矛盾层"直接写入角色人设档案：主角的每次重大决策都应涉及至少一条矛盾——让冲突从角色内部爆发，而非单纯外部事件驱动。</div>';
+  html += '<div class="tip">② 在大纲中标记"崩溃点"章节：让最信任的人在剧情最关键的时刻背叛主角（或被背叛），这比单纯的武力升级更有戏剧张力。</div>';
+  html += '<div class="tip">③ 成长弧光可作为章节节奏锚点：第1-5章=起点状态，第10-20章=第一次扰动，第30-40章=挣扎与失败，第50-60章=谷底与重构。</div>';
+  html += '</div>';
+
+  document.getElementById('chars-result').innerHTML = html;
+}
+
+// =================== 世界观分析 ===================
+function analyzeWorld() {
+  var text = document.getElementById('world-input').value.trim();
+  if (!text) { alert('请输入世界观内容'); return; }
+
+  var result = WorldLogicEngine.analyzeWorldHealth(text);
+
+  var html = '<div class="score-big" style="color:' + (result.overall >= 70 ? '#27ae60' : result.overall >= 50 ? '#e67e22' : '#e74c3c') + ';">' + result.overall + '/100</div>';
+  html += '<div class="score-label">逻辑一致性综合评分</div>';
+
+  // 结构统计
+  html += '<div class="metric-row"><span>🏛 势力数</span><span class="val">' + result.structure.factions.length + '</span></div>';
+  html += '<div class="metric-row"><span>⚔ 境界等级</span><span class="val">' + result.structure.powerSystem.length + '</span></div>';
+  html += '<div class="metric-row"><span>🗺 地理区域</span><span class="val">' + result.structure.geography.length + '</span></div>';
+  html += '<div class="metric-row"><span>💰 资源类型</span><span class="val">' + result.structure.resources.length + '</span></div>';
+  html += '<div class="metric-row"><span>📜 历史事件</span><span class="val">' + result.structure.histories.length + '</span></div>';
+
+  // 提取的实体
+  if (result.structure.factions.length > 0) {
+    html += '<div class="panel-section"><h3>🏛 识别势力</h3>';
+    result.structure.factions.slice(0, 15).forEach(function(f) { html += '<span class="item-chip">' + f + '</span>'; });
+    html += '</div>';
+  }
+  if (result.structure.powerSystem.length > 0) {
+    html += '<div class="panel-section"><h3>⚔ 力量体系</h3>';
+    result.structure.powerSystem.slice(0, 15).forEach(function(r) { html += '<span class="item-chip green">' + r + '</span>'; });
+    html += '</div>';
+  }
+
+  // 力量体系问题
+  if (result.powerCheck.issues.length > 0) {
+    html += '<div class="panel-section"><h3>⚠ 力量体系风险</h3>';
+    html += '<ul class="issue-list">';
+    result.powerCheck.issues.forEach(function(i) { html += '<li>' + i + '</li>'; });
+    html += '</ul></div>';
+  }
+
+  // 势力关系矩阵提示
+  if (result.factionMatrix && result.factionMatrix.isolated.length > 0) {
+    html += '<div class="panel-section"><h3>🕸 孤立势力（与其他势力关系不明）</h3>';
+    result.factionMatrix.isolated.slice(0, 8).forEach(function(f) { html += '<span class="item-chip orange">' + f + '</span>'; });
+    html += '</div>';
+  }
+
+  // 综合建议
+  if (result.suggestions && result.suggestions.length > 0) {
+    html += '<div class="panel-section"><h3>💡 7大维度改进建议</h3>';
+    result.suggestions.forEach(function(s, i) {
+      html += '<div style="padding:6px 0;border-bottom:1px dashed #eee;font-size:12px;">【' + (i + 1) + '】' + s + '</div>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('world-result').innerHTML = html;
+}
+</script>
+</body>
+</html>
