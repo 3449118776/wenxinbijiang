@@ -553,6 +553,11 @@ body{display:flex;flex-direction:column;}
 <script src="assets/js/speech.js"></script>
 <script src="assets/js/cards.js"></script>
 <script src="assets/js/architecture.js"></script>
+<script src="assets/js/engines-world-logic.js"></script>
+<script src="assets/js/engines-anti-cliche-char.js"></script>
+<script src="assets/js/engines-hook-foreshadow.js"></script>
+<script src="assets/js/engines-foreshadow-network.js"></script>
+<script src="assets/js/engines-concept-expand.js"></script>
 <script>
 // ===== 四级导航核心逻辑 =====
 var _currentLevel = 1;
@@ -2294,21 +2299,69 @@ window.archDisplayBackToPagedV52 = function(){
   updateArchDisplay(module);
 };
 
-// 生成完成后自动启用分页显示
+// 生成完成后：①启用分页显示 ②跑引擎自检（世界观/人设→逻辑一致性+反套路+深层人设；细纲/大纲→钩子+伏笔+反套路+节奏）
 var _origGenerateArchModule = window.generateArchModule;
 window.generateArchModule = async function(opts) {
   var result = await _origGenerateArchModule.apply(this, arguments);
-  // 生成完成后，启用分页显示
+  var module = _selectedModule || 'world';
   setTimeout(function() {
-    var module = _selectedModule || 'world';
     var content = getArchRawContent(module);
     if (content && content.length > _archPageSize) {
       _archPageMap[module + '_page'] = 1;
       updateArchDisplay(module);
     }
-  }, 100);
+    if (content && content.length > 200) {
+      runModuleEngineAnalysis(module, content);
+    }
+  }, 200);
   return result;
 };
+
+function runModuleEngineAnalysis(module, content) {
+  try {
+    var report = { checkedAt: Date.now(), module: module };
+    var title = '';
+    if (module === 'world' || module === 'chars') {
+      title = (module === 'world') ? '世界观逻辑一致性' : '人设矛盾层 + 反套路';
+      if (typeof WorldLogicEngine !== 'undefined') {
+        try { report.world = WorldLogicEngine.analyze(content); } catch(e){}
+      }
+      if (module === 'chars' && typeof CharacterConflictLayer !== 'undefined') {
+        try { report.conflict = CharacterConflictLayer.analyze(content); } catch(e){}
+      }
+      if (typeof AntiClicheEngine !== 'undefined') {
+        try { report.cliche = AntiClicheEngine.analyze(content); } catch(e){}
+      }
+    } else if (module === 'detail' || module === 'outline') {
+      title = (module === 'detail') ? '细纲：钩子强度 + 伏笔追踪 + 反套路 + 节奏参考' : '大纲：反套路 + 节奏参考';
+      if (typeof HookStrengthEngine !== 'undefined') {
+        try { report.hooks = HookStrengthEngine.batchAnalyzeChapters(content); } catch(e){}
+      }
+      if (typeof ForeshadowTracker !== 'undefined') {
+        try { report.foreshadow = ForeshadowTracker.extractFromOutline(content); } catch(e){}
+      }
+      if (typeof AntiClicheEngine !== 'undefined') {
+        try { report.cliche = AntiClicheEngine.analyze(content); } catch(e){}
+      }
+    }
+    if (typeof showToast === 'function') {
+      var hints = [];
+      if (report.hooks && report.hooks.weakChapters && report.hooks.weakChapters.length) hints.push('弱钩子' + report.hooks.weakChapters.length + '处');
+      if (report.foreshadow && report.foreshadow.foreshadows) hints.push('伏笔' + report.foreshadow.foreshadows.length + '个');
+      if (report.cliche && report.cliche.matches) hints.push('套路' + Object.keys(report.cliche.matches).length + '类');
+      if (report.world && report.world.criticalIssues) hints.push('世界观问题' + report.world.criticalIssues.length + '项');
+      if (hints.length) showToast('引擎自检：' + hints.join('，'));
+    }
+    var work = getCurrentWork();
+    if (work) {
+      if (!work.engineReports) work.engineReports = {};
+      work.engineReports[module] = report;
+      if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    }
+  } catch (e) {}
+}
+
+window.runModuleEngineAnalysis = runModuleEngineAnalysis;
 
 // ===== v52: 细纲翻页器（真正实现）=====
 var _detailPageIdx = 0;
