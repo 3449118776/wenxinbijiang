@@ -21,8 +21,10 @@ const API_PROVIDERS = {
   cohere:      { name: 'Cohere',     url: 'https://api.cohere.com/v1/chat', type: 'openai' },
   together:    { name: 'Together',   url: 'https://api.together.xyz/v1/chat/completions', type: 'openai' },
   anthropic:   { name: 'Anthropic',  url: 'https://api.anthropic.com/v1/messages', type: 'claude' },
-  stepfun:     { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
-  qwenlm:      { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' }
+  stepfun:      { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
+  qwenlm:       { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' },
+  openrouter:   { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', type: 'openai' },
+  custom:       { name: '自定义(OpenAI兼容)', url: '', type: 'openai' }
 };
 
 const MODEL_CONFIGS = {
