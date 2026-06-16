@@ -1247,6 +1247,24 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '5. 时代特有的文化符号与器物（读者感知世界的锚点；不要堆砌，要有选择）\n';
     moduleBlock += '\n【⚠️ 搬运强度：最高 · 本模块内容将被后续所有模块反复引用】\n';
     moduleBlock += '- 避免堆砌设定条目；所有设定必须服务于"能产生什么故事"\n- 至少给一个小故事片段（100-200字）展示设定如何运作\n- 力量/资源的获取必须有代价和门槛；不能"努力就有"——谁付出什么代价才能获得？\n- 不要出现"四大神兽""五行"等泛滥设定（如果一定要用，给出独特变体）\n- 每一条规则后面请自问："这个规则限制了谁？被谁打破？破了会怎样？"——这些问题的答案就是将来写作的剧情素材\n- 【重要】每条设定都可能被后续写作时自动提取为"世界观规则自证项"，请写得具体、可检验、不空泛';
+    moduleBlock += '\n\n【⚠️ 引擎级设计：势力博弈矩阵 · 必须执行】\n';
+    moduleBlock += '- 每个势力设计时自问 3 个问题：①与主角的关系？②与至少 1 个其他势力有明确冲突或合作？③该势力的最高利益（钱/权/信仰/生存）是什么？\n';
+    moduleBlock += '- 禁止设计"孤立势力"——与其他势力没有张力线的阵营一定会在百万字写作时被遗忘或变成工具人\n';
+    moduleBlock += '- 至少设计 1 个"明面盟友 + 暗地挖坑"的势力关系——这是全书政治/谍战线的基础\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：力量体系规则-代价-后果 · 必须执行】\n';
+    moduleBlock += '- 任何体系必须按"规则 → 代价 → 违反后果"三栏式设计\n';
+    moduleBlock += '- 代价必须是"读者能感知到的真实代价"：生命/寿元/健康/人际关系/道德感/记忆。不是"消耗灵力"这种无感代价\n';
+    moduleBlock += '- 违反后果必须具体到"谁来执行 + 执行方式 + 读者看到时会心惊"——如果没有执行者，就设计一个（天道/组织/代价反噬/心魔）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：地理资源稀缺性 · 必须执行】\n';
+    moduleBlock += '- 任何资源（灵石/功法/丹药/武器/情报/食物）默认稀缺，稀缺原因要能写得出（产地有限/需特定条件/被垄断/有危险）\n';
+    moduleBlock += '- 稀缺资源本身就是冲突源——主角获取资源的过程天然就是一段剧情，不需要额外制造\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：历史事件自证 · 必须执行】\n';
+    moduleBlock += '- 推动当前格局的历史事件，必须至少 1 件"主角会在故事中亲身接触到"的证据（遗迹/当事人传承/被篡改的史书/古老器物）\n';
+    moduleBlock += '- 历史不能只做背景板——至少 1 个关键历史事件有"官方版本"和"真相版本"两个版本，真相版本在主角冒险过程中逐步揭露\n';
+    moduleBlock += '\n【⚠️ 世界观反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：修炼体系只有"等级递增打怪升级"一种推进方式 → 设计至少 1 条"越修炼越危险/代价越大"的规则\n';
+    moduleBlock += '- 禁忌："灵气复苏/系统金手指/退婚打脸/秘境抢宝"等网文常见开篇 → 如果使用，必须在第 1 段就加一个读者意料之外的变体\n';
+    moduleBlock += '- 禁忌：势力关系设计成简单的"正邪二元对立" → 至少 1 个势力的立场在不同事件中会摇摆（有内部矛盾）\n';
   } else if(module === 'chars'){
     moduleName = moduleName || '人物人设';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
@@ -1278,6 +1296,31 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '  【冰山对话·答非所问】被质问时不正面回答：顾左右而言他/转移话题/纠结细节。答非所问是顶级潜台词\n';
     moduleBlock += '  【冰山对话·微动作藏情绪】用指尖紧绷/眼神躲闪/喉结滚动/耳尖泛红代替"他很紧张"这类直白情绪词\n';
     moduleBlock += '  【冰山对话·日常事物掩护】把尖锐矛盾藏在日常物件里：香水味/茶水温热/衣物褶皱，看似聊琐事实则暗藏纠葛\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：9维深层矛盾层 · 每个主要角色必须覆盖至少 5 条】\n';
+    moduleBlock += '① 表层性格 vs 深层恐惧（例：表面冷静的人，实际极度害怕被忽视→表现为过度承诺+深夜崩溃）\n';
+    moduleBlock += '② 公开目标 vs 秘密动机（例：对外说"为了家族复仇"，实际是"为了证明自己不是被抛弃的那一个"）\n';
+    moduleBlock += '③ 核心价值观 vs 现实妥协（例：坚信"人不能撒谎"，但为了保护某人不得不撒谎→每一次撒谎都在消耗他/她）\n';
+    moduleBlock += '④ 能力 vs 代价（例：战斗力极强但代价是每次动用都会失去一段记忆→最强的人最空虚）\n';
+    moduleBlock += '⑤ 真实自我 vs 社会角色（例：一个本该杀伐决断的掌门，内心只想做个普通的农民→每次执行掌门职责都是痛苦）\n';
+    moduleBlock += '⑥ 信任 vs 背叛（例：曾经被最信任的人背叛过→现在对任何人都有两套面孔，一套示人一套自留）\n';
+    moduleBlock += '⑦ 理性 vs 情感（例：理性分析应该放弃某人，但情感上做不到→这种拉扯本身就是大量剧情）\n';
+    moduleBlock += '⑧ 过去 vs 未来（例：过去的创伤定义了现在的他/她，但他/她需要摆脱这个定义才能成长）\n';
+    moduleBlock += '⑨ 自我诉求 vs 集体责任（例：个人想隐居，但整个家族/势力的命运压在他/她身上→自由与责任的永恒冲突）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：角色崩溃点 · 每个主角至少设计 3 个】\n';
+    moduleBlock += '- 崩溃点=角色的核心执念被直接击碎的瞬间\n';
+    moduleBlock += '- 例1："主角唯一的精神支柱——妹妹——被人告知妹妹早就死了，他/她一直守护的只是一具空壳"\n';
+    moduleBlock += '- 例2："主角最引以为傲的自律能力，在某件事面前彻底失效，他/她发现自己原来就是个普通人"\n';
+    moduleBlock += '- 例3："主角一直相信的'正义'，最终发现只是胜利者写的历史；自己一直都是帮凶"\n';
+    moduleBlock += '- 崩溃事件必须具体到"哪句话/哪件事/哪个瞬间"让他/她崩——不是"逐渐崩溃"而是"瞬间破碎"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：6步成长弧光 · 主角完整弧光必须可检验】\n';
+    moduleBlock += '起点状态 → 外部扰动（金手指/重大事件）→ 挣扎与失败 → 谷底重构（世界观被打碎后的重建）→ 新稳态（比起点更强，但也付出了代价）→ 最终选择（主角主动选择的最终立场，不是被动接受）\n';
+    moduleBlock += '- 每一步必须在人设里至少留下一个"能被具体事件触发"的口子\n';
+    moduleBlock += '- 主角的最终选择必须"有代价"——完美结局不真实，他/她应该在"得到最重要的东西"同时"失去另一些重要的东西"\n';
+    moduleBlock += '\n【⚠️ 人设反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：主角模板化（"坚韧/聪明/善良/有底线"四个词写了所有网文主角）→ 用具体可检验的行为特征替代抽象形容词\n';
+    moduleBlock += '- 禁忌：反派纯粹坏（"邪恶/贪婪/残忍"）→ 反派必须有自己的正义观，站在他/她的视角看，他/她是对的\n';
+    moduleBlock += '- 禁忌：工具人配角（"忠心耿耿的朋友/慈祥的师父/神秘的老者"）→ 每个配角必须有与主角无关的独立目标\n';
+    moduleBlock += '- 禁忌：刻板感情线（"男主女主一见钟情/日久生情/并肩作战生情"）→ 感情线的推进要有外部阻力+内部分歧，不是顺理成章\n';
   } else if(module === 'outline'){
     moduleName = moduleName || '全书大纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
@@ -1315,6 +1358,24 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 【节奏顿挫】连续3章高强度战斗后必须有一章"喘息期"（感情戏/日常/伏笔铺垫），否则读者会审美疲劳\n';
     moduleBlock += '【⚠️ 冰山对话·关键时刻打断】在情绪/冲突最高潮时突然中断，打断事件：紧急军情/下属汇报/雷声/敲门声\n';
     moduleBlock += '  禁忌：打断后不要立刻接新事件，让读者心里像猫抓一样。留白比填满更有力\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：伏笔网络规划 · 必须执行】\n';
+    moduleBlock += '- 全书写入大纲时必须规划 3 层伏笔：① 短期伏笔（10章内回收）② 中期伏笔（30-50章回收）③ 长期伏笔（100章+回收）\n';
+    moduleBlock += '- 短期伏笔举例：①角色随口提的"小时候有个弟弟"→10章内弟弟就该出现或被提及具体事件\n';
+    moduleBlock += '- 中期伏笔举例：②一个反复出现的符号/器物/地名→30-50章时揭示其真实含义\n';
+    moduleBlock += '- 长期伏笔举例：③卷一开篇的一个小暗示/一个被忽视的人物→全书高潮时才揭示其真实身份/作用\n';
+    moduleBlock += '- 每卷必须至少埋下 2 个伏笔，且其中 1 个会在本卷回收、1 个留给后续卷回收\n';
+    moduleBlock += '- 伏笔回收必须"炸"——回收时刻不能只是"哦原来如此"，要让读者拍大腿，必须设计成"读者没想到！"\n';
+    moduleBlock += '- 伏笔设计原则：① 不能明示+② 读者第一次看到时觉得"就是一句普通的话"② 回收时读者才意识到"那居然是伏笔"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：全书节奏总览 · 必须执行】\n';
+    moduleBlock += '- 卷与卷之间需要一个"全局节奏"：开头爆炸 → 节奏递增 → 中段信息释放 → 卷尾大悬念钩子\n';
+    moduleBlock += '- 全书5-12卷的推荐节奏：第1卷（引子+钩子）→ 第2-3卷（发展+升级）→ 第4-5卷（世界观展开+关系冲突）→ 第6-8卷（势力洗牌+旧伏笔回收）→ 第9-10卷（高潮+大反转）→ 第11-12卷（结局+收尾+最终钩子）\n';
+    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进\n';
+    moduleBlock += '\n【⚠️ 大纲反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板 → 如果用，第一卷就必须加入一个"主角视角的反转（比如退婚其实是女方保护主角的手段，不是看不起）\n';
+    moduleBlock += '- 禁忌：秘境抢宝流（主角进秘境→遇到天材地宝→全收）→ 必须至少1次抢宝失败或错过重要物品，且这个错过在后续带来更大收获\n';
+    moduleBlock += '- 禁忌：扮猪吃虎重复 → 主角扮弱→打脸→扮弱→打脸循环 → 至少设计1次扮弱被真正的弱一次让他付出真实代价（不是永远赢到底）\n';
+    moduleBlock += '- 禁忌：贵人送宝流（贵人/神秘老者/系统给主角送装备）→ 贵人必须有自己的目的，不是慈善家\n';
+    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是的势力\n';
   } else if(module === 'detail'){
     moduleName = moduleName || '章节细纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
@@ -1357,6 +1418,28 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '  公式：上一段"他恨透了她" → 下一段"但他把她多加了辣酱的那碗面倒得干干净净"\n';
     moduleBlock += '  这种撕裂感才是读者追读的原因，AI不会主动这样写，必须在细纲阶段规划好\n';
     moduleBlock += '- 【重要】"爆点/悬念钩子"字段必须写具体：不是"有悬念"而是"XX说完这句话，门开了/她看到了XX/他倒下时手里握着XX"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：6类钩子交替使用 · 每章末钩子必须指定类型】\n';
+    moduleBlock += '① 身份揭示型（读者以为是A，章末发现是B → "她的真名是……"）\n';
+    moduleBlock += '② 能力觉醒型（主角突然解锁新能力，但代价是…… → "他第一次感到体内那个东西动了"）\n';
+    moduleBlock += '③ 关系反转型（盟友突然变敌/敌人突然援手 → "他拔出剑，对准的却是身边的人"）\n';
+    moduleBlock += '④ 危险逼近型（更大的威胁已经在路上，主角还不知道 → "他不知道，10公里外的人已经锁定了他"）\n';
+    moduleBlock += '⑤ 秘密揭露型（某件事的真相被部分揭露，但制造更大的疑问 → "日记最后一页只有一句话：不要相信任何人"）\n';
+    moduleBlock += '⑥ 神秘未知型（一个完全无法理解的现象/信息出现 → "那东西不是这个世界的规则能解释的"）\n';
+    moduleBlock += '- 每章末的【爆点/悬念钩子】字段请在括号里标注类型编号，如：【爆点/悬念钩子：③】他拔出剑，对准的却是身边的人\n';
+    moduleBlock += '- 类型必须交替使用，连续 2 章禁止同一类型钩子\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：伏笔植入清单 · 生成细纲时同步规划】\n';
+    moduleBlock += '- 生成的细纲中，至少每 3 章要埋 1 个伏笔，在细纲的【爆点/悬念钩子】字段用【伏笔】标签标记\n';
+    moduleBlock += '- 伏笔类型区分：【伏笔-身份】= 暗示某人真实身份 / 【伏笔-能力】= 暗示某能力的代价 / 【伏笔-关系】= 暗示某角色关系 / 【伏笔-世界观】= 暗示世界观真相 / 【伏笔-物品】= 暗示某物品的真正作用\n';
+    moduleBlock += '- 在本段细纲的最后 2-3 章，至少回收 1 个本段埋的伏笔（形成"埋伏笔→回收"的闭环）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：节奏起伏规划 · 本段细纲内必须体现】\n';
+    moduleBlock += '- 10-12 章细纲的推荐强度曲线：第1章（炸弹开头/高强度）→ 第2-3章（中强度/发展）→ 第4-5章（低强度/喘息+伏笔）→ 第6-7章（高强度/转折点）→ 第8-9章（中强度/推进）→ 第10-12章（最高强度/大爆点+钩子收束）\n';
+    moduleBlock += '- 禁忌：连续 3 章高强度战斗/冲突 → 读者审美疲劳\n';
+    moduleBlock += '- 禁忌：连续 3 章低强度日常/对话 → 读者觉得水\n';
+    moduleBlock += '- 理想节奏：高低高高低高高低高高低高（高低交替，整体爬坡\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：章节因果链 · 必须执行】\n';
+    moduleBlock += '- 每章的开头事件必须能追溯到前一章的结尾——不是"第二天继续"而是"因为上一章结尾发生了X，所以这一章开头发生了Y"\n';
+    moduleBlock += '- 每章至少设计 1 个"角色人设驱动的选择"——这个选择不是作者硬编的，而是这个角色在这个情境下必然会做的\n';
+    moduleBlock += '- 至少每 3 章设计 1 个"世界观规则驱动的限制"——主角想做什么，但被世界的规则阻止了，这迫使他/她换一种方式（而不是靠金手指强行突破\n';
     moduleBlock += '\n如果用户在核心诉求中明确指定了章节数量或具体情节，优先满足用户要求。';
   } else {
     moduleBlock += '【模块目标：生成内容】\n请基于用户核心诉求生成相关内容。\n';
@@ -2299,69 +2382,20 @@ window.archDisplayBackToPagedV52 = function(){
   updateArchDisplay(module);
 };
 
-// 生成完成后：①启用分页显示 ②跑引擎自检（世界观/人设→逻辑一致性+反套路+深层人设；细纲/大纲→钩子+伏笔+反套路+节奏）
+// 生成完成后自动启用分页显示
 var _origGenerateArchModule = window.generateArchModule;
 window.generateArchModule = async function(opts) {
   var result = await _origGenerateArchModule.apply(this, arguments);
-  var module = _selectedModule || 'world';
   setTimeout(function() {
+    var module = _selectedModule || 'world';
     var content = getArchRawContent(module);
     if (content && content.length > _archPageSize) {
       _archPageMap[module + '_page'] = 1;
       updateArchDisplay(module);
     }
-    if (content && content.length > 200) {
-      runModuleEngineAnalysis(module, content);
-    }
-  }, 200);
+  }, 100);
   return result;
 };
-
-function runModuleEngineAnalysis(module, content) {
-  try {
-    var report = { checkedAt: Date.now(), module: module };
-    var title = '';
-    if (module === 'world' || module === 'chars') {
-      title = (module === 'world') ? '世界观逻辑一致性' : '人设矛盾层 + 反套路';
-      if (typeof WorldLogicEngine !== 'undefined') {
-        try { report.world = WorldLogicEngine.analyze(content); } catch(e){}
-      }
-      if (module === 'chars' && typeof CharacterConflictLayer !== 'undefined') {
-        try { report.conflict = CharacterConflictLayer.analyze(content); } catch(e){}
-      }
-      if (typeof AntiClicheEngine !== 'undefined') {
-        try { report.cliche = AntiClicheEngine.analyze(content); } catch(e){}
-      }
-    } else if (module === 'detail' || module === 'outline') {
-      title = (module === 'detail') ? '细纲：钩子强度 + 伏笔追踪 + 反套路 + 节奏参考' : '大纲：反套路 + 节奏参考';
-      if (typeof HookStrengthEngine !== 'undefined') {
-        try { report.hooks = HookStrengthEngine.batchAnalyzeChapters(content); } catch(e){}
-      }
-      if (typeof ForeshadowTracker !== 'undefined') {
-        try { report.foreshadow = ForeshadowTracker.extractFromOutline(content); } catch(e){}
-      }
-      if (typeof AntiClicheEngine !== 'undefined') {
-        try { report.cliche = AntiClicheEngine.analyze(content); } catch(e){}
-      }
-    }
-    if (typeof showToast === 'function') {
-      var hints = [];
-      if (report.hooks && report.hooks.weakChapters && report.hooks.weakChapters.length) hints.push('弱钩子' + report.hooks.weakChapters.length + '处');
-      if (report.foreshadow && report.foreshadow.foreshadows) hints.push('伏笔' + report.foreshadow.foreshadows.length + '个');
-      if (report.cliche && report.cliche.matches) hints.push('套路' + Object.keys(report.cliche.matches).length + '类');
-      if (report.world && report.world.criticalIssues) hints.push('世界观问题' + report.world.criticalIssues.length + '项');
-      if (hints.length) showToast('引擎自检：' + hints.join('，'));
-    }
-    var work = getCurrentWork();
-    if (work) {
-      if (!work.engineReports) work.engineReports = {};
-      work.engineReports[module] = report;
-      if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
-    }
-  } catch (e) {}
-}
-
-window.runModuleEngineAnalysis = runModuleEngineAnalysis;
 
 // ===== v52: 细纲翻页器（真正实现）=====
 var _detailPageIdx = 0;
