@@ -1,0 +1,30 @@
+{
+  "result": [
+    {
+      "id": "cf46c17f-97c9-4e5c-820d-91247d9d2c3c",
+      "type": "onetimepin",
+      "uid": "cf46c17f-97c9-4e5c-820d-91247d9d2c3c",
+      "name": "wenxin-bijiang - Cloudflare Workers",
+      "version": "2be4e5f9b43c6da41ddd4f130d6f075a",
+      "config": {
+        "redirect_url": "https://1721532364.cloudflareaccess.com/cdn-cgi/access/callback"
+      },
+      "scim_config": {
+        "enabled": false,
+        "user_deprovision": false,
+        "seat_deprovision": false,
+        "group_member_deprovision": false
+      }
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result_info": {
+    "page": 1,
+    "per_page": 200,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

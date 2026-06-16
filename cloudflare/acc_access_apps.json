@@ -1,0 +1,64 @@
+{
+  "result": [
+    {
+      "id": "185855ea-da0b-439a-b8d3-c05f1ba449c9",
+      "uid": "185855ea-da0b-439a-b8d3-c05f1ba449c9",
+      "type": "self_hosted",
+      "name": "wenxin-bijiang - Cloudflare Pages",
+      "aud": "2affe6e02b9defda42dda9e3d1f48c215cb321eae4c34ec7f10072448a4980d4",
+      "created_at": "2026-06-16T11:29:56Z",
+      "updated_at": "2026-06-16T11:29:56Z",
+      "domain": "*.wenxin-bijiang.pages.dev",
+      "self_hosted_domains": [
+        "*.wenxin-bijiang.pages.dev"
+      ],
+      "destinations": [
+        {
+          "type": "public",
+          "uri": "*.wenxin-bijiang.pages.dev"
+        }
+      ],
+      "app_launcher_visible": true,
+      "allowed_idps": [
+        "cf46c17f-97c9-4e5c-820d-91247d9d2c3c"
+      ],
+      "tags": [],
+      "auto_redirect_to_identity": false,
+      "policies": [
+        {
+          "created_at": "2026-06-16T11:29:56Z",
+          "decision": "allow",
+          "exclude": [],
+          "id": "480ec1f5-2f14-43fa-91f2-bc5afe92719a",
+          "include": [
+            {
+              "email": {
+                "email": "[REDACTED]"
+              }
+            }
+          ],
+          "name": "Allow Members - Cloudflare Pages",
+          "require": [],
+          "uid": "480ec1f5-2f14-43fa-91f2-bc5afe92719a",
+          "updated_at": "2026-06-16T11:29:56Z",
+          "reusable": false,
+          "precedence": 1
+        }
+      ],
+      "session_duration": "[REDACTED]",
+      "enable_binding_cookie": "[REDACTED]",
+      "http_only_cookie_attribute": "[REDACTED]",
+      "options_preflight_bypass": false
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result_info": {
+    "page": 1,
+    "per_page": 1000,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

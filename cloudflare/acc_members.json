@@ -1,0 +1,320 @@
+{
+  "result": [
+    {
+      "id": "104b2c3276e71ee3daf57a2dea45ca1d",
+      "email": "[REDACTED]",
+      "user": {
+        "id": "336525e017b71e34153b88791cf7ef65",
+        "first_name": null,
+        "last_name": null,
+        "email": "[REDACTED]",
+        "two_factor_authentication_enabled": false
+      },
+      "status": "accepted",
+      "api_access_enabled": null,
+      "policies": [
+        {
+          "id": "9080c793dfbb40819514ef8b72221df3",
+          "access": "allow",
+          "permission_groups": [
+            {
+              "id": "8e23b19e4e0d44c29d239c5688ba8cbb",
+              "name": "Super Administrator - All Privileges",
+              "meta": {
+                "category": "general",
+                "description": "Can edit any Cloudflare setting, make purchases, update billing, and manage memberships. Super Administrators can revoke the access of other Super Administrators.",
+                "editable": "false",
+                "has_oauth_scope": "false",
+                "label": "all_privileges",
+                "scopes": "com.cloudflare.api.account"
+              }
+            }
+          ],
+          "resource_groups": [
+            {
+              "id": "4904145f064d46968ec2385dafab504a",
+              "name": "com.cloudflare.api.account.0e5ed23e80064926200db6627112794c",
+              "meta": {
+                "editable": "false"
+              },
+              "scope": {
+                "key": "com.cloudflare.api.account.0e5ed23e80064926200db6627112794c",
+                "objects": [
+                  {
+                    "key": "*"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "roles": [
+        {
+          "id": "33666b9c79b9a5273fc7344ff42f953d",
+          "name": "Super Administrator - All Privileges",
+          "description": "Can edit any Cloudflare setting, make purchases, update billing, and manage memberships. Super Administrators can revoke the access of other Super Administrators.",
+          "permissions": {
+            "access": {
+              "edit": true,
+              "read": true
+            },
+            "analytics": {
+              "edit": false,
+              "read": true
+            },
+            "api_gateway": {
+              "edit": true,
+              "read": true
+            },
+            "app": {
+              "edit": true,
+              "read": false
+            },
+            "auditlogs": {
+              "edit": false,
+              "read": true
+            },
+            "billing": {
+              "edit": true,
+              "read": true
+            },
+            "blocks": {
+              "edit": true,
+              "read": true
+            },
+            "cache_purge": {
+              "edit": true,
+              "read": false
+            },
+            "casb": {
+              "edit": true,
+              "read": true
+            },
+            "cds": {
+              "edit": true,
+              "read": true
+            },
+            "cds_compute_account": {
+              "edit": true,
+              "read": true
+            },
+            "ces_analytics": {
+              "edit": false,
+              "read": true
+            },
+            "ces_integration": {
+              "edit": true,
+              "read": true
+            },
+            "ces_phishguard": {
+              "edit": false,
+              "read": true
+            },
+            "ces_policies": {
+              "edit": true,
+              "read": true
+            },
+            "ces_pra_report": {
+              "edit": true,
+              "read": true
+            },
+            "ces_search": {
+              "action": true,
+              "edit": false,
+              "preview": true,
+              "raw": true,
+              "read": true,
+              "trace": true
+            },
+            "ces_settings": {
+              "edit": true,
+              "read": true
+            },
+            "ces_submissions": {
+              "edit": true,
+              "read": true
+            },
+            "cf1_integration": {
+              "casb": true,
+              "ces": true,
+              "edit": true,
+              "read": true
+            },
+            "cfone": {
+              "edit": true,
+              "read": true
+            },
+            "d1": {
+              "edit": true,
+              "read": false
+            },
+            "dash_sso": {
+              "edit": true,
+              "read": true
+            },
+            "dex": {
+              "edit": true,
+              "read": true
+            },
+            "dns_records": {
+              "edit": true,
+              "read": true
+            },
+            "domain": {
+              "edit": false,
+              "read": true
+            },
+            "fbm": {
+              "edit": true,
+              "read": true
+            },
+            "fbm_acc": {
+              "edit": true,
+              "read": false
+            },
+            "healthchecks": {
+              "edit": true,
+              "read": true
+            },
+            "http_applications": {
+              "edit": true,
+              "read": true
+            },
+            "image": {
+              "edit": true,
+              "read": true
+            },
+            "integration": {
+              "edit": true,
+              "install": true,
+              "read": true
+            },
+            "lb": {
+              "edit": true,
+              "read": true
+            },
+            "legal": {
+              "edit": true,
+              "read": true
+            },
+            "logs": {
+              "edit": true,
+              "read": true
+            },
+            "magic": {
+              "edit": true,
+              "read": true
+            },
+            "member": {
+              "edit": true,
+              "read": true
+            },
+            "organization": {
+              "edit": true,
+              "read": true
+            },
+            "page_shield": {
+              "edit": true,
+              "read": true
+            },
+            "query_cache": {
+              "edit": true,
+              "read": true
+            },
+            "r2_bucket": {
+              "edit": true,
+              "read": true
+            },
+            "r2_bucket_item": {
+              "edit": true,
+              "read": true
+            },
+            "r2_bucket_warehouse": {
+              "edit": true,
+              "read": true
+            },
+            "r2_bucket_warehouse_sql": {
+              "edit": false,
+              "read": true
+            },
+            "resilience": {
+              "edit": true,
+              "read": true
+            },
+            "ssl": {
+              "edit": true,
+              "read": true
+            },
+            "stream": {
+              "content": true,
+              "edit": true,
+              "read": true
+            },
+            "subscription": {
+              "edit": true,
+              "read": true
+            },
+            "teams": {
+              "edit": true,
+              "pii": true,
+              "read": true,
+              "report": true
+            },
+            "teams_device": {
+              "edit": false,
+              "read": true
+            },
+            "vectorize": {
+              "edit": true,
+              "read": true
+            },
+            "waf": {
+              "edit": true,
+              "read": true
+            },
+            "waitingroom": {
+              "edit": true,
+              "read": true
+            },
+            "web3": {
+              "edit": true,
+              "read": true
+            },
+            "worker": {
+              "edit": true,
+              "read": true
+            },
+            "zaraz": {
+              "edit": true,
+              "publish": true,
+              "read": true
+            },
+            "zone": {
+              "edit": true,
+              "read": true
+            },
+            "zone_settings": {
+              "edit": true,
+              "read": true
+            },
+            "zone_versioning": {
+              "edit": true,
+              "read": true
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 20,
+    "total_pages": 1,
+    "count": 1,
+    "total_count": 1
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}

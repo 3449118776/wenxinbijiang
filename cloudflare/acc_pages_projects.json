@@ -39,7 +39,10 @@
       "deployment_configs": {
         "preview": {
           "env_vars": {
-            "WXBJ_SECRET": "[REDACTED]"
+            "WXBJ_SECRET": {
+              "type": "plain_text",
+              "value": "[REDACTED_SECRET]"
+            }
           },
           "kv_namespaces": {
             "WXBJ_DATA": {
@@ -55,7 +58,10 @@
         },
         "production": {
           "env_vars": {
-            "WXBJ_SECRET": "[REDACTED]"
+            "WXBJ_SECRET": {
+              "type": "plain_text",
+              "value": "[REDACTED_SECRET]"
+            }
           },
           "kv_namespaces": {
             "WXBJ_DATA": {
@@ -72,18 +78,18 @@
         }
       },
       "latest_deployment": {
-        "id": "b2985b1d-2e3a-45c6-bc86-1bf339f24d00",
-        "short_id": "b2985b1d",
+        "id": "2a2a1ad9-b181-4f40-882d-ec39dc2d40ed",
+        "short_id": "2a2a1ad9",
         "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
         "project_name": "wxbj-main",
         "environment": "production",
-        "url": "https://b2985b1d.wxbj-main.pages.dev",
-        "created_on": "2026-06-16T18:28:22.685319Z",
-        "modified_on": "2026-06-16T18:28:41.390538Z",
+        "url": "https://2a2a1ad9.wxbj-main.pages.dev",
+        "created_on": "2026-06-16T18:36:36.48565Z",
+        "modified_on": "2026-06-16T18:36:49.217983Z",
         "latest_stage": {
           "name": "deploy",
-          "started_on": "2026-06-16T18:28:35.363324Z",
-          "ended_on": "2026-06-16T18:28:41.390538Z",
+          "started_on": "2026-06-16T18:36:43.471339Z",
+          "ended_on": "2026-06-16T18:36:49.217983Z",
           "status": "success"
         },
         "deployment_trigger": {
@@ -91,39 +97,39 @@
           "metadata": {
             "branch": "main",
             "commit_hash": "[REDACTED]",
-            "commit_message": "feat: 同步 Clo 代码到 Git\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_message": "sync: Cloudflare 配置完整快照\n\n- 57 个文件，252KB\n- Pages 项目: wenxin-bijiang, wxbj-main\n- D1 数据库: 3 个库 (schema + users/works 表数据)\n- KV 命名空间: 40 个键值对\n- Zone: wenxinbijiang.xin 完整配置\n- 规则: redirect / origin / transform / configuration\n敏感字段已脱敏",
             "commit_dirty": false
           }
         },
         "stages": [
           {
             "name": "queued",
-            "started_on": "2026-06-16T18:28:22.814561Z",
-            "ended_on": "2026-06-16T18:28:25.256285Z",
+            "started_on": "2026-06-16T18:36:36.673148Z",
+            "ended_on": "2026-06-16T18:36:36.676448Z",
             "status": "success"
           },
           {
             "name": "initialize",
-            "started_on": "2026-06-16T18:28:25.256285Z",
-            "ended_on": "2026-06-16T18:28:28.475605Z",
+            "started_on": "2026-06-16T18:36:36.676448Z",
+            "ended_on": "2026-06-16T18:36:39.158802Z",
             "status": "success"
           },
           {
             "name": "clone_repo",
-            "started_on": "2026-06-16T18:28:28.475605Z",
-            "ended_on": "2026-06-16T18:28:30.924127Z",
+            "started_on": "2026-06-16T18:36:39.158802Z",
+            "ended_on": "2026-06-16T18:36:40.655195Z",
             "status": "success"
           },
           {
             "name": "build",
-            "started_on": "2026-06-16T18:28:30.924127Z",
-            "ended_on": "2026-06-16T18:28:35.363324Z",
+            "started_on": "2026-06-16T18:36:40.655195Z",
+            "ended_on": "2026-06-16T18:36:43.471339Z",
             "status": "success"
           },
           {
             "name": "deploy",
-            "started_on": "2026-06-16T18:28:35.363324Z",
-            "ended_on": "2026-06-16T18:28:41.390538Z",
+            "started_on": "2026-06-16T18:36:43.471339Z",
+            "ended_on": "2026-06-16T18:36:49.217983Z",
             "status": "success"
           }
         ],
@@ -145,7 +151,10 @@
           }
         },
         "env_vars": {
-          "WXBJ_SECRET": "[REDACTED]"
+          "WXBJ_SECRET": {
+            "type": "plain_text",
+            "value": "[REDACTED_SECRET]"
+          }
         },
         "kv_namespaces": {
           "WXBJ_DATA": {
@@ -162,18 +171,18 @@
         "uses_functions": false
       },
       "canonical_deployment": {
-        "id": "b2985b1d-2e3a-45c6-bc86-1bf339f24d00",
-        "short_id": "b2985b1d",
+        "id": "2a2a1ad9-b181-4f40-882d-ec39dc2d40ed",
+        "short_id": "2a2a1ad9",
         "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
         "project_name": "wxbj-main",
         "environment": "production",
-        "url": "https://b2985b1d.wxbj-main.pages.dev",
-        "created_on": "2026-06-16T18:28:22.685319Z",
-        "modified_on": "2026-06-16T18:28:41.390538Z",
+        "url": "https://2a2a1ad9.wxbj-main.pages.dev",
+        "created_on": "2026-06-16T18:36:36.48565Z",
+        "modified_on": "2026-06-16T18:36:49.217983Z",
         "latest_stage": {
           "name": "deploy",
-          "started_on": "2026-06-16T18:28:35.363324Z",
-          "ended_on": "2026-06-16T18:28:41.390538Z",
+          "started_on": "2026-06-16T18:36:43.471339Z",
+          "ended_on": "2026-06-16T18:36:49.217983Z",
           "status": "success"
         },
         "deployment_trigger": {
@@ -181,39 +190,39 @@
           "metadata": {
             "branch": "main",
             "commit_hash": "[REDACTED]",
-            "commit_message": "feat: 同步 Clo 代码到 Git\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_message": "sync: Cloudflare 配置完整快照\n\n- 57 个文件，252KB\n- Pages 项目: wenxin-bijiang, wxbj-main\n- D1 数据库: 3 个库 (schema + users/works 表数据)\n- KV 命名空间: 40 个键值对\n- Zone: wenxinbijiang.xin 完整配置\n- 规则: redirect / origin / transform / configuration\n敏感字段已脱敏",
             "commit_dirty": false
           }
         },
         "stages": [
           {
             "name": "queued",
-            "started_on": "2026-06-16T18:28:22.814561Z",
-            "ended_on": "2026-06-16T18:28:25.256285Z",
+            "started_on": "2026-06-16T18:36:36.673148Z",
+            "ended_on": "2026-06-16T18:36:36.676448Z",
             "status": "success"
           },
           {
             "name": "initialize",
-            "started_on": "2026-06-16T18:28:25.256285Z",
-            "ended_on": "2026-06-16T18:28:28.475605Z",
+            "started_on": "2026-06-16T18:36:36.676448Z",
+            "ended_on": "2026-06-16T18:36:39.158802Z",
             "status": "success"
           },
           {
             "name": "clone_repo",
-            "started_on": "2026-06-16T18:28:28.475605Z",
-            "ended_on": "2026-06-16T18:28:30.924127Z",
+            "started_on": "2026-06-16T18:36:39.158802Z",
+            "ended_on": "2026-06-16T18:36:40.655195Z",
             "status": "success"
           },
           {
             "name": "build",
-            "started_on": "2026-06-16T18:28:30.924127Z",
-            "ended_on": "2026-06-16T18:28:35.363324Z",
+            "started_on": "2026-06-16T18:36:40.655195Z",
+            "ended_on": "2026-06-16T18:36:43.471339Z",
             "status": "success"
           },
           {
             "name": "deploy",
-            "started_on": "2026-06-16T18:28:35.363324Z",
-            "ended_on": "2026-06-16T18:28:41.390538Z",
+            "started_on": "2026-06-16T18:36:43.471339Z",
+            "ended_on": "2026-06-16T18:36:49.217983Z",
             "status": "success"
           }
         ],
@@ -235,7 +244,10 @@
           }
         },
         "env_vars": {
-          "WXBJ_SECRET": "[REDACTED]"
+          "WXBJ_SECRET": {
+            "type": "plain_text",
+            "value": "[REDACTED_SECRET]"
+          }
         },
         "kv_namespaces": {
           "WXBJ_DATA": {
@@ -276,7 +288,10 @@
       "deployment_configs": {
         "preview": {
           "env_vars": {
-            "WXBJ_SECRET": "[REDACTED]"
+            "WXBJ_SECRET": {
+              "type": "plain_text",
+              "value": "[REDACTED_SECRET]"
+            }
           },
           "kv_namespaces": {
             "WXBJ_DATA": {
@@ -293,7 +308,10 @@
         },
         "production": {
           "env_vars": {
-            "WXBJ_SECRET": "[REDACTED]"
+            "WXBJ_SECRET": {
+              "type": "plain_text",
+              "value": "[REDACTED_SECRET]"
+            }
           },
           "kv_namespaces": {
             "WXBJ_DATA": {
@@ -329,7 +347,7 @@
           "metadata": {
             "branch": "trae/solo-agent-eWpAqF",
             "commit_hash": "[REDACTED]",
-            "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
+            "commit_message": "feat: [REDACTED_TOKEN]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
             "commit_dirty": false
           }
         },
@@ -383,7 +401,10 @@
           }
         },
         "env_vars": {
-          "WXBJ_SECRET": "[REDACTED]"
+          "WXBJ_SECRET": {
+            "type": "plain_text",
+            "value": "[REDACTED_SECRET]"
+          }
         },
         "kv_namespaces": {
           "WXBJ_DATA": {
@@ -473,7 +494,10 @@
           }
         },
         "env_vars": {
-          "WXBJ_SECRET": "[REDACTED]"
+          "WXBJ_SECRET": {
+            "type": "plain_text",
+            "value": "[REDACTED_SECRET]"
+          }
         },
         "kv_namespaces": {
           "WXBJ_DATA": {
