@@ -1,0 +1,1 @@
+{"userId":9,"workId":"cf-work-001","title":"Cloudflare测试作品v3","category":"测试","synopsis":"","payload":"{\"chapters\":[{\"title\":\"第一章\",\"content\":\"新内容v3\"}]}","version":3,"chapterCount":0,"totalWords":0,"updatedAt":"2026-06-16T09:42:58.549Z","createdAt":"2026-06-16T09:41:14.566Z"}

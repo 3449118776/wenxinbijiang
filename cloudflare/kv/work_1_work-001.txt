@@ -1,0 +1,1 @@
+{"userId":1,"workId":"work-001","title":"更新后的作品","category":"科幻","synopsis":"测试简介","payload":"{\"chapters\":[\"第一章\"]}","version":2,"chapterCount":1,"totalWords":100,"updatedAt":"2026-06-14T07:03:56.894Z","createdAt":"2026-06-14T06:54:49.217Z"}

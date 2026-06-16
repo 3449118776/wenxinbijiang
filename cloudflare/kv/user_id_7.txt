@@ -1,0 +1,11 @@
+{
+  "id": 7,
+  "email": "3449118776@qq.com",
+  "nickname": "笔匠用户",
+  "passwordHash": "[REDACTED]",
+  "visitCount": 0,
+  "lastVisitAt": null,
+  "resetToken": "[REDACTED]",
+  "resetExpiresAt": null,
+  "createdAt": "2026-06-15T18:31:38.168Z"
+}

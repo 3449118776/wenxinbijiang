@@ -1,0 +1,1 @@
+{"id":"f2b769cb0a58e553","workId":"cf-work-new-1781603365","version":2,"payload":"{\"chapters\":[{\"title\":\"第一章\",\"content\":\"更新内容v3\"}]}","payloadHash":"f84c53f2b7fd","size":63,"createdAt":"2026-06-16T09:49:28.507Z"}

@@ -1,0 +1,11 @@
+{
+  "id": 11,
+  "email": "test_fix_1781606018@test.com",
+  "nickname": "Test",
+  "passwordHash": "[REDACTED]",
+  "visitCount": 0,
+  "lastVisitAt": null,
+  "resetToken": "[REDACTED]",
+  "resetExpiresAt": null,
+  "createdAt": "2026-06-16T10:33:40.001Z"
+}

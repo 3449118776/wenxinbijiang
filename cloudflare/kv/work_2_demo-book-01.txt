@@ -1,0 +1,1 @@
+{"userId":2,"workId":"demo-book-01","title":"Demo Book","category":"测试","synopsis":"测试synopsis","payload":"{\"meta\":{}}","version":1,"chapterCount":0,"totalWords":0,"updatedAt":"2026-06-14T07:06:26.829Z","createdAt":"2026-06-14T07:06:26.829Z"}
