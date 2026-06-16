@@ -1,0 +1,15 @@
+{
+  "table": "sync_logs",
+  "count": 1,
+  "rows": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "work_id": "1",
+      "action": "create",
+      "device": "",
+      "ip": "115.190.92.241",
+      "created_at": "2026-06-12 20:44:00"
+    }
+  ]
+}

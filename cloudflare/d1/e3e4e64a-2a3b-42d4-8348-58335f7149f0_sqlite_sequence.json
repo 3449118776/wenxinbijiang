@@ -1,0 +1,10 @@
+{
+  "table": "sqlite_sequence",
+  "count": 1,
+  "rows": [
+    {
+      "name": "d1_migrations",
+      "seq": 1
+    }
+  ]
+}

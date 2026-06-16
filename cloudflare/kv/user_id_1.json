@@ -1,6 +1,6 @@
 {
   "id": 1,
-  "email": "[REDACTED]",
+  "email": "cloudflare@test.com",
   "nickname": "CF测试",
   "passwordHash": "[REDACTED]",
   "visitCount": 4,

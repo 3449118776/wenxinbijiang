@@ -1,40 +1,20 @@
 {
-  "result": [
+  "databases": [
     {
-      "uuid": "5467f76c-c31e-4666-ae94-df9493369b10",
       "name": "wenxinbijiang-db",
-      "created_at": "2026-06-13T05:38:21.861Z",
-      "version": "production",
-      "num_tables": 0,
-      "file_size": 69632,
-      "jurisdiction": null
+      "uuid": "5467f76c-c31e-4666-ae94-df9493369b10",
+      "created_at": "2026-06-13T05:38:21.861Z"
     },
     {
-      "uuid": "0acbb982-a44b-40c6-bef9-e1d2edcd6821",
       "name": "wxbj-db",
-      "created_at": "2026-06-12T20:27:02.676Z",
-      "version": "production",
-      "num_tables": 0,
-      "file_size": 69632,
-      "jurisdiction": null
+      "uuid": "0acbb982-a44b-40c6-bef9-e1d2edcd6821",
+      "created_at": "2026-06-12T20:27:02.676Z"
     },
     {
-      "uuid": "e3e4e64a-2a3b-42d4-8348-58335f7149f0",
       "name": "openapi-template-db",
-      "created_at": "2026-06-11T13:07:22.159Z",
-      "version": "production",
-      "num_tables": 0,
-      "file_size": 28672,
-      "jurisdiction": null
+      "uuid": "e3e4e64a-2a3b-42d4-8348-58335f7149f0",
+      "created_at": "2026-06-11T13:07:22.159Z"
     }
   ],
-  "errors": [],
-  "messages": [],
-  "success": true,
-  "result_info": {
-    "count": 3,
-    "page": 1,
-    "per_page": 100,
-    "total_count": 3
-  }
+  "count": 3
 }

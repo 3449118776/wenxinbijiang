@@ -1,11 +1,11 @@
 {
   "id": 2,
-  "email": "[REDACTED]",
+  "email": "ui-test@demo.com",
   "nickname": "UI测试",
   "passwordHash": "[REDACTED]",
   "visitCount": 1,
   "lastVisitAt": "2026-06-14T07:06:24.021Z",
-  "resetToken": "[REDACTED]",
+  "resetToken": null,
   "resetExpiresAt": null,
   "createdAt": "2026-06-14T07:06:22.666Z"
 }

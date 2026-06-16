@@ -1,5 +1,6 @@
 {
-  "result": [
+  "count": 20,
+  "items": [
     {
       "id": "14f4def927c8cce7e116779e9931f521",
       "name": "Account Abuse Protection (Account-Wide)",
@@ -114,7 +115,7 @@
     {
       "id": "66ad305159f0c386cd55532e2074dd30",
       "name": "IP Addressing Read",
-      "description": "Grants read-only access to IP Addressing — IP prefixes, BGP prefixes, edge service bindings, address maps, IP leases, and LOA documents.",
+      "description": "Grants read-only access to IP Addressing \u2014 IP prefixes, BGP prefixes, edge service bindings, address maps, IP leases, and LOA documents.",
       "permissions": {
         "zone": {
           "read": true,
@@ -129,7 +130,7 @@
     {
       "id": "f0f92691ab81efb9b815b9284a5faf2b",
       "name": "IP Addressing Write",
-      "description": "Grants read and write access to IP Addressing — create, update, and delete IP prefixes, BGP prefixes, edge service bindings, address maps, delegations, and LOA documents.",
+      "description": "Grants read and write access to IP Addressing \u2014 create, update, and delete IP prefixes, BGP prefixes, edge service bindings, address maps, delegations, and LOA documents.",
       "permissions": {
         "zone": {
           "read": true,
@@ -373,15 +374,5 @@
         }
       }
     }
-  ],
-  "result_info": {
-    "page": 1,
-    "per_page": 20,
-    "total_pages": 6,
-    "count": 20,
-    "total_count": 101
-  },
-  "success": true,
-  "errors": [],
-  "messages": []
+  ]
 }

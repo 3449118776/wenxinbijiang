@@ -1,255 +1,64 @@
 {
-  "result": {
-    "id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
-    "name": "wenxin-bijiang",
-    "subdomain": "wenxin-bijiang.pages.dev",
-    "domains": [
-      "wenxin-bijiang.pages.dev"
-    ],
-    "build_config": {
-      "build_command": "",
-      "destination_dir": "",
-      "root_dir": ".",
-      "web_analytics_tag": null,
-      "web_analytics_token": "[REDACTED]"
-    },
-    "deployment_configs": {
-      "preview": {
-        "env_vars": {
-          "WXBJ_SECRET": {
-            "type": "plain_text",
-            "value": "[REDACTED]"
-          }
-        },
-        "kv_namespaces": {
-          "WXBJ_DATA": {
-            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-          }
-        },
-        "fail_open": true,
-        "always_use_latest_compatibility_date": false,
-        "compatibility_date": "2024-01-01",
-        "compatibility_flags": [],
-        "build_image_major_version": 3,
-        "usage_model": "standard",
-        "wrangler_config_hash": "[REDACTED]"
-      },
-      "production": {
-        "env_vars": {
-          "WXBJ_SECRET": {
-            "type": "plain_text",
-            "value": "[REDACTED]"
-          }
-        },
-        "kv_namespaces": {
-          "WXBJ_DATA": {
-            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-          }
-        },
-        "fail_open": true,
-        "always_use_latest_compatibility_date": false,
-        "compatibility_date": "2024-01-01",
-        "compatibility_flags": [],
-        "build_image_major_version": 3,
-        "usage_model": "standard",
-        "wrangler_config_hash": "[REDACTED]"
-      }
-    },
-    "latest_deployment": {
-      "id": "0e9a7160-716e-4cfb-854d-fcca96ab7216",
-      "short_id": "0e9a7160",
-      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
-      "project_name": "wenxin-bijiang",
-      "environment": "preview",
-      "url": "https://0e9a7160.wenxin-bijiang.pages.dev",
-      "created_on": "2026-06-16T17:17:19.225007Z",
-      "modified_on": "2026-06-16T17:17:41.61982Z",
-      "latest_stage": {
-        "name": "build",
-        "started_on": "2026-06-16T17:17:34.549477Z",
-        "ended_on": "2026-06-16T17:17:41.61982Z",
-        "status": "failure"
-      },
-      "deployment_trigger": {
-        "type": "github:push",
-        "metadata": {
-          "branch": "trae/solo-agent-eWpAqF",
-          "commit_hash": "[REDACTED]",
-          "commit_message": "feat: [REDACTED]\n\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
-          "commit_dirty": false
-        }
-      },
-      "stages": [
-        {
-          "name": "queued",
-          "started_on": "2026-06-16T17:17:19.864199Z",
-          "ended_on": "2026-06-16T17:17:19.867782Z",
-          "status": "success"
-        },
-        {
-          "name": "initialize",
-          "started_on": "2026-06-16T17:17:19.867782Z",
-          "ended_on": "2026-06-16T17:17:25.524227Z",
-          "status": "success"
-        },
-        {
-          "name": "clone_repo",
-          "started_on": "2026-06-16T17:17:25.524227Z",
-          "ended_on": "2026-06-16T17:17:34.549477Z",
-          "status": "success"
-        },
-        {
-          "name": "build",
-          "started_on": "2026-06-16T17:17:34.549477Z",
-          "ended_on": "2026-06-16T17:17:41.61982Z",
-          "status": "failure"
-        },
-        {
-          "name": "deploy",
-          "started_on": null,
-          "ended_on": null,
-          "status": "idle"
-        }
-      ],
-      "build_config": {
-        "build_command": "",
-        "destination_dir": "",
-        "build_caching": null,
-        "root_dir": ".",
-        "web_analytics_tag": null,
-        "web_analytics_token": "[REDACTED]"
-      },
-      "source": {
-        "type": "github",
-        "config": {
-          "owner": "3449118776",
-          "repo_name": "-",
-          "production_branch": "main",
-          "pr_comments_enabled": false
-        }
-      },
-      "env_vars": {
-        "WXBJ_SECRET": {
-          "type": "plain_text",
-          "value": "[REDACTED]"
-        }
-      },
-      "kv_namespaces": {
-        "WXBJ_DATA": {
-          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-        }
-      },
-      "compatibility_date": "2024-01-01",
-      "compatibility_flags": [],
-      "build_image_major_version": 3,
-      "usage_model": null,
-      "aliases": null,
-      "is_skipped": false,
-      "production_branch": "main",
-      "uses_functions": null
-    },
-    "canonical_deployment": {
-      "id": "6398b2a8-02f4-4491-a8e4-996e60a18576",
-      "short_id": "6398b2a8",
-      "project_id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
-      "project_name": "wenxin-bijiang",
-      "environment": "production",
-      "url": "https://6398b2a8.wenxin-bijiang.pages.dev",
-      "created_on": "2026-06-16T10:07:01.472808Z",
-      "modified_on": "2026-06-16T11:38:36.714961Z",
-      "latest_stage": {
-        "name": "deploy",
-        "started_on": null,
-        "ended_on": "2026-06-16T10:07:03.383883Z",
-        "status": "success"
-      },
-      "deployment_trigger": {
-        "type": "ad_hoc",
-        "metadata": {
-          "branch": "main",
-          "commit_hash": "[REDACTED]",
-          "commit_message": "feat: 查看密钥代码\r\n\r\nCo-authored-by: traeagent <[REDACTED_EMAIL]>",
-          "commit_dirty": false
-        }
-      },
-      "stages": [
-        {
-          "name": "queued",
-          "started_on": "2026-06-16T10:07:01.472808Z",
-          "ended_on": null,
-          "status": "active"
-        },
-        {
-          "name": "initialize",
-          "started_on": null,
-          "ended_on": null,
-          "status": "idle"
-        },
-        {
-          "name": "clone_repo",
-          "started_on": null,
-          "ended_on": null,
-          "status": "idle"
-        },
-        {
-          "name": "build",
-          "started_on": null,
-          "ended_on": null,
-          "status": "idle"
-        },
-        {
-          "name": "deploy",
-          "started_on": null,
-          "ended_on": "2026-06-16T10:07:03.383883Z",
-          "status": "success"
-        }
-      ],
-      "build_config": {
-        "build_command": "",
-        "destination_dir": "",
-        "build_caching": null,
-        "root_dir": ".",
-        "web_analytics_tag": null,
-        "web_analytics_token": "[REDACTED]"
-      },
-      "source": {
-        "type": "github",
-        "config": {
-          "owner": "3449118776",
-          "repo_name": "-",
-          "production_branch": "main",
-          "pr_comments_enabled": false
-        }
-      },
-      "env_vars": {
-        "WXBJ_SECRET": {
-          "type": "plain_text",
-          "value": "[REDACTED]"
-        }
-      },
-      "kv_namespaces": {
-        "WXBJ_DATA": {
-          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-        }
-      },
-      "compatibility_date": "2024-01-01",
-      "compatibility_flags": [],
-      "build_image_major_version": 3,
-      "usage_model": "bundled",
-      "aliases": null,
-      "is_skipped": false,
-      "production_branch": "main",
-      "uses_functions": true
-    },
-    "created_on": "2026-06-12T20:32:08.397425Z",
-    "production_branch": "main",
-    "production_script_name": "pages-worker--14940879-production",
-    "preview_script_name": "pages-worker--14940879-preview",
-    "uses_functions": true,
-    "framework": "",
-    "framework_version": ""
+  "id": "ee6085a2-5953-42c5-8dba-e16af7b7bd72",
+  "name": "wenxin-bijiang",
+  "subdomain": "wenxin-bijiang.pages.dev",
+  "domains": [
+    "wenxin-bijiang.pages.dev"
+  ],
+  "build_config": {
+    "build_command": "",
+    "destination_dir": "",
+    "root_dir": ".",
+    "web_analytics_tag": null,
+    "web_analytics_token": null
   },
-  "success": true,
-  "errors": [],
-  "messages": []
+  "deployment_configs": {
+    "preview": {
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "wxbj_cloud_secret_2026_v2_production"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "fail_open": true,
+      "always_use_latest_compatibility_date": false,
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "standard",
+      "wrangler_config_hash": "7b6e9d62b0923282c0774e47cd617214b94bd63961338158a953f9638b8ab432"
+    },
+    "production": {
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "wxbj_cloud_secret_2026_v2_production"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "fail_open": true,
+      "always_use_latest_compatibility_date": false,
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "standard",
+      "wrangler_config_hash": "7b6e9d62b0923282c0774e47cd617214b94bd63961338158a953f9638b8ab432"
+    }
+  },
+  "created_on": "2026-06-12T20:32:08.397425Z",
+  "production_branch": "main",
+  "production_script_name": "pages-worker--14940879-production",
+  "preview_script_name": "pages-worker--14940879-preview",
+  "uses_functions": true,
+  "framework": "",
+  "framework_version": ""
 }

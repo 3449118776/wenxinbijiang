@@ -1,11 +1,11 @@
 {
   "id": 6,
-  "email": "[REDACTED]",
+  "email": "test123@test.com",
   "nickname": "",
   "passwordHash": "[REDACTED]",
   "visitCount": 1,
   "lastVisitAt": "2026-06-15T18:26:21.134Z",
-  "resetToken": "[REDACTED]",
+  "resetToken": null,
   "resetExpiresAt": null,
   "createdAt": "2026-06-15T18:26:14.178Z"
 }

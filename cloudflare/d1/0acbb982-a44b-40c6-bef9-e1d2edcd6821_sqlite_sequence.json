@@ -1,0 +1,22 @@
+{
+  "table": "sqlite_sequence",
+  "count": 4,
+  "rows": [
+    {
+      "name": "users",
+      "seq": 4
+    },
+    {
+      "name": "works",
+      "seq": 2
+    },
+    {
+      "name": "sync_logs",
+      "seq": 1
+    },
+    {
+      "name": "password_reset_codes",
+      "seq": 3
+    }
+  ]
+}

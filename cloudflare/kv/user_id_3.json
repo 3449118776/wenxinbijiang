@@ -1,6 +1,6 @@
 {
   "id": 3,
-  "email": "[REDACTED]",
+  "email": "flowtest@demo.com",
   "nickname": "Flow测试",
   "passwordHash": "[REDACTED]",
   "visitCount": 0,

@@ -1,0 +1,10 @@
+{
+  "table": "sqlite_sequence",
+  "count": 1,
+  "rows": [
+    {
+      "name": "users",
+      "seq": 2
+    }
+  ]
+}

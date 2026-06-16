@@ -1,276 +1,85 @@
 {
-  "result": {
-    "id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
-    "name": "wxbj-main",
-    "subdomain": "wxbj-main.pages.dev",
-    "domains": [
-      "wxbj-main.pages.dev"
-    ],
-    "source": {
-      "type": "github",
-      "config": {
-        "owner": "3449118776",
-        "owner_id": "291264253",
-        "repo_name": "wenxinbijiang",
-        "repo_id": "1271473464",
-        "production_branch": "main",
-        "pr_comments_enabled": true,
-        "deployments_enabled": true,
-        "production_deployments_enabled": true,
-        "preview_deployment_setting": "all",
-        "preview_branch_includes": [
-          "*"
-        ],
-        "preview_branch_excludes": [],
-        "path_includes": [
-          "*"
-        ],
-        "path_excludes": []
-      }
-    },
-    "build_config": {
-      "build_command": "",
-      "destination_dir": "",
-      "root_dir": "",
-      "web_analytics_tag": null,
-      "web_analytics_token": "[REDACTED]"
-    },
-    "deployment_configs": {
-      "preview": {
-        "env_vars": {
-          "WXBJ_SECRET": {
-            "type": "plain_text",
-            "value": "[REDACTED]"
-          }
-        },
-        "kv_namespaces": {
-          "WXBJ_DATA": {
-            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-          }
-        },
-        "fail_open": true,
-        "always_use_latest_compatibility_date": false,
-        "compatibility_date": "2024-01-01",
-        "compatibility_flags": [],
-        "build_image_major_version": 3,
-        "usage_model": "standard"
-      },
-      "production": {
-        "env_vars": {
-          "WXBJ_SECRET": {
-            "type": "plain_text",
-            "value": "[REDACTED]"
-          }
-        },
-        "kv_namespaces": {
-          "WXBJ_DATA": {
-            "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-          }
-        },
-        "fail_open": true,
-        "always_use_latest_compatibility_date": false,
-        "compatibility_date": "2024-01-01",
-        "compatibility_flags": [],
-        "build_image_major_version": 3,
-        "usage_model": "standard",
-        "wrangler_config_hash": "[REDACTED]"
-      }
-    },
-    "latest_deployment": {
-      "id": "8ea7c113-bc0f-442d-94f2-51ad8709543b",
-      "short_id": "8ea7c113",
-      "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
-      "project_name": "wxbj-main",
-      "environment": "production",
-      "url": "https://8ea7c113.wxbj-main.pages.dev",
-      "created_on": "2026-06-16T18:48:54.648362Z",
-      "modified_on": "2026-06-16T18:49:09.889059Z",
-      "latest_stage": {
-        "name": "deploy",
-        "started_on": "2026-06-16T18:49:02.94499Z",
-        "ended_on": "2026-06-16T18:49:09.889059Z",
-        "status": "success"
-      },
-      "deployment_trigger": {
-        "type": "github:push",
-        "metadata": {
-          "branch": "main",
-          "commit_hash": "[REDACTED]",
-          "commit_message": "sync: 补充 Cloudflare 完整资源快照\n\n新增:\n- zone_rulesets.json: 3 个 Cloudflare 托管规则集\n- acc_access_apps.json: Cloudflare Access 应用\n- acc_access_identity_providers.json: Access 身份提供商\n- acc_images_v1.json: Cloudflare Images 服务信息\n- acc_members.json: 账户成员信息\n- acc_pages_projects.json: Pages 项目完整信息 (替换旧的 pages_projects.json)\n\n当前总计 62 个 JSON 文件",
-          "commit_dirty": false
-        }
-      },
-      "stages": [
-        {
-          "name": "queued",
-          "started_on": "2026-06-16T18:48:54.76862Z",
-          "ended_on": "2026-06-16T18:48:54.773473Z",
-          "status": "success"
-        },
-        {
-          "name": "initialize",
-          "started_on": "2026-06-16T18:48:54.773473Z",
-          "ended_on": "2026-06-16T18:48:57.600836Z",
-          "status": "success"
-        },
-        {
-          "name": "clone_repo",
-          "started_on": "2026-06-16T18:48:57.600836Z",
-          "ended_on": "2026-06-16T18:48:59.646419Z",
-          "status": "success"
-        },
-        {
-          "name": "build",
-          "started_on": "2026-06-16T18:48:59.646419Z",
-          "ended_on": "2026-06-16T18:49:02.94499Z",
-          "status": "success"
-        },
-        {
-          "name": "deploy",
-          "started_on": "2026-06-16T18:49:02.94499Z",
-          "ended_on": "2026-06-16T18:49:09.889059Z",
-          "status": "success"
-        }
-      ],
-      "build_config": {
-        "build_command": "",
-        "destination_dir": "",
-        "build_caching": null,
-        "root_dir": "",
-        "web_analytics_tag": null,
-        "web_analytics_token": "[REDACTED]"
-      },
-      "source": {
-        "type": "github",
-        "config": {
-          "owner": "3449118776",
-          "repo_name": "wenxinbijiang",
-          "production_branch": "main",
-          "pr_comments_enabled": false
-        }
-      },
-      "env_vars": {
-        "WXBJ_SECRET": {
-          "type": "plain_text",
-          "value": "[REDACTED]"
-        }
-      },
-      "kv_namespaces": {
-        "WXBJ_DATA": {
-          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-        }
-      },
-      "compatibility_date": "2024-01-01",
-      "compatibility_flags": [],
-      "build_image_major_version": 3,
-      "usage_model": null,
-      "aliases": null,
-      "is_skipped": false,
+  "id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
+  "name": "wxbj-main",
+  "subdomain": "wxbj-main.pages.dev",
+  "domains": [
+    "wxbj-main.pages.dev"
+  ],
+  "source": {
+    "type": "github",
+    "config": {
+      "owner": "3449118776",
+      "owner_id": "291264253",
+      "repo_name": "wenxinbijiang",
+      "repo_id": "1271473464",
       "production_branch": "main",
-      "uses_functions": false
-    },
-    "canonical_deployment": {
-      "id": "8ea7c113-bc0f-442d-94f2-51ad8709543b",
-      "short_id": "8ea7c113",
-      "project_id": "f99b91c2-13ea-441c-94f0-b4a5ce1c4954",
-      "project_name": "wxbj-main",
-      "environment": "production",
-      "url": "https://8ea7c113.wxbj-main.pages.dev",
-      "created_on": "2026-06-16T18:48:54.648362Z",
-      "modified_on": "2026-06-16T18:49:09.889059Z",
-      "latest_stage": {
-        "name": "deploy",
-        "started_on": "2026-06-16T18:49:02.94499Z",
-        "ended_on": "2026-06-16T18:49:09.889059Z",
-        "status": "success"
-      },
-      "deployment_trigger": {
-        "type": "github:push",
-        "metadata": {
-          "branch": "main",
-          "commit_hash": "[REDACTED]",
-          "commit_message": "sync: 补充 Cloudflare 完整资源快照\n\n新增:\n- zone_rulesets.json: 3 个 Cloudflare 托管规则集\n- acc_access_apps.json: Cloudflare Access 应用\n- acc_access_identity_providers.json: Access 身份提供商\n- acc_images_v1.json: Cloudflare Images 服务信息\n- acc_members.json: 账户成员信息\n- acc_pages_projects.json: Pages 项目完整信息 (替换旧的 pages_projects.json)\n\n当前总计 62 个 JSON 文件",
-          "commit_dirty": false
-        }
-      },
-      "stages": [
-        {
-          "name": "queued",
-          "started_on": "2026-06-16T18:48:54.76862Z",
-          "ended_on": "2026-06-16T18:48:54.773473Z",
-          "status": "success"
-        },
-        {
-          "name": "initialize",
-          "started_on": "2026-06-16T18:48:54.773473Z",
-          "ended_on": "2026-06-16T18:48:57.600836Z",
-          "status": "success"
-        },
-        {
-          "name": "clone_repo",
-          "started_on": "2026-06-16T18:48:57.600836Z",
-          "ended_on": "2026-06-16T18:48:59.646419Z",
-          "status": "success"
-        },
-        {
-          "name": "build",
-          "started_on": "2026-06-16T18:48:59.646419Z",
-          "ended_on": "2026-06-16T18:49:02.94499Z",
-          "status": "success"
-        },
-        {
-          "name": "deploy",
-          "started_on": "2026-06-16T18:49:02.94499Z",
-          "ended_on": "2026-06-16T18:49:09.889059Z",
-          "status": "success"
-        }
+      "pr_comments_enabled": true,
+      "deployments_enabled": true,
+      "production_deployments_enabled": true,
+      "preview_deployment_setting": "all",
+      "preview_branch_includes": [
+        "*"
       ],
-      "build_config": {
-        "build_command": "",
-        "destination_dir": "",
-        "build_caching": null,
-        "root_dir": "",
-        "web_analytics_tag": null,
-        "web_analytics_token": "[REDACTED]"
-      },
-      "source": {
-        "type": "github",
-        "config": {
-          "owner": "3449118776",
-          "repo_name": "wenxinbijiang",
-          "production_branch": "main",
-          "pr_comments_enabled": false
-        }
-      },
-      "env_vars": {
-        "WXBJ_SECRET": {
-          "type": "plain_text",
-          "value": "[REDACTED]"
-        }
-      },
-      "kv_namespaces": {
-        "WXBJ_DATA": {
-          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
-        }
-      },
-      "compatibility_date": "2024-01-01",
-      "compatibility_flags": [],
-      "build_image_major_version": 3,
-      "usage_model": null,
-      "aliases": null,
-      "is_skipped": false,
-      "production_branch": "main",
-      "uses_functions": false
-    },
-    "created_on": "2026-06-16T17:23:48.936066Z",
-    "production_branch": "main",
-    "production_script_name": "pages-worker--15102360-production",
-    "preview_script_name": "pages-worker--15102360-preview",
-    "uses_functions": false,
-    "framework": "",
-    "framework_version": ""
+      "preview_branch_excludes": [],
+      "path_includes": [
+        "*"
+      ],
+      "path_excludes": []
+    }
   },
-  "success": true,
-  "errors": [],
-  "messages": []
+  "build_config": {
+    "build_command": "",
+    "destination_dir": "",
+    "root_dir": "",
+    "web_analytics_tag": null,
+    "web_analytics_token": null
+  },
+  "deployment_configs": {
+    "preview": {
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "wxbj_cloud_secret_2026_v2_production"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "fail_open": true,
+      "always_use_latest_compatibility_date": false,
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "standard"
+    },
+    "production": {
+      "env_vars": {
+        "WXBJ_SECRET": {
+          "type": "plain_text",
+          "value": "wxbj_cloud_secret_2026_v2_production"
+        }
+      },
+      "kv_namespaces": {
+        "WXBJ_DATA": {
+          "namespace_id": "2b06fe43905c4bf998344eeb4a89e1e3"
+        }
+      },
+      "fail_open": true,
+      "always_use_latest_compatibility_date": false,
+      "compatibility_date": "2024-01-01",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": "standard",
+      "wrangler_config_hash": "7b6e9d62b0923282c0774e47cd617214b94bd63961338158a953f9638b8ab432"
+    }
+  },
+  "created_on": "2026-06-16T17:23:48.936066Z",
+  "production_branch": "main",
+  "production_script_name": "pages-worker--15102360-production",
+  "preview_script_name": "pages-worker--15102360-preview",
+  "uses_functions": true,
+  "framework": "",
+  "framework_version": ""
 }

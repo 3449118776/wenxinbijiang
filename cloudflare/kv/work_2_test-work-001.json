@@ -1,0 +1,13 @@
+{
+  "userId": 2,
+  "workId": "test-work-001",
+  "title": "云端同步测试作品",
+  "category": "玄幻",
+  "synopsis": "这是一个用于测试云同步功能的测试作品",
+  "payload": "{\"title\":\"云端同步测试作品\",\"chapters\":[]}",
+  "version": 1,
+  "chapterCount": 0,
+  "totalWords": 0,
+  "updatedAt": "2026-06-16T19:27:30.640Z",
+  "createdAt": "2026-06-16T19:27:30.640Z"
+}
