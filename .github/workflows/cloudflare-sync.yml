@@ -1,0 +1,60 @@
+name: Cloudflare Sync
+
+on:
+  schedule:
+    # 每天 UTC 00:00 自动同步
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: '提交信息'
+        required: false
+        default: 'sync: Cloudflare 配置自动同步'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_AUTO_PUSH: '1'
+      SKIP_COMMIT: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Cloudflare → Git sync
+        run: |
+          chmod +x scripts/cloudflare-sync.sh
+          bash scripts/cloudflare-sync.sh
+
+      - name: Push changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          # 脚本已 commit，但再次确保推送（如脚本中已推送，此行无影响）
+          if [ -n "$(git status --short)" ]; then
+            echo "还有未提交的变更"
+            git add cloudflare/ scripts/
+            git commit -m "${{ github.event.inputs.message || 'sync: Cloudflare 配置自动同步' }}" || true
+            git push origin HEAD:main || true
+          else
+            echo "无变更"
+          fi
+
+      - name: Summary
+        run: |
+          echo "### Cloudflare 同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 时间: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- KV: $(find cloudflare/kv -name '*.json' | wc -l) 个 key" >> $GITHUB_STEP_SUMMARY
+          echo "- D1: $(find cloudflare/d1 -name '*.json' | wc -l) 个表快照" >> $GITHUB_STEP_SUMMARY
+          echo "- Pages: $(ls cloudflare/pages_*.json 2>/dev/null | wc -l) 个项目" >> $GITHUB_STEP_SUMMARY
