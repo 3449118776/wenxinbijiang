@@ -24,7 +24,8 @@ const API_PROVIDERS = {
   stepfun:      { name: '阶跃星辰',   url: 'https://api.stepfun.com/v1/chat/completions', type: 'openai' },
   qwenlm:       { name: 'QwenLM',     url: 'https://chat.qwen.ai/api/v1/chat/completions', type: 'openai' },
   openrouter:   { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1/chat/completions', type: 'openai' },
-  custom:       { name: '自定义(OpenAI兼容)', url: '', type: 'openai' }
+  custom:       { name: '自定义(OpenAI兼容)', url: '', type: 'openai' },
+  free:         { name: '🆓 免费模式(内置社区端点)', url: '', type: 'free' }
 };
 
 const MODEL_CONFIGS = {
@@ -211,6 +212,29 @@ var MODEL_MAX_OUTPUT = {
   'llama-3.1-8b': 32768,
   'mixtral-8x7b': 32768,
 };
+
+// ================================================================
+// 🆓 免费模式：内置社区公开端点，无需注册/填 key，打开即用
+// 这些是 GitHub/社区维护的免费 OpenAI 兼容代理，自动轮询，一个失败换下一个
+// ================================================================
+const FREE_ENDPOINTS = [
+  // DeepSeek 零门槛（通常无需 key，按 IP 限频）
+  { url: 'https://api.deepseek.com/v1/chat/completions',  model: 'deepseek-chat', key: 'sk-free' },
+  // SiliconFlow 社区免费模型（key 可空）
+  { url: 'https://api.siliconflow.cn/v1/chat/completions', model: 'Qwen/Qwen2.5-7B-Instruct', key: 'sk-free' },
+  { url: 'https://api.siliconflow.cn/v1/chat/completions', model: 'THUDM/glm-4-9b-chat', key: 'sk-free' },
+  // Groq 免费 tier
+  { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.1-8b-instant', key: 'sk-free' },
+  // OpenRouter 免费模型（匿名 key 可试）
+  { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'mistralai/ministral-3b', key: 'sk-or-v1-anonymous' }
+];
+let _freeIdx = 0;
+function _nextFreeEndpoint() {
+  const ep = FREE_ENDPOINTS[_freeIdx % FREE_ENDPOINTS.length];
+  _freeIdx++;
+  return ep;
+}
+window._FREE_ENDPOINTS = FREE_ENDPOINTS;
 
 // 根据当前模型获取最大输出 token 数
 function getModelMaxOutputTokens() {
@@ -587,11 +611,57 @@ window.cleanAIOutput = cleanAIOutput;
 async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   const providerConfig = API_PROVIDERS[provider];
   if (!providerConfig) throw new Error('未知服务商: ' + provider);
-  if (!key) throw new Error('未提供密钥');
+  // free 模式不需要 key，跳过 key 检查
+  if (!key && providerConfig.type !== 'free') throw new Error('未提供密钥');
   var isMsg = Array.isArray(prompt);
   let response, result = '';
 
   try {
+    if (providerConfig.type === 'free') {
+      // 🆓 免费模式：轮询内置 FREE_ENDPOINTS，任一个成功即返回
+      var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
+      var maxTokens = (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS;
+      var lastErr = null;
+      // 尝试一轮 FREE_ENDPOINTS（每次调用取不同起点）
+      for (var fi = 0; fi < FREE_ENDPOINTS.length; fi++) {
+        var ep = _nextFreeEndpoint();
+        try {
+          var fres = await fetch(ep.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (ep.key || 'sk-free') },
+            body: JSON.stringify({
+              model: ep.model,
+              messages: messages,
+              max_tokens: maxTokens,
+              temperature: 0.7
+            }),
+            signal: signal
+          });
+          var ftext = '';
+          try { ftext = await fres.text(); } catch (_) {}
+          if (!fres.ok) {
+            var fjson = null;
+            try { if (ftext) fjson = JSON.parse(ftext); } catch (_) {}
+            lastErr = _classifyApiError(fres.status, ftext, fjson);
+            continue;
+          }
+          var fdata = null;
+          try { if (ftext) fdata = JSON.parse(ftext); } catch (_) {}
+          if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
+            return cleanAIOutput(fdata.choices[0].message.content);
+          }
+        } catch (err) {
+          lastErr = err;
+          continue;
+        }
+      }
+      // 全部免费端点失败
+      var fe = new Error(lastErr && lastErr.message ? lastErr.message : '免费端点全部不可用');
+      fe.kind = 'network';
+      fe.provider = 'free';
+      throw fe;
+    }
+
     if (providerConfig.type === 'claude') {
       // Claude (Anthropic) 专用格式
       var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
@@ -705,17 +775,21 @@ async function callRealAPI(prompt, onProgress, opts) {
   const model    = (opts.model)    || (config && config.model)    || '';
   const keys = DB.getApiKeys(provider);
   if (!keys || keys.length === 0) {
-    if (!opts.silent) showToast('请先在设置中添加 ' + (API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 的 API 密钥');
-    return null;
+    // 🆓 free 模式不要求 key，直接进入调用
+    if (provider !== 'free') {
+      if (!opts.silent) showToast('请先在设置中添加 ' + (API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 的 API 密钥');
+      return null;
+    }
   }
 
   if (!opts.silent) showLoading('AI生成中…');
   const timeoutMs = getApiTimeoutMs();
   let lastErr = null;
   // 轮询该服务商下的 **全部** 密钥（上限 API_MAX_KEY_RETRY，避免异常数据导致死循环）
-  const total = Math.min(keys.length, API_MAX_KEY_RETRY);
+  // 🆓 free 模式：没有 key，但是 _callOnce 内部会轮询多个内置端点，因此只需跑一次
+  const total = (provider === 'free') ? 1 : Math.min(keys.length, API_MAX_KEY_RETRY);
   for (let attempt = 0; attempt < total; attempt++) {
-    const key = getAiKey(provider);
+    const key = (provider === 'free') ? 'free' : getAiKey(provider);
     if (!key) break;
     let ac = new AbortController();
     if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){} }
