@@ -171,7 +171,8 @@ CloudSync.prototype = {
         var localVersion = lw._version || 0;
         var cloudVersion = cloudMap[lw.id] ? (cloudMap[lw.id].version || 0) : 0;
 
-        if (cloudVersion === 0 || localVersion > cloudVersion) {
+        // 本地有编辑标记（_dirty）或云端无此作品（cloudVersion===0）或本地版本更新时，都推送
+        if (lw._dirty || cloudVersion === 0 || localVersion > cloudVersion) {
           toPush.push(lw);
         } else if (cloudVersion > localVersion) {
           toPull.push(lw.id);
@@ -184,6 +185,14 @@ CloudSync.prototype = {
         trash = DB._trash || [];
       } catch(e) {}
 
+      // 获取云端待删除列表（hardDeleteWork 产生的记录）
+      var cloudDeleteList = [];
+      try {
+        if (DB && DB._cloudDeleteList && DB._cloudDeleteList.length > 0) {
+          cloudDeleteList = DB._cloudDeleteList.slice();
+        }
+      } catch(e) {}
+
       var toDeleteOnCloud = [];
       for (var k = 0; k < cloudWorks.length; k++) {
         var cw = cloudWorks[k];
@@ -192,6 +201,7 @@ CloudSync.prototype = {
           if (localWorks[m].id === cw.workId) { found = true; break; }
         }
         if (!found) {
+          // 检查是否在回收站
           var inTrash = false;
           for (var ti = 0; ti < trash.length; ti++) {
             if (trash[ti] && trash[ti].work && trash[ti].work.id === cw.workId) {
@@ -199,25 +209,43 @@ CloudSync.prototype = {
               break;
             }
           }
-          
-          if (inTrash) {
+          // 检查是否在云端待删列表
+          var inDeleteList = cloudDeleteList.indexOf(cw.workId) >= 0;
+
+          if (inTrash || inDeleteList) {
             toDeleteOnCloud.push(cw.workId);
           } else {
             toPull.push(cw.workId);
           }
         }
       }
+      // 云端待删列表中本地不存在且云端也没有的作品，从列表中清理
+      if (cloudDeleteList.length > 0 && toDeleteOnCloud.length > 0) {
+        toDeleteOnCloud = toDeleteOnCloud.concat(
+          cloudDeleteList.filter(function(id) { return toDeleteOnCloud.indexOf(id) < 0; })
+        );
+      }
 
       if (toDeleteOnCloud.length > 0) {
+        var deletedIds = [];
         for (var di = 0; di < toDeleteOnCloud.length; di++) {
           try {
             await this.deleteWork(toDeleteOnCloud[di]);
             report.deleted = (report.deleted || 0) + 1;
+            deletedIds.push(toDeleteOnCloud[di]);
           } catch(e) {
             report.errors++;
           }
         }
-        
+        // 清理本地云端待删除列表（只有成功删除的才移除）
+        if (deletedIds.length > 0 && DB && DB._cloudDeleteList) {
+          try {
+            DB._cloudDeleteList = DB._cloudDeleteList.filter(function(id) {
+              return deletedIds.indexOf(id) < 0;
+            });
+          } catch(e) {}
+        }
+
         cloudWorks = cloudWorks.filter(function(cw) {
           return toDeleteOnCloud.indexOf(cw.workId) < 0;
         });
@@ -236,7 +264,11 @@ CloudSync.prototype = {
               var br = batchResult.results[bi];
               if (br.status === 'created' || br.status === 'updated') {
                 for (var bj = 0; bj < toPush.length; bj++) {
-                  if (toPush[bj].id === br.workId) { toPush[bj]._version = br.version; break; }
+                  if (toPush[bj].id === br.workId) {
+                    toPush[bj]._version = br.version;
+                    delete toPush[bj]._dirty;
+                    break;
+                  }
                 }
                 report.pushed++;
               }
@@ -247,8 +279,14 @@ CloudSync.prototype = {
           for (var pi = 0; pi < toPush.length; pi++) {
             try {
               var pr = await this.pushWork(_packWork(toPush[pi]));
-              if (pr && pr.version) { toPush[pi]._version = pr.version; report.pushed++; }
-            } catch(_) {}
+              if (pr && pr.version) {
+                toPush[pi]._version = pr.version;
+                delete toPush[pi]._dirty;
+                report.pushed++;
+              } else {
+                report.errors++;
+              }
+            } catch(_) { report.errors++; }
           }
         }
       }
@@ -405,9 +443,16 @@ window.CloudSync = CloudSync;
 
 // 自动初始化：如果页面没有手动初始化 cloud，则自动创建实例
 if (!window.cloud) {
-  var _apiBase = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:8787/api'
-    : location.origin + '/api';
+  var _apiBase;
+  var _protocol = (location.protocol || '').toLowerCase();
+  if (_protocol === 'file:' || !location.hostname || location.origin === 'null' || location.origin === null) {
+    // file:// 协议或无域名环境下，云端同步不可用（保留本地数据即可）
+    _apiBase = '';
+  } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    _apiBase = 'http://localhost:8787/api';
+  } else {
+    _apiBase = location.origin + '/api';
+  }
   window.cloud = new CloudSync({ apiBase: _apiBase, autoSync: true });
 }
 

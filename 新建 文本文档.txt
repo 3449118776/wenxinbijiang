@@ -1,0 +1,2573 @@
+用户要求全面体检代码，找出需要优化或修复 bug 的地方。这是一个复杂的、多步骤的代码审计任务，适合用 Task 工具的 search 子代理来并行分析不同方面。
+
+让我先规划一下审计方向：
+1. 前端 JS 代码（api.js, db.js, cloud-sync.js 等）
+2. 后端 Cloudflare Functions（[[route]].js）
+3. HTML 页面逻辑
+4. 已知的待解决问题（从总结看：_trash、章节历史、自定义模板等未同步）
+
+我应该用多个并行的 search 子代理来分析不同模块，然后汇总成体检报告。
+
+让我先快速看一下项目结构，然后启动并行审计。
+
+启动并行审计，从后端、前端核心、页面逻辑、数据同步四个维度同时排查。
+项目结构清晰。我需要并行启动多个 search 子代理来审计不同模块。让我规划审计方向：
+
+1. **后端审计**：`functions/api/[[route]].js` + `_shared.js` + `_middleware.js` - 找 bug、安全问题、性能问题
+2. **前端核心审计**：`assets/js/api.js` + `db.js` + `cloud-sync.js` - AI 调用、数据持久化、同步逻辑
+3. **页面逻辑审计**：HTML 文件中的内联脚本 - 登录、同步、初始化逻辑
+4. **数据同步审计**：对比本地数据 vs 云端同步，找出未同步的数据（这是之前已发现的问题，需要确认现状）
+
+我会并行启动 4 个 search 子代理。每个都要明确告知只做研究、不要写代码。
+
+我将审计这几个页面的内联脚本逻辑。让我先并行读取所有文件以了解整体结构。
+The user wants me to audit the inline `<script>` logic of several HTML pages in the 文心笔匠 (Wenxin Bijiang) project. I need to:
+
+1. Review the inline scripts in:
+   - /workspace/index.html
+   - /workspace/work-list.html
+   - /workspace/settings.html
+   - /workspace/write.html
+   - /workspace/architecture.html
+
+2. Focus on specific areas for each page
+3. Output a research report categorized by severity
+
+Let me start by reading all these files in parallel to understand the codebase.
+
+The user explicitly said "只做研究分析，不要修改任何代码" (only do research analysis, don't modify any code). So I should NOT use any skill that modifies code. The brainstorming skill is for creative work, not relevant here. The security-best-practices skill might be relevant but the user said don't modify code, just analyze. Let me just do the research directly with Read/Grep tools.
+
+Actually, let me check - the security-best-practices skill says "Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help." The user is asking for a security review essentially. But the user also said "只做研究分析，不要修改任何代码" - only research analysis, don't modify code. The skill might suggest modifications. Let me think...
+
+The user's request is essentially a code audit/research task. I should just read the files and analyze them. I don't think I need to invoke a skill since the user wants a research report, not code changes. The security-best-practices skill is for "suggest improvements" which might involve code changes. The user explicitly said don't modify code.
+
+Let me just proceed with reading the files directly. I'll read all 5 files in parallel.
+
+Let me first check the file sizes to plan my reading.
+
+I'll start by invoking the security-best-practices skill since security review is explicitly part of this audit, and simultaneously read the target files and the comparison backend routes.
+Let me start by reviewing the relevant skill tool description and then proceed with the audit task. The user wants me to audit three files in a Cloudflare Pages Functions backend project. This is a code review/audit task, not a creative task that would require skills like brainstorming or frontend-design. Let me check if any skill is relevant.
+
+Looking at the available skills, none seem directly relevant to a code audit task. The security-best-practices skill might be relevant, but it's specifically for "language and framework specific security best-practice reviews" and the user has asked for a comprehensive audit (bugs, security, performance, routes, code duplication). Let me consider if security-best-practices applies.
+
+Actually, the user explicitly asks for security review as part of this audit. The security-best-practices skill says: "Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help." The user is asking for security review as part of the audit. However, the skill is for "supported languages (python, javascript/typescript, go)". This is JavaScript, so it's supported.
+
+But the user's primary request is a comprehensive code audit, not specifically a security best-practices review. The user wants bugs, security, performance, missing routes, code duplication. I think the security-best-practices skill could be relevant for the security portion. Let me invoke it to be safe, as the instructions say "When a skill is relevant, you must invoke the Skill tool IMMEDIATELY as your first action."
+
+Actually, re-reading: "Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help." The user did request security review as part of the audit. So I should invoke this skill.
+
+Wait, but the user also said "只做研究分析，不要修改任何代码" (only do research analysis, don't modify any code). The security-best-practices skill is about reviewing and suggesting improvements, which aligns with research analysis. Let me invoke it.
+
+Let me invoke the security-best-practices skill first, then proceed with reading the files.
+
+Actually, let me think about this more carefully. The task is primarily a code audit/research task. The security-best-practices skill might add value for the security portion. Given the instruction to invoke relevant skills immediately, and that security review is explicitly part of the request, I'll invoke it.
+
+Let me start by invoking the skill and reading the files in parallel. Actually, I need to invoke the skill first as it's a blocking requirement before generating other response about the task. But I can read files in parallel with it? The instruction says "invoke the relevant Skill tool BEFORE generating any other response about the task". I think I can do tool calls in parallel. Let me invoke the skill and read the files simultaneously.
+
+Actually, let me be careful. The skill loading might provide instructions that change how I approach the task. Let me invoke the skill first, then read the files. But to be efficient, I'll also read the files in the same batch since I know I need them regardless.
+
+Let me invoke the skill and read the three target files plus the backend/routes.js for comparison, all in parallel.
+
+我将先并行读取这三个核心文件，然后进行深入分析。
+The user wants me to audit three core frontend files in the Wenxin Bijiang project. Let me start by reading these files to understand their content. I should not modify any code, just analyze and produce a research report.
+
+Let me first check if any skills are relevant. Looking at the available skills, none seem directly relevant to a code audit task - this is a code review/analysis task. The security-best-practices skill mentions it triggers only when explicitly requested for security best practices guidance, and only for python, javascript/typescript, go. The user is asking about JavaScript files but the focus is on bug auditing, not security best practices per se. Let me think... actually the user is asking for a comprehensive audit including some security aspects (key leakage). But the skill description says "Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help." The user is asking for an audit report which could be considered a security review. However, the primary focus is on bugs, data loss, performance, and robustness - not security best practices per se.
+
+Let me reconsider - the user explicitly says "审计" (audit) and wants a report categorized by issues. This is more of a code audit than a security best practices review. I'll proceed with reading the files directly.
+
+Actually, looking more carefully, the security-best-practices skill could be relevant since one of the concerns is key leakage. But the task is broader than just security. Let me just proceed with reading the files and doing the analysis directly, as the task is primarily a code audit/review.
+
+Let me read the three files in parallel.
+
+I'll audit the local data vs cloud sync coverage for the 文心笔匠 project. Let me start by exploring the project structure and reading the relevant files in parallel.
+Let me analyze the user's request. They want me to audit the local data vs cloud sync coverage for the "文心笔匠" project. The project root is /workspace.
+
+I need to:
+1. Read db.js to list all data fields managed by the DB object
+2. Read cloud-sync.js to list what fields smartSync, syncKeysAndSettings, pushKeysAndSettings actually sync
+3. Read [[route]].js to list backend /user/* and /works/* routes
+4. Compare backend/routes.js to find missing routes in Pages Functions
+5. Use Grep to search if IndexedDB's four stores (snapshots, chapters, backups, chapter_history) have any cloud sync code
+6. Use Grep to search if custom_templates, predict_platform, _trash have cloud sync code
+
+Output a comparison table and a list of data that needs cloud sync, sorted by importance.
+
+Let me first check if any skill is relevant. Looking at the available skills, none of them seem directly relevant to this code audit/research task. The user explicitly says "只做研究分析，不要修改任何代码" (only do research analysis, don't modify any code). So no skill is needed.
+
+Let me start by exploring the project structure and reading the relevant files in parallel.
+
+First, let me find the relevant files:
+- /workspace/assets/js/db.js
+- /workspace/assets/js/cloud-sync.js
+- /workspace/functions/api/[[route]].js
+- /workspace/backend/routes.js
+
+Let me also search for IndexedDB stores and the localStorage keys.
+
+I'll do all these in parallel.
+
+让我并行读取这5个目标HTML文件。
+Let me read all 5 target HTML files in parallel to understand their structure.
+
+三个文件已全部读取完毕。我已对每个文件进行了逐行审计，下面是完整的研究报告。
+
+---
+
+# 文心笔匠前端核心模块审计报告
+
+审计范围：`/workspace/assets/js/api.js`、`/workspace/assets/js/db.js`、`/workspace/assets/js/cloud-sync.js`
+
+---
+
+## 一、严重 Bug
+
+### 【严重 Bug 1】cloud-sync.js:171-180 — 本地编辑后永远无法同步到云端（版本号比较逻辑根本性错误）
+
+这是三个文件中最严重的缺陷。`smartSync` 中版本比较逻辑如下：
+
+```
+var localVersion = lw._version || 0;
+var cloudVersion = cloudMap[lw.id] ? (cloudMap[lw.id].version || 0) : 0;
+if (cloudVersion === 0 || localVersion > cloudVersion) → push
+else if (cloudVersion > localVersion) → pull
+else → unchanged
+```
+
+作品的 `_version` 字段**仅在云端同步成功后由服务端返回值赋值**（cloud-sync.js:239、250、274、281），在本地任何编辑路径（`saveWork`、`save`、`saveImmediate`、章节内容修改）中**从不递增**。
+
+同步时序推演：
+1. 新建作品，`_version` 为 undefined → 0，云端无 → push，服务端返回 version=1，本地 `_version=1`
+2. 用户编辑章节内容，`_version` 仍为 1
+3. 下次 `smartSync`：localVersion=1，cloudVersion=1 → 走 `else` 分支 → `unchanged` → **不推送**
+4. 此后所有本地编辑都不会被推送，除非云端版本因其他设备推送而升高
+
+`db.js:957-964` 中 `saveImmediate` 会触发 `_cloud.smartSync()`，因此每次保存后的自动同步都命中"unchanged"分支。**云端同步对编辑场景完全失效，只有首次创建能同步。**
+
+### 【严重 Bug 2】db.js:1301-1308 + 1327/1334/1485/1491 — `flush()` 不落盘导致删除/恢复操作可能丢失
+
+`flush()` 实现：
+```
+flush() {
+  if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+  if (this._savePending) {
+    this._savePending = false;
+    return this.saveImmediate(false);
+  }
+  return true;  // ← 没有待保存时直接返回 true，不写盘
+}
+```
+
+而 `deleteWork`(1485)、`hardDeleteWork`(1491)、`restoreFromTrash`(1327)、`emptyTrash`(1334) 都仅调用 `this.flush()`。这些方法只修改了内存中的 `this.works` / `this._trash`，若此时 `_savePending` 为 false（即 800ms 内没有其他 `save()` 调用），`flush()` 直接返回 true 而**不调用 `saveImmediate()`**，内存修改未写入 localStorage。用户若此时关闭页面，删除/恢复操作丢失，下次打开数据恢复原状。这些方法应调用 `saveImmediate()` 或 `save()` 而非 `flush()`。
+
+### 【严重 Bug 3】db.js:1049-1071 — 存储拆分时子字段写入失败导致旧数据被删除（数据丢失）
+
+`_autoSplitWorks` 中，先收集所有 `wxbj_w_*` 旧 key 到 `keysToClean`，写入成功后才从 `keysToClean` 移除。但写入与移除的顺序为：
+
+```
+try {
+  ...
+  localStorage.setItem(subKeyName, jsonStr);   // 1049 行，可能抛 QuotaExceededError
+  var cleanIdx2 = keysToClean.indexOf(subKeyName);  // 1050 行
+  if (cleanIdx2 >= 0) keysToClean.splice(cleanIdx2, 1);  // 1051 行
+} catch(subErr) { ... }
+```
+
+`cleanIdx2` 的移除在 `setItem` **之后**。若 `setItem` 因配额超限抛异常，该 subKeyName 仍留在 `keysToClean` 中，随后在 1069-1071 行被 `localStorage.removeItem(oldKey)` 删除。结果：**新数据写不进去，旧数据反而被清掉**，该字段（如 `longMemory`、`world`、`outline`）彻底丢失，`_stitchHeavyWork` 读回时为 undefined。
+
+### 【严重 Bug 4】api.js:4-6 — `file://` 协议下 API_BASE 完全失效
+
+```
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787/api'
+  : location.origin + '/api';
+```
+
+`file://` 协议下 `location.hostname` 为空字符串，既非 localhost 也非 127.0.0.1，走 else 分支。此时 `location.origin` 在多数浏览器中为字符串 `"null"`，因此 `API_BASE = "null/api"`。所有经代理的调用（`testApiKey`、`_callOnce` 的 `/ai/chat`）fetch 到 `"null/api/ai/chat"` 必然失败。免费模式（api.js:566 直接 fetch 外部 URL）不受影响，但所有需要后端代理的 AI 调用和密钥测试在本地双击打开 HTML 时全部不可用。cloud-sync.js:487-490 的自动初始化有同样问题。
+
+### 【严重 Bug 5】cloud-sync.js:188-209 — 硬删除的作品会从云端"复活"
+
+`smartSync` 遍历云端作品时，若本地不存在且不在 `_trash` 中，则执行 `toPull.push(cw.workId)`（206 行）拉取到本地。但 `hardDeleteWork`（db.js:1489-1492）物理删除作品时**不入回收站**，因此下次同步时该作品既不在本地也不在 trash → 被判定为"云端有本地无" → 重新拉回本地。用户硬删除的作品会不断从云端复活，无法真正删除。只有 `deleteWork`（软删除入 trash）才会触发云端删除（203-204 行）。
+
+---
+
+## 二、数据丢失风险
+
+### 【数据丢失风险 1】cloud-sync.js:470-481 — `_mergeWork` 全字段覆盖，本地独有数据被冲掉
+
+`_mergeWork` 用 `Object.keys(cloudPayload)` 遍历云端字段直接赋值给本地作品（除 `_version`、`_writing`）。这是破坏性覆盖：
+- 本地的 `_fingerprint`、`_slimMeta`、`_shardId`、`_slim` 等运行时字段若云端 payload 中有对应键（即使值为空），会被覆盖
+- **章节内容风险最大**：若本地章节已从 IndexedDB 分片加载了完整 content，而云端 payload 中的 chapters 是瘦身过的（content 为空或仅元数据），`_mergeWork` 会用云端的空 chapters 覆盖本地完整 chapters，导致章节正文丢失
+
+### 【数据丢失风险 2】cloud-sync.js:306-320 — `quickSync` 无版本比较直接推送
+
+`quickSync` 直接 `pushWork(_packWork(w))`，不比较本地与云端版本号。若本地版本落后于云端（其他设备已推送更新），`quickSync` 仍会用旧数据覆盖云端新数据。虽然代码中未见 `quickSync` 被自动调用，但作为公开 API 一旦被调用即有覆盖风险。
+
+### 【数据丢失风险 3】cloud-sync.js:426-444 — `pushKeysAndSettings` 整体覆盖云端，多设备设置互踩
+
+`pushKeysAndSettings` 用 PUT 整体覆盖云端 keys 和 settings。两台设备各自有不同设置时，后推送的设备覆盖先推送的设备。`syncKeysAndSettings`(370-423) 的拉取合并只补充 `undefined`/`''` 字段，不更新已有字段、不处理删除。组合效果：设备 A 改了 `theme=dark`，设备 B 改了 `fontSize=18`，A 推送后云端 `theme=dark,fontSize=15`，B 推送后云端 `theme=blue,fontSize=18`，A 的 theme 丢失。
+
+### 【数据丢失风险 4】db.js:1476-1483 — 大于 2MB 的作品删除后不可恢复
+
+`deleteWork` 仅在 `JSON.stringify(target).length < 2*1024*1024` 时才入回收站。超过 2MB 的作品被直接从 `this.works` 移除且不进 trash，用户无法恢复，也没有任何提示。对于长篇小说（几十万字很常见），单部作品超 2MB 是正常的。
+
+### 【数据丢失风险 5】db.js:1152-1155 — 拆分存储后章节正文不参与 stitch，依赖 IndexedDB 分片
+
+`_stitchHeavyWork` 注释说明 chapters 是轻量化的，正文需从 IndexedDB 懒加载。但 `_makeLightWorks`(1074-1109) 生成的轻量 chapters 只保留 title/_slim/_shardId/wordCount/confirmed，content 被丢弃。若 IndexedDB 中的 `wxbj_app_memory_v1` 数据库被清除（浏览器清理、隐私模式、跨域隔离失效），章节正文将永久丢失，因为 localStorage 中只存了轻量索引。localStorage 拆分 key（`wxbj_w_*`）也不含 chapters content。
+
+### 【数据丢失风险 6】cloud-sync.js:211-227 — 回收站中的作品触发云端永久删除
+
+`smartSync` 检测到本地作品在 trash 中时，执行 `deleteWork` 删除云端作品（214 行）。这意味着：设备 A 软删除作品（进 trash）→ 同步 → 云端删除。设备 B 从未拉到该作品。此后只有 A 的本地 trash 保留该作品 30 天。若 A 期间清空回收站或 30 天过期，作品彻底消失，无法跨设备恢复。
+
+---
+
+## 三、性能问题
+
+### 【性能问题 1】db.js:953-954 — 每次 saveImmediate 都全量写所有章节分片
+
+`saveImmediate` 中：
+```
+try { this.saveAppMemoryMirror(json); } catch(mirrorErr) {}
+try { this.saveAllChapterShards(); } catch(shardErr) {}
+```
+`saveAllChapterShards`(399-407) 遍历**所有作品的所有章节**，每章开一个 IndexedDB 事务（`saveChapterShard` 内 `openAppMemoryDB` + transaction）。对于多作品/多章节用户，每次 800ms 防抖保存触发 O(作品数 × 章节数) 次 IndexedDB 写操作。而 `markWorkShardsDirty` + `flushDirtyChapterShards` 已实现增量脏页刷新机制，`saveAllChapterShards` 在此属于冗余全量写。同时 `startAutoMaintenance`(304-309) 每 60 秒也调用一次 `saveAllChapterShards`，进一步叠加写入压力。
+
+### 【性能问题 2】api.js:203 — `API_MAX_KEY_RETRY = 999` 导致极端情况下超长重试
+
+`callRealAPI` 中 `baseTotal = Math.min(keys.length, 999)`，`total = baseTotal + 2`。若用户导入大量密钥（如 999 个），单服务商最坏情况 1001 次尝试，每次超时 90 秒，理论最坏耗时约 25 小时。虽然 `API_MAX_TOTAL_TRY = 40` 限制跨服务商尝试，但该限制在 `callRealAPIWithFallback` 中只对**服务商数**计数（855 行 `totalTry++` 每个服务商只加 1），不限制单服务商内的 key 尝试次数。
+
+### 【性能问题 3】db.js:1289-1298 — `save()` 防抖返回 true 但无法感知实际写入结果
+
+`save()` 立即返回 true，实际写入在 800ms 后异步执行。调用方无法得知 `saveImmediate` 是否成功。对于需要确认落盘的场景（如导出前、页面关闭前），需显式调用 `flush()`，但 `flush()` 又有 Bug 2 中描述的问题。
+
+### 【性能问题 4】cloud-sync.js:324-330 — 自动同步无并发保护，可能重叠执行
+
+`startAutoSync` 用 `setInterval` 每 5 分钟调用 `smartSync()`，不检查上一次同步是否仍在进行。若网络慢导致一次同步超过 5 分钟，多个 `smartSync` 会并发执行，争抢 `_version` 写入和 `DB.works` 修改，产生竞态。`db.js:957-964` 中 `saveImmediate` 触发的 3 秒防抖 `smartSync` 与定时器同步也可能重叠。
+
+### 【性能问题 5】api.js:691 — `opts.signal` 事件监听器泄漏
+
+```
+if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){} }
+```
+每次 `_callOnce` 尝试都给 `opts.signal` 添加一个 `abort` 监听器，但从不移除。在 `callMultiAI`(967-976) 中 `sharedSignal` 被传给所有并行 `callRealAPI`，每个又会给 `opts.signal` 添加多个监听器（每个 key 尝试一个）。请求完成后监听器仍挂在 signal 上，造成内存泄漏。
+
+---
+
+## 四、健壮性问题
+
+### 【健壮性问题 1】api.js:714-721 — 429 同 key 重试仅在非静默模式下生效
+
+429 重试逻辑位于 `else if (!opts.silent && e && e.kind === 'rate')` 分支内。当 `opts.silent === true` 时（`callRealAPIWithFallback` 中非首选服务商 859 行 `silent: oi !== 0`；`callMultiAI` 中所有服务商 971 行 `silent: true`），整个 rate 分支被跳过，429 错误直接走到 727 行 rotate 逻辑，**立即切换下一个 key，不等待 3 秒、不重试同一个 key**。这与注释"429 频率限制：等待 3 秒后重试同一个 key（最多重试 2 次）"矛盾。实际效果：跨服务商回退和多 AI 并行模式下，429 不会重试同 key。
+
+### 【健壮性问题 2】api.js:308 + 929-996 — `currentKeyIndex` 全局共享，并发调用互相干扰
+
+`currentKeyIndex` 是模块级全局对象（308 行），`getAiKey`/`rotateApiKey` 读写它。`callMultiAI`(965-976) 并行调用多个 `callRealAPI`，每个内部又可能 `rotateApiKey`，并发修改同一个 `currentKeyIndex[provider]`，导致 key 选择不可预测（可能重复选同一个 key、跳过某些 key）。JavaScript 单线程下不会数据竞争，但逻辑上 rotate 的时序会让 key 轮询行为不符合预期。
+
+### 【健壮性问题 3】api.js:700 — `onProgress` 回调名为流式进度但实际无流式处理
+
+`callRealAPI` 接收 `onProgress` 参数，但 `_callOnce` 通过后端代理 `/ai/chat` 获取完整响应（607-619 行，请求体无 `stream: true`），`onProgress` 仅在 700 行被调用一次并传入完整结果。整个链路无 SSE/分块读取，`onProgress` 名不副实。若上层 UI 依赖 `onProgress` 做逐字渲染或进度条，将无法实现。
+
+### 【健壮性问题 4】db.js:1419-1423 / 691 / 846 / 1465 — 多处 localStorage 操作无 try/catch
+
+- `getWork()`(1419)：`localStorage.getItem('last_edit_work')` 裸调用，隐私模式抛异常会导致后续代码崩溃
+- `importSingleWorkBackup`(691)：`localStorage.setItem('last_edit_work', w.id)` 裸调用
+- `restoreFromAppMemoryMirror`(846)：`localStorage.setItem('wxbj_data_v4', ...)` 裸调用
+- `createWork`(1465)：`localStorage.setItem('last_edit_work', work.id)` 裸调用
+
+隐私模式或配额超限时这些都会抛 `QuotaExceededError` 或 `SecurityError`，且未被捕获。
+
+### 【健壮性问题 5】db.js:93-96 — 数据迁移逻辑只处理 v<12，无完整迁移链
+
+`init()` 中 `if (!data._version || data._version < 12) { data._version = 12; }`，但 `APP_DATA_VERSION`(78 行) 已是 44。v12 到 v44 之间无任何版本迁移步骤，仅靠 112-121 行的 `forEach` 补全 `longMemory` 缺失字段（不区分版本）。`APP_DATA_VERSION` 常量定义后未在 init 中使用。若未来数据结构变更，现有迁移框架无法支撑。
+
+### 【健壮性问题 6】db.js:1368 — `importFromJSON` 版本阈值错误
+
+`if (data._version && data._version > 20)` 判定"较新版本可能不兼容"。但当前数据版本为 44，导致**导入任何当前版本导出的备份都会弹出兼容性警告**，误导用户。阈值应为 `APP_DATA_VERSION`(44) 而非硬编码 20。
+
+### 【健壮性问题 7】db.js:488-499 — `trimInternalBackups` 存在未处理的 Promise rejection
+
+```
+self.listInternalBackups().then(function(rows) {
+  if (rows.length <= maxCount) return;
+  self.openAppMemoryDB().then(function(db) {
+    var tx = db.transaction([self._backupStore], 'readwrite');
+    ...
+  });  // ← 内层 then 无 .catch()
+});
+```
+内层 `openAppMemoryDB().then(...)` 无 `.catch()`，若删除事务失败（IndexedDB 错误），产生未处理的 Promise rejection。
+
+### 【健壮性问题 8】cloud-sync.js:251 — 批量推送回退到逐个推送时失败被静默吞掉
+
+```
+} catch(_) {}  // 251 行
+```
+逐个推送失败时既不 `report.errors++` 也不 `report.pushed++`，错误被完全吞掉。同步报告的 errors 计数偏低，用户无法感知推送失败。
+
+### 【健壮性问题 9】cloud-sync.js:338-364 — token 过期仅被动处理，无主动刷新
+
+`_fetch` 在 401 时 `_clearToken()`(360 行)，但无 token 刷新机制。token 过期后所有请求失败直到下次 401 触发清除，期间 `startAutoSync` 定时器持续发起失败请求。用户不会被显式提示重新登录（仅 `isLoggedIn()` 变 false）。
+
+### 【健壮性问题 10】api.js:627 + 736 — 服务端错误响应可能携带密钥泄露到 console
+
+`_callOnce` 中 `var pmsg = (proxyData && proxyData.error) || proxyText || ...`(627 行)，若后端代理在错误响应中回显了请求体（含 key），`pmsg` 会包含密钥。该值赋给 `pe.message`，最终在 `callRealAPI` 736 行 `console.warn('[api] '+provider+' 失败：', lastErr.message)` 输出到控制台。同理 `_classifyApiError`(474 行) 将 `raw`（服务端返回原文）截取 80 字符拼入 message，可能出现在 toast 中。虽取决于后端行为，但前端未做脱敏。
+
+### 【健壮性问题 11】api.js:324-352 — `testApiKey` 无超时控制
+
+`testApiKey` 的 fetch 无 `AbortController`，catch 中虽处理 `AbortError`(347 行) 但从未设置 abort。若后端 `/ai/test` 挂起，该函数会无限等待，UI 无法感知。
+
+### 【健壮性问题 12】db.js:1311-1317 — 回收站清理仅在 `listTrash()` 调用时触发
+
+30 天过期清理逻辑写在 `listTrash()` 内，只有用户主动查看回收站时才执行。若用户从不查看回收站，过期数据一直占用 localStorage 空间（最多 20 部 × 2MB = 40MB），加剧配额压力。
+
+---
+
+## 五、其他建议
+
+### 【其他建议 1】api.js:265-275 — 免费端点硬编码 `sk-free`/`sk-or-v1-anonymous` 占位 key
+
+`FREE_ENDPOINTS` 中的 key 值如 `'sk-free'`、`'sk-or-v1-anonymous'` 是占位符，实际多数服务商不接受此类 key。免费模式大概率全部 401 失败，最终返回 `generateLocal` 占位文本。建议明确标注免费模式可用性不可保证，或移除已失效的端点。
+
+### 【其他建议 2】api.js:907 + 911-915 — 全部失败后静默返回占位文本
+
+`callRealAPIWithFallback` 在所有服务商失败后返回 `generateLocal(prompt)` 的硬编码占位字符串（"【AI 暂不可用】..."）。该字符串会被当作正常 AI 输出返回给上层，上层若未检测该前缀（`callMultiAI` 972 行有检测 `indexOf('AI 暂不可用')`），可能将占位文本写入作品正文。建议返回 `null` 并由上层统一处理。
+
+### 【其他建议 3】db.js:78 + 93 — `APP_DATA_VERSION` 与迁移逻辑脱节
+
+`window.APP_DATA_VERSION = 44` 定义后，`init()` 迁移用硬编码 12，`saveImmediate` 用硬编码 44，`buildSnapshot`/`buildBackupPayload` 也用硬编码 44。建议统一引用 `APP_DATA_VERSION` 常量，避免版本号散落多处难以维护。
+
+### 【其他建议 4】cloud-sync.js:448-468 — `_packWork` 将整个 work 作为 payload 上传
+
+`payload: w` 包含完整 work 对象（含 `_fingerprint`、`_slimMeta`、`_writing` 等运行时字段）。批量推送时 `pushBatch` 将多个完整 work 打包成一个请求体，大作品 + 多作品易超出服务端请求体大小限制。建议上传前剥离运行时字段，并对批量大小做分片。
+
+### 【其他建议 5】db.js:80-84 + cloud-sync.js — `_version` 字段命名冲突
+
+DB 根数据对象的 `_version`（数据文件版本，当前 44）与 work 对象的 `_version`（云端同步版本号）同名但语义完全不同。`_packWork`(cloud-sync.js:464) `version: w._version || 0` 读取的是 work 的同步版本，而 `saveImmediate`(db.js:920) `_version: 44` 是数据文件版本。两者无冲突但极易混淆，建议 work 同步版本改名为 `_syncVersion`。
+
+### 【其他建议 6】api.js:685-686 — `total = baseTotal + 2` 的 +2 余量在非 429 场景产生冗余重试
+
+非 429 错误（如全部 key 都 invalid）时，`+2` 额外尝试会因 `getAiKey` 的模运算重复尝试已失败的 key。虽然 727 行 `if (keys.length > 1 && attempt < total - 1)` 在 `attempt` 达到 `total-1` 时会 break，但中间仍有多余的 key 重复尝试。建议 429 重试使用独立计数器而非混入 `total`。
+
+### 【其他建议 7】db.js:999-1072 — `_autoSplitWorks` 无原子性保证
+
+拆分写入多个 localStorage key 的过程非原子。若中途页面关闭（如 `visibilitychange` 触发 flush 时正在拆分），部分子字段已写、部分未写，`_stitchHeavyWork` 读回的数据不完整。建议先写完整快照到临时 key，再原子替换，或写入后校验完整性。
+
+### 【其他建议 8】cloud-sync.js:256-289 — 拉取并发限制为 3 但无总超时
+
+`toPull` 分批并发 3 个 `getWork`，但无整体超时。若云端响应慢，`smartSync` 可能长时间阻塞，配合【性能问题 4】的并发同步会导致多个 smartSync 堆积。
+
+---
+
+## 总结
+
+三个文件中**最关键的问题**是 cloud-sync.js 的版本号比较逻辑（严重 Bug 1）——本地编辑后 `_version` 不递增导致云端同步对编辑场景完全失效，这使整个云端同步功能形同虚设。其次是 db.js 中 `flush()` 不落盘（严重 Bug 2）和存储拆分配额失败丢数据（严重 Bug 3），以及 file:// 协议下 API_BASE 失效（严重 Bug 4）。建议优先修复这四项。
+
+相关文件路径：
+- `/workspace/assets/js/api.js`
+- `/workspace/assets/js/db.js`
+- `/workspace/assets/js/cloud-sync.js`
+I have read all three files. Now let me analyze them carefully for the issues requested. Let me organize my findings by the categories requested.
+
+Let me go through each file systematically.
+
+## api.js Analysis
+
+### testApiKey (line 324-352)
+- Has try/catch
+- Returns proper error structure
+- No timeout handling - the fetch has no AbortController/timeout. If the server hangs, this will hang forever. The catch handles AbortError but never sets up an abort. **Issue: No timeout**
+- Key is sent in body, not in URL - good
+- No console.log of key - good
+- The error message includes `e.message` which could potentially include key if the server echoes it back, but unlikely
+
+### callRealAPI (line 659-738)
+- 429 retry logic: 
+  - Line 714-721: `if (attempt < 2)` - waits 3 seconds, retries same key
+  - But there's a problem: after the 429 retry with `continue`, the loop increments `attempt`. So:
+    - attempt 0: 429 → wait 3s → continue (attempt becomes 1)
+    - attempt 1: 429 → wait 3s → continue (attempt becomes 2)
+    - attempt 2: 429 → attempt < 2 is false, so falls through to "频率超限，尝试下一个密钥"
+  - Wait, let me re-read. The `continue` is inside `else if (!opts.silent && e && e.kind === 'rate')`. So if `opts.silent` is true, the whole rate handling block is skipped! That means in silent mode (cross-provider fallback, oi !== 0), 429 errors won't trigger the 3-second wait retry. They'll just rotate to the next key. **Issue: 429 retry only works in non-silent mode**
+  
+  Actually wait, let me re-read more carefully. The structure is:
+  ```
+  if (!opts.silent && e && e.kind === 'quota') { ... }
+  else if (!opts.silent && e && e.kind === 'invalid') { ... }
+  else if (!opts.silent && e && e.kind === 'rate') {
+    if (attempt < 2) {
+      ... wait 3s ...
+      continue;
+    }
+    ... toast ...
+  }
+  else if (!opts.silent && e && e.kind === 'network') { ... }
+  // then:
+  if (keys.length > 1 && attempt < total - 1) {
+    rotateApiKey(provider);
+    continue;
+  }
+  break;
+  ```
+  
+  So when `opts.silent` is true and kind is 'rate':
+  - All the `if (!opts.silent && ...)` branches are skipped
+  - Falls through to `if (keys.length > 1 && attempt < total - 1)` → rotate and continue
+  
+  So in silent mode, 429 just rotates keys without waiting. This means the "retry same key after 3s" logic only works in non-silent mode. **This is a real issue** - the 429 same-key retry is conditioned on `!opts.silent`.
+
+  Also, the comment says "429 频率限制：等待 3 秒后重试同一个 key（最多重试 2 次）" but the logic `if (attempt < 2)` means it only retries on attempt 0 and 1. Combined with `total = baseTotal + 2`, the extra 2 attempts are meant for 429 retries. But if there's only 1 key, `baseTotal = 1`, `total = 3`. 
+  - attempt 0: 429 → wait → continue (attempt=1)
+  - attempt 1: 429 → wait → continue (attempt=2)
+  - attempt 2: 429 → attempt < 2 false → falls to rotate check → keys.length > 1 false → break
+  So with 1 key, it retries twice then gives up. OK.
+  
+  But with multiple keys, say 3 keys, baseTotal=3, total=5:
+  - attempt 0: key0, 429 → wait → continue (attempt=1), same key0
+  - attempt 1: key0, 429 → wait → continue (attempt=2), same key0
+  - attempt 2: key0, 429 → attempt<2 false → toast → rotate to key1 → continue (attempt=3)
+  - attempt 3: key1, ... 
+  Wait, but after the 429 block with attempt>=2, it shows toast then falls through to the rotate check. `keys.length > 1 && attempt < total - 1` → `3 > 1 && 3 < 4` → true → rotate → continue. So it rotates. OK.
+  
+  But here's a subtle issue: the 429 retry uses `continue` which skips the rotate. So on attempts 0 and 1, it retries the SAME key (getAiKey returns same index since no rotate happened). Good, that matches the comment.
+
+  However, there's a **real bug**: when `opts.silent` is true (cross-provider fallback), the 429 same-key retry is completely skipped because the entire `else if (!opts.silent && e && e.kind === 'rate')` block is skipped. So in fallback mode, 429 immediately rotates to next key without waiting. This might be acceptable behavior but contradicts the documented "retry same key" logic.
+
+- **Key leakage**: Line 736 `console.warn('[api] '+provider+' 失败：', lastErr && lastErr.message)` - logs error message, not key. The error message from `_classifyApiError` doesn't include the key. Good. But the `pmsg` at line 627 could include `proxyText` which is the raw response - if the proxy echoes the key back in error, it could leak. But that's server-side. The `pe` error thrown has `message = pmsg` which could contain server response text. Then `callRealAPI.lastErr = lastErr` stores it. Not logged to console directly except the `.message`. Generally OK.
+
+- **API_BASE in file:// protocol** (line 4-6):
+  - `location.hostname` in file:// is empty string `''`, which is neither 'localhost' nor '127.0.0.1'
+  - So it goes to `location.origin + '/api'`
+  - In file:// protocol, `location.origin` is `'null'` (the string "null") in some browsers, or `'file://'` 
+  - Actually in file://, `location.origin` is typically `"null"` (string) or `"file://"`. So `API_BASE` would be `"null/api"` or `"file:///api"`. Either way, fetch to that will fail.
+  - **Issue: API_BASE broken in file:// protocol** - all AI calls and key tests will fail with network errors. The free mode (line 566) directly fetches external URLs so it might work, but the proxy-based calls won't.
+
+- **Stream handling**: Looking at the code, there's NO streaming (stream: true) support. The `_callOnce` function uses `proxyData.content` which is a complete response. The `onProgress` callback is called once with the full result (line 700), not incrementally. So "stream" is not actually implemented despite `onProgress` parameter existing. **Issue: onProgress is misleading - no real streaming**. The comment in the task asks about "流式响应（stream）处理是否正确" - the answer is there's no streaming at all; it's a fake progress callback.
+
+- **Multi-key rotation**: 
+  - `getAiKey` (line 395-401): returns key at `currentKeyIndex[provider] % keys.length`
+  - `rotateApiKey` (line 403-408): increments index mod length
+  - In callRealAPI, after a failure (non-429-retry), it calls `rotateApiKey` then `continue`. Next iteration `getAiKey` returns the next key. This works.
+  - But `currentKeyIndex` is global state shared across all calls. If two concurrent calls happen, they'll interfere with each other's key index. **Issue: currentKeyIndex is shared global state, not thread-safe for concurrent calls** (callMultiAI does parallel calls!)
+
+- **callMultiAI** (line 929-996):
+  - Parallel calls with shared `currentKeyIndex` - race condition on key rotation
+  - Line 971: `callRealAPI(prompt, onProgress, { provider: p, silent: true, signal: sharedSignal })` - all use silent:true, so 429 retry is skipped (as noted above)
+  - Line 982: `controller.abort()` after winner - but the other promises are wrapped in new Promise that rejects on empty/error, they don't actually get aborted cleanly because callRealAPI catches errors internally and returns null. So the abort might not propagate correctly. Actually, the signal is passed to callRealAPI which passes to _callOnce via `opts.signal` → `ac.signal` (line 691). When aborted, _callOnce's fetch throws AbortError, which is re-thrown, caught in callRealAPI's catch, and since `e.name === 'AbortError'`, it... doesn't special-case it beyond the timeout toast. It rotates or breaks. Then returns null. So the Promise in callMultiAI resolves with null (not rejects). Then `if (r && r.length > 20...)` is false → reject. OK so it does handle it.
+  - But there's wasted work: after winner is found, other calls continue until their fetch is aborted. The abort should cancel the fetch. OK.
+  - **Issue**: `Promise.race` on line 980 races the wrapped promises. But these promises only resolve on success or reject on failure. If all reject, race rejects with the first rejection. Then it falls back to `callRealAPIWithFallback`. But this means ALL parallel calls must fail before fallback. That could be slow. Also, the aborted calls' errors might not be AbortError if they already failed for other reasons.
+
+### _callOnce (line 536-655)
+- Free mode (line 557-600): iterates FREE_ENDPOINTS, catches errors per endpoint. Good.
+- Proxy mode (line 602-654): 
+  - Line 626: `if (!proxyResp.ok || !proxyData || !proxyData.success)` - checks response
+  - The key is sent in the body to the proxy. The proxy is same-origin (API_BASE). So key goes to backend. Not leaked to console.
+  - Line 637-645: catch block - if `e.kind` exists, rethrow (already classified). Otherwise wrap as network error. But this catch also catches the `throw pe` from line 633 (which has kind). Since `e.kind` exists, it rethrows. OK.
+  - **Issue**: The `result` variable is declared with `let response, result = '';` at line 542. In free mode, it returns early. In proxy mode, `result = proxyData.content || ''`. If proxyData.content is empty string, result stays ''. Then line 647 checks `if (!result || !result.trim())` → throws empty error. OK.
+  - **Issue**: `cleanAIOutput` is called twice in some paths? No - free mode calls it at line 588, proxy mode at line 654. Each path calls once. OK.
+
+- **Timeout**: In callRealAPI, line 693: `setTimeout(function() { aborted = true; ac.abort(); }, timeoutMs)`. The `aborted` flag is set before abort. In catch, line 706: `if (aborted || (e && e.name === 'AbortError'))`. This works but `aborted` is set in the timeout callback, and there's a race: if the fetch naturally aborts (e.g., user signal) at the same time as timeout, `aborted` might not be set yet. Minor.
+
+- **opts.signal handling** (line 691): `opts.signal.addEventListener('abort', function(){ ac.abort(); })` - this adds a listener but never removes it. If opts.signal is reused across multiple attempts, listeners accumulate. Also, if the call completes normally, the listener stays on opts.signal forever (memory leak). **Issue: event listener leak on opts.signal**
+
+## db.js Analysis
+
+### localStorage read/write try/catch
+- `init()` (line 87-130): wrapped in try/catch. Good. But `localStorage.getItem` at line 89 is inside try. Good.
+- `saveImmediate()` (line 917-991): wrapped in try/catch. localStorage.setItem at line 951. Catches QuotaExceededError. Good.
+- `getWork()` (line 1419-1423): `localStorage.getItem('last_edit_work')` - **NO try/catch!** In privacy mode, this throws. **Issue: getWork has no try/catch around localStorage.getItem**
+- `validateWorkIsolation` (line 151-164): line 155 has try/catch around localStorage.getItem. Good.
+- `restoreFromAppMemoryMirror` (line 846): `localStorage.setItem` - **NO try/catch!** **Issue**
+- `importSingleWorkBackup` (line 691): `localStorage.setItem('last_edit_work', w.id)` - **NO try/catch!** **Issue**
+- `createWork` (line 1465): `localStorage.setItem('last_edit_work', work.id)` - **NO try/catch!** **Issue**
+- `deleteWork` calls `this.flush()` which calls `saveImmediate` - has try/catch. OK.
+- `_autoSplitWorks` (line 997-1072): localStorage operations have try/catch per item. Good.
+- `getAppMemoryReport` (line 862): has try/catch. Good.
+
+### IndexedDB error handling
+- `openAppMemoryDB` (line 173-200): returns Promise, rejects on error. Good.
+- `saveAppMemoryMirror` (line 217-239): catches errors, returns false. Good.
+- `saveChapterShard` (line 335-385): catches errors, returns false. Good.
+- `loadChapterShard` (line 588-598): catches, returns null. Good.
+- `listChapterHistory` (line 600-614): catches, returns []. Good.
+- **Issue**: `saveChapterShard` line 343: `db.transaction([self._chapterStore, self._historyStore], 'readwrite')` - if `_historyStore` doesn't exist (old DB version), this throws. But openAppMemoryDB opens version 4 which creates all stores. However, if an existing DB is at version < 4, onupgradeneeded runs. But if the DB is already at version 4, stores exist. OK. But what if the DB was opened with a different version elsewhere? The version is hardcoded to 4.
+- **Issue**: `trimInternalBackups` (line 488-499): The inner `openAppMemoryDB().then(...)` has no `.catch()`. If the delete transaction fails, it's an unhandled rejection. **Issue: unhandled promise rejection in trimInternalBackups**
+- **Issue**: `saveBackupDirectoryHandle` and `loadBackupDirectoryHandle` - the store used is `_appMemoryStore` which has keyPath 'id'. The put at line 506 puts `{id:'_backup_dir_handle', handle:handle, savedAt:Date.now()}`. This coexists with the 'latest' snapshot in the same store. OK, but mixing concerns.
+
+### 大数据分片存储一致性 (wxbj_w_<workId>_<subkey>)
+- `_autoSplitWorks` (line 997-1072): 
+  - Writes meta key and subkey keys
+  - Collects existing keys to clean, removes written keys from clean list, deletes remaining
+  - **Issue**: If a subkey write fails (line 1052 catch), that subkey is NOT removed from keysToClean (unless it's longMemory retry). So if `localStorage.setItem(subKeyName, ...)` throws QuotaExceededError, the old data for that subkey remains in keysToClean and gets DELETED at line 1069-1071! **DATA LOSS BUG**: If a subkey write fails due to quota, the existing (old) data for that subkey is deleted, leaving a hole. The work's field becomes undefined when stitched.
+  
+  Let me verify: Line 1049 `localStorage.setItem(subKeyName, jsonStr)` - if this throws, we go to catch (line 1052). In catch, for longMemory we retry. For others, we just warn. The `cleanIdx2` removal (line 1050-1051) is BEFORE the setItem in the try, so if setItem throws, cleanIdx2 was already spliced out... wait no. Let me re-read:
+  ```
+  try {
+    var jsonStr = JSON.stringify(val);
+    if (jsonStr.length > 800*1024) { ... compress ... }
+    localStorage.setItem(subKeyName, jsonStr);  // line 1049
+    var cleanIdx2 = keysToClean.indexOf(subKeyName);  // line 1050
+    if (cleanIdx2 >= 0) keysToClean.splice(cleanIdx2, 1);  // line 1051
+  } catch(subErr) { ... }
+  ```
+  So `cleanIdx2` removal happens AFTER setItem succeeds. If setItem throws, cleanIdx2 is never removed, so the old key stays in keysToClean and gets deleted at the end. **Confirmed DATA LOSS BUG**: failed subkey write → old subkey data deleted → field lost.
+
+- `_stitchHeavyWork` (line 1111-1161):
+  - Reads subkeys, parses, assigns to lightWork
+  - If a subkey parse fails (line 1124 catch), it's silently ignored → field stays undefined
+  - **Issue**: No validation that stitched data is complete
+  - **Consistency issue**: Between `_autoSplitWorks` writing and `_stitchHeavyWork` reading, if the process is interrupted (page close), partial writes could leave inconsistent state. There's no atomicity.
+
+- **Issue**: `_makeLightWorks` (line 1074-1109) strips chapters content but keeps title/_slim/wordCount. When stitched back via `_stitchHeavyWork`, chapters content is NOT restored (line 1152-1155 just comments that chapters are lazy-loaded from IndexedDB). But the chapters in the light work have no content. If IndexedDB chapter shards are missing/corrupted, chapter content is lost. **Data loss risk**: chapters rely on IndexedDB shards which are separate from localStorage split keys.
+
+### 数据迁移逻辑 (_version)
+- `init()` line 93-96: `if (!data._version || data._version < 12) { data._version = 12; }` - only migrates to 12, but APP_DATA_VERSION is 44. **Issue**: Old data (< 12) is force-set to 12, but there's no migration path from 12→44. The data structure is just loaded as-is. If the structure changed between v12 and v44, old data won't be migrated properly. The `forEach` at line 112 adds missing longMemory fields, which is a form of migration, but it's not version-gated.
+- **Issue**: `buildSnapshot` hardcodes `_version: 44`, `saveImmediate` hardcodes `_version: 44`, etc. But `init` only checks `< 12`. So a v20 data file loads fine, but a v44 file also loads fine. The version check is inconsistent - it only handles the v<12 case. There's no proper migration chain.
+- **Issue**: `importFromJSON` line 1368: `if (data._version && data._version > 20)` - warns if version > 20. But current version is 44. So importing a current backup always shows "较新，可能不完全兼容" warning. **Bug**: threshold is wrong (20 instead of 44).
+
+### save() 防抖/节流
+- `save()` (line 1289-1298): 800ms debounce. Good. Uses `_saveTimer`.
+- `flush()` (line 1301-1308): clears timer, calls saveImmediate if pending. Good.
+- **Issue**: `save()` always returns true immediately (line 1297) without knowing if the actual save succeeds. Callers can't detect failures.
+- **Issue**: The debounce is per-instance (single timer). If `save()` is called with different `notifyFail` values, only the last one's `notifyFail` is used (since the timer is cleared and reset). The first call's `notifyFail` is lost. Minor.
+- **Issue**: `saveImmediate` calls `saveAllChapterShards()` (line 954) which iterates ALL works and ALL chapters, opening a DB transaction per chapter. For a user with many works/chapters, this is O(works × chapters) IndexedDB writes on EVERY save (which is debounced to 800ms but still). **Performance issue**: saveAllChapterShards on every save is expensive. It should only flush dirty shards (which `flushDirtyChapterShards` does, but `saveAllChapterShards` is also called separately at line 954).
+
+  Actually line 953-954:
+  ```
+  try { this.saveAppMemoryMirror(json); } catch(mirrorErr) {}
+  try { this.saveAllChapterShards(); } catch(shardErr) {}
+  ```
+  `saveAllChapterShards` writes ALL chapters every time. This is very expensive. And `markWorkShardsDirty` + `flushDirtyChapterShards` is the incremental path. So there's redundant full writes. **Performance issue confirmed**.
+
+- Also `startAutoMaintenance` (line 299-324) sets an interval that calls `saveAllChapterShards()` every 60 seconds (line 307). Combined with the per-save `saveAllChapterShards`, this is a lot of redundant writes.
+
+### _trash 回收站清理
+- `listTrash()` (line 1311-1317): filters out items older than 30 days. Good. But this mutates `this._trash` only when `listTrash` is called. If `listTrash` is never called, old items accumulate. **Issue**: cleanup only happens on listTrash() call.
+- `deleteWork` (line 1470-1486): only adds to trash if size < 2MB. Larger works are permanently lost (not in trash, not recoverable). **Issue: large works (>2MB) deleted without recovery option** - the user gets no warning.
+- `emptyTrash` (line 1332-1335): clears trash, flushes. OK.
+- **Issue**: `_trash` is included in `saveImmediate`'s JSON (line 925). If trash has 20 items each up to 2MB, that's 40MB in localStorage - will exceed quota. The 2MB-per-item limit doesn't account for total trash size.
+
+## cloud-sync.js Analysis
+
+### smartSync 版本号比较
+- Line 171: `var localVersion = lw._version || 0;`
+- Line 172: `var cloudVersion = cloudMap[lw.id] ? (cloudMap[lw.id].version || 0) : 0;`
+- Line 174-180: 
+  - `if (cloudVersion === 0 || localVersion > cloudVersion)` → push
+  - `else if (cloudVersion > localVersion)` → pull
+  - else unchanged
+- **Issue**: Local works use `_version` (with underscore), cloud uses `version` (no underscore). The comparison is between `lw._version` and `cloudMap[lw.id].version`. This is consistent within the function. But:
+- **Concurrency conflict issue**: If `localVersion === cloudVersion` (both modified to same version), it's treated as "unchanged" and NO sync happens. But if both sides modified since last sync with same version number, changes are lost. **Issue: equal versions with divergent content → data loss** (last-write-wins not handled, no actual content comparison).
+- **Issue**: If local version is 0 (never synced, `_version` undefined) and cloud version is 0 (not on cloud), `cloudVersion === 0` → push. OK. But if a new local work has `_version = 0` and cloud has it at version 0 too (shouldn't happen but...), it's unchanged. Edge case.
+- **Issue**: Version numbers are assigned by server (line 239: `toPush[bj]._version = br.version`). So local version only advances after a successful push. If user edits locally, version doesn't increment until push. So between edits, localVersion stays the same. If cloud version is also same, it's "unchanged" → **local edits not pushed!** 
+  Wait, let me re-check. When does local `_version` change? Only in smartSync after push (line 239, 250) or pull (line 274, 281). So if user edits a work, `_version` doesn't change. Then smartSync runs: localVersion = (old version), cloudVersion = (same old version, since last sync). `localVersion > cloudVersion`? No, equal. `cloudVersion > localVersion`? No. → unchanged. **BUG: Local edits are never pushed because version doesn't increment on edit!**
+  
+  This is a **severe bug**. The version number only changes on sync, not on local edit. So after the first successful sync, subsequent local edits won't be detected as needing push (version unchanged == cloud version == unchanged). Unless the server increments version on push and returns it... but the comparison happens BEFORE push. Let me trace:
+  1. Work created locally, `_version` undefined → 0
+  2. smartSync: localVersion=0, cloudVersion=0 (not on cloud) → cloudVersion===0 → push. Server creates with version 1. Local `_version` = 1.
+  3. User edits work locally. `_version` still 1.
+  4. smartSync: localVersion=1, cloudVersion=1 → unchanged. **NOT PUSHED!**
+  
+  **This is a critical data loss bug.** Local edits after initial sync are never pushed.
+  
+  Unless... the server returns a different version. But the cloud list `getWorks()` returns the work with version 1. Local is 1. Equal → unchanged. So yes, **edits are never synced**.
+
+  Actually, wait. Let me check if there's any place that increments `_version` on edit. Searching... `saveWork` (line 1426-1438) doesn't increment `_version`. `save()` doesn't. `saveImmediate` doesn't. So `_version` is ONLY set by cloud sync. **Confirmed critical bug**.
+
+### syncKeysAndSettings / pushKeysAndSettings 合并逻辑
+- `syncKeysAndSettings` (line 370-423):
+  - Pulls cloud keys, merges: only adds cloud keys not in local. **Issue**: If user deleted a key locally, it gets re-added from cloud. No deletion sync.
+  - apiConfig merge (line 391-400): only sets if `localCfg[k] === undefined || localCfg[k] === ''`. **Issue**: If user changed provider locally, cloud's old provider won't override (good), but if user cleared a field, cloud re-fills it. Also, local changes to apiConfig are never pushed in this function (only pull here).
+  - settings merge (line 412-418): only adds if `localSettings[sk] === undefined`. **Issue**: Same - no update of existing settings from cloud, no deletion sync.
+- `pushKeysAndSettings` (line 426-444):
+  - Pushes ALL local keys and config to cloud (PUT). This overwrites cloud with local. 
+  - **Issue**: If two devices push, last-write-wins → earlier device's keys lost. No merge on push.
+  - **Issue**: `syncKeysAndSettings` only pulls (merge into local), `pushKeysAndSettings` only pushes (overwrite cloud). If both run, the order matters. If pull runs, then local has union of keys. Then push overwrites cloud with union. OK for keys. But for settings, pull only adds undefined fields, then push overwrites cloud with local (which may have fewer fields). **Data loss risk for settings**: if cloud had setting X={a:1} and local had X={b:2}, pull does nothing (X not undefined), push overwrites cloud with {b:2}, losing {a:1}.
+
+### 网络中断回滚/重试
+- `smartSync` (line 147-301): 
+  - Batch push (line 230-254): if batch fails, falls back to individual push. Good.
+  - Individual push failure (line 251): `catch(_) {}` - silently ignores. **Issue**: failed pushes are not retried, not reported (report.pushed not incremented, but report.errors not incremented either). Errors are undercounted.
+  - Pull (line 257-289): `getWork(wid).catch(function(){ return null; })` - catches per-work. If null, skips. OK.
+  - **No rollback**: If push succeeds for some works but pull fails, local state is partially updated. No transaction/rollback. **Issue: partial sync state on network interruption**.
+  - **No retry**: Network errors during sync are not retried. The auto-sync timer will retry on next interval (5 min), but a one-time manual sync won't retry.
+
+### token 过期处理
+- `_fetch` (line 338-364): line 360 `if (resp.status === 401) this._clearToken();` - clears token on 401. Good.
+- **Issue**: After clearing token, the error is thrown. The caller (smartSync) catches it (line 295), sets report.error. But the user isn't notified to re-login explicitly. Also, `isLoggedIn()` returns false after clear, so subsequent calls return early. OK.
+- **Issue**: Token is stored in localStorage (line 46). No expiry check client-side. If token expires, every API call fails with 401 until next _fetch clears it. The auto-sync will keep trying and failing. **Issue: no proactive token refresh**.
+
+### 死循环/无限重试
+- `smartSync`: no loops that could be infinite. The for loops are bounded by array lengths.
+- `startAutoSync` (line 324-330): setInterval calls smartSync. smartSync is async and catches errors. No infinite loop.
+- **Issue**: `startAutoSync` doesn't check if a previous sync is still running. If sync takes longer than `autoInterval` (5 min), multiple syncs could overlap, causing race conditions on `_version` and local data. **Issue: overlapping syncs**.
+- **Issue**: In `db.js` `saveImmediate` (line 957-964), there's a `_cloud.smartSync()` call debounced by 3s. Combined with `startAutoSync` interval, multiple syncs could overlap.
+- **Issue**: `smartSync` line 224 `for (var i = 0; ...)` redeclares `i` which was already declared at line 161 `for (var i = 0; i < cloudWorks.length; i++)`. With `var`, this is hoisted and not a syntax error, but it's sloppy. Not a bug per se.
+
+### Other cloud-sync issues
+- `_mergeWork` (line 470-481): Overwrites ALL local fields with cloud (except _version, _writing). **Issue**: This is a destructive merge - local-only fields (like `_fingerprint`, `_slimMeta`, `_shardId`) are overwritten or lost. If cloud doesn't have `_fingerprint`, local loses it (set to undefined). Actually, `Object.keys(cloudPayload)` iterates cloud fields. If cloud doesn't have `_fingerprint`, it's not in keys, so local keeps it. But if cloud has `_fingerprint: ''`, local is overwritten with ''. Depends on what's in cloud payload.
+  - **Issue**: `_mergeWork` overwrites `chapters` entirely from cloud. If local had chapters loaded from IndexedDB shards (with content) and cloud has slimmed chapters (no content), local loses chapter content. **Data loss risk**.
+- **Issue**: `smartSync` line 282 `newWork.id = full.work.workId` - overwrites the id field of the payload with workId. If payload.id !== workId, this could cause issues. But normally they should match.
+- **Issue**: `pushBatch` (line 115-120) sends all items in one request. If payload is large (many works), the request body could exceed server limits. No chunking.
+- **Issue**: `_packWork` (line 448-468) includes `payload: w` (the entire work object). This includes `_version`, `_fingerprint`, `_writing`, etc. The server stores this. On pull, these come back. Could cause stale `_version` in payload.
+- **Issue**: `quickSync` (line 306-320) pushes without version comparison. If local is behind cloud, this overwrites cloud with stale data. **Data loss risk**: quickSync doesn't check versions, just pushes.
+
+### Additional api.js issues
+- Line 203: `const API_MAX_KEY_RETRY = 999;` - effectively unlimited. With `total = baseTotal + 2`, and baseTotal = min(keys.length, 999), if someone has 999 keys, that's 1001 attempts. Each with a 90s timeout = ~25 hours. **Issue: API_MAX_KEY_RETRY = 999 is absurdly high, potential DoS-like behavior**.
+- Line 691: `opts.signal.addEventListener('abort', function(){ ac.abort(); })` - listener leak as noted.
+- Line 596-599: free mode error `fe.kind = 'network'` - but the lastErr could be a non-network error (e.g., 401 from a free endpoint). Misclassified as network. Minor.
+- **Issue**: `callRealAPIWithFallback` line 907: `return generateLocal(prompt);` - returns a hardcoded placeholder string even though all AI failed. This string contains "AI 暂不可用" which `callMultiAI` line 972 checks for (`r.indexOf('AI 暂不可用') < 0`). So the check works. But the placeholder is returned as if it's a valid result, which could confuse callers. **Issue: silent fallback to placeholder text**.
+
+Let me also check for the `stream` parameter. The task asks about "流式响应（stream）处理". Searching api.js for "stream"... there's no `stream: true` anywhere. The `onProgress` callback is called once with the full result. So there's no real streaming. The proxy endpoint `/ai/chat` is called without `stream: true`. So streaming is not implemented. **Finding: No streaming implementation; onProgress is misleading**.
+
+Let me also verify the key leakage point more carefully. In `testApiKey`, the key is sent in the body to `/ai/test`. The response is parsed and `data.message` is returned. If the server logs the key or echoes it, it could leak. But that's server-side. Client-side, no `console.log(key)`. 
+
+In `_callOnce`, the key is sent in the body to `/ai/chat`. No console.log of key. The error messages from `_classifyApiError` don't include the key. The `console.warn` at line 736 logs `lastErr.message` which is the classified message, not the key. **OK on key leakage** - except if the proxy server returns an error message that includes the key (unlikely but possible), it would be in `proxyText` → `pmsg` → `pe.message` → `lastErr.message` → console.warn. **Minor risk**: server-echoed key could appear in console.warn.
+
+Actually, let me check line 627: `var pmsg = (proxyData && proxyData.error) || proxyText || ('HTTP ' + proxyResp.status);`. If `proxyData.error` contains the key (server echoes it), pmsg includes it. Then `pe = new Error(pmsg)`. Then in callRealAPI, `lastErr = e` (the pe). Then line 736 `console.warn('[api] '+provider+' 失败：', lastErr && lastErr.message)` logs pmsg which could contain the key. **Risk: if server echoes key in error, it's logged to console**. But this is server-dependent.
+
+Also, the toast messages at lines 711, 713, 717, 722, 724 use `API_PROVIDERS[provider].name` not the key. Good.
+
+Now let me also look at the `_classifyApiError` function for the key leakage. It builds `message` from `text` (response body) and `raw` (json error). If the response body contains the key, it's included in `message` (sliced to 80 chars). Then this message could be shown in toast or console. **Risk: response body containing key could leak to toast/console**. But again, server-dependent.
+
+Let me compile my findings now. Let me also double-check a few things:
+
+1. db.js `getWork()` line 1419-1423 - no try/catch. Confirmed.
+2. db.js line 846 `restoreFromAppMemoryMirror` - `localStorage.setItem` no try/catch. Confirmed.
+3. db.js line 691 `importSingleWorkBackup` - `localStorage.setItem` no try/catch. Confirmed.
+4. db.js line 1465 `createWork` - `localStorage.setItem` no try/catch. Confirmed.
+
+Let me also check the `saveWork` → `save()` chain for the debounce issue with `validateWorkIsolation`. `saveWork` (line 1426) calls `validateWorkIsolation` which reads `localStorage.getItem('last_edit_work')` with try/catch (line 155). OK.
+
+Let me check one more thing - the `flush` in `deleteWork`. Line 1485: `this.flush()`. flush calls saveImmediate(false) if pending. But if save wasn't pending (no recent save() call), flush does nothing (returns true). So the deletion might not be persisted if no prior save was pending! **Issue: deleteWork calls flush() which only saves if _savePending is true. If no save is pending, the deletion (this.works = filter) is not persisted to localStorage.** 
+
+Wait, let me re-read flush:
+```
+flush() {
+  if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+  if (this._savePending) {
+    this._savePending = false;
+    return this.saveImmediate(false);
+  }
+  return true;
+}
+```
+If `_savePending` is false, flush returns true without saving. So `deleteWork` mutates `this.works` then calls `flush()`. If no save was pending, the mutation is NOT written to localStorage! **BUG: deleteWork, hardDeleteWork, restoreFromTrash, emptyTrash may not persist** if flush() finds nothing pending.
+
+Actually wait, these methods mutate `this.works` or `this._trash` in memory, then call `flush()`. If no save is pending, flush does nothing. The in-memory state is changed but not persisted. The next `save()` call (from some other action) would persist it. But if the user closes the page before any other save, the deletion is lost. **Confirmed bug: flush() doesn't save if nothing pending, so direct mutations followed by flush() may not persist.**
+
+Hmm, but `restoreFromTrash` (line 1320-1329) calls `this.flush()`. `emptyTrash` (line 1332-1335) calls `this.flush()`. `deleteWork` (line 1485) calls `this.flush()`. `hardDeleteWork` (line 1491) calls `this.flush()`. All of these have the same bug. They should call `saveImmediate()` or `save()` instead of `flush()`.
+
+Actually, let me reconsider. Maybe the intent is that these are called and then a save happens elsewhere. But that's fragile. The `flush()` is meant for "force flush pending save", not "save now". These methods should use `save()` or `saveImmediate()`. **This is a data persistence bug**.
+
+Let me also check `restoreChapterHistory` (line 616-637) - calls `self.saveWork(w)` which calls `save()` (debounced). OK, that's fine.
+
+Now, let me also verify the `importFromJSON` version check. Line 1368: `if (data._version && data._version > 20)`. Current version is 44. So any current export has `_version: 44 > 20` → shows warning "较新，可能不完全兼容". **Bug: warning shows for current-version files**.
+
+Let me also look at the `_version` field usage in db.js. `APP_DATA_VERSION = 44` (line 78). But it's never used in init() for comparison. init() uses hardcoded `12` (line 93). And saveImmediate uses hardcoded `44` (line 920). Inconsistent. **Issue: APP_DATA_VERSION constant defined but not used in init() migration logic**.
+
+Let me also check the `saveAppMemoryMirror` call in `saveImmediate`. Line 953: `this.saveAppMemoryMirror(json)` - this is async (returns Promise) but not awaited. The `json` passed is the full JSON string. `saveAppMemoryMirror` parses it and puts to IndexedDB. If this fails, it's caught internally. OK. But it's fire-and-forget. If the page closes immediately after, the mirror might not be written. Minor.
+
+Now let me also check the cloud-sync `_packWork` for the `_version` issue. Line 464: `version: w._version || 0`. So the version sent to cloud is the local `_version`. If local never incremented (stuck at 1 after first sync), the push sends version 1. The server should reject or handle... but we don't know server logic. If server does `if (payload.version >= cloudVersion) update and increment`, then pushing version 1 when cloud is 1 would update. But the client's smartSync comparison `localVersion > cloudVersion` (1 > 1 = false) prevents the push from happening in the first place! So the push never happens. **Confirmed: the version comparison prevents pushing local edits**.
+
+Unless the server increments version on every push and the client gets the new version back. But the comparison is done BEFORE push. So:
+- local v1, cloud v1 → unchanged → no push
+- local edits → still v1
+- next sync: local v1, cloud v1 → unchanged → no push
+- **Edits never synced. Critical bug.**
+
+The only way this works is if the server returns a higher version after push, AND the client compares correctly. But the client compares local (1) vs cloud (1) = unchanged. So push never triggered. **This is the most severe bug in the three files**.
+
+Wait, unless I'm missing something. Let me check if `_version` is incremented anywhere on the client side... 
+
+Searching db.js for `_version`:
+- Line 93: `data._version = 12` (migration)
+- Line 205: `_version: 44` (buildSnapshot)
+- Line 426: `_version: 44` (buildBackupPayload)
+- Line 671: `_version:44` (exportCurrentWorkBackup)
+- Line 847: `_version: 44` (restoreFromAppMemoryMirror)
+- Line 920: `_version: 44` (saveImmediate - this is the DATA version, not work version)
+- Line 936: `_version: 44`
+- Line 972: `_version: 44`
+- Line 1341: `_version: 44` (exportAll)
+
+Note: These `_version: 44` are the DATA file version (APP_DATA_VERSION), NOT the work's sync version. The work's sync version is `work._version` which is different from the data file's `_version`. Confusing naming!
+
+In cloud-sync.js:
+- Line 171: `var localVersion = lw._version || 0;` - this reads the WORK's `_version`
+- Line 239: `toPush[bj]._version = br.version;` - sets work's `_version` from server response
+- Line 250: `toPush[pi]._version = pr.version;`
+- Line 274: `localWorks[ei]._version = full.work.version;`
+- Line 281: `newWork._version = full.work.version || 1;`
+- Line 464: `version: w._version || 0` (in _packWork)
+
+So `work._version` is the sync version, only set by cloud sync. Never incremented on local edit. **Confirmed critical bug**.
+
+Now, the data file's `_version: 44` (in saveImmediate etc.) is a different field on the root data object, not on works. So there's no conflict, just confusing naming. But the work's `_version` for sync is indeed never incremented locally.
+
+OK, I think I have enough findings. Let me also quickly check a few more things:
+
+- cloud-sync.js line 487-490: auto-init uses `location.hostname` check, same as api.js. In file://, `location.origin` is "null" → apiBase = "null/api". fetch fails. **Issue: same file:// problem as api.js**.
+
+- cloud-sync.js `smartSync` line 292: `DB.save()` - debounced save. After merging cloud data into local works, this saves. But the merge in `_mergeWork` directly mutates `localWorks[ei]` which is a reference to `DB.works[i]` (since `localWorks = DB.works.slice()` at line 154 - shallow copy, elements are same references). So mutations persist in DB.works. Then `DB.save()` persists. OK.
+
+- But `toPull` includes works that are on cloud but not local (line 206). These are added at line 284 `DB.works.push(newWork)`. OK.
+
+- **Issue**: `smartSync` line 232: `var batchItems = toPush.map(function(w){ return _packWork(w); })`. `_packWork` includes `payload: w` (the entire work). For large works, this is a huge payload. Batch of large works could exceed request body limits.
+
+Let me also check the `deleteWork` in cloud-sync (line 125-127). It's called in smartSync for works in trash. If delete fails, `report.errors++`. OK. But the cloud work is deleted permanently. If the user wanted to restore from trash later, the cloud copy is gone. **Issue: smartSync deletes cloud works that are in local trash, preventing cross-device restore**. If device A deletes a work (→ trash), then syncs, cloud copy deleted. Device B never got the work. Work is only in A's local trash. If A empties trash, work is gone forever.
+
+Actually, this might be intended behavior. But it's a data loss risk if the user didn't intend permanent deletion.
+
+Let me also note: `smartSync` line 188-209 checks cloud works not in local. If in trash → delete on cloud. If NOT in trash → pull. So a work that exists on cloud but not local (and not in trash) is pulled. This means if device A has a work and device B doesn't, B pulls it. Good. But if device A deleted a work (not in trash, hard delete), and syncs, cloud still has it. Next sync pulls it back to A. **Issue: hard-deleted works get re-pulled from cloud**. Unless the work is in trash. But `hardDeleteWork` (line 1489-1492) doesn't add to trash. So hard-deleted works resurrect from cloud. **Data loss risk / unexpected behavior**.
+
+OK, I think I have a comprehensive set of findings. Let me organize them.
+
+Let me also double-check the 429 retry "same key" claim. In callRealAPI:
+- attempt 0: getAiKey returns key at index 0. Call fails with 429. `if (attempt < 2)` → wait 3s → `continue`. No rotate.
+- attempt 1: getAiKey returns key at index 0 (still, no rotate). Call fails with 429. `if (attempt < 2)` → wait 3s → `continue`. No rotate.
+- attempt 2: getAiKey returns key at index 0. Call fails with 429. `attempt < 2` false. Toast "频率超限，尝试下一个密钥". Falls to `if (keys.length > 1 && attempt < total-1)` → rotate → continue.
+- attempt 3: getAiKey returns key at index 1. 
+
+So yes, 429 retries the same key twice, then rotates. This matches the comment. BUT only when `!opts.silent`. When silent, the `else if (!opts.silent && e && e.kind === 'rate')` block is entirely skipped, so no wait, and it falls directly to the rotate check. **In silent mode, 429 → immediate rotate, no retry of same key**. This is a behavioral inconsistency. In `callRealAPIWithFallback`, all non-first providers use `silent: true`. In `callMultiAI`, all use `silent: true`. So 429 same-key retry only works for the first provider in fallback mode. **Issue confirmed**.
+
+Also, I realize there might be an issue with the `total` calculation and 429. `total = baseTotal + 2`. The +2 is for 429 retries. But if there are no 429 errors, the +2 extra attempts are wasted (they'd try keys beyond the key count, but getAiKey wraps with modulo, so it'd retry already-tried keys). Actually, with `keys.length` keys and `baseTotal = keys.length`, after `keys.length` attempts all keys tried. The +2 extra would re-try keys (due to modulo). But the rotate check `keys.length > 1 && attempt < total - 1` would keep rotating. So it could retry all keys again. **Issue: non-429 errors cause extra redundant retries beyond key count** (up to 2 extra full cycles... no, just 2 extra attempts). Minor performance issue.
+
+Actually, with 1 key: baseTotal=1, total=3. 
+- attempt 0: fail (non-429) → rotate check: `keys.length > 1` false → break.
+So with 1 key, non-429 errors break immediately. OK.
+With 2 keys: baseTotal=2, total=4.
+- attempt 0: key0 fail → rotate → continue
+- attempt 1: key1 fail → rotate → continue
+- attempt 2: key0 (wrapped) fail → rotate → continue (attempt < 3)
+- attempt 3: key1 fail → `attempt < total-1` → `3 < 3` false → break
+So 2 keys get tried twice each. **Redundant retries**. Minor.
+
+OK, I'm confident in my findings. Let me write the report.
+
+One more: the `API_MAX_TOTAL_TRY = 40` (line 205) in `callRealAPIWithFallback` limits total cross-provider attempts. With ~20 providers, 40 is 2x. OK. But `totalTry++` is only incremented per provider (line 857), not per key. So if one provider has 999 keys, that's 1 totalTry but 999+ attempts. The API_MAX_TOTAL_TRY doesn't actually limit total attempts, just provider attempts. **Issue: API_MAX_TOTAL_TRY limits providers not total key attempts**.
+
+Let me finalize and write the report. I'll organize by the requested categories.
+
+Let me reconsider the severity of the version sync bug. It's definitely the most critical. Local edits never sync to cloud because `_version` isn't incremented on edit. This means cloud sync is fundamentally broken for edits (only initial creation syncs).
+
+Actually, let me reconsider once more. Is it possible the server handles version differently? The server might compare `payload.version` with stored version and if equal, still update (treating equal as "update allowed"). In that case, the client's smartSync wouldn't push (because localVersion == cloudVersion → unchanged), but if it did push, the server would accept. The problem is the client never pushes. So regardless of server behavior, the client-side comparison prevents pushes. **Confirmed critical**.
+
+Unless... let me check `quickSync`. `quickSync` (line 306-320) pushes without comparison. So if `quickSync` is called after edits, it pushes. Is `quickSync` called after chapter saves? Let me check... In db.js, I don't see `quickSync` called. The `saveImmediate` calls `smartSync` (line 962). So the auto-sync after save uses `smartSync`, which has the version bug. If `quickSync` were used instead, it would work (but without conflict detection). 
+
+So the practical impact: after editing, `saveImmediate` → `smartSync` (3s debounced) → version comparison → unchanged → no push. **Edits don't sync.** Unless the user manually triggers a push. **Critical bug confirmed**.
+
+Alright, writing the report now.
+
+Let me make sure I have line numbers right for key findings.
+
+api.js:
+- Line 4-6: API_BASE file:// issue
+- Line 203: API_MAX_KEY_RETRY = 999
+- Line 691: event listener leak
+- Line 714-721: 429 retry only in non-silent mode (conditioned on !opts.silent at line 714)
+- Line 700: onProgress called once (no streaming)
+- Line 736: console.warn could leak server-echoed key
+- Line 627: pmsg could contain key from server response
+- Line 308: currentKeyIndex shared global state
+
+db.js:
+- Line 1419-1423: getWork no try/catch
+- Line 846: restoreFromAppMemoryMirror localStorage no try/catch
+- Line 691: importSingleWorkBackup localStorage no try/catch
+- Line 1465: createWork localStorage no try/catch
+- Line 1049-1071: _autoSplitWorks data loss on quota error
+- Line 93-96: migration only to v12
+- Line 1368: importFromJSON version threshold wrong (20 vs 44)
+- Line 954: saveAllChapterShards on every save (performance)
+- Line 1289-1298: save debounce
+- Line 1301-1308: flush doesn't save if not pending
+- Line 1485, 1491, 1327, 1334: delete/restore/empty use flush (bug)
+- Line 1478: deleteWork >2MB not in trash
+- Line 488-499: trimInternalBackups unhandled rejection
+- Line 1152-1155: chapters not restored in stitch
+
+cloud-sync.js:
+- Line 171-180: version comparison bug (critical)
+- Line 470-481: _mergeWork destructive
+- Line 306-320: quickSync no version check
+- Line 370-423: syncKeysAndSettings merge issues
+- Line 426-444: pushKeysAndSettings overwrite
+- Line 324-330: startAutoSync overlapping
+- Line 487-490: file:// apiBase issue
+- Line 188-209: hard-deleted works resurrect / cloud delete for trash
+- Line 251: silent push failure
+- Line 360: token 401 handling
+
+OK, writing now.
+
+Now I have the four core files. Let me do the Grep searches in parallel for the IndexedDB stores, custom_templates, predict_platform, _trash cloud sync code, and also check for any other localStorage keys and sync functions.
+I've read all four core files. Now I need to do the Grep searches for:
+1. IndexedDB's four stores (snapshots, chapters, backups, chapter_history) - search for any cloud sync code
+2. custom_templates, predict_platform, _trash - search for any cloud sync code
+
+Let me also check if there are other localStorage keys used. Let me do these in parallel.
+
+Let me also look at the _shared.js to understand the backend storage and check if there are other localStorage keys used in the project.
+
+Let me search for:
+1. IndexedDB stores and cloud sync
+2. custom_templates, predict_platform, _trash cloud sync
+3. localStorage keys used in the project
+4. Check if there are any other sync functions
+
+Let me do these in parallel.
+
+Now let me explore the backend directory structure and check the auth implementation to compare JWT handling, plus look at how the frontend calls these APIs.
+Now I have all the files I need. Let me also check the backend directory structure to understand what else exists, and look at the auth.js file in backend to compare JWT implementations. Let me also check if there are other relevant files like the models.js.
+
+Let me explore the backend directory and look at the auth.js to understand the JWT secret handling, and check the frontend to understand how the AI proxy is called.
+
+现在读取剩余两个文件 write.html 和 architecture.html。
+Now let me read the remaining two files: write.html and architecture.html.
+
+architecture.html 文件较大，需要分段读取。先定位其中的内联 script 标签位置。
+architecture.html is too large. Let me read it in chunks. First, let me check its structure with grep to find the inline scripts.
+
+Let me read the backend auth.js and the frontend cloud-sync.js to confirm the snapshot routes are actively used by the frontend, plus check the center-tools.js snapshot handling.
+Let me read the backend auth.js to fully compare JWT secret handling, and check the cloud-sync.js to understand how the frontend calls the snapshot routes (confirming they're expected to work). Also let me check the center-tools.js for snapshot usage.
+
+Let me search for all localStorage keys used across the project and verify the backend storage details, plus check for any other sync mechanisms.
+Important findings so far:
+
+1. **IndexedDB stores cloud sync**:
+   - `cloud-sync.js` only references `snapshots` via the `/works/:workId/snapshots` REST endpoint (getSnapshots, restoreSnapshot). But these are CLOUD snapshots (server-side WorkSnapshot table), NOT the local IndexedDB `snapshots` store (`wxbj_app_memory_v1` snapshots store which holds the App memory mirror).
+   - The local IndexedDB stores (snapshots/chapters/backups/chapter_history) have NO cloud sync code in cloud-sync.js.
+   - The `[[route]].js` backend has NO endpoints for chapter_history, backups, or local chapter shards.
+
+2. **custom_templates, predict_platform**: 
+   - Stored in localStorage independently (not part of `wxbj_data_v4`)
+   - NO cloud sync code at all.
+
+3. **_trash**:
+   - In cloud-sync.js line 184, `_trash` is READ to determine which works to delete from cloud (if a work is in local trash, it gets deleted from cloud). 
+   - BUT `_trash` itself is NOT synced to cloud — there's no endpoint to store/restore the trash list. The trash array is only used as a signal for cloud deletion.
+   - `_trash` is part of `wxbj_data_v4` localStorage and the AppMemoryMirror (IndexedDB snapshots store), but NOT pushed to cloud as a separate entity.
+
+Let me verify a few more things:
+- Check if `_trash` is included in the work payload that gets pushed (via _packWork). Looking at _packWork, it only packs workId, title, category, synopsis, payload (the work object), version, chapterCount, totalWords. So _trash is NOT pushed.
+- Check the smartSync more carefully — it uses _trash only to decide cloud deletion.
+
+Let me also check:
+- Are there other localStorage keys used in the project that I should know about?
+- Let me search for all localStorage.setItem/getItem calls across the project to find independent keys.
+
+Let me also verify the backend routes comparison. The backend/routes.js has:
+- POST /auth/register
+- POST /auth/login
+- GET /works
+- GET /works/:workId
+- PUT /works/:workId
+- POST /works/sync/batch
+- DELETE /works/:workId
+- GET /works/:workId/snapshots
+- POST /works/:workId/snapshots/:snapId/restore
+- GET /user/profile
+
+Note: backend/routes.js does NOT have:
+- /auth/forgot-password
+- /auth/reset-password
+- /user/keys (GET/PUT)
+- /user/settings (GET/PUT)
+- /works/:workId/delete (POST alternative)
+- /ai/test
+- /ai/chat
+- /health
+
+The Pages Functions [[route]].js has:
+- POST /auth/register
+- POST /auth/login
+- POST /auth/forgot-password
+- POST /auth/reset-password
+- GET /health
+- POST /ai/test
+- POST /ai/chat
+- GET /user/profile
+- GET /user/keys
+- PUT /user/keys
+- GET /user/settings
+- PUT /user/settings
+- GET /works
+- GET /works/:workId
+- PUT /works/:workId
+- DELETE /works/:workId
+- POST /works/sync/batch
+- POST /works/:workId/delete
+
+So the Pages Functions is actually MORE complete than backend/routes.js. The backend/routes.js is MISSING:
+- /auth/forgot-password
+- /auth/reset-password
+- /user/keys (GET/PUT) — this is critical for key sync!
+- /user/settings (GET/PUT) — this is critical for settings sync!
+- /works/:workId/delete (POST)
+- /ai/test
+- /ai/chat
+- /health
+- /works/:workId/snapshots (GET) — backend has this but Pages Functions does NOT!
+
+Wait, let me re-check. The Pages Functions [[route]].js does NOT have:
+- GET /works/:workId/snapshots
+- POST /works/:workId/snapshots/:snapId/restore
+
+The cloud-sync.js calls getSnapshots and restoreSnapshot which hit these endpoints. So if using Pages Functions, these would 404!
+
+And backend/routes.js does NOT have:
+- /user/keys
+- /user/settings
+- /auth/forgot-password, /auth/reset-password
+- /ai/test, /ai/chat
+- /works/:workId/delete (POST)
+
+So there's a bidirectional mismatch.
+
+Let me also search for all localStorage keys used in the project to find independent keys I might have missed. Let me also check the _shared.js to understand the backend storage.
+
+Let me do a few more searches in parallel:
+1. Search for all localStorage.setItem/getItem across the project (to find independent keys)
+2. Check _shared.js for the backend storage
+3. Verify the snapshots endpoint in [[route]].js (already confirmed it's missing)
+4. Check if there's any other sync mechanism
+
+The grep for `<script>` didn't match because of escaping. Let me try a different pattern.
+
+Let me check the frontend AI calls and snapshot UI usage to confirm these are live features, and verify the `_fetch` base URL handling.
+Now I have a comprehensive understanding. Let me also quickly check the api.js around the AI calls to understand how keys are sent, and verify the snapshot routes are indeed missing from Pages Functions. Let me also check the center-tools.js snapshot usage to confirm it's an active feature.
+
+Let me look at the api.js AI calls and the center-tools snapshot usage.
+
+The inline script in architecture.html is from line 563 to 2516. That's about 1953 lines. Let me read it in chunks. Also, I need to check the write.html inline scripts - I noticed it has many external scripts but I should check if there's any inline script. Let me also check write.html for inline scripts.
+
+Wait, looking at write.html again, I see it ends at line 394 with the quality-fab div. I don't see any inline `<script>` tag with content - only external script src references. Let me verify by grepping.
+
+I now have a comprehensive understanding of the codebase. Let me compile my findings into a detailed audit report. Let me organize my analysis:
+
+## Files audited:
+1. `/workspace/functions/api/[[route]].js` (567 lines)
+2. `/workspace/functions/api/_shared.js` (295 lines)
+3. `/workspace/functions/_middleware.js` (41 lines)
+
+## Comparison file:
+- `/workspace/backend/routes.js` (305 lines) - Express backend
+- `/workspace/backend/auth.js` (29 lines) - JWT auth
+
+## Frontend usage confirmed:
+- `/workspace/assets/js/cloud-sync.js` - calls `/works/:workId/snapshots` and `/works/:workId/snapshots/:snapId/restore`
+- `/workspace/assets/js/center-tools.js` - `cloudShowSnapshots` and `cloudRestoreSnapshot` are active UI features
+- `/workspace/assets/js/api.js` - calls `/ai/test` and `/ai/chat` with keys in body
+
+Now let me go through each category systematically.
+
+### 【严重 Bug】
+
+1. **JWT_SECRET 硬编码默认值 + 前后端不一致** (`_shared.js:4`, `backend/auth.js:5`)
+   - `_shared.js:4`: `export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2';`
+   - `backend/auth.js:5`: `const JWT_SECRET = process.env.JWT_SECRET || 'wxbj_cloud_secret_2026';`
+   - 两个默认值不同（`_v2` 后缀），如果两边都用默认值，token 不互通。
+   - 更严重：`_shared.js:4` 在模块加载时就把 `JWT_SECRET` 固定为 `'wxbj_cloud_secret_2026_v2'`，而 `_middleware.js:24-26` 在请求时才设置 `globalThis.__JWT_SECRET = context.env.WXBJ_SECRET`。但 `_shared.js` 的 `JWT_SECRET` 常量在 import 时已经求值，**后续 middleware 设置的 `__JWT_SECRET` 不会更新这个常量**。不过 `jwt_sign`/`jwt_verify` 用的是 `secret || JWT_SECRET`，而调用时传的是 `null`，所以会用 `JWT_SECRET` 常量——即硬编码值，**环境变量 WXBJ_SECRET 实际不生效**！这是一个严重 bug。
+   
+   等等，让我再仔细看。`_shared.js:4`: `export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2';`。这个在模块首次 import 时执行。`_middleware.js` 的 `onRequest` 会先执行（middleware 在 route 之前），设置 `globalThis.__JWT_SECRET`。但模块导入顺序：`[[route]].js` import `_shared.js`，这会在 `[[route]].js` 模块加载时立即执行 `_shared.js` 的顶层代码，此时 `globalThis.__JWT_SECRET` 可能还没设置（取决于 middleware 是否先运行）。
+   
+   实际上 Cloudflare Pages Functions 中，`_middleware.js` 的 `onRequest` 是在请求时调用的，而模块的顶层 import 求值发生在第一次加载模块时。如果 `[[route]].js` 先被加载（因为请求匹配到它），那么 `_shared.js` 的 `JWT_SECRET` 会在 middleware 运行之前就被求值为硬编码值。即使 middleware 后续设置了 `globalThis.__JWT_SECRET`，`JWT_SECRET` 常量已经固定。
+   
+   而且 `jwt_verify(token, secret)` 调用时 `secret` 是 `undefined`（`[[route]].js:50` 调用 `jwt_verify(token)` 不传 secret），所以 `secret || JWT_SECRET` = `JWT_SECRET` = 硬编码值。**环境变量 WXBJ_SECRET 完全无效**。这是严重安全问题。
+
+2. **`db_create_user` 用户 ID 用自增整数 + 非原子操作** (`_shared.js:170-187`)
+   - `nextId` 读取-递增-写入不是原子的，并发注册会产生重复 ID。
+   - 用自增小整数作为公开用户 ID（JWT 里带 userId），违反安全最佳实践（可枚举）。
+   - 而且 `db_update_user` 同时写 `user:email:` 和 `user:id:` 两个 key，如果中间失败会导致数据不一致。
+
+3. **`handle_work_delete` 删除时未校验作品归属** (`[[route]].js:232-245`)
+   - 直接用 `work:` + userId + workId 删除，虽然 key 里带了 userId 所以理论上隔离了。但删除时没有先检查作品是否存在，也没有从 works 列表移除时的并发问题。这个其实因为有 userId 在 key 里，越权风险低。但 `list = list.filter(...)` 后 `store.put`，如果并发会有竞态。这个算边界条件。
+
+4. **`handle_forgot` 验证码直接返回给客户端** (`[[route]].js:132`)
+   - `return json_response({ ok: true, code: code, token: code });` —— 把重置验证码直接返回。注释说是"演示模式"，但这是严重安全问题：任何人可以对任意邮箱调用 forgot-password 拿到验证码，然后重置该邮箱密码。即使有"不区分是否存在"的防枚举，但这里对存在的用户直接返回 code，等于完全绕过。
+
+5. **`handle_reset` 用户不存在时返回 404 泄露信息** (`[[route]].js:146`)
+   - `if (!user) return json_response({ error: '用户不存在' }, 404);` —— 与 forgot 的防枚举逻辑矛盾，reset 阶段泄露用户是否存在。
+
+6. **`random_code` 用 `Math.random()` 生成验证码** (`_shared.js:280-282`)
+   - `Math.random()` 不是密码学安全的，验证码应该用 `crypto.getRandomValues`。
+
+7. **`verify_password` 的 bcrypt 兼容分支直接返回 false** (`_shared.js:123-126`)
+   - 注释说"降级支持"但实际 `return false`，导致旧 bcrypt 用户永远无法登录。如果数据库里有 bcrypt 哈希的用户，他们会全部被锁死。这是严重 bug。
+
+8. **`verify_password` 的 PBKDF2 比较不是常数时间** (`_shared.js:117-121`)
+   - 虽然用了全字节比较（不是提前 return），但 `ok` 标志位方式仍可能被侧信道攻击。不过这个影响较小。
+
+9. **`db_upsert_work` 版本号逻辑问题** (`_shared.js:255-258`)
+   - `if (clientVersion <= rec.version && rec.version > 0)` 返回 unchanged。但如果客户端版本等于服务端版本但内容不同（比如客户端本地改了但没递增版本），会被静默丢弃。这是逻辑问题，但符合"版本号比较"设计。
+
+10. **`handle_work_upsert` 没有保存快照** (`[[route]].js:201-210` vs `backend/routes.js:131-142`)
+    - backend 在更新作品时会保存 WorkSnapshot，但 Pages Functions 的 `db_upsert_work` 完全没有快照逻辑。配合缺失的快照路由，快照功能在 Pages Functions 上完全不可用。
+
+11. **`handle_ai_chat` 的 `messages` 未校验** (`[[route]].js:416-471`)
+    - `messages` 直接透传给上游，如果 `messages` 不是数组或包含恶意内容，可能引发问题。但主要是 SSRF/滥用问题。
+
+12. **`handle_ai_test` 超时定时器在 continue 时未清除** (`[[route]].js:399-406`)
+    - 看代码：catch 块里 `clearTimeout(tid)` 在第 400 行，然后 `continue`。这个其实清除了。但是注意：在 `for...of` 循环中，每次迭代创建新的 `ac` 和 `tid`。如果在 `resp.ok` 成功返回的路径，`clearTimeout(tid)` 在 352 行已执行。OK 这个没问题。
+    
+    但是有个问题：`handle_ai_test` 中如果第一个模型返回 404，`continue` 到下一个模型，但 `ac` 和 `tid` 是循环内重新创建的，没问题。
+
+13. **`handle_batch` 没有限制 items 数量** (`[[route]].js:212-230`)
+    - `for (const it of items)` 没有长度限制，恶意客户端可传超大数组导致 KV 写入风暴和长时间运行（可能超过 CPU 时间限制）。
+
+14. **`db_list_works` N+1 KV 读取** (`_shared.js:197-220`)
+    - 列表里每个 workId 都要单独 `store.get`，N 个作品 N 次读取。KV 读取慢且贵，这是典型 N+1。
+
+15. **`handle_work_get` 的 `payload` 解析** (`[[route]].js:186`)
+    - `typeof w.payload === 'string' ? JSON.parse(w.payload) : (w.payload || {})` 有 try-catch，OK。但 `db_get_work` 用 `{ type: 'json' }` 读取，KV 会自动 parse 整个 record，所以 `w.payload` 可能已经是字符串（因为存储时 `payloadStr` 是字符串）。OK。
+
+### 【安全问题】
+
+1. **CORS 完全开放 `Access-Control-Allow-Origin: *`** (`_shared.js:289`, `[[route]].js:28`, `_middleware.js:11,32`)
+    - 三处都设 `*`。配合 `Authorization` header 允许，任意网站可发起带 token 的请求。由于 token 在 localStorage，第三方站点虽然不能直接读 localStorage，但可以用 fetch 带 cookie... 不过这里用 Bearer token 不是 cookie，第三方拿不到 token。但 `*` 仍然过宽，应该限制为已知域名。而且 `*` 与凭证不兼容，但这里没用 credentials。
+
+2. **AI 代理路由完全无认证** (`[[route]].js:43-45`)
+    - `/ai/test` 和 `/ai/chat` 在公开路由区，任何人可调用。虽然密钥由前端提供，但这个代理可被滥用作 SSRF：
+      - `provider` 限制为白名单（`AI_PROVIDERS`），所以 URL 不能任意指定——这点 OK，不是 SSRF。
+      - 但可被滥用作"免费 AI 网关"：攻击者用自己的密钥通过你的服务器调用 AI，消耗你的 Cloudflare 配额/CPU 时间，且你的 IP 会被记录到上游。
+      - 无限流，无认证，可被大量并发调用。
+
+3. **AI 代理把上游完整响应 `raw: json` 返回给客户端** (`[[route]].js:495`)
+    - `return json_response({ success: true, content: result, raw: json });` —— 上游错误响应可能包含敏感信息，但这里只在成功时返回。不过 `raw` 可能泄露上游 API 的内部信息。
+
+4. **密钥通过请求体明文传输并经服务器中转** (`[[route]].js:305,419`)
+    - 用户 API 密钥通过 POST body 发到你的服务器，服务器日志（如果开启）会记录。虽然 HTTPS 加密传输，但服务器端 `e.message` 可能包含密钥片段。而且 `handle_ai_test` 的错误返回 `errMsg` 可能包含上游返回的密钥相关信息。
+
+5. **`handle_keys_save` 明文存储用户 API 密钥到 KV** (`[[route]].js:523-538`)
+    - `apiKeys` 直接 `JSON.stringify` 存到 KV，未加密。KV 数据可被管理员/泄露访问，所有用户密钥明文暴露。
+
+6. **JWT 算法未校验** (`_shared.js:52-68`)
+    - `jwt_verify` 没有检查 `header.alg`。虽然自己实现的 HS256 验证，不解析 header 的 alg，所以理论上不会被 alg 混淆攻击（因为只做 HMAC 验证）。但如果 token 的 header.alg 是 'none'，代码仍然用 HMAC 验证，所以安全。这个其实 OK，因为是自己实现的，不依赖 alg 字段。
+
+7. **JWT payload 未校验类型** (`_shared.js:64`)
+    - `JSON.parse(b64url_decode_str(parts[1]))` 后直接用 `payload.userId`。如果攻击者构造一个有效签名（需要密钥）的 token，可以伪造任意 userId。但前提是知道密钥——而密钥是硬编码的！所以**任何人都能伪造任意用户 token**。这是致命问题，根源是硬编码 JWT_SECRET。
+
+8. **`_middleware.js` 把所有环境变量暴露到 globalThis** (`_middleware.js:20-22`)
+    - `for (const key of Object.keys(context.env || {})) { globalThis[key] = context.env[key]; }` —— 把所有 env（可能包含其他 secret 如 D1、其他 API key）挂到全局，增加泄露面。
+
+9. **`handle_forgot` 验证码存为明文 `resetToken`** (`[[route]].js:128`)
+    - 验证码明文存 KV，且 `db_update_user` 会把它写到 `user:email:` 和 `user:id:` 两处。
+
+10. **错误信息泄露内部细节** (`[[route]].js:79, 310, 424`)
+    - `json_response({ error: '路由不存在: ' + apiPath }, 404)` 泄露路径结构。
+    - `json_response({ error: e.message || '注册失败' }, 500)` 直接返回内部错误堆栈信息。
+
+11. **`/user/keys` GET 返回所有密钥** (`[[route]].js:511-520`)
+    - 返回 `apiKeys` 对象，虽然只返回当前用户的，但密钥明文返回。如果 token 被窃取，所有密钥泄露。
+
+### 【性能问题】
+
+1. **`db_list_works` N+1 KV 读取** (`_shared.js:197-220`)
+    - 已提及。每个作品一次 KV.get，无缓存。作品多时极慢。
+
+2. **`handle_batch` 串行处理** (`[[route]].js:217-225`)
+    - `for` 循环串行 await，无并发。大量作品同步会很慢。可用 `Promise.all`。
+
+3. **`db_upsert_work` 每次写两处（works 列表 + work 记录）** (`_shared.js:248-251`)
+    - 创建时读列表、改、写列表、写记录，4 次 KV 操作。
+
+4. **`db_update_user` 写两处** (`_shared.js:189-195`)
+    - `user:email:` 和 `user:id:` 双写，数据冗余。
+
+5. **无任何缓存层** 
+    - 用户信息、作品列表每次都从 KV 读，没有 Cache API 或边缘缓存。
+
+6. **`handle_ai_test` 串行尝试多个模型** (`[[route]].js:315-407`)
+    - 最多 3 个模型串行，每个 25s 超时，最坏 75s。Cloudflare Pages Functions 免费版有 CPU/时长限制。
+
+7. **大 payload 序列化** 
+    - 作品 payload 可能很大（整本书），每次 upsert 都 `JSON.stringify`，list 时又逐个读。KV 单值有 25MB 限制，但大对象序列化耗 CPU。
+
+### 【缺失路由】
+
+对比 `backend/routes.js`：
+
+1. **`GET /works/:workId/snapshots`** (`backend/routes.js:244`) —— Pages Functions 完全缺失。前端 `cloud-sync.js:131-133` 和 `center-tools.js:500-522` 在用，调用会得到 404。
+
+2. **`POST /works/:workId/snapshots/:snapId/restore`** (`backend/routes.js:262`) —— Pages Functions 完全缺失。前端 `cloud-sync.js:135-138` 和 `center-tools.js:524-539` 在用。
+
+3. **快照保存逻辑缺失** —— `db_upsert_work` (`_shared.js:230-270`) 没有像 `backend/routes.js:131-166` 那样在更新时创建 WorkSnapshot、做内容去重、清理旧快照。`_shared.js:150` 定义了 `key_snap` 函数但从未被调用。
+
+4. **SyncLog 缺失** —— backend 有 SyncLog 记录同步日志，Pages Functions 完全没有。
+
+5. **`GET /user/profile` 字段差异** —— backend 返回 `avatar, createdAt`，Pages Functions 返回 `visitCount, lastVisitAt`。不完全一致。
+
+### 【其他建议 / 代码重复】
+
+1. **大量代码重复** —— `[[route]].js` 的 `handle_register/login/forgot/reset/profile/works_list/work_get/work_upsert/batch/delete` 与 `backend/routes.js` 几乎逐行对应。`_shared.js` 的 JWT/密码哈希与 `backend/auth.js` 重复。维护两套实现容易不一致（已经不一致：JWT_SECRET 默认值不同、bcrypt 兼容性不同、快照逻辑缺失）。
+
+2. **`AI_PROVIDERS` 和 `AI_TEST_MODELS` 硬编码在路由文件** (`[[route]].js:250-299`) —— 22 个服务商配置写死在代码里，应抽到配置或 `_shared.js`。前端 `api.js` 也有类似配置，三处重复。
+
+3. **`setKVStore` 每次请求都调用** (`[[route]].js:16-18`) —— 每次请求都 `setKVStore(context.env.WXBJ_DATA)`，虽然幂等但冗余。且 `_middleware.js` 已经把 env 挂到 globalThis，`KV()` 函数会兜底从 globalThis 读，所以这行可能多余。
+
+4. **`onRequest` 没有顶层 try-catch** (`[[route]].js:10-80`) —— 如果 `jwt_verify` 抛异常（虽然内部 catch 了）或 `setKVStore` 出错，会 500 且无 CORS 头（middleware 会补，但...）。实际上 middleware 包裹了 `context.next()`，所以异常会被 middleware 捕获吗？不会，middleware 的 `await context.next()` 如果抛异常会向上传播。middleware 没有 try-catch 包裹 next()。
+
+5. **`_middleware.js` 没有 try-catch 包裹 `context.next()`** (`_middleware.js:29`) —— 如果下游抛异常，CORS 头不会被添加，且返回默认错误页。
+
+6. **路由匹配用正则 `apiPath.match(/^\/works\/[^\/]+$/)`** (`[[route]].js:61,65,69`) —— 多处重复正则，且 `apiPath.split('/')[2]` 提取 workId，脆弱。应用统一路由解析。
+
+7. **`handle_work_delete` 有两个路由入口** (`[[route]].js:69-72` 和 `74-77`) —— DELETE `/works/:id` 和 POST `/works/:id/delete` 都调 `handle_work_delete`，重复。
+
+8. **`key_snap` 定义但未使用** (`_shared.js:150`) —— 死代码，暗示快照功能未完成。
+
+9. **`random_hex` 导入但未使用** (`[[route]].js:6`) —— 导入了 `random_hex` 但路由里没用。
+
+10. **`b64url_decode` 未做异常处理** (`_shared.js:17-24`) —— `atob` 可能抛异常（非法 base64），`jwt_verify` 调用 `b64url_decode(parts[2])` 时如果 token 畸形会抛异常，但被外层 try-catch 捕获（`_shared.js:63-67`）。OK。
+
+Let me also double check the JWT_SECRET issue more carefully.
+
+`_shared.js:4`: `export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2';`
+
+This is evaluated when the module is first imported. The `[[route]].js` imports `_shared.js` at top. In Cloudflare Pages Functions, when a request comes in:
+1. `_middleware.js` `onRequest` runs first (middleware wraps the route)
+2. Inside middleware, `await context.next()` invokes `[[route]].js` `onRequest`
+
+But module evaluation happens at import time, which is when the worker/isolate first loads the module — this could be BEFORE any request's middleware runs (module is loaded once per isolate). So `globalThis.__JWT_SECRET` is likely undefined at module load time, making `JWT_SECRET = 'wxbj_cloud_secret_2026_v2'` permanently.
+
+Even if middleware sets `globalThis.__JWT_SECRET = context.env.WXBJ_SECRET` on each request, the `JWT_SECRET` constant is already fixed. And `jwt_sign`/`jwt_verify` use `secret || JWT_SECRET` where `secret` is `null`/`undefined` from callers. So they always use the hardcoded `JWT_SECRET`.
+
+**Conclusion: WXBJ_SECRET environment variable is effectively ignored. JWT always uses hardcoded secret.** This is a critical security bug.
+
+Wait, let me re-check. `jwt_verify(token)` is called in `[[route]].js:50` as `await jwt_verify(token)` — only one arg, so `secret` is `undefined`. `undefined || JWT_SECRET` = `JWT_SECRET`. Yes, hardcoded.
+
+And `jwt_sign({ userId, email }, null, 30*24*3600)` — `secret` is `null`. `null || JWT_SECRET` = `JWT_SECRET`. Yes, hardcoded.
+
+So the env var is dead. Critical.
+
+Also note: even if they fixed it to read `globalThis.__JWT_SECRET` at call time instead of module load time, the default fallback is still hardcoded and known to the public (it's in the source). So anyone can forge tokens.
+
+Now, the backend `auth.js:5` uses `'wxbj_cloud_secret_2026'` (no _v2). So the two backends have DIFFERENT default secrets. If both use defaults, a token from one won't validate on the other. If the Pages Functions is the live one, the hardcoded secret `wxbj_cloud_secret_2026_v2` is in the deployed source (Cloudflare Pages serves functions source? No, but it's in the repo). Anyone with repo access can forge tokens.
+
+Let me also verify the `verify_password` timing: it does `let ok = true; for(...) if mismatch ok = false;` — this is constant-time-ish (doesn't short circuit) but the `if` still executes. It's acceptable but not using `crypto.subtle.timingSafeEqual`. Minor.
+
+Also `jwt_verify` signature comparison (`_shared.js:59-62`): `if (sig.length !== expectedSig.length) return null;` then full loop compare. Length check leaks length but minor.
+
+Let me check one more thing: the `handle_ai_test` returns `code` and `token` in forgot. Already noted.
+
+Let me check `db_create_user` race condition more: `nextId` read, +1, put. Two concurrent registrations both read nextId=5, both set id=6, both write user:id:6 (last wins), both put nextId=6. Result: one user overwritten, duplicate. Critical for concurrency. KV is eventually consistent so this is real.
+
+Now let me also note: `handle_register` doesn't check `existing` in a transaction — `db_create_user` does check `existing` but there's TOCTOU race (check then create). Two concurrent registrations with same email: both see no existing, both create. KV last-write-wins. Critical.
+
+Let me also note the `email` validation: no email format validation anywhere. `handle_register` only checks `!email || !password`. Any string accepted as email.
+
+Also `password` length check uses `String(password).length < 6` — no complexity requirement, no max length (DoS via very long password in PBKDF2? PBKDF2 with 100k iterations on huge password is CPU-heavy). Minor DoS.
+
+Let me also check: `handle_reset` accepts `code || token` as resetToken. The forgot endpoint returns `token: code`. So an attacker calls forgot with victim's email, gets code, then calls reset with that code. Since forgot returns the code directly, full account takeover. Critical.
+
+Now let me also verify the AI proxy SSRF: `provider` must be in `AI_PROVIDERS` whitelist, and `cfg.url` is fixed. So no arbitrary URL. NOT SSRF. Good. But the abuse as free gateway remains.
+
+Also `handle_ai_chat` doesn't validate `messages` is an array — if `messages` is a string or object, `JSON.stringify` will send it, upstream may error. Minor.
+
+Also `handle_ai_chat` for claude: `filteredMsgs` built from `messages || []`, but if `m.content` is undefined... minor.
+
+Let me also note: `handle_ai_test` and `handle_ai_chat` have no rate limiting. Combined with no auth, anyone can hammer these endpoints, causing Cloudflare subrequest limits (50 subrequests per request on free plan? Actually the daily limit). Abuse vector.
+
+One more: `handle_ai_chat` 120s timeout (`[[route]].js:427`). Cloudflare Pages Functions have a max duration (free: 10s CPU but wall clock can be longer for fetch; paid: up to 30s on some). 120s may exceed limits and be killed. Also no streaming — large responses buffered entirely.
+
+Also `handle_ai_test` 25s per model × up to 3 models = 75s wall clock. May exceed Pages Functions limits.
+
+Let me also check: `_middleware.js` sets CORS on response but `json_response` ALSO sets CORS headers. Double-setting is redundant but not harmful (middleware overwrites). However, the OPTIONS handler in `[[route]].js:24-34` returns early WITHOUT going through `context.next()`, so middleware's post-processing doesn't run for OPTIONS handled in route... wait, actually the route's OPTIONS handler returns a Response directly, which becomes the `context.next()` result in middleware. So middleware DOES add CORS headers on top. Redundant but fine. Actually wait — `[[route]].js` is the route handler, and `_middleware.js` wraps it. The middleware's `await context.next()` calls the route's `onRequest`. If route returns OPTIONS response, middleware adds CORS headers. So OPTIONS gets CORS from both. Redundant.
+
+But there's a subtle issue: `_middleware.js` does `new Response(response.body, ...)` which re-creates the response. For streaming responses this could break, but here all responses are JSON. Minor.
+
+Now, let me also note the `KV()` fallback chain (`_shared.js:135-143`) checks `globalThis.WXBJ_DATA`, `WXBJ_USERS`, `KV`, `DB`, `DATA`, `STORE`. This is fragile and could accidentally bind to wrong global. Minor.
+
+Also `setKVStore` sets module-level `_kvStore`, which persists across requests in the same isolate. Since it's always set to `context.env.WXBJ_DATA` per request, and env is stable, this is OK. But if multiple KV bindings existed, could be stale. Minor.
+
+Let me also check: `db_get_user_by_email` lowercases email in key (`key_user_email` does `.toLowerCase().trim()`), but `db_create_user` stores `email: email.toLowerCase().trim()`. Consistent. But `db_get_user_by_email` is called with raw `email` from request, and the key function lowercases. OK consistent.
+
+But `db_update_user` uses `key_user_email(user.email)` — user.email is already lowercased from create. OK. But if someone registers with mixed case, create lowercases, update uses lowercased. Consistent.
+
+Let me finalize. I think I have enough. Let me also double-check the `handle_work_upsert` status code: `result.status === 'created' ? 201 : 200`. `db_upsert_work` returns `{status: 'created'}`, `{status: 'unchanged'}`, `{status: 'updated'}`. OK.
+
+Also `handle_batch` doesn't return proper status codes, always 200. Minor.
+
+Also note: `handle_work_delete` (`[[route]].js:232`) doesn't check if work exists before deleting — returns `{ok: true}` even if nothing was deleted. Minor (idempotent delete, debatable).
+
+Also `handle_work_delete` doesn't delete snapshots (none exist anyway). And doesn't write SyncLog.
+
+Now, the `db_upsert_work` "unchanged" path: `if (clientVersion <= rec.version && rec.version > 0)`. If client sends version=0 (or no version), `0 <= rec.version` is true (rec.version >= 1), so returns unchanged. This means a client that doesn't track versions can NEVER update an existing work! This is a real bug — if the frontend sends a work without version (or version 0) for an existing work, it's silently ignored. Let me check the frontend... `cloud-sync.js` pushWork sends `payload` which includes `version`. But if version is missing, updates fail silently. This is a logic bug / footgun.
+
+Actually, looking at backend `routes.js:127`: same logic `if (clientVersion <= rec.version && rec.version > 0)`. So it's "by design" — version-based conflict resolution. But the `clientVersion = parseInt(body.version) || 0` means missing version = 0 = always "unchanged" for existing works. This is a documented design but a footgun. I'll note it as a logic concern.
+
+Let me write up the report now. I'll be thorough and cite file:line.
+
+Let me make sure about line numbers for key findings:
+- `_shared.js:4` JWT_SECRET hardcoded
+- `_shared.js:4` vs `backend/auth.js:5` mismatch
+- `_middleware.js:24-26` sets __JWT_SECRET but ineffective
+- `[[route]].js:50` jwt_verify(token) no secret
+- `[[route]].js:90,109,153` jwt_sign(..., null, ...)
+- `[[route]].js:132` forgot returns code
+- `[[route]].js:146` reset 404 leaks
+- `_shared.js:280-282` Math.random code
+- `_shared.js:123-126` bcrypt returns false
+- `_shared.js:170-187` create_user race + auto-increment
+- `_shared.js:197-220` N+1 list
+- `[[route]].js:43-45` AI routes no auth
+- `[[route]].js:427` 120s timeout
+- `[[route]].js:313` 25s × 3
+- `[[route]].js:212-230` batch no limit, serial
+- `[[route]].js:523-538` keys plaintext
+- `_shared.js:289`, `[[route]].js:28`, `_middleware.js:11,32` CORS *
+- `_middleware.js:20-22` env to global
+- `_middleware.js:29` no try-catch next
+- `_shared.js:150` key_snap unused
+- `[[route]].js:6` random_hex imported unused
+- missing snapshots routes
+- `[[route]].js:79` error leaks path
+- `[[route]].js:495` raw returned
+- `_shared.js:255-258` unchanged footgun
+
+I think that's comprehensive. Let me write the report. I should not write code, just the research report. The user wants it categorized as 【严重 Bug】【安全问题】【性能问题】【缺失路由】【其他建议】.
+
+I won't create a file since the user said "只输出研究报告" (only output research report) and the instructions say not to create files unless necessary. I'll output it inline.
+
+Let me write it.
+I have completed a thorough audit of the three Pages Functions files, cross-referenced against `backend/routes.js` and `backend/auth.js`, and verified live frontend usage in `assets/js/cloud-sync.js`, `assets/js/api.js`, and `assets/js/center-tools.js`. Below is the research report.
+
+---
+
+# 文心笔匠 Cloudflare Pages Functions 代码审计报告
+
+审计范围：`/workspace/functions/api/[[route]].js`、`/workspace/functions/api/_shared.js`、`/workspace/functions/_middleware.js`
+对照基准：`/workspace/backend/routes.js`、`/workspace/backend/auth.js`
+前端调用确认：`/workspace/assets/js/cloud-sync.js`、`/workspace/assets/js/api.js`、`/workspace/assets/js/center-tools.js`
+
+---
+
+## 【严重 Bug】
+
+### B1. 环境变量 `WXBJ_SECRET` 实际不生效，JWT 永远使用硬编码密钥（致命）
+- `_shared.js:4` —— `export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2';`
+- `_middleware.js:24-26` —— 在请求时才 `globalThis.__JWT_SECRET = context.env.WXBJ_SECRET`
+- `[[route]].js:50` —— `await jwt_verify(token)`（不传 secret）
+- `[[route]].js:90,109,153` —— `jwt_sign({...}, null, 30*24*3600)`
+
+`_shared.js` 的 `JWT_SECRET` 是模块顶层 `const`，在模块首次 import 时求值（此时 isolate 刚加载，`globalThis.__JWT_SECRET` 尚未被任何 middleware 设置），因此被永久固定为硬编码字符串 `'wxbj_cloud_secret_2026_v2'`。`jwt_sign/jwt_verify` 内部用 `secret || JWT_SECRET`，调用方传 `null/undefined`，所以始终走 `JWT_SECRET` 常量。**middleware 后续写入 `globalThis.__JWT_SECRET` 完全无效**。配合 B2，任何人都能伪造任意用户 token。
+
+### B2. JWT 密钥硬编码且前后端不一致
+- `_shared.js:4` 默认值 `'wxbj_cloud_secret_2026_v2'`
+- `backend/auth.js:5` 默认值 `'wxbj_cloud_secret_2026'`（无 `_v2`）
+
+两套后端默认密钥不同，若都未配置环境变量则 token 互不通用；且该默认值存在于源码仓库中，公网可查，等于无密钥。
+
+### B3. `handle_forgot` 把重置验证码直接返回客户端（账户接管）
+- `[[route]].js:132` —— `return json_response({ ok: true, code: code, token: code });`
+
+任何人用任意邮箱调用 `/auth/forgot-password` 即可拿到该邮箱的重置码，再调 `/auth/reset-password` 重置密码。注释自称"演示模式"，但这是完整的未授权账户接管链路。`[[route]].js:122-125` 的"不区分是否存在"防枚举逻辑也因此被废掉——对已存在用户直接返回 code。
+
+### B4. `verify_password` 的 bcrypt 兼容分支直接 `return false`，旧用户全部被锁死
+- `_shared.js:123-126` —— 注释称"降级支持 bcrypt"，实际 `return false`
+
+若 KV 中存在任何 bcrypt 哈希（`$2a$`/`$2` 开头）的用户，这些用户永远无法登录。与 `backend/auth.js` 用 `bcryptjs` 的实现不兼容，迁移用户会全员失效。
+
+### B5. `db_create_user` 用户 ID 自增 + 非原子操作，并发注册产生重复 ID / 数据覆盖
+- `_shared.js:175-185` —— 读 `user:nextId` → +1 → 写回，三步非原子
+- KV 最终一致性下，两个并发注册可能读到相同 nextId，导致 `user:id:<n>` 互相覆盖、`user:nextId` 回退。
+- 同邮箱并发注册也存在 TOCTOU：`_shared.js:173` 检查 existing 与 `183` 写入之间无锁，两个相同邮箱可同时创建。
+
+### B6. `db_upsert_work` 版本号逻辑导致无版本号时永远无法更新
+- `_shared.js:255-258` —— `clientVersion = parseInt(body.version) || 0`；`if (clientVersion <= rec.version && rec.version > 0) return unchanged`
+
+客户端若未传 `version`（或传 0），`clientVersion=0`，对已存在作品（version≥1）恒为 `unchanged`，更新被静默丢弃。这是版本冲突设计的副作用陷阱，前端一旦漏传 version 即"同步失效但无报错"。
+
+### B7. `random_code` 用 `Math.random()` 生成验证码
+- `_shared.js:280-282` —— `String(Math.floor(100000 + Math.random() * 900000))`
+
+`Math.random()` 非密码学安全。应使用 `crypto.getRandomValues`（项目里 `random_hex` 已正确用了，验证码却没有）。
+
+### B8. `_middleware.js` 未用 try-catch 包裹 `context.next()`
+- `_middleware.js:29` —— `const response = await context.next();`
+
+下游 `onRequest` 抛出未捕获异常时（例如 `setKVStore` 或 `jwt_verify` 内部异常逃逸），异常直接传播，CORS 响应头不会被追加，浏览器端跨域请求会拿到不可读的错误响应，且前端无法获得结构化错误。
+
+### B9. `handle_ai_test` 超时定时器在 `continue` 路径的清理依赖 catch 块
+- `[[route]].js:316-406` —— 每个模型迭代创建 `ac`/`tid`，正常成功路径在 `352` 行 `clearTimeout`，但若 `resp.text()`（`354`）抛异常进入 `399` catch，`clearTimeout` 在 `400` 执行后 `continue`。逻辑可工作，但 `for...of` 中跨迭代的定时器管理脆弱，且最坏 3 个模型 × 25s = 75s 墙钟时间，极易超出 Pages Functions 时长限制被强杀，客户端收到 524 而非自定义错误。
+
+### B10. `handle_work_delete` 未校验作品是否存在即返回成功
+- `[[route]].js:232-245` —— 直接 `store.delete(key)` 后返回 `{ok:true}`，对不存在的 workId 也返回成功；且 `list.filter` 后 `store.put` 与并发 upsert 存在竞态（删作品时另一请求在改 works 列表，可能把已删除的 workId 重新加回）。
+
+---
+
+## 【安全问题】
+
+### S1. AI 代理路由完全无认证、无限流（滥用 / 资源耗尽）
+- `[[route]].js:43-45` —— `/ai/test`、`/ai/chat` 位于公开路由区，任何人可调用
+- 无速率限制、无身份校验、无每日配额。攻击者可将其当作免费 AI 网关，消耗你的 Cloudflare 子请求配额与 CPU 时间，且上游服务商看到的请求源 IP 是你的 Worker IP（可能触发上游风控/封禁）。
+- `provider` 走 `AI_PROVIDERS` 白名单且 URL 固定，**不构成 SSRF**（这点是安全的）；但滥用风险依然存在。
+
+### S2. AI 代理 120s 超时且无流式，易超 Pages Functions 限制
+- `[[route]].js:427` —— `setTimeout(() => ac.abort(), 120000)`
+- `[[route]].js:313` —— `handle_ai_test` 每模型 25s，串行最多 3 个 = 75s
+- Cloudflare Pages Functions 对单请求墙钟/CPU 有上限，120s 大概率被平台截断返回 524，客户端拿不到自定义 504。
+
+### S3. 用户 API 密钥明文存储于 KV
+- `[[route]].js:528-533` —— `handle_keys_save` 把 `apiKeys` 直接 `JSON.stringify` 写入 `keys:<userId>`，无加密
+- `[[route]].js:511-516` —— `handle_keys_get` 明文返回所有密钥
+- KV 数据一旦被管理员查看或绑定泄露，全部用户第三方 AI 密钥明文暴露。配合 B1（任意 token 可伪造），任意用户可读取其他用户的密钥。
+
+### S4. CORS 完全开放 `Access-Control-Allow-Origin: *`
+- `_shared.js:289`、`[[route]].js:28`、`_middleware.js:11` 与 `32`
+- 三处均设 `*` 并允许 `Authorization` 头。虽使用 Bearer token（第三方站点读不到 localStorage 中的 token），但 `*` 仍违反最小权限原则，应收敛为已知前端域名白名单。
+
+### S5. `_middleware.js` 把全部环境变量挂到 `globalThis`
+- `_middleware.js:20-22` —— `for (const key of Object.keys(context.env || {})) { globalThis[key] = context.env[key]; }`
+- 将所有 binding/secret（D1、其他服务密钥等）暴露为全局变量，扩大泄露面，且与 `KV()` 的兜底逻辑（`_shared.js:139-141` 扫描 `KV/DB/DATA/STORE` 等全局）叠加，可能误绑定到非预期全局。
+
+### S6. `handle_reset` 泄露用户是否存在
+- `[[route]].js:146` —— `if (!user) return json_response({ error: '用户不存在' }, 404);`
+- 与 `handle_forgot` 的防枚举设计自相矛盾，reset 阶段可枚举邮箱。
+
+### S7. 错误信息直接回显内部细节
+- `[[route]].js:79` —— `'路由不存在: ' + apiPath` 泄露路径结构
+- `[[route]].js:93,112,134,156,167,177,197,208,228,243,411,504` 等大量 `e.message` 直接返回 500，可能包含 KV 内部错误、上游 API 回包片段（含密钥相关信息）。
+- `[[route]].js:495` —— `handle_ai_chat` 成功时返回 `raw: json`，把上游完整响应（可能含 request_id、用量、账户标识）回传客户端，信息过曝。
+
+### S8. 密钥经服务器中转，错误回包可能携带密钥片段
+- `[[route]].js:305,419` —— 用户密钥以明文进入请求体；`handle_ai_test` 的 `errMsg`（`[[route]].js:372-378`）来自上游响应文本，部分上游在鉴权失败时会回显部分 key 或相关账户信息，再被原样转发给客户端。
+
+### S9. JWT 签名比较与 PBKDF2 比较非标准常数时间
+- `_shared.js:59-62`（JWT 签名）、`_shared.js:116-121`（PBKDF2 hash）—— 用 `let ok=true; for(...) if(...) ok=false` 方式，虽未短路但未使用 `crypto.subtle` 原生常数时间比较；`_shared.js:59` 的长度不等提前 return 也泄露长度信息。影响中等（远不及 B1 严重）。
+
+### S10. 无邮箱格式校验、无密码长度上限
+- `[[route]].js:87-88,143-144` —— 仅校验非空与最小 6 位，无邮箱格式校验、无密码上限。超长密码会让 PBKDF2（10 万次迭代，`_shared.js:73`）成为 CPU DoS 向量。
+
+---
+
+## 【性能问题】
+
+### P1. `db_list_works` 典型 N+1 KV 读取
+- `_shared.js:197-220` —— `works:<userId>` 存的是 workId 数组，再逐个 `store.get(key_work(...))` 取元数据。N 个作品 = 1 + N 次 KV 读取。KV 单次读取延迟较高，作品多时列表接口会非常慢且昂贵。应将作品元数据冗余进列表值，或用 KV 列表 + 缓存。
+
+### P2. `handle_batch` 串行处理，无并发
+- `[[route]].js:217-225` —— `for (const it of items) await db_upsert_work(...)`，每个 item 内部又是多次 KV 读写（`_shared.js:236,248,251,268`），串行叠加。批量同步 50 个作品可能触发平台超时。可用 `Promise.all` 并发（注意 KV 并发写入限制）。
+
+### P3. `db_upsert_work` / `db_update_user` 双写冗余
+- `_shared.js:248-251,268`（works 列表 + work 记录，创建时 4 次 KV 操作）
+- `_shared.js:193-194`（`user:email:` + `user:id:` 双写）
+- 数据为查询便利做了双写冗余，但无事务保证，部分失败会导致两份数据不一致（如 `user:id:` 更新成功而 `user:email:` 失败）。
+
+### P4. 无任何缓存层
+- 用户信息、作品列表、设置每次请求都直读 KV，未使用 Cache API 或边缘缓存。`/user/profile`、`/works` 这类高频接口尤其受益于短 TTL 缓存。
+
+### P5. 大 payload 反复序列化
+- 作品 payload（整本书内容）在 `db_upsert_work`（`_shared.js:238`）`JSON.stringify`，在 `db_list_works`（`_shared.js:208`）又对每个作品 `JSON.stringify`，`handle_work_get`（`[[route]].js:186`）又 `JSON.parse`。大对象反复序列化消耗 CPU（Pages Functions CPU 时间有限）。
+
+### P6. `handle_ai_test` 串行尝试多模型
+- `[[route]].js:315-407` —— 最多 3 个模型串行，最坏 75s。可改为并发竞速（`Promise.any`）取第一个成功结果。
+
+---
+
+## 【缺失路由】
+
+对照 `backend/routes.js`，Pages Functions 缺失以下路由，且前端正在调用（功能在 Pages 部署下直接失效，返回 404）：
+
+### R1. `GET /works/:workId/snapshots` 缺失
+- `backend/routes.js:244-260` 有实现
+- 前端 `cloud-sync.js:131-133` `getSnapshots` 调用，`center-tools.js:500-522` `cloudShowSnapshots` 是活跃 UI 功能（版本快照弹窗）
+- `[[route]].js` 无任何 `/works/:workId/snapshots` 匹配，落到 `[[route]].js:79` 返回 404
+
+### R2. `POST /works/:workId/snapshots/:snapId/restore` 缺失
+- `backend/routes.js:262-288` 有实现
+- 前端 `cloud-sync.js:135-138` `restoreSnapshot`、`center-tools.js:524-539` `cloudRestoreSnapshot` 在用（含"恢复后刷新"逻辑）
+- Pages Functions 完全没有该路由
+
+### R3. 快照保存逻辑缺失（不仅是路由缺失，数据也不生成）
+- `backend/routes.js:131-166` 在 `PUT /works/:workId` 更新时创建 `WorkSnapshot`、做 SHA256 内容去重、保留最近 20 条
+- Pages Functions 的 `db_upsert_work`（`_shared.js:230-270`）完全没有快照写入逻辑
+- `_shared.js:150` 定义了 `key_snap()` 函数但**全项目从未被调用**（死代码，印证功能未完成）
+- 即便补上 R1/R2 路由，KV 中也无快照数据可读
+
+### R4. SyncLog 同步日志完全缺失
+- `backend/routes.js` 在 create/sync/batch/delete/restore 均写 `SyncLog`（含 device、ip）
+- Pages Functions 全无 SyncLog 概念，无审计能力
+
+### R5. `GET /user/profile` 返回字段不一致
+- `backend/routes.js:294-303` 返回 `id, email, nickname, avatar, createdAt`
+- `[[route]].js:161-169` 返回 `id, email, nickname, visitCount, lastVisitAt`
+- 字段集合不同，前端若按某套字段渲染会出问题
+
+### R6. 批量同步行为差异
+- `backend/routes.js:179-217` batch 内部对已存在作品走"无条件更新 + version+1"，对新建走 create
+- `[[route]].js:212-230` 调用 `db_upsert_work`，受 B6 版本号逻辑影响，batch 中 version 不足的作品会被判 `unchanged` 跳过，行为与 backend 不一致
+
+---
+
+## 【其他建议】
+
+### O1. 与 `backend/` 大量代码重复，应统一
+- `[[route]].js` 的 `handle_register/login/forgot/reset/profile/works_list/work_get/work_upsert/batch/delete` 与 `backend/routes.js` 几乎逐行对应；`_shared.js` 的 JWT/密码哈希与 `backend/auth.js` 重复。
+- 已经出现多处不一致：JWT 默认密钥不同（B2）、bcrypt 兼容性不同（B4）、快照逻辑缺失（R3）、profile 字段不同（R5）。建议抽取共享业务层（如 `shared/` 目录），让 Express 与 Pages Functions 复用同一套 handler，避免双轨漂移。
+
+### O2. `AI_PROVIDERS` / `AI_TEST_MODELS` 硬编码于路由文件
+- `[[route]].js:250-299` —— 22 个服务商配置写死在路由代码中，且前端 `assets/js/api.js` 也有类似服务商清单，三处重复维护。应抽到独立配置文件或 `_shared.js`，前后端共享。
+
+### O3. 死代码 / 未使用导入
+- `[[route]].js:6` 导入 `random_hex` 但路由内未使用
+- `_shared.js:150` `key_snap` 定义但从未调用（见 R3）
+- 建议清理或补全快照功能
+
+### O4. 每次请求重复 `setKVStore`
+- `[[route]].js:16-18` 每次请求都 `setKVStore(context.env.WXBJ_DATA)`；而 `_middleware.js:20-22` 已把 env 挂到 `globalThis`，`KV()`（`_shared.js:135-143`）会兜底从 globalThis 读取。两套机制并存冗余，且 `_kvStore` 模块级变量跨请求驻留（同 isolate 内），逻辑不清晰。建议统一为单一来源。
+
+### O5. 路由匹配方式脆弱且重复
+- `[[route]].js:61,65,69,74` 多处用 `apiPath.match(/^\/works\/[^\/]+$/)` + `apiPath.split('/')[2]` 提取参数，正则与 split 混用，易出错。`[[route]].js:69-72`（DELETE）与 `74-77`（POST `/delete`）两个入口指向同一 handler，重复。建议引入轻量路由表（method + 路径模式 → handler）统一分发。
+
+### O6. `KV()` 兜底全局扫描过于宽泛
+- `_shared.js:135-143` 依次尝试 `WXBJ_DATA / WXBJ_USERS / KV / DB / DATA / STORE` 全局变量，可能误绑定到无关全局（尤其叠加 S5 的 env→global 暴露后）。应显式指定唯一 binding。
+
+### O7. `handle_ai_chat` 未校验 `messages` 结构
+- `[[route]].js:419,435` —— `messages` 直接透传上游，未校验是否为数组、元素是否含 `role/content`。非法结构会导致上游 400，错误经 S7 回显。Claude 分支（`[[route]].js:431-444`）把 system 消息分离后 `filteredMsgs` 可能含空 content，上游可能拒绝。
+
+### O8. `handle_batch` 无 items 数量上限
+- `[[route]].js:215` —— `const items = body.items || []` 无长度限制，恶意客户端可传超大数组导致长时间运行 + KV 写入风暴，叠加 P2 串行更易触发超时。建议加硬上限（如 100）。
+
+### O9. OPTIONS 处理重复
+- `[[route]].js:24-34` 与 `_middleware.js:7-17` 都处理 OPTIONS 并设 CORS 头；`json_response`（`_shared.js:284-294`）也带 CORS 头。三处重复，维护时易遗漏其中一处。
+
+---
+
+## 优先级总结
+
+| 优先级 | 编号 | 概述 |
+|---|---|---|
+| 紧急 | B1, B2, S1 | JWT 硬编码密钥 + 环境变量失效 → 任意 token 伪造；AI 代理无认证无限流 |
+| 紧急 | B3, S6 | 忘记密码验证码直接返回 → 完整账户接管 |
+| 高 | B4, B5 | 旧 bcrypt 用户锁死；并发注册 ID 冲突 |
+| 高 | R1, R2, R3 | 快照路由与快照保存逻辑缺失，前端功能在 Pages 下 404 |
+| 高 | S3, S4, S5 | 密钥明文存储、CORS 全开、env 全局暴露 |
+| 中 | B6, P1, P2 | 版本号陷阱、N+1、串行批量 |
+| 中 | S2, B9 | AI 代理超时超平台限制 |
+| 低 | O1-O9 | 代码重复、死代码、路由脆弱 |
+
+最关键的三条：**B1/S1（JWT 密钥硬编码且 env 失效 + AI 代理无认证）**、**B3（验证码回传导致账户接管）**、**R1-R3（快照功能在 Pages 部署下完全不可用）**。建议优先处理。
+
+报告完毕，未修改任何代码。
+
+write.html 没有内联脚本，逻辑在 write-editor.js 中。继续读取 architecture.html 剩余部分，并查看 write-editor.js 中的自动保存和章节切换逻辑。
+I see that write.html has NO inline script - all scripts are external. The write.html logic is in external files like write-editor.js. So for write.html, I should note that there's no inline script to audit, but I can still check the external write-editor.js for the auto-save, offline conflict, chapter switching logic since the user asked about write.html specifically.
+
+Let me continue reading architecture.html inline script (lines 1062-2516) and also check write-editor.js for the write.html concerns.
+
+Let me read more of architecture.html and also look at write-editor.js for the auto-save logic.
+
+Let me do a final verification to confirm the IndexedDB sync gap and check the _shared.js backend storage, plus verify how syncKeysAndSettings is triggered.
+Now I have a comprehensive picture. Let me verify a few more things:
+
+1. The Pages Functions [[route]].js does NOT have snapshots endpoints (confirmed - no matches for snapshots/snapId/restore in /workspace/functions/api).
+
+2. The cloud-sync.js has getSnapshots/restoreSnapshot methods that call /works/:workId/snapshots and /works/:workId/snapshots/:snapId/restore — these would 404 on Pages Functions but work on backend/routes.js.
+
+3. syncKeysAndSettings is called in index.html (line 345) — likely on login. pushKeysAndSettings is called in settings.html (lines 465, 585) — when saving keys/settings.
+
+4. Independent localStorage keys found:
+   - `wxbj_cloud_token` (auth token - cloud related, not data)
+   - `wxbj_cloud_user` (user info - cloud related, not data)
+   - `last_edit_work` (last selected work ID - UI state)
+   - `last_edit_chapter` (last selected chapter - UI state)
+   - `predict_platform` (prediction platform - user preference, NOT synced)
+   - `predict_work_id` (prediction work ID - UI state)
+   - `predict_manual_data` (manual prediction data - UI state/temp)
+   - `custom_templates` (custom templates - user data, NOT synced)
+   - `tpl_to_use` (template to use - UI state/temp)
+   - `wxbj_last_page` (last page - UI state)
+   - `wxbj_cloud_base` (cloud API base URL - config)
+   - `wxbj_data_v4` (main data - synced via works)
+   - `wxbj_w_*` (split work keys - part of main data, synced via works payload)
+
+Let me also check the _shared.js to confirm what the backend stores, and verify the snapshots situation. Actually, I have enough info. Let me also double-check whether _trash gets pushed to cloud. Looking at _packWork - it only packs the work object itself, not _trash. And smartSync uses _trash only to decide cloud deletion. So _trash array itself is NOT synced to cloud (only used as a deletion signal).
+
+Wait, but I should double check - is _trash part of any work's payload? No, _trash is a top-level DB field, separate from works. So _trash is NOT synced.
+
+Let me also verify the IndexedDB snapshots store content. Looking at db.js:
+- `snapshots` store (_appMemoryStore): holds the App memory mirror (id='latest') with works/apiConfig/apiKeys/settings/_trash, AND the backup directory handle (id='_backup_dir_handle'). This is essentially a local backup of the main localStorage data.
+- `chapters` store (_chapterStore): holds chapter shards (per chapter content)
+- `backups` store (_backupStore): holds internal auto-backup payloads
+- `chapter_history` store (_historyStore): holds chapter edit history versions
+
+None of these have cloud sync. The cloud "snapshots" (WorkSnapshot in backend) is a completely different concept - it's server-side version snapshots of works, automatically created on each PUT. The local IndexedDB `snapshots` store is just a local mirror of the main data.
+
+Let me verify the _shared.js quickly to confirm there's no extra sync, and check the index.html line 345 context to confirm syncKeysAndSettings is called on login.
+
+Actually, I have enough information. Let me also quickly verify there are no other cloud sync calls for IndexedDB by searching the whole project for openAppMemoryDB usage in cloud-sync context, and confirm the snapshots endpoint gap.
+
+Let me do a final verification search to be thorough about whether any IndexedDB data is synced, and check the _shared.js storage functions.
+
+读取 write-editor.js 的关键逻辑（自动保存、章节切换、离线处理）和 architecture.html 的初始化与保存逻辑。
+Now I have a good understanding. Let me read the relevant parts of write-editor.js for auto-save, chapter switching, and offline conflict handling. Let me also continue reading architecture.html for the data loading and saving logic.
+
+Let me read the key parts of write-editor.js:
+- Lines around 261-280 (auto-save)
+- Lines around 437-530 (loadChapter, saveChapter, chapter switching)
+- Lines around 4938-4970 (visibilitychange, beforeunload)
+- Lines around 5056-5080 (loadChapter patch)
+
+And for architecture.html, I need to read the data loading/saving logic which is likely near the end (init, confirmSave, etc.) - lines around 2200-2516.
+
+现在查看 cloud-sync.js 中的关键方法，验证 index.html 和 work-list.html 调用的同步逻辑是否正确。
+Now I have a comprehensive understanding. Let me also check the cloud-sync.js to understand the syncKeysAndSettings, smartSync, pushKeysAndSettings, deleteWork, isLoggedIn, token methods - to verify the index.html and work-list.html logic is correct.
+
+Now I have all the information I need. Let me confirm the key findings:
+
+1. **IndexedDB stores cloud sync**: 
+   - All IndexedDB operations (openAppMemoryDB, saveChapterShard, saveAppMemoryMirror, saveInternalBackup, listChapterHistory) are ONLY in db.js and called locally. 
+   - cloud-sync.js does NOT call any of these. 
+   - The only "snapshots" reference in cloud-sync.js is the cloud server-side snapshots endpoint (/works/:workId/snapshots), which is a DIFFERENT concept from the local IndexedDB `snapshots` store.
+   - CONFIRMED: No cloud sync for IndexedDB stores.
+
+2. **Backend snapshots endpoint gap**: 
+   - backend/routes.js HAS /works/:workId/snapshots (GET) and /works/:workId/snapshots/:snapId/restore (POST)
+   - Pages Functions [[route]].js does NOT have these (confirmed no matches)
+   - _shared.js only has db_list_works, db_get_work, db_upsert_work — NO snapshot functions
+   - So cloud-sync.js's getSnapshots/restoreSnapshot would 404 on Pages Functions deployment
+
+3. **Backend routes.js missing** (compared to Pages Functions):
+   - /auth/forgot-password, /auth/reset-password
+   - /user/keys (GET/PUT) — CRITICAL for key sync
+   - /user/settings (GET/PUT) — CRITICAL for settings sync
+   - /works/:workId/delete (POST)
+   - /ai/test, /ai/chat
+   - /health
+
+4. **Pages Functions missing** (compared to backend/routes.js):
+   - /works/:workId/snapshots (GET)
+   - /works/:workId/snapshots/:snapId/restore (POST)
+
+5. **_trash**: 
+   - Read in smartSync (line 184) to decide cloud deletion
+   - NOT pushed to cloud as data (not in _packWork, no dedicated endpoint)
+   - Part of localStorage wxbj_data_v4 and IndexedDB snapshots mirror, but NOT synced as a separate entity
+   - Risk: If user deletes a work on device A (goes to _trash), then on device B the work still exists in cloud and would be PULLED BACK to device B. Only when device A's smartSync runs does it delete from cloud. But the _trash list itself (for 30-day recovery) is NOT synced — so if device A crashes after cloud deletion, the work is gone from cloud AND not recoverable via trash on device B.
+
+6. **custom_templates**: localStorage only, NO sync. Risk: user loses custom templates on device switch.
+
+7. **predict_platform**: localStorage only, NO sync. Low risk (just a preference).
+
+8. **Other independent localStorage keys** (UI state, low risk):
+   - last_edit_work, last_edit_chapter, wxbj_last_page, tpl_to_use, predict_work_id, predict_manual_data — UI state, not critical
+   - wxbj_cloud_base — config
+   - wxbj_cloud_token, wxbj_cloud_user — auth (per-device, should NOT sync)
+
+Now let me also note: the `apiConfig` and `settings` ARE synced via syncKeysAndSettings/pushKeysAndSettings (apiConfig + apiKeys via /user/keys, settings via /user/settings). But these are only triggered on login (syncKeysAndSettings) and on settings save (pushKeysAndSettings). They are NOT part of the auto smartSync loop (startAutoSync only calls smartSync, not the keys/settings sync). So there's a gap: if user changes keys/settings but doesn't visit settings.html, the push may not happen until next manual save. Actually, pushKeysAndSettings is called in settings.html when saving. And syncKeysAndSettings is called on login. So keys/settings sync is manual/event-driven, not automatic.
+
+Also important: smartSync does NOT sync apiKeys/apiConfig/settings/_trash. It only syncs works (and uses _trash as a deletion signal). So:
+- works: synced via smartSync (auto + manual)
+- apiKeys + apiConfig: synced via pushKeysAndSettings (on settings save) and syncKeysAndSettings (on login pull)
+- settings: synced via pushKeysAndSettings (on settings save) and syncKeysAndSettings (on login pull)
+- _trash: NOT synced (only used as deletion signal)
+- custom_templates: NOT synced
+- predict_platform: NOT synced
+- IndexedDB (snapshots/chapters/backups/chapter_history): NOT synced
+
+Now let me also double-check: does the work payload (pushed via _packWork → payload: w) include the work's chapters content? Yes, _packWork sets payload: w (the whole work object including chapters with content). So chapter content IS synced as part of the work payload. BUT — there's a critical issue: when works are "slimmed" (chapters with _slim=true have empty content, content stored only in IndexedDB shards), the pushed payload would have EMPTY chapter content! So slimmed chapters would NOT be properly synced to cloud. This is a significant gap.
+
+Let me verify this. In db.js _makeLightWorks and safeSlimCurrentWork, slimmed chapters have content='' and _slim=true, with the actual content only in IndexedDB chapter shards. When smartSync calls _packWork(w) on a work with slimmed chapters, the payload would include chapters with empty content. So cloud would get chapters with no content. This is a real sync gap for slimmed works.
+
+Actually wait — let me check whether smartSync operates on DB.works (which may be slimmed) or on the full data. In smartSync line 154: `localWorks = DB.works.slice()`. And DB.works may contain slimmed works (after safeSlimCurrentWork). So yes, slimmed chapter content is NOT included in cloud sync. This is a critical gap.
+
+But I should be careful — let me not over-claim. The _packWork uses `w` directly. If w.chapters[i].content is '' (slimmed), then payload has empty content. The cloud stores this. On pull, _mergeWork overwrites local with cloud payload (empty content). So slimmed chapters would lose their content on sync. This is a real risk worth mentioning.
+
+However, I should note this is somewhat mitigated because slimming is a manual/opt-in feature (safeSlimCurrentWork is called explicitly). But it's still a gap.
+
+Let me also verify: is there any code that "stitches" chapters back before pushing? Looking at _packWork — no. It just uses w directly. So the gap is real.
+
+Now I have everything. Let me write the comprehensive report.
+
+Let me organize the data fields managed by DB (from db.js):
+- works (array of work objects) — each work has: id, title, desc, category, world, chars, outline, detail, chapters, archStatus, longMemory, settings, created, _fingerprint, _platform, genre, _version, _slimMeta, etc.
+- apiConfig ({provider, model, ...})
+- apiKeys ({provider: [keys]})
+- settings ({dark, fontSize, theme, multiAI, ...})
+- _trash (array of {work, deletedAt})
+- _version (data version, currently 44)
+- _split (flag for split storage)
+
+IndexedDB stores (wxbj_app_memory_v1):
+- snapshots (_appMemoryStore): App memory mirror (latest snapshot with works/apiConfig/apiKeys/settings/_trash) + backup directory handle
+- chapters (_chapterStore): chapter shards (per-chapter content)
+- backups (_backupStore): internal auto-backups
+- chapter_history (_historyStore): chapter edit history
+
+Independent localStorage keys:
+- wxbj_data_v4 (main data)
+- wxbj_w_* (split work sub-keys)
+- custom_templates
+- predict_platform
+- predict_work_id, predict_manual_data
+- last_edit_work, last_edit_chapter
+- wxbj_last_page
+- tpl_to_use
+- wxbj_cloud_token, wxbj_cloud_user, wxbj_cloud_base
+
+Now let me write the report with the comparison table and the prioritized list.
+
+For the table, I'll cover:
+1. works (含 chapters/world/chars/outline/detail/longMemory/archStatus) — localStorage wxbj_data_v4 + IndexedDB chapters shards — synced via smartSync (pushWork/pushBatch/getWork) — risk: slimmed chapters lose content
+2. apiKeys — localStorage wxbj_data_v4 — synced via /user/keys (pushKeysAndSettings/syncKeysAndSettings) — risk: only on login/settings save, not auto
+3. apiConfig — localStorage wxbj_data_v4 — synced via /user/keys — same as above
+4. settings — localStorage wxbj_data_v4 — synced via /user/settings — same as above
+5. _trash — localStorage wxbj_data_v4 + IndexedDB snapshots mirror — NOT synced (only used as deletion signal) — risk: trash list not cross-device, recovery only local
+6. _version — localStorage wxbj_data_v4 — not synced (local schema version)
+7. _split — localStorage wxbj_data_v4 — not synced (local storage flag)
+8. IndexedDB snapshots (App memory mirror) — IndexedDB — NOT synced — local backup only
+9. IndexedDB chapters (chapter shards) — IndexedDB — NOT synced directly (content synced via work payload IF not slimmed) — risk: slimmed chapters not synced
+10. IndexedDB backups (auto-backups) — IndexedDB — NOT synced — local only
+11. IndexedDB chapter_history — IndexedDB — NOT synced — local only
+12. custom_templates — localStorage (independent) — NOT synced — risk: lost on device switch
+13. predict_platform — localStorage (independent) — NOT synced — low risk
+14. last_edit_work/chapter, wxbj_last_page — localStorage (UI state) — NOT synced — low risk
+15. wxbj_cloud_token/user/base — localStorage (auth/config) — NOT synced (per-device) — correct behavior
+
+Now the prioritized list of data needing cloud sync:
+1. (CRITICAL) IndexedDB chapter shards for slimmed works — when a work is slimmed, chapter content lives ONLY in IndexedDB and is NOT included in the work payload pushed to cloud. This means slimmed works sync with empty chapter content → data loss on other devices. 
+2. (HIGH) _trash (回收站) — not synced. Cross-device: work deleted on device A → cloud deleted on A's sync → device B pulls and work disappears with no recovery. Also trash list itself doesn't transfer.
+3. (HIGH) custom_templates (自定义模板) — not synced. User loses templates on device switch.
+4. (MEDIUM) chapter_history (章节历史版本) — IndexedDB only, not synced. Local edit history lost on device switch.
+5. (MEDIUM) IndexedDB backups (自动备份) — local only. Could be nice to have cloud backup mirror.
+6. (MEDIUM) Pages Functions missing /works/:workId/snapshots endpoints — cloud snapshot restore doesn't work on Pages deployment.
+7. (LOW) predict_platform — preference, low impact.
+8. (LOW) UI state (last_edit_work, etc.) — not critical.
+9. (NOTE) apiKeys/apiConfig/settings auto-sync gap — currently only on login/settings-save, not in auto timer. Could miss changes.
+
+Also backend/routes.js is missing /user/keys and /user/settings — so if someone runs the Node backend instead of Pages Functions, key/settings sync would break entirely.
+
+Let me write this up clearly in Chinese.
+I now have all the information needed. Let me compile the comprehensive audit report.
+
+---
+
+# 文心笔匠 本地数据 vs 云端同步覆盖范围 审计报告
+
+## 一、研究范围与方法
+
+本报告基于以下核心文件的精确阅读与全项目 Grep 搜索（未修改任何代码）：
+- `/workspace/assets/js/db.js`（本地数据管理）
+- `/workspace/assets/js/cloud-sync.js`（云端同步逻辑）
+- `/workspace/functions/api/[[route]].js`（Pages Functions 后端路由）
+- `/workspace/backend/routes.js`（Node Express 后端路由）
+- `/workspace/functions/api/_shared.js`（KV 存储与 JWT 工具）
+- 全项目 Grep：IndexedDB 四个 store、`custom_templates`、`predict_platform`、`_trash`、所有 `localStorage` key
+
+---
+
+## 二、DB 对象管理的所有数据字段（来自 db.js）
+
+### 2.1 主数据（localStorage `wxbj_data_v4`，DB 对象内存）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `works` | Array | 作品数组，每个 work 含 id/title/desc/category/world/chars/outline/detail/chapters/archStatus/longMemory/settings/created/_fingerprint/_platform/_version/_slimMeta 等 |
+| `apiConfig` | Object | `{provider, model, ...}` |
+| `apiKeys` | Object | `{provider: [key1, key2, ...]}` |
+| `settings` | Object | `{dark, fontSize, theme, multiAI, ...}` |
+| `_trash` | Array | 回收站：`[{work, deletedAt}]`，30 天可恢复，最多 20 部 |
+| `_version` | Number | 本地数据 schema 版本（当前 44） |
+| `_split` | Boolean | 存储拆分标记（超 2MB 时启用） |
+
+### 2.2 拆分存储（localStorage `wxbj_w_*` 独立 key，db.js L994-1072）
+
+当主 key 超 2MB 时，作品的重量级字段拆分到独立 key：`wxbj_w_{workId}`（元数据）+ `wxbj_w_{workId}_{world|chars|outline|detail|memory|longMemory|archStatus}`（各子字段）。这些是 `wxbj_data_v4` 的衍生存储，本质属于 works 数据。
+
+### 2.3 IndexedDB `wxbj_app_memory_v1`（四个 store，db.js L167-200）
+
+| Store 名 | 常量 | 内容 |
+|---|---|---|
+| `snapshots` | `_appMemoryStore` | App 级大容量记忆镜像（id=`latest`，含 works/apiConfig/apiKeys/settings/_trash 全量快照）+ 备份目录句柄（id=`_backup_dir_handle`） |
+| `chapters` | `_chapterStore` | 章节正文分片，key=`{workId}::{chapterIdx}`，含 content/title/wordCount/confirmed |
+| `backups` | `_backupStore` | 内部自动备份记录（最多 20 条），含完整 payload |
+| `chapter_history` | `_historyStore` | 章节编辑历史版本，key=`{chapterKey}::{ts}` |
+
+### 2.4 独立 localStorage key（Grep 全项目发现，非 DB 对象管理）
+
+| Key | 用途 | 来源文件 |
+|---|---|---|
+| `custom_templates` | 自定义模板数组 | write-editor.js L3460-3462 |
+| `predict_platform` | 预测平台选择 | data-predict.html L156、predict-result.html L66、write-editor.js L740 |
+| `predict_work_id` / `predict_manual_data` | 预测页临时数据 | data-predict.html L155-157 |
+| `last_edit_work` / `last_edit_chapter` | 上次编辑的作品/章节 ID | 多处 |
+| `wxbj_last_page` | 上次访问页签 | nav-helper.js L151 |
+| `tpl_to_use` | 待使用模板 | template-library.html L274 |
+| `wxbj_cloud_token` / `wxbj_cloud_user` | 云端登录态 | cloud-sync.js L39-47 |
+| `wxbj_cloud_base` | 云端 API 地址 | center-tools.js L281-323 |
+
+---
+
+## 三、cloud-sync.js 实际同步的字段
+
+### 3.1 `smartSync()`（L147-301）—— 仅同步 works，不同步其它
+
+逐行分析后确认 `smartSync` 同步的内容：
+- **同步 works**：通过 `getWorks()` → `getWork()` 拉取，通过 `pushBatch()` / `pushWork()` 推送。`_packWork()`（L448-468）打包的字段为：`workId, title, category, synopsis, payload(=整个 work 对象), version, chapterCount, totalWords`。
+- **读取 `_trash`**（L184）：仅用作"判断云端作品是否应删除"的信号——若云端作品在本地 `_trash` 中，则调用 `deleteWork()` 删除云端。**`_trash` 数组本身不上传到云端**。
+- **不同步**：`apiKeys`、`apiConfig`、`settings`、`custom_templates`、`predict_platform`、IndexedDB 任何 store。
+
+### 3.2 `syncKeysAndSettings()`（L370-423）—— 拉取密钥与设置
+
+- `GET /user/keys` → 合并 `apiKeys`（云端有但本地没有的补充进来）+ 合并 `apiConfig`（仅本地为空时填充）
+- `GET /user/settings` → 合并 `settings`（仅本地 `undefined` 的 key 填充）
+- 合并策略为"只补不覆盖"，不会用云端覆盖本地已有值。
+
+### 3.3 `pushKeysAndSettings()`（L426-444）—— 推送密钥与设置
+
+- `PUT /user/keys`，body=`{apiKeys, apiConfig}`（整体覆盖云端）
+- `PUT /user/settings`，body=`{settings}`（整体覆盖云端）
+
+### 3.4 触发时机（Grep 确认）
+
+| 函数 | 触发位置 | 时机 |
+|---|---|---|
+| `syncKeysAndSettings` | index.html L345 | **仅登录成功后**调用一次 |
+| `pushKeysAndSettings` | settings.html L465, L585 | **仅设置页保存**时调用 |
+| `smartSync` | index.html L347（登录后）、db.js L962（本地保存后防抖 3s）、startAutoSync 定时器（5min） | 自动 + 登录 |
+
+**关键缺口**：`startAutoSync`（L324-330）的定时器**只调用 `smartSync`，不调用 keys/settings 同步**。即用户在非设置页修改 apiKeys/apiConfig/settings 后，若不主动进设置页保存，不会自动推送到云端。
+
+---
+
+## 四、后端路由对比
+
+### 4.1 Pages Functions `[[route]].js` 提供的路由
+
+| 路由 | 方法 | 鉴权 |
+|---|---|---|
+| `/auth/register` | POST | 公开 |
+| `/auth/login` | POST | 公开 |
+| `/auth/forgot-password` | POST | 公开 |
+| `/auth/reset-password` | POST | 公开 |
+| `/health` | GET | 公开 |
+| `/ai/test` | POST | 公开 |
+| `/ai/chat` | POST | 公开 |
+| `/user/profile` | GET | 鉴权 |
+| `/user/keys` | GET / PUT | 鉴权 |
+| `/user/settings` | GET / PUT | 鉴权 |
+| `/works` | GET | 鉴权 |
+| `/works/:workId` | GET / PUT / DELETE | 鉴权 |
+| `/works/sync/batch` | POST | 鉴权 |
+| `/works/:workId/delete` | POST | 鉴权 |
+
+### 4.2 Node 后端 `backend/routes.js` 提供的路由
+
+| 路由 | 方法 |
+|---|---|
+| `/auth/register` | POST |
+| `/auth/login` | POST |
+| `/works` | GET |
+| `/works/:workId` | GET / PUT / DELETE |
+| `/works/sync/batch` | POST |
+| `/works/:workId/snapshots` | GET |
+| `/works/:workId/snapshots/:snapId/restore` | POST |
+| `/user/profile` | GET |
+
+### 4.3 双向缺失对比
+
+**Pages Functions 缺失（backend/routes.js 有）**：
+- `GET /works/:workId/snapshots`（云端快照列表）
+- `POST /works/:workId/snapshots/:snapId/restore`（快照恢复）
+
+> cloud-sync.js 的 `getSnapshots()`（L131-133）和 `restoreSnapshot()`（L135-139）会调用这两个端点。在 Pages Functions 部署下会返回 404。`_shared.js` 中也确认无任何 snapshot 相关函数（仅 `db_list_works`/`db_get_work`/`db_upsert_work`）。
+
+**backend/routes.js 缺失（Pages Functions 有）**：
+- `/auth/forgot-password`、`/auth/reset-password`（找回密码）
+- `/user/keys` GET/PUT（**密钥同步核心端点**）
+- `/user/settings` GET/PUT（**设置同步核心端点**）
+- `/works/:workId/delete` POST（删除别名）
+- `/ai/test`、`/ai/chat`（AI 代理）
+- `/health`
+
+> 若部署 Node 后端而非 Pages Functions，则 `syncKeysAndSettings`/`pushKeysAndSettings` 会全部 404，密钥与设置同步完全失效。
+
+---
+
+## 五、IndexedDB 四个 store 的云端同步搜索结果
+
+| 搜索目标 | 搜索位置 | 结果 |
+|---|---|---|
+| `snapshots` / `_appMemoryStore` | cloud-sync.js | **无**（仅 L132/136 出现 `/works/:workId/snapshots`，是云端服务端快照，与本地 IndexedDB `snapshots` store 完全不同概念） |
+| `chapter_history` / `_historyStore` | cloud-sync.js | **无** |
+| `_backupStore` / `backups` | cloud-sync.js | **无** |
+| `_chapterStore` / `saveChapterShard` | cloud-sync.js | **无** |
+| `openAppMemoryDB` / `saveAppMemoryMirror` / `saveInternalBackup` / `listChapterHistory` | cloud-sync.js | **无**（这些函数仅在 db.js 和 center-tools.js 本地调用） |
+| 上述所有 | `[[route]].js` / `_shared.js` | **无**（后端无任何 IndexedDB 相关端点） |
+
+**结论**：IndexedDB 的四个 store（snapshots/chapters/backups/chapter_history）**完全没有云端同步代码**，纯本地存储。
+
+---
+
+## 六、custom_templates / predict_platform / _trash 的云端同步搜索结果
+
+| 数据 | 存储位置 | cloud-sync.js 中是否同步 | 证据 |
+|---|---|---|---|
+| `custom_templates` | localStorage 独立 key | **否** | cloud-sync.js 无任何引用；仅 write-editor.js L3460-3462 读写 |
+| `predict_platform` | localStorage 独立 key | **否** | cloud-sync.js 无任何引用；仅 data-predict.html / predict-result.html / write-editor.js 读写 |
+| `_trash` | localStorage `wxbj_data_v4` + IndexedDB snapshots 镜像 | **部分（仅作删除信号，不作为数据同步）** | cloud-sync.js L184 仅读取 `DB._trash` 用于判断是否删除云端作品；`_packWork()` 不含 `_trash`；无 `/user/trash` 或类似端点 |
+
+**`_trash` 的具体行为**：smartSync 中，若云端某作品在本地 `_trash` 列表里，则删除云端作品（L211-219）。但 `_trash` 数组本身（含完整 work 对象用于 30 天恢复）**从不上传**。这意味着：
+- 设备 A 删除作品 → 进 `_trash` → smartSync 删除云端 → 设备 B 的 `_trash` 中没有该作品 → 设备 B 无法从回收站恢复。
+- 若设备 A 在云端删除后崩溃，作品在云端已消失，且设备 B 无 `_trash` 记录，**永久丢失**。
+
+---
+
+## 七、综合对比表格
+
+| 数据类型 | 存储位置 | 是否同步到云端 | 同步方式 | 风险等级 |
+|---|---|---|---|---|
+| works（作品主体） | localStorage `wxbj_data_v4` + 拆分 key `wxbj_w_*` | 是 | smartSync → `pushWork`/`pushBatch`/`getWork`（`_packWork` 打包整个 work 为 payload） | 中（见下方瘦身章节风险） |
+| works.chapters 章节正文（未瘦身） | localStorage + IndexedDB `chapters` 分片 | 是（随 work payload） | 章节内容作为 work.payload 的一部分上传 | 低 |
+| works.chapters 章节正文（已瘦身 `_slim=true`） | **仅 IndexedDB `chapters` 分片**（localStorage 中 content=''） | **否** | `_packWork` 直接取 `w`，瘦身章节 content 为空，上传到云端的 payload 章节内容为空 | **高** |
+| apiKeys | localStorage `wxbj_data_v4` | 是 | `pushKeysAndSettings` → `PUT /user/keys`；`syncKeysAndSettings` → `GET /user/keys` | 中（仅登录/设置页保存时触发，非自动） |
+| apiConfig | localStorage `wxbj_data_v4` | 是 | 同上（`/user/keys` 端点同时存 apiKeys+apiConfig） | 中（同上） |
+| settings | localStorage `wxbj_data_v4` | 是 | `pushKeysAndSettings` → `PUT /user/settings`；`syncKeysAndSettings` → `GET /user/settings` | 中（同上；且合并策略只补不覆盖） |
+| `_trash`（回收站） | localStorage `wxbj_data_v4` + IndexedDB snapshots 镜像 | **否**（仅作云端删除信号） | smartSync 读取本地 `_trash` 决定是否删云端；`_trash` 数组本身不上传 | **高** |
+| `_version` / `_split` | localStorage `wxbj_data_v4` | 否 | 本地 schema 标记，无需同步 | 低 |
+| IndexedDB `snapshots`（App 记忆镜像） | IndexedDB | 否 | 纯本地大容量镜像/备份 | 中（本地容灾用，不跨设备） |
+| IndexedDB `chapters`（章节分片） | IndexedDB | 否（间接） | 不独立同步；仅在章节未瘦身时随 work payload 同步 | 高（瘦身章节完全不同步） |
+| IndexedDB `backups`（自动备份） | IndexedDB | 否 | 纯本地 | 中（本地容灾用） |
+| IndexedDB `chapter_history`（章节历史版本） | IndexedDB | 否 | 纯本地 | 中（换设备丢失历史版本） |
+| `custom_templates`（自定义模板） | localStorage 独立 key | **否** | 无任何同步代码 | **高** |
+| `predict_platform`（预测平台） | localStorage 独立 key | 否 | 无同步代码 | 低 |
+| `predict_work_id` / `predict_manual_data` | localStorage 独立 key | 否 | 临时数据 | 低 |
+| `last_edit_work` / `last_edit_chapter` / `wxbj_last_page` / `tpl_to_use` | localStorage 独立 key | 否 | UI 状态 | 低 |
+| `wxbj_cloud_token` / `wxbj_cloud_user` / `wxbj_cloud_base` | localStorage 独立 key | 否（不应同步） | 每设备独立鉴权/配置 | 低（设计如此） |
+| 云端快照（WorkSnapshot，服务端） | 后端 DB | N/A | backend/routes.js 有端点；**Pages Functions 缺失** `/works/:workId/snapshots` 与 restore 端点 | 中（Pages 部署下快照功能 404） |
+
+---
+
+## 八、需要补充云端同步的数据清单（按重要性排序）
+
+### P0 — 严重（存在数据丢失风险）
+
+1. **已瘦身章节的正文内容（IndexedDB `chapters` 分片）**
+   - 问题：`safeSlimCurrentWork()`（db.js L639-666）将旧章节 `content` 置空并标记 `_slim=true`，正文仅存于 IndexedDB 分片。但 `_packWork()`（cloud-sync.js L448-468）直接序列化 `w`，瘦身章节上传到云端的 payload 中 `content=''`。smartSync 拉取后 `_mergeWork` 用云端空 content 覆盖本地，导致**瘦身章节正文在多设备间永久丢失**。
+   - 建议：推送前对瘦身作品执行"缝合"（从 IndexedDB 分片还原 content），或在云端为章节分片建立独立同步通道。
+
+### P1 — 高（跨设备体验严重缺失）
+
+2. **`_trash` 回收站数据**
+   - 问题：回收站仅本地，不跨设备。设备 A 删除作品后云端被删，设备 B 既无作品也无回收站记录，无法恢复。
+   - 建议：新增 `/user/trash` GET/PUT 端点，将 `_trash` 数组纳入云端同步；或在云端删除时改为"软删除"标记而非物理删除。
+
+3. **`custom_templates` 自定义模板**
+   - 问题：用户精心制作的自定义模板仅存 localStorage，换设备/清缓存即丢失。
+   - 建议：新增 `/user/templates` GET/PUT 端点，纳入 `syncKeysAndSettings`/`pushKeysAndSettings` 流程。
+
+### P2 — 中（功能完整性受损）
+
+4. **Pages Functions 缺失云端快照端点**
+   - 问题：cloud-sync.js 的 `getSnapshots()`/`restoreSnapshot()` 调用 `/works/:workId/snapshots` 与 `/restore`，但 `[[route]].js` 未实现，Pages 部署下返回 404，云端版本回滚功能不可用。
+   - 建议：在 `[[route]].js` 与 `_shared.js` 中补齐快照列表/恢复端点（参考 backend/routes.js L244-288）。
+
+5. **`chapter_history` 章节历史版本**
+   - 问题：章节编辑历史仅存 IndexedDB，换设备丢失所有历史版本，无法跨设备回溯。
+   - 建议：按需同步（可仅同步最近 N 条），新增 `/works/:workId/chapters/:idx/history` 端点。
+
+6. **IndexedDB `backups` 自动备份**
+   - 问题：本地自动备份不跨设备，设备损坏则备份全失。
+   - 建议：可将最近一次内部备份镜像到云端（如复用 `/user/settings` 模式新增 `/user/backup`）。
+
+7. **apiKeys/apiConfig/settings 自动同步缺口**
+   - 问题：`startAutoSync` 定时器（cloud-sync.js L324-330）只调 `smartSync`，不调 `pushKeysAndSettings`。用户在写作页等非设置页修改密钥/配置后，需等到下次登录或手动进设置页保存才同步。
+   - 建议：在 `smartSync` 末尾追加 `pushKeysAndSettings` 调用，或独立设置定时器。
+
+8. **backend/routes.js 缺失 `/user/keys` 与 `/user/settings`**
+   - 问题：若部署 Node 后端，密钥与设置同步会全部 404。
+   - 建议：将 Pages Functions 的 `handle_keys_*`/`handle_settings_*` 逻辑移植到 backend/routes.js。
+
+### P3 — 低（体验优化）
+
+9. **`predict_platform` 预测平台偏好**
+   - 问题：仅本地，换设备需重选。可纳入 settings 一并同步。
+
+10. **UI 状态（`last_edit_work`/`last_edit_chapter`/`wxbj_last_page`）**
+    - 问题：不跨设备恢复上次编辑位置。属体验优化，非数据安全。
+
+---
+
+## 九、关键结论
+
+1. **云端同步实际覆盖**：仅 `works`（通过 smartSync）、`apiKeys`+`apiConfig`（通过 /user/keys）、`settings`（通过 /user/settings）。其中 keys/settings 仅在登录和设置页保存时触发，不在自动定时同步内。
+
+2. **完全未同步的本地数据**：IndexedDB 全部四个 store（snapshots/chapters/backups/chapter_history）、`_trash`、`custom_templates`、`predict_platform` 及各类 UI 状态 key。
+
+3. **最危险的数据丢失路径**：作品瘦身（`_slim`）后，章节正文仅存 IndexedDB，而 smartSync 上传的 payload 中这些章节 content 为空——多设备同步会覆盖丢失正文。这是当前最严重的同步覆盖盲区。
+
+4. **后端路由双向不一致**：Pages Functions 缺快照端点，Node 后端缺密钥/设置/找回密码/AI 代理端点。两套后端未对齐，需根据实际部署形态补齐。
+
+Let me read the relevant parts of cloud-sync.js to understand the token storage, login flow, and the smartSync/syncKeysAndSettings/pushKeysAndSettings methods.
+
+Now I have a very thorough understanding. Let me also check a few more things:
+
+1. The `deleteWork` method in cloud-sync.js (line 125) to understand the delete flow
+2. The `smartSync` method (line 147) to understand the sync flow
+3. Check the work-list.html `confirmDelete` function's `finally` block issue more carefully
+4. Check the `clearAllData` in settings.html - it doesn't clear the cloud token
+
+Let me also verify the work-list.html `confirmDelete` finally block - it references `document.querySelector('.btns button')` which might not match the right buttons.
+
+Let me look at the deleteWork and smartSync methods.
+
+让我验证几个关键点：autoSync 是否被启动，以及 index.html 中登录后 cloud 实例的 token 状态。
+Now I have a comprehensive understanding of all the code. Let me also check a few specific things:
+
+1. The `confirmDelete` in work-list.html - the `finally` block uses `document.querySelector('.btns button')` which is a global selector that might match buttons in OTHER modals (like the trash-modal which also has `.btns button`). This is a bug.
+
+2. The `clearAllData` in settings.html doesn't clear the cloud token (wxbj_cloud_token, wxbj_cloud_user) - security issue.
+
+3. The `doCloudLogout` in index.html only calls `clearToken()` which clears localStorage, but doesn't call `window.cloud.logout()` to clear the in-memory token. Wait, let me check - `clearToken()` is the local function in index.html that clears localStorage. But `window.cloud` instance still has `this.token` set in memory. Actually, looking at cloud-sync.js, the `_clearToken` method clears both. But index.html's `doCloudLogout` calls the local `clearToken()` function (line 148), NOT `window.cloud.logout()`. So the `window.cloud` instance's in-memory token is NOT cleared. This is a bug - after logout, `window.cloud.isLoggedIn()` would still return true because `this.token` is still set in memory.
+
+Wait, let me re-read. In index.html:
+- Line 148: `function clearToken(){ try{ localStorage.removeItem('wxbj_cloud_token'); }catch(e){} try{ localStorage.removeItem('wxbj_cloud_user'); }catch(e){} updateCloudBtn(); }`
+- Line 312-316: `window.doCloudLogout = function(){ clearToken(); document.getElementById('login-mask').classList.remove('show'); showToast('已退出登录'); };`
+
+So `doCloudLogout` only clears localStorage but does NOT call `window.cloud.logout()` or `window.cloud._clearToken()`. This means `window.cloud.token` and `window.cloud.user` remain set in memory. So `window.cloud.isLoggedIn()` returns true even after logout. This is a serious bug - after logout, smartSync would still try to sync with the old token.
+
+Actually wait - the cloud-sync.js `_loadToken` is called in the constructor. And `isLoggedIn()` checks `this.token && this.user`. After `doCloudLogout`, localStorage is cleared but `window.cloud.token` is still the old value. So yes, this is a bug.
+
+4. In work-list.html line 1142: `if (window.cloud && window.cloud.token)` - this checks `window.cloud.token` directly (truthy), not `isLoggedIn()`. After logout from index.html, `window.cloud.token` is still set, so work-list.html would still show the loading overlay and try to sync. This connects to the bug above.
+
+5. The loading overlay in work-list.html (lines 1142-1162): The `cloud-sync-loading` element is created and appended. In the `.then()` and `.catch()` handlers, it's removed. But if `smartSync()` throws synchronously before returning a promise (unlikely but possible), or if there's an error in the DOM manipulation, the overlay could remain. Actually, the bigger issue: if `window.cloud.token` is truthy but the token is invalid/expired, `smartSync` will be called, and the `_fetch` method clears the token on 401 (line 360). But the loading overlay is removed in both `.then()` and `.catch()`, so it should be fine. However, there's no timeout - if the network hangs, the overlay stays forever.
+
+6. XSS risks:
+- index.html line 256: `'<p style="font-size:12px;color:#666">邮箱：' + email + '</p>'` - email is user input from the forgot-email field, directly concatenated into innerHTML. XSS risk!
+- index.html line 265: `onclick="submitResetPassword(\'' + email + '\')"` - email injected into onclick attribute. XSS risk!
+- index.html line 302: `'<p>已登录账号：' + email + '</p>'` - email from user object, injected into innerHTML. XSS risk!
+- index.html line 420-423: The update dialog uses `data.version`, `data.releaseNotes` directly in innerHTML via `insertAdjacentHTML`. These come from a remote JSON. XSS risk!
+- work-list.html: Uses `he()` function for escaping in most places, which is good. But let me check... line 417-435 uses `he(w.id)` in onclick attributes and `he(w.title)` for display. Good.
+- architecture.html line 833: `html += '<div ... >' + names[i] + '</div>';` - names extracted from chars content via regex, NOT escaped! XSS risk.
+- architecture.html line 854: `var html='<html>...<h1>'+he(w.title)+'</h1>...<pre>'+he(text)+'</pre>...` - this is for export, opened in new window. he() is used. OK.
+- settings.html line 409: `overview+='...onclick="document.getElementById(\'api-provider\').value=\''+p+'\';...` - p is a provider key from API_PROVIDERS, not user input. OK.
+- settings.html line 418-422: keys are masked and displayed. `masked=key.substring(0,6)+'****'+key.substring(key.length-4)` - the key is user input but it's masked. However, the masked value is still inserted via innerHTML without escaping. If a key contains HTML special chars, it could break. But keys are typically alphanumeric. Low risk but worth noting.
+
+7. The `confirmDelete` finally block in work-list.html (lines 1077-1081):
+```javascript
+} finally {
+    btns.forEach(function(b){ b.disabled = false; });
+    document.querySelector('.btns button').textContent = '取消';
+    document.querySelector('.btns button.primary').textContent = '删除';
+}
+```
+`document.querySelector('.btns button')` selects the FIRST `.btns button` in the entire document. There are TWO modals with `.btns`: `delete-modal` and `trash-modal`. The trash-modal comes after delete-modal in the DOM. Actually `querySelector` returns the first match, which would be the delete-modal's button. But this is fragile. Also, if `closeDeleteModal()` was called (line 1074), the modal is hidden but still in DOM. The bigger issue: the `finally` block runs even if an error occurred, and it hardcodes the button text. But actually, the issue is that `btns.forEach` already re-enables the buttons, and then `querySelector` is used to reset text. This works but is fragile. 
+
+Actually, wait - there's a more serious issue. The `confirmDelete` function:
+- Line 1057: `async function confirmDelete()`
+- Line 1064-1081: try/finally block
+- In the try block, if cloud delete fails (line 1068), it's caught and logged, then continues to `DB.deleteWork` (line 1073).
+- But if `DB.deleteWork` throws, the `finally` block runs, but `closeDeleteModal()` (line 1074) was NOT called, so the modal stays open with disabled buttons that get re-enabled. The button text is reset. This is OK-ish.
+- The real issue: `document.querySelector('.btns button')` - if there are multiple modals, this might target the wrong one. But in practice, since delete-modal comes first in DOM, it should be fine. Still, it's fragile.
+
+8. Token storage security: Token is stored in localStorage (line 144 in index.html, line 46 in cloud-sync.js). localStorage is accessible to any JavaScript running on the same origin, making it vulnerable to XSS token theft. This is a common but notable security concern. HttpOnly cookies would be more secure.
+
+9. The `clearAllData` in settings.html (lines 825-834):
+```javascript
+function clearAllData(){
+  if(confirm('确定要清除所有数据吗？此操作不可恢复！')){
+    if(confirm('再次确认：这将删除所有作品和设置！')){
+      localStorage.removeItem('wxbj_data_v4');
+      DB.works=[];DB.apiConfig={provider:'dashscope',model:'qwen-max'};DB.apiKeys={};
+      DB.settings={dark:false,fontSize:15,theme:'blue'};
+      showToast('数据已清除');setTimeout(()=>location.reload(),500);
+    }
+  }
+}
+```
+This does NOT clear `wxbj_cloud_token` or `wxbj_cloud_user`. So after "clearing all data", the user is still logged into the cloud. Also, it doesn't clear `wxbj_last_update_check` or other localStorage keys. Incomplete cleanup.
+
+10. The `doCloudLogout` doesn't clear `window.cloud` in-memory token (as noted above).
+
+11. work-list.html DOMContentLoaded smartSync (lines 1142-1162): This runs synchronously in DOMContentLoaded and creates a loading overlay. The `smartSync()` is async and returns a promise, so it doesn't block the main thread. But the loading overlay is shown until the sync completes. If the network is slow, the user sees "正在同步云端作品…" for a long time. Also, the overlay has `z-index:9999` which covers everything. There's no timeout. If smartSync hangs, the overlay never goes away. This is a UX issue.
+
+12. work-list.html: After `smartSync` completes (line 1149-1156), if `DB.works.length > 0`, it goes to level 2 or re-renders. But if `DB.works.length === 0` after sync, it stays on the current level without re-rendering. If the user was on level 1, that's fine. But if they were on level 2 (empty), the empty state isn't re-rendered. Minor UX issue.
+
+13. New work creation: In work-list.html, there's no "new work" creation logic directly - it navigates to `new-book.html` (line 187, 405). After creating a work there, the user returns to work-list.html. But there's no mechanism to refresh the list when returning. The `DOMContentLoaded` event only fires on page load. If `new-book.html` creates a work and redirects back, `work-list.html` reloads and `DOMContentLoaded` fires, so `DB.init()` loads the new work. But if the user uses browser back button (cache), the list might not refresh. Actually, since the page has `Cache-Control: no-cache`, it should reload. OK.
+
+Actually, looking more carefully, after creating a work in new-book.html, the user is redirected. When work-list.html loads, `DOMContentLoaded` fires, `DB.init()` is called, and the works are loaded from localStorage. So new works should appear. But the `smartSync` in DOMContentLoaded might overwrite local changes if the cloud has older versions. Actually, `smartSync` compares versions, so it should be OK.
+
+14. Architecture.html data loading/saving:
+- Init (line 2268-2282): Loads DB, restores last work, goes to level 2 or 1. No cloud sync on load! Unlike work-list.html, architecture.html doesn't sync with cloud on DOMContentLoaded. This means if the user made changes on another device, they won't see them here.
+- Saving: `saveArchModule` (line 2200-2208) saves to DB but doesn't push to cloud. `confirmSave` (line 2500-2514) saves to DB but doesn't push to cloud. No cloud sync at all in architecture.html.
+- The `generateArchModule` function generates content and saves to DB, but again no cloud push.
+
+15. Global variable pollution:
+- work-list.html: `_currentLevel`, `_selectedWorkId`, `_selectedModule`, `MODULE_INFO`, `deleteTargetId`, `MODULE_MAP` (in architecture.html) are all global.
+- architecture.html: Same globals plus `TREND_2026`, `PLATINUM_RULES`, `_archPageMap`, `_archPageSize`, `_detailPageIdx`, `_detailPageSize`, `_bgGenRunning`, `_origSwitchArchModule`, `_origGenerateArchModule`.
+- Both work-list.html and architecture.html define `he()`, `getWorkById()`, `goToLevel()`, `handleGlobalBack()`, `updateBreadcrumb()`, `selectWork()`, `selectModule()`, `renderLevel1()`, `renderLevel2()`, `renderLevel3()`, `renderLevel4()`, `getCurrentWork()`, `MODULE_INFO`, `_currentLevel`, `_selectedWorkId`, `_selectedModule`. These are separate pages so no conflict, but it's code duplication.
+- index.html: `API_BASE` is defined twice - once in the first script block (line 130) and once in the IIFE (line 138). The first one is global, the second is local to the IIFE. The IIFE's `API_BASE` (line 138) is `'/api'` always (even for localhost), while the first one (line 130) correctly handles localhost. But the IIFE's `API_BASE` is used for auth calls (login, register, forgot-password, reset-password). This means on localhost, auth calls go to `/api` (relative) instead of `http://localhost:8787/api`. This is a BUG! Let me verify...
+
+Line 130-133 (first script):
+```javascript
+var API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787/api'
+  : location.origin + '/api';
+window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });
+```
+
+Line 138 (IIFE):
+```javascript
+var API_BASE = location.protocol === 'file:' ? '/api' : '/api';
+```
+
+So the IIFE's `API_BASE` is always `'/api'`. This is used in `submitCloudLogin` (line 324), `submitForgotPassword` (line 238), `submitResetPassword` (line 280). On localhost, these auth requests go to `http://localhost:<port>/api/auth/login` (relative to the page origin) instead of `http://localhost:8787/api/auth/login`. This is a BUG - auth won't work on localhost unless the page is served from the same origin as the API.
+
+Actually wait, if the page is served from `http://localhost:8787` (same as API), then `/api` would work. But if the page is served from a different port (e.g., a static file server on port 8080), then `/api` would hit port 8080, not 8787. The first script block correctly handles this, but the IIFE doesn't. This is inconsistent.
+
+16. Event listener leaks:
+- work-list.html line 563: `document.addEventListener('input', function(e){...})` - this is at the top level, not in a function, so it's added once per page load. OK.
+- architecture.html line 795: `document.addEventListener('input', function(e){...})` - same, once per page load. OK.
+- architecture.html line 894: `document.addEventListener('keydown', function(e){...})` - once per page load. OK.
+- write-editor.js line 256: `document.addEventListener('click', function(e){...})` - once per page load. OK.
+- write-editor.js line 4954: `document.addEventListener('visibilitychange', function(){...})` - once. OK.
+- write-editor.js line 4962: `window.addEventListener('beforeunload', function(e){...})` - once. OK.
+These are all fine since they're added once per page load.
+
+But wait - architecture.html line 759: `var _origSwitchArchModule = window.switchArchModule;` then `window.switchArchModule = function(mod){...}`. And line 2388: `var _origGenerateArchModule = window.generateArchModule;` then `window.generateArchModule = async function(opts){...}`. These are monkey-patches. If the script runs multiple times (e.g., due to some reload mechanism), it could create a chain of wrapped functions. But since it's a static HTML page, the script runs once. OK.
+
+17. The `showToast` in index.html (line 366-375) accepts `opts.error` to change background, but the call at line 353 uses `{duration: 3000}` without `error`. And the call at line 357 uses `e.message` directly. The `showToast` function doesn't handle the case where `opts` is a string (work-list.html calls `showToast(msg)` with just a string). Actually, work-list.html has its own `showToast` (line 1122-1127) that only takes a message string. So there are two different `showToast` implementations. In index.html, `showToast` is defined inside the IIFE and exported as `window.showToast`. In work-list.html, `showToast` is a global function. They have different signatures. This could cause confusion but since they're on different pages, it's OK.
+
+18. The `_toastTimer` in index.html (line 374) uses `window._toastTimer` - global. OK.
+
+19. In settings.html, the `addNewKey` and `addNewKeys` functions are async and call `testApiKey`. If the user clicks the button multiple times rapidly, multiple tests could run concurrently. There's no debounce/disable. Minor UX issue.
+
+20. settings.html line 828: `localStorage.removeItem('wxbj_data_v4')` - this is the DB storage key. But the DB might use a different key. Let me check... Actually, I should verify what key DB uses. But this is likely correct based on the version. However, `clearAllData` doesn't clear `wxbj_cloud_token`, `wxbj_cloud_user`, `wxbj_last_update_check`, `last_edit_work`, `last_edit_chapter`, etc. Incomplete cleanup.
+
+21. The `confirmDelete` in work-list.html uses `async/await` but the `finally` block resets button text using `querySelector`. If the DOM was modified (e.g., modal removed), this could throw. But since the modal is just hidden, not removed, it should work.
+
+22. In work-list.html, the `askDelete`/`confirmDelete` flow: `askDelete` sets `deleteTargetId` and shows the modal. `confirmDelete` uses `deleteTargetId`. But `closeDeleteModal` sets `deleteTargetId = null`. If the user clicks delete, then clicks cancel (`closeDeleteModal`), then clicks delete on another work, `deleteTargetId` is set correctly. OK. But if `confirmDelete` is called and the cloud delete fails, it continues to delete locally. The `deleteTargetId` is still set. After `closeDeleteModal()`, it's cleared. OK.
+
+23. In index.html, the `submitResetPassword` function (line 269-295) - after successful reset, it calls `setToken(data.token, data.user)` (line 288). But `setToken` only saves to localStorage and updates the button. It does NOT update `window.cloud.token`. So `window.cloud.isLoggedIn()` would still return false (since `window.cloud.token` was never updated). Wait, let me check... `window.cloud` is a CloudSync instance. Its `token` is set via `_saveToken` or `_loadToken`. After `setToken` in index.html, `window.cloud.token` is NOT updated. So the auto-sync after login (line 343) checks `window.cloud.isLoggedIn()` which returns false. So the sync doesn't happen after reset-password login!
+
+Wait, let me re-read. Line 343: `if(window.cloud && window.cloud.isLoggedIn())`. After `setToken(data.token, data.user)` at line 339 (login) or 288 (reset), `window.cloud.token` is still the old value (or null). So `isLoggedIn()` returns false. So the sync block (lines 343-359) is NEVER executed after login!
+
+This is a SERIOUS BUG. The login flow:
+1. User enters credentials
+2. `submitCloudLogin` calls `/auth/login`
+3. On success, `setToken(data.token, data.user)` saves to localStorage
+4. Checks `window.cloud.isLoggedIn()` - but `window.cloud.token` was never updated!
+5. So the sync block is skipped
+6. User thinks they're logged in (button shows email) but no sync happens
+
+The same applies to `submitResetPassword` (line 288).
+
+The fix would be to call `window.cloud._saveToken(data.token, data.user)` or `window.cloud._loadToken()` after `setToken`. Or use `window.cloud.login()` instead of manual fetch.
+
+Actually, let me double-check. `window.cloud` is created at line 133: `window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });`. The constructor calls `_loadToken()` which reads from localStorage. So when the page loads, if there's a token in localStorage, `window.cloud.token` is set. But after `setToken` in the IIFE, `window.cloud.token` is NOT updated (only localStorage is). So on the NEXT page load, `window.cloud._loadToken()` would pick it up. But on the CURRENT page, `window.cloud.isLoggedIn()` returns false.
+
+So the sync after login (lines 343-359) NEVER runs on the login page. It only runs on subsequent page loads (like work-list.html's DOMContentLoaded). This is a bug - the user sees "登录成功，正在同步数据..." toast but no sync actually happens.
+
+Wait, let me re-read the toast. Line 341: `showToast((mode === 'login' ? '登录' : '注册') + '成功，正在同步数据...');`. Then line 343: `if(window.cloud && window.cloud.isLoggedIn())`. Since `isLoggedIn()` returns false, the sync block is skipped. The user sees "正在同步数据..." but nothing happens. This is misleading.
+
+24. The `autoSync` option is set to true (line 133), but I don't see `startAutoSync` being called anywhere. Let me check... In cloud-sync.js, the constructor sets `this.autoSync = !!opts.autoSync` (line 22) but doesn't call `startAutoSync()`. And `startAutoSync` (line 324) is never called automatically. So `autoSync: true` does nothing! The auto-sync timer is never started. This is a bug - the autoSync option is ignored.
+
+Actually, let me search for startAutoSync calls.
+
+Let me verify this by searching.
+
+25. The `clearAllData` in settings.html doesn't clear cloud tokens, and also doesn't call `window.cloud.logout()`. So after clearing all data, the cloud connection remains.
+
+26. In settings.html, `importFromServer` (line 792-808) fetches `test_import.json`. If this file doesn't exist, the error message says "服务器返回非 JSON（文件可能不存在）". This is a dev/test feature that should probably be removed from production.
+
+27. The `handleImport` in settings.html (line 759-790) - the confirm dialog logic is confusing:
+```javascript
+if(confirm('导入模式：\n• 确定 → 合并导入（保留已有作品）\n• 取消 → 覆盖导入（替换全部数据）')){
+  // 合并导入
+} else {
+  // 覆盖导入
+  if(confirm('覆盖导入将替换全部' + data.works.length + '部作品，现有数据将丢失。确认？')){
+    // 覆盖
+  }
+}
+```
+Using confirm/cancel for mode selection is bad UX. The user might click "cancel" to abort, but it's interpreted as "overwrite import". Then they get a second confirm. If they click cancel again, nothing happens. This is confusing and could lead to data loss.
+
+28. In architecture.html, the `showRelationGraph` function (line 816-838) extracts names from chars content using regex and inserts them into HTML without escaping (line 833): `html += '<div ...>' + names[i] + '</div>';`. If the chars content contains HTML, it could be injected. XSS risk.
+
+29. The `formatReaderContent` in architecture.html (line 904-995) uses `escapeHtml` (line 997-1003) for content, which is good. But `escapeHtml` doesn't escape single quotes (`'`). If the content is used in an attribute context, this could be an issue. But it's used in text content, so OK.
+
+30. In architecture.html, the `exportArch` function (line 847-856) creates an HTML string with `he(w.title)` escaped. But it opens it in a new window via `window.open(url, '_blank')`. The blob URL is created and opened. This is OK.
+
+Let me also check if there's a startAutoSync call anywhere.
+
+Let me now compile my findings into a comprehensive report. Let me do one more search to verify the autoSync issue and check for any other issues.
+
+Confirmed:
+1. `startAutoSync` is defined at line 324 but NEVER called anywhere. So `autoSync: true` option does nothing - the auto-sync timer is never started.
+2. No HTML page calls `cloud.login`, `cloud.register`, `cloud.logout`, `_saveToken`, or `_loadToken`. The index.html uses its own `setToken`/`clearToken` functions that only touch localStorage, NOT the cloud instance's in-memory state.
+
+This confirms two serious bugs:
+- Bug 1: After login in index.html, `window.cloud.isLoggedIn()` returns false because `window.cloud.token` was never updated (only localStorage was). So the post-login sync (lines 343-359) NEVER executes.
+- Bug 2: After logout in index.html, `window.cloud.token` is NOT cleared (only localStorage). So `window.cloud.isLoggedIn()` still returns true. On work-list.html, the smartSync would still run with a stale token.
+- Bug 3: `autoSync: true` is ignored - `startAutoSync()` is never called.
+
+Now I have all the information I need. Let me write up the comprehensive report.
+
+Let me organize by the requested categories:
+- 【严重 Bug】
+- 【安全问题】
+- 【UX 问题】
+- 【残留代码】
+- 【其他建议】
+
+Let me be thorough and cite file:line numbers.
+我已经完成了对所有 5 个页面内联脚本及相关依赖的全面审计。以下是详细的研究报告。
+
+---
+
+# 文心笔匠页面内联脚本审计报告
+
+审计范围：`index.html`、`work-list.html`、`settings.html`、`write.html`、`architecture.html` 的内联 `<script>` 逻辑，以及它们调用的 `cloud-sync.js`、`write-editor.js` 中的关键路径。
+
+---
+
+## 【严重 Bug】
+
+### 1. 登录后云端同步链路完全失效（index.html:339-359 + cloud-sync.js:32-34, 38-48）
+
+`index.html` 的 `submitCloudLogin` 在登录成功后调用的是页面内自定义的 `setToken(data.token, data.user)`（第 339 行），该函数（第 143-147 行）**只写 localStorage**，从不调用 `window.cloud._saveToken()`。而 `window.cloud` 实例的 `this.token` / `this.user` 仅在构造时通过 `_loadToken()` 从 localStorage 读取一次。
+
+随后第 343 行判断 `window.cloud.isLoggedIn()`，该方法（cloud-sync.js:32-34）检查的是 `this.token && this.user`——此时内存中仍为旧值（null），返回 `false`。因此第 343-359 行的 `syncKeysAndSettings → smartSync` 链式调用**永远不会执行**。
+
+用户看到 toast 提示"登录成功，正在同步数据..."，但实际无任何同步发生。`submitResetPassword`（第 288 行）存在同样问题。
+
+### 2. 登出后 cloud 实例仍持有旧 token（index.html:312-316 + cloud-sync.js:50-55）
+
+`doCloudLogout` 调用页面内的 `clearToken()`（第 148 行），仅清除 localStorage，**未调用 `window.cloud.logout()` / `_clearToken()`**。因此 `window.cloud.token` 仍为旧值，`isLoggedIn()` 仍返回 `true`。
+
+后果：登出后跳转到 `work-list.html`，第 1142 行 `if (window.cloud && window.cloud.token)` 仍为真，会继续触发 `smartSync()`，用已失效的 token 发请求，直到服务端返回 401 触发 `_fetch` 中的 `_clearToken()`（cloud-sync.js:360）才被动清理。
+
+### 3. `autoSync: true` 配置完全无效（cloud-sync.js:22-26, 324-330, 490）
+
+构造函数仅保存 `this.autoSync` 标志，但**从不调用 `startAutoSync()`**。全局搜索确认 `startAutoSync` 仅在第 324 行定义，无任何调用点。因此"5 分钟自动同步"功能完全不存在，`autoSync: true` 是死配置。
+
+### 4. index.html 中 API_BASE 在两个 script 块中不一致（index.html:130-133 vs 138）
+
+第一个 script 块（第 130-132 行）正确处理 localhost：
+```js
+var API_BASE = (location.hostname === 'localhost' || ...) ? 'http://localhost:8787/api' : location.origin + '/api';
+```
+但第二个 IIFE 内（第 138 行）重新定义为：
+```js
+var API_BASE = location.protocol === 'file:' ? '/api' : '/api';  // 永远是 '/api'
+```
+IIFE 内的 `API_BASE` 被用于所有 auth 请求（`/auth/login`、`/auth/register`、`/auth/forgot-password`、`/auth/reset-password`）。当页面由非 8787 端口的静态服务器提供时（如本地 dev server 在 8080），登录/注册/找回密码请求会发往错误地址。
+
+### 5. work-list.html 删除确认弹窗 finally 块选择器脆弱（work-list.html:1077-1081）
+
+```js
+} finally {
+    btns.forEach(function(b){ b.disabled = false; });
+    document.querySelector('.btns button').textContent = '取消';
+    document.querySelector('.btns button.primary').textContent = '删除';
+}
+```
+`document.querySelector('.btns button')` 是全局选择器。页面中有两个含 `.btns` 的 modal（`delete-modal` 第 269 行、`trash-modal` 第 281 行）。虽然 delete-modal 在前所以能命中，但这是脆弱设计。更严重的是：若 `DB.deleteWork` 抛异常，`closeDeleteModal()` 未执行，modal 保持打开，按钮被重新启用但文案可能错乱。
+
+### 6. architecture.html 完全无云端同步（architecture.html:2268-2282, 2200-2208, 2500-2514）
+
+`DOMContentLoaded` 初始化只调用 `DB.init()`，**不触发任何 cloud sync**。`saveArchModule`、`confirmSave`、`generateArchModule` 保存到本地 DB 后**均不推送云端**。与 `work-list.html`（第 1142-1162 行有 smartSync）形成对比。用户在 A 设备架构页修改后，B 设备不会拉到最新架构，且本地修改也不会上传，直到用户主动进入 work-list 触发 smartSync。
+
+### 7. write.html 章节切换时自动保存定时器可能丢失数据（write-editor.js:261-274, 437-455, 5056-5059）
+
+`_scheduleAutoSave` 延迟 2 秒保存。`loadChapter`（第 437 行）直接覆盖 `editor.value`，**不检查是否有未保存的自动保存定时器**。虽然 `saveChapter`（第 458 行）会清除定时器，但 `loadChapter` 本身不清除。若用户输入后 1.9 秒切换章节，定时器仍在排队，2 秒后定时器回调执行时 `currentChapterIdx` 已变为新章节，会把新章节的内容写回旧章节的存储位置（第 269-271 行用 `currentChapterIdx` 索引）。
+
+不过第 5056-5059 行有一个 monkey-patch 包装了 `loadChapter`，需确认该 patch 是否处理了此问题——从 grep 结果看 patch 仅做兼容性处理，未清除定时器。
+
+---
+
+## 【安全问题】
+
+### 1. Token 存储在 localStorage，易受 XSS 攻击（index.html:141-148, cloud-sync.js:39-47）
+
+`wxbj_cloud_token` 和 `wxbj_cloud_user` 存于 localStorage。任何 XSS 漏洞均可直接读取并外传 token。更安全的方案是 HttpOnly + Secure + SameSite cookie。结合下方多处 XSS 风险，此问题被放大。
+
+### 2. 找回密码流程直接在前端展示验证码（index.html:252-266）
+
+`showResetPanel` 将服务端返回的 `data.code` 直接渲染到页面（第 256 行）：
+```js
+(code ? '<p ...><b>验证码：' + code + '</b><br>...' : '')
+```
+注释说明"本版本为单机使用，直接展示验证码"。这意味着任何人只需调用 `/auth/forgot-password` 即可获取任意邮箱的重置验证码，进而重置任意账号密码。这是**可被任意账号接管**的严重漏洞。
+
+### 3. 找回密码/重置密码页面存在 XSS（index.html:256, 265, 302）
+
+- 第 256 行：`'邮箱：' + email` 直接拼入 innerHTML，`email` 来自用户输入（第 234 行 `forgot-email`）。
+- 第 265 行：`onclick="submitResetPassword(\'' + email + '\')"` 将 email 注入 onclick 属性，若 email 含单引号可逃逸。
+- 第 302 行：`'已登录账号：' + email`，email 来自 `getUser().email`，若注册时 email 含 HTML 字符则可触发。
+
+### 4. 更新检测弹窗存在 XSS（index.html:420-427）
+
+`showUpdateDialog` 用 `insertAdjacentHTML` 注入 `data.version`、`data.releaseNotes`（第 422-423 行），这些值来自远程 `version.json`。若该 JSON 被篡改或 CDN 被劫持，可注入任意 HTML/JS。`releaseNotes` 用 `white-space:pre-wrap` 渲染，未做任何转义。
+
+### 5. architecture.html 人物关系图存在 XSS（architecture.html:833）
+
+`showRelationGraph` 用正则从 `work.chars` 提取名字后直接拼入 HTML：
+```js
+html += '<div ...>' + names[i] + '</div>';
+```
+未调用 `he()` 转义。若人设内容含 `<img onerror=...>` 等标签，会被执行。
+
+### 6. "清除所有数据"未清理云端凭据（settings.html:825-834）
+
+`clearAllData` 仅删除 `wxbj_data_v4`，**不清除** `wxbj_cloud_token`、`wxbj_cloud_user`、`wxbj_last_update_check`、`last_edit_work`、`last_edit_chapter`。用户以为"清除所有数据"后登出，实则云端 token 仍在，且 `window.cloud` 内存中的 token 也未清。
+
+### 7. settings.html 密钥列表虽掩码但通过 DOM 可见（settings.html:418-422）
+
+`renderKeyList` 对密钥做了 `key.substring(0,6)+'****'+key.substring(key.length-4)` 掩码，但完整密钥仍存在于 `DB.apiKeys`（内存）和 localStorage（`wxbj_data_v4`）。任何同源脚本可读取。掩码仅防肩窥，不防 XSS。这一点本身是本地存储密钥的固有局限，但应在文档中明确告知用户。
+
+### 8. settings.html 批量导入密钥无长度/格式硬校验（settings.html:492-587）
+
+`addNewKeys` 通过 `_parseKeyLine` 解析，`_looksLikeKey`（第 590-598 行）仅要求 `length >= 8` 且不含中文。任意 8 字符以上的英文字符串都会被当作密钥测试，可能向服务商发送大量无效请求（虽每个都经 `testApiKey`，但无频率限制）。
+
+---
+
+## 【UX 问题】
+
+### 1. work-list.html 同步 loading 遮罩无超时，可能永久卡死（work-list.html:1142-1162）
+
+`cloud-sync-loading` 遮罩 `z-index:9999` 覆盖全屏。`smartSync()` 的 `.then()` 和 `.catch()` 都会移除它，但若网络请求挂起（不 reject 也不 resolve，如某些移动端 WebView 切后台），遮罩永久存在，用户无法操作。建议增加超时（如 15 秒后强制移除并提示）。
+
+### 2. work-list.html 同步后空列表不刷新（work-list.html:1149-1156）
+
+```js
+if (DB.works && DB.works.length > 0) {
+    if (_currentLevel !== 2) goToLevel(2);
+    else renderLevel2();
+}
+```
+若同步后 `DB.works.length === 0`，不重新渲染。若用户当前在 level2 看到旧空状态，同步后仍显示旧内容。
+
+### 3. settings.html 导入数据用 confirm/cancel 二选一模式，极易误操作（settings.html:759-790）
+
+```js
+if(confirm('导入模式：\n• 确定 → 合并导入\n• 取消 → 覆盖导入')){
+  // 合并
+} else {
+  // 覆盖（再 confirm 一次）
+}
+```
+用户习惯点"取消"来关闭对话框，此处却被解释为"覆盖导入"。虽然覆盖有二次确认，但交互反直觉，可能导致用户在第二次确认时误点。应改为两个明确按钮。
+
+### 4. settings.html 密钥测试无防抖，可并发触发（settings.html:427-488, 492-587）
+
+`addNewKey` / `addNewKeys` 是 async 函数，按钮无 disabled 处理。用户快速多次点击会并发发起多个 `testApiKey` 请求，结果互相覆盖，UI 状态混乱。
+
+### 5. index.html 登录/注册切换时输入框内容丢失（index.html:202-213）
+
+`switchMode` 切换登录/注册时，若从注册切回登录调用 `rebuildLoginPanel()`（第 211 行），整个 panel innerHTML 被重建，用户已输入的邮箱/密码清空。
+
+### 6. write.html 确认章节需双击，无明确引导（write-editor.js:477-490）
+
+`confirmChapter` 第一次点击仅改按钮文案为"⚠️ 再点一次确认"，3 秒后复位。用户可能不知道需要再点一次，且若 3 秒内未点则需重新开始。toast 提示"再点一次确认本章并跳转下一章"较短。
+
+### 7. architecture.html 初始化兜底提示延迟 2 秒（architecture.html:2285-2292）
+
+`setTimeout` 2 秒后检查 `card-world` 是否为空，若空显示"正在加载…"。但实际加载是同步的，2 秒提示几乎不会出现；若真出现说明出错，此时提示"正在加载"反而误导。
+
+---
+
+## 【残留代码】
+
+### 1. index.html 更新检测中硬编码 versionCode 比较（index.html:410）
+
+```js
+if (data.versionCode > 1) { showUpdateDialog(data); }
+```
+`> 1` 是明显的调试/占位逻辑，意味着任何 versionCode >= 2 都弹更新框。应与本地 `LOCAL_VERSION`（第 385 行，硬编码 `'1.0.0'`，且从未使用）比较。
+
+### 2. settings.html "加载内置测试数据"为开发功能残留（settings.html:792-808）
+
+`importFromServer` 从 `test_import.json` 加载测试数据，会覆盖现有数据。这是开发/测试用功能，不应保留在生产页面。
+
+### 3. settings.html 版本号不一致（settings.html:80 vs 232）
+
+顶部标签显示 `v21`（第 80 行），关于页显示 `文心笔匠 v4.0`（第 232 行），CSS/JS 资源用 `?v=20250615`。三处版本号互不一致，易造成缓存与发布混乱。
+
+### 4. architecture.html 大量 console.error/warn 残留（architecture.html:1572, 1624, 1846, 1958, 1984, 2070, 2105, 2172, 2208, 2259, 2264, 2279, 2471, 2514）
+
+共 14 处 `console.error` / `console.warn`。虽然多数在 catch 块中用于错误追踪，但生产环境应通过日志收集或可关闭的 debug 开关管理，而非直接输出到控制台。`index.html`（第 414、435 行）和 `work-list.html`（第 577、1069、1131、1160 行）也有类似情况。
+
+### 5. work-list.html 中 `goToArch` 函数定义了两次（work-list.html:454-457 vs 997-1000）
+
+第 454 行 `function goArch(id)` 和第 997 行 `function goToArch()` 名称不同但功能相同（都跳转 architecture.html）。第 997 行的 `goToArch` 无参数，用 `_selectedWorkId`，而 HTML 中第 236 行 `onclick="goToArch()"` 调用的是无参版本。两个相似函数并存易混淆。
+
+### 6. architecture.html 中 `MODULE_MAP` 定义后未使用（architecture.html:858）
+
+`var MODULE_MAP = {world:1, chars:2, outline:3, detail:4};` 定义后全文无引用。
+
+---
+
+## 【其他建议】
+
+### 1. 全局变量污染严重
+
+- `work-list.html` 和 `architecture.html` 都在全局作用域定义 `_currentLevel`、`_selectedWorkId`、`selectedModule`、`MODULE_INFO`、`he()`、`getWorkById()`、`goToLevel()`、`handleGlobalBack()`、`updateBreadcrumb()`、`selectWork()`、`selectModule()`、`renderLevel1~4()`、`getCurrentWork()` 等同名函数。虽分属不同页面无冲突，但大量重复代码，建议抽取公共模块。
+- `architecture.html` 额外有 `TREND_2026`、`PLATINUM_RULES`、`_archPageMap`、`_detailPageIdx`、`_bgGenRunning`、`_origSwitchArchModule`、`_origGenerateArchModule` 等全局变量。
+- `index.html` 第 374 行 `window._toastTimer` 挂在 window 上。
+
+### 2. architecture.html 对 `switchArchModule` 和 `generateArchModule` 做了 monkey-patch（第 759-779, 2388-2400）
+
+```js
+var _origSwitchArchModule = window.switchArchModule;
+window.switchArchModule = function(mod){ ... };
+```
+这种模式在脚本只执行一次时安全，但若未来引入热重载或重复加载，会形成调用链导致栈溢出。建议改为直接定义或用事件驱动。
+
+### 3. write.html 无内联脚本，全部依赖外部 JS
+
+`write.html` 的所有逻辑在 `write-editor.js`（约 5000+ 行）等外部文件中。本次审计重点检查了自动保存（第 261-274 行）、章节切换（第 437-455 行）、`visibilitychange`/`beforeunload` 落盘（第 4938-4973 行）。落盘逻辑较完善，但 `_flushEditorToWork`（第 4939-4951 行）的 `catch(e){}` 静默吞错，用户不会知道保存失败。
+
+### 4. 离线编辑冲突处理缺失
+
+`write-editor.js` 的 `saveChapter`（第 457-474 行）和 `_flushEditorToWork`（第 4939-4951 行）仅写本地 DB，无版本号比对。`smartSync`（cloud-sync.js:147-300）用 `_version` 字段比对，但本地保存时不递增 `_version`，只有 `pushWork` 成功后才更新（第 239、250 行）。若用户离线编辑后另一设备也编辑了同一章节，两端 `_version` 相同，`smartSync` 会判定为 `unchanged`（第 178-180 行），**静默丢失一端修改**。建议本地保存时递增 `_version` 或引入 `updatedAt` 时间戳。
+
+### 5. settings.html `setActiveKey` 直接操作 `DB.flush()`（settings.html:741-753）
+
+```js
+const selected=keys.splice(index,1)[0];
+keys.unshift(selected);
+DB.flush();
+```
+直接修改 `DB.getApiKeys()` 返回的数组引用并 `flush`，依赖 `getApiKeys` 返回的是内部数组的引用而非副本。若 DB 实现改为返回副本，此函数将失效。应通过显式 API（如 `DB.setApiKeys`）操作。
+
+### 6. work-list.html `confirmDelete` 云端删除失败时静默继续（work-list.html:1064-1076）
+
+```js
+try {
+    await window.cloud.deleteWork(deleteTargetId);
+} catch(e) {
+    console.warn('云端删除失败:', e);
+}
+DB.deleteWork(deleteTargetId);
+```
+云端删除失败仅 `console.warn`，本地照常删除。结果：本地已删但云端仍存，下次 `smartSync` 时云端该作品会被当作"本地不存在"拉回（cloud-sync.js:205-207），导致已删作品复活。应删除失败时提示用户并中止，或记录待删队列。
+
+### 7. index.html `showToast` 与 work-list.html `showToast` 签名不一致
+
+`index.html`（第 366-375 行）接受 `(msg, opts)`，支持 `opts.duration`、`opts.error`。`work-list.html`（第 1122-1127 行）仅接受 `(msg)`，固定 2 秒。`settings.html` 调用 `showToast(msg, {type:'success', duration:5000})` 但其 `showToast` 来自 `ui.js`（未审计）。三套实现易混淆。
+
+### 8. architecture.html `formatReaderContent` 的 `escapeHtml` 不转义单引号（architecture.html:997-1003）
+
+```js
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+```
+缺少 `'` → `&#39;`。虽然当前内容仅用于文本节点（非属性），但与同文件 `he()`（第 802 行，转义单引号）不一致，未来若误用于属性上下文会产生漏洞。
+
+---
+
+## 总结
+
+最关键的问题集中在**登录/同步链路**：`index.html` 的登录/登出函数与 `window.cloud` 实例状态完全脱节（只操作 localStorage，不更新内存），导致登录后同步不触发、登出后同步仍用旧 token。这是整个云端同步功能的致命缺陷，建议优先修复 `setToken`/`clearToken` 使其同步调用 `window.cloud._saveToken()` / `_clearToken()`，或直接改用 `window.cloud.login()` / `logout()` 方法。
+
+其次是**找回密码验证码前端展示**的安全漏洞，可导致任意账号被接管，应立即移除该展示逻辑或限制为开发环境。
+
+XSS 风险点较多（index.html 的 email 拼接、更新弹窗的 releaseNotes、architecture.html 的人物关系图），建议统一使用已有的 `he()` 函数转义所有用户/远程内容后再插入 DOM。
+
+四份审计报告已全部返回，内容非常详尽。我需要把它们整合成一份清晰的体检报告给用户，按严重程度分级，突出最关键的问题。
+
+最关键的问题汇总：
+1. **登录后同步完全失效**（页面审计 #1）：setToken 只写 localStorage 不更新 cloud 实例内存，syncKeysAndSettings → smartSync 链路永远不执行
+2. **JWT 密钥硬编码且 env 失效**（后端 B1/B2）：任意 token 可伪造
+3. **找回密码验证码直接返回客户端**（后端 B3 + 页面 #2）：账户接管
+4. **本地编辑后 _version 不递增导致同步失效**（前端 Bug 1）：编辑后永远 unchanged
+5. **flush() 不落盘导致删除/恢复丢失**（前端 Bug 2）
+6. **存储拆分配额失败丢数据**（前端 Bug 3）
+7. **AI 代理无认证无限流**（后端 S1）
+8. **快照路由缺失**（后端 R1-R3）
+9. **瘦身章节正文不同步**（数据同步 P0）
+10. **_trash 不跨设备**（数据同步 P1）
+
+我应该按优先级整理，给出清晰的修复建议清单。不要写代码，因为用户只要求"体检"。
+
+让我整理成一份结构化的报告。
+四份审计报告已汇总。以下是全面体检结果，按严重程度分级。
+
+---
+
+# 文心笔匠 全面体检报告
+
+## 🔴 P0 致命问题（必须立即修复）
+
+### 1. 登录后云端同步链路完全失效
+**位置**：[index.html:339-359](file:///workspace/index.html#L339-L359)、[cloud-sync.js:32-34](file:///workspace/assets/js/cloud-sync.js#L32-L34)
+
+`submitCloudLogin` 调用页面内的 `setToken()`（只写 localStorage），**从不调用 `window.cloud._saveToken()`**。而 `window.cloud` 实例的 `this.token` 仅在构造时读取一次 localStorage。登录后 `isLoggedIn()` 仍返回 false，`syncKeysAndSettings → smartSync` 链路**永远不执行**。用户看到"登录成功，正在同步"toast，实际无任何同步发生。登出同理（`clearToken` 不清 cloud 实例内存）。
+
+### 2. JWT 密钥硬编码且环境变量失效
+**位置**：[_shared.js:4](file:///workspace/functions/api/_shared.js#L4)、[_middleware.js:24-26](file:///workspace/functions/_middleware.js#L24-L26)
+
+`JWT_SECRET` 是模块顶层 `const`，在模块首次 import 时求值（此时 `globalThis.__JWT_SECRET` 尚未被 middleware 设置），被永久固定为硬编码 `'wxbj_cloud_secret_2026_v2'`。middleware 后续写入完全无效。**任何人都能伪造任意用户 token**。且该默认值在源码仓库中公网可查。
+
+### 3. 找回密码验证码直接返回客户端（账户接管）
+**位置**：[[route]].js:132](file:///workspace/functions/api/[[route]].js#L132)、[index.html:256](file:///workspace/index.html#L256)
+
+`handle_forgot` 把重置验证码直接返回客户端，前端还把它渲染到页面。**任何人用任意邮箱调用 `/auth/forgot-password` 即可拿到重置码，重置任意账号密码**。
+
+### 4. 本地编辑后 `_version` 不递增，同步对编辑场景完全失效
+**位置**：[cloud-sync.js:171-180](file:///workspace/assets/js/cloud-sync.js#L171-L180)、[db.js](file:///workspace/assets/js/db.js)
+
+作品的 `_version` **仅在云端同步成功后由服务端返回值赋值**，本地任何编辑路径（`saveWork`、`save`、章节修改）从不递增。同步时序：新建→push→version=1→编辑→version 仍=1→smartSync 判定 unchanged→**不推送**。此后所有本地编辑都不会被推送。整个云端同步对编辑场景形同虚设。
+
+### 5. AI 代理路由完全无认证无限流
+**位置**：[[route]].js:43-45](file:///workspace/functions/api/[[route]].js#L43-L45)
+
+`/ai/test`、`/ai/chat` 公开无鉴权、无限流、无配额。攻击者可当免费 AI 网关，耗尽你的 Cloudflare 配额，上游服务商看到的请求源 IP 是你的 Worker IP（可能触发上游封禁）。
+
+---
+
+## 🟠 P1 严重问题（数据丢失/功能失效）
+
+### 6. `flush()` 不落盘导致删除/恢复操作丢失
+**位置**：[db.js:1301-1308](file:///workspace/assets/js/db.js#L1301-L1308)、1485/1491/1327/1334
+
+`deleteWork`/`hardDeleteWork`/`restoreFromTrash`/`emptyTrash` 仅调用 `flush()`，而 `flush()` 在无待保存时直接返回 true 不写盘。若 800ms 内无其他 `save()`，内存修改未写入 localStorage，用户关闭页面后删除/恢复操作丢失。
+
+### 7. 存储拆分配额失败时旧数据被删除（数据丢失）
+**位置**：[db.js:1049-1071](file:///workspace/assets/js/db.js#L1049-L1071)
+
+`_autoSplitWorks` 中 `setItem` 抛 QuotaExceededError 时，该 subKeyName 仍留在 `keysToClean`，随后旧 key 被 `removeItem`。**新数据写不进，旧数据反而被清掉**，字段（longMemory/world/outline）彻底丢失。
+
+### 8. 瘦身章节正文不同步（多设备丢失正文）
+**位置**：[db.js:639-666](file:///workspace/assets/js/db.js#L639-L666)、[cloud-sync.js:448-468](file:///workspace/assets/js/cloud-sync.js#L448-L468)
+
+`safeSlimCurrentWork` 将章节 content 置空标记 `_slim=true`，正文仅存 IndexedDB 分片。但 `_packWork` 直接序列化 work，瘦身章节上传到云端的 payload 中 `content=''`。smartSync 拉取后 `_mergeWork` 用云端空 content 覆盖本地，**瘦身章节正文在多设备间永久丢失**。
+
+### 9. 快照路由与快照保存逻辑缺失
+**位置**：[[route]].js](file:///workspace/functions/api/[[route]].js) 缺失、[_shared.js:150](file:///workspace/functions/api/_shared.js#L150) `key_snap` 死代码
+
+前端 `cloud-sync.js:131-138` 调用 `/works/:workId/snapshots` 和 `/restore`，但 Pages Functions 未实现，返回 404。更严重的是 `db_upsert_work` 完全没有快照写入逻辑，`key_snap()` 定义后从未被调用。**云端版本快照功能在 Pages 部署下完全不可用**。
+
+### 10. 硬删除作品从云端"复活"
+**位置**：[cloud-sync.js:188-209](file:///workspace/assets/js/cloud-sync.js#L188-L209)、[db.js:1489-1492](file:///workspace/assets/js/db.js#L1489-L1492)
+
+`hardDeleteWork` 物理删除不入回收站。下次同步时该作品既不在本地也不在 trash → 被判定"云端有本地无" → 重新拉回。**硬删除的作品会不断从云端复活**。
+
+### 11. 旧 bcrypt 用户全部被锁死
+**位置**：[_shared.js:123-126](file:///workspace/functions/api/_shared.js#L123-L126)
+
+`verify_password` 的 bcrypt 兼容分支注释称"降级支持"，实际 `return false`。KV 中任何 bcrypt 哈希用户永远无法登录。
+
+### 12. `startAutoSync` 从未被调用，5 分钟自动同步不存在
+**位置**：[cloud-sync.js:324-330](file:///workspace/assets/js/cloud-sync.js#L324-L330)
+
+构造函数仅保存 `this.autoSync` 标志，但从不调用 `startAutoSync()`。`autoSync: true` 是死配置。
+
+---
+
+## 🟡 P2 中等问题（安全/性能/健壮性）
+
+### 13. 用户 API 密钥明文存储于 KV
+**位置**：[[route]].js:528-533](file:///workspace/functions/api/[[route]].js#L528-L533)
+
+`handle_keys_save` 把 apiKeys 直接 JSON.stringify 写入 KV，无加密。配合 P0 #2（任意 token 可伪造），任意用户可读取其他用户密钥。
+
+### 14. CORS 完全开放 `*`
+**位置**：[_shared.js:289](file:///workspace/functions/api/_shared.js#L289)、[[_middleware.js:11](file:///workspace/functions/_middleware.js#L11)
+
+应收敛为已知前端域名白名单。
+
+### 15. `db_list_works` N+1 KV 读取
+**位置**：[_shared.js:197-220](file:///workspace/functions/api/_shared.js#L197-L220)
+
+N 个作品 = 1+N 次 KV 读取，作品多时列表接口很慢。
+
+### 16. `handle_batch` 串行处理无并发，无数量上限
+**位置**：[[route]].js:215-225](file:///workspace/functions/api/[[route]].js#L215-L225)
+
+批量同步 50 个作品可能触发平台超时；无 items 长度限制，恶意客户端可传超大数组。
+
+### 17. AI 代理 120s 超时易超 Pages Functions 限制
+**位置**：[[route]].js:427](file:///workspace/functions/api/[[route]].js#L427)
+
+120s 大概率被平台截断返回 524，客户端拿不到自定义 504。`handle_ai_test` 串行 3 模型最坏 75s。
+
+### 18. 429 重试仅在非静默模式生效
+**位置**：[api.js:714-721](file:///workspace/assets/js/api.js#L714-L721)
+
+`opts.silent === true` 时（跨服务商回退、多 AI 并行）整个 rate 分支被跳过，429 不重试同 key，立即 rotate。与注释矛盾。
+
+### 19. `_mergeWork` 全字段覆盖，本地独有数据被冲掉
+**位置**：[cloud-sync.js:470-481](file:///workspace/assets/js/cloud-sync.js#L470-L481)
+
+`Object.keys(cloudPayload)` 遍历直接赋值，本地 `_fingerprint`/`_slimMeta` 等运行时字段若云端有对应键（即使空值）会被覆盖。
+
+### 20. `pushKeysAndSettings` 整体覆盖云端，多设备设置互踩
+**位置**：[cloud-sync.js:426-444](file:///workspace/assets/js/cloud-sync.js#L426-L444)
+
+两台设备各自有不同设置时，后推送的覆盖先推送的。`syncKeysAndSettings` 拉取合并只补 undefined/空字段，不处理删除。
+
+### 21. XSS 风险点（多处）
+- [index.html:256,265,302](file:///workspace/index.html#L256) 找回密码 email 拼接 innerHTML
+- [index.html:422-423](file:///workspace/index.html#L422-L423) 更新弹窗 releaseNotes 未转义
+- [architecture.html:833](file:///workspace/architecture.html#L833) 人物关系图 names 直接拼 HTML
+- [architecture.html:997-1003](file:///workspace/architecture.html#L997-L1003) `escapeHtml` 不转义单引号
+
+### 22. `file://` 协议下 API_BASE 完全失效
+**位置**：[api.js:4-6](file:///workspace/assets/js/api.js#L4-L6)
+
+`location.hostname` 为空，`location.origin` 为 `"null"`，`API_BASE = "null/api"`。本地双击打开 HTML 时所有代理调用失败。
+
+### 23. architecture.html 完全无云端同步
+**位置**：[architecture.html:2268-2282](file:///workspace/architecture.html#L2268-L2282)
+
+保存架构模块仅写本地 DB，不推送云端。A 设备修改后 B 设备不会拉到。
+
+### 24. work-list.html 同步 loading 遮罩无超时
+**位置**：[work-list.html:1142-1162](file:///workspace/work-list.html#L1142-L1162)
+
+网络挂起时遮罩永久存在，用户无法操作。
+
+---
+
+## 🟢 P3 低优先级（优化/清理）
+
+### 25. 完全未同步的本地数据
+| 数据 | 风险 |
+|---|---|
+| `_trash` 回收站 | 跨设备无法恢复，硬删后永久丢失 |
+| `custom_templates` 自定义模板 | 换设备丢失 |
+| IndexedDB `chapter_history` 章节历史 | 换设备丢失历史版本 |
+| IndexedDB `backups` 自动备份 | 本地容灾，不跨设备 |
+| IndexedDB `snapshots` App 记忆镜像 | 本地容灾 |
+| `predict_platform` 预测平台偏好 | 换设备需重选 |
+
+### 26. 代码重复与死代码
+- `[[route]].js` 与 `backend/routes.js` 大量重复，JWT 默认密钥不同（B2）、profile 字段不同（R5）
+- `[[route]].js:6` 导入 `random_hex` 未使用
+- `_shared.js:150` `key_snap` 定义后从未调用
+- `work-list.html:454 vs 997` 两个相似跳转函数
+- `architecture.html:858` `MODULE_MAP` 定义后未使用
+- `index.html:410` `versionCode > 1` 调试占位逻辑
+- `settings.html:792-808` "加载内置测试数据"开发功能残留
+
+### 27. 版本号不一致
+- `settings.html:80` v21 vs `:232` v4.0 vs 资源 `?v=20250615`
+- `db.js:78` APP_DATA_VERSION=44 但 init 用硬编码 12，importFromJSON 阈值硬编码 20
+
+### 28. 其他
+- `db.js:1419/691/846/1465` 多处 localStorage 裸调用无 try/catch
+- `api.js:691` `opts.signal` 事件监听器泄漏
+- `cloud-sync.js:251` 批量推送回退失败被 `catch(_){}` 静默吞掉
+- `db.js:1368` `importFromJSON` 版本阈值 20 应为 44
+- `settings.html:759-790` 导入用 confirm/cancel 二选一，易误操作
+- `architecture.html` 14 处 console.error/warn 残留
+
+---
+
+## 修复优先级建议
+
+| 优先级 | 编号 | 核心问题 |
+|---|---|---|
+| **立即** | 1, 2, 3 | 登录同步失效 + JWT 可伪造 + 账户接管 |
+| **立即** | 4, 5 | 编辑不同步 + AI 代理被滥用 |
+| **高** | 6, 7, 8, 10 | 数据丢失类（flush/拆分/瘦身/复活） |
+| **高** | 9, 11, 12 | 快照失效 + 旧用户锁死 + 自动同步不存在 |
+| **中** | 13-24 | 安全/性能/健壮性 |
+| **低** | 25-28 | 数据覆盖扩展 + 代码清理 |
+
+**最关键的三条**：#1（登录后同步完全失效，整个云端功能形同虚设）、#2+#3（安全漏洞可被任意账户接管）、#4（编辑不同步）。建议从这三条开始修复。
+
+需要我开始修复哪些问题？

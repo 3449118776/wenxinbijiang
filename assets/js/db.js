@@ -688,7 +688,7 @@ const DB = {
     this.ensureWorkFingerprint(w);
     this.works.push(w);
     this.saveWork(w);
-    localStorage.setItem('last_edit_work', w.id);
+    try { localStorage.setItem('last_edit_work', w.id); } catch(e) {}
     return w;
   },
 
@@ -997,16 +997,17 @@ const DB = {
   _autoSplitWorks() {
     var self = this;
     var works = self.works || [];
-    var keysToClean = [];
-    // 收集当前已有的拆分key
+    var existingKeys = [];
+    var newKeys = [];
+    // 先收集当前已有的所有拆分key
     try {
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        if (k && k.indexOf(self._SPLIT_KEY_PREFIX) === 0) keysToClean.push(k);
+        if (k && k.indexOf(self._SPLIT_KEY_PREFIX) === 0) existingKeys.push(k);
       }
     } catch(e) {}
-    // 逐个写入作品重量级字段（每个子字段独立key，避免单key过大）
-    works.forEach(function(w, idx) {
+    // 逐个写入作品重量级字段（每个子字段独立key），同时记录成功写入的key
+    works.forEach(function(w) {
       if (!w || !w.id) return;
       // 元数据key（轻量，始终保留）
       var meta = {
@@ -1016,9 +1017,7 @@ const DB = {
       };
       try {
         localStorage.setItem(self._SPLIT_KEY_PREFIX + w.id, JSON.stringify(meta));
-        var keyName = self._SPLIT_KEY_PREFIX + w.id;
-        var cleanIdx = keysToClean.indexOf(keyName);
-        if (cleanIdx >= 0) keysToClean.splice(cleanIdx, 1);
+        newKeys.push(self._SPLIT_KEY_PREFIX + w.id);
       } catch(splitErr) {
         console.warn('[Split] 作品 ' + w.id + ' 元数据拆分失败:', splitErr && splitErr.message);
       }
@@ -1032,23 +1031,19 @@ const DB = {
           // 单个子字段超过800KB时压缩（截断detail等大字段）
           if (jsonStr.length > 800 * 1024) {
             if (subKey === 'detail') {
-              // detail截断保留后半部分（最近的章节细纲更重要）
               var detailStr = typeof val === 'string' ? val : JSON.stringify(val);
               val = '...(前略)\n' + detailStr.slice(detailStr.length - 600 * 1024);
               jsonStr = JSON.stringify(val);
             } else if (subKey === 'longMemory') {
-              // longMemory压缩：清理最老的数据
               val = self._compressLongMemoryForStorage(val);
               jsonStr = JSON.stringify(val);
             } else if (subKey === 'memory') {
-              // memory数组截断保留最近100条
               val = val.slice(-100);
               jsonStr = JSON.stringify(val);
             }
           }
           localStorage.setItem(subKeyName, jsonStr);
-          var cleanIdx2 = keysToClean.indexOf(subKeyName);
-          if (cleanIdx2 >= 0) keysToClean.splice(cleanIdx2, 1);
+          newKeys.push(subKeyName);
         } catch(subErr) {
           console.warn('[Split] 作品 ' + w.id + ' 子字段 ' + subKey + ' 拆分失败:', subErr && subErr.message);
           // 子字段存储失败时尝试压缩后重试
@@ -1056,18 +1051,24 @@ const DB = {
             try {
               var compressed = self._compressLongMemoryForStorage(val, true);
               localStorage.setItem(subKeyName, JSON.stringify(compressed));
-              var cleanIdx3 = keysToClean.indexOf(subKeyName);
-              if (cleanIdx3 >= 0) keysToClean.splice(cleanIdx3, 1);
+              newKeys.push(subKeyName);
             } catch(retryErr) {
               console.warn('[Split] 重试也失败:', retryErr && retryErr.message);
+              // 写入失败则保留旧数据：确保该key不会被清理
+              if (existingKeys.indexOf(subKeyName) >= 0) newKeys.push(subKeyName);
             }
+          } else {
+            // 写入失败则保留旧数据：确保该key不会被清理
+            if (existingKeys.indexOf(subKeyName) >= 0) newKeys.push(subKeyName);
           }
         }
       });
     });
-    // 清理不再存在的作品的拆分key
-    keysToClean.forEach(function(oldKey) {
-      try { localStorage.removeItem(oldKey); } catch(e) {}
+    // 仅清理已不存在的作品的旧key（即不在newKeys中的key），避免误删写入失败字段的旧数据
+    existingKeys.forEach(function(oldKey) {
+      if (newKeys.indexOf(oldKey) < 0) {
+        try { localStorage.removeItem(oldKey); } catch(e) {}
+      }
     });
   },
 
@@ -1300,11 +1301,8 @@ const DB = {
   // 强制立即落盘（页面关闭/导出前调用）
   flush() {
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
-    if (this._savePending) {
-      this._savePending = false;
-      return this.saveImmediate(false);
-    }
-    return true;
+    this._savePending = false;
+    return this.saveImmediate(false);
   },
 
   // 回收站：列出已删除作品（30 天内可恢复）
@@ -1365,9 +1363,9 @@ const DB = {
       if (!data || typeof data !== 'object') throw new Error('文件不是有效 JSON');
       if (!data.works || !Array.isArray(data.works)) throw new Error('文件格式不正确，缺少 works 数组');
       // 版本校验：未来版本可能不兼容
-      if (data._version && data._version > 20) {
+      if (data._version && data._version > window.APP_DATA_VERSION) {
         if (typeof window.showToast === 'function') {
-          window.showToast('⚠️ 备份版本(v'+data._version+')较新，可能不完全兼容', 3000);
+          window.showToast('⚠️ 备份版本(v'+data._version+')较新（当前 v'+window.APP_DATA_VERSION+'），可能不完全兼容', 3000);
         }
       }
       var imported = 0;
@@ -1417,19 +1415,24 @@ const DB = {
 
   // 获取当前作品
   getWork() {
-    const id = localStorage.getItem('last_edit_work');
+    let id = null;
+    try { id = localStorage.getItem('last_edit_work'); } catch(e) {}
     if (!id || !this.works) return null;
     return this.works.find(w => w.id === id) || this.works[0];
   },
 
-  // 保存作品
+  // 保存作品（本地编辑后标记为脏，等待云端同步）
   saveWork(work) {
     if (!this.validateWorkIsolation(work)) return false;
     this.ensureWorkFingerprint(work);
     const idx = this.works.findIndex(w => w.id === work.id);
     if (idx >= 0) {
+      // 保留原_version（云端同步版本），仅标记为脏
+      if (this.works[idx]._version !== undefined) work._version = this.works[idx]._version;
+      work._dirty = true;
       this.works[idx] = work;
     } else {
+      work._dirty = true;
       this.works.push(work);
     }
     try { this.markWorkShardsDirty(work); } catch(shardErr) {}
@@ -1462,7 +1465,7 @@ const DB = {
     this.ensureWorkFingerprint(work);
     this.works.push(work);
     this.save();
-    localStorage.setItem('last_edit_work', work.id);
+    try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
     return work;
   },
 
@@ -1485,9 +1488,16 @@ const DB = {
     this.flush();
   },
 
-  // 物理删除（不入回收站，用于回收站清空）
+  // 物理删除（不入回收站，用于回收站清空）——同步时通知云端一并删除
   hardDeleteWork(id) {
     this.works = this.works.filter(function(w) { return w.id !== id; });
+    // 记录到云端待删列表（如果已在 works/_trash 中有过，说明云端可能存在）
+    this._cloudDeleteList = this._cloudDeleteList || [];
+    if (this._cloudDeleteList.indexOf(id) < 0) {
+      this._cloudDeleteList.push(id);
+      // 最多保留 200 个（避免无限增长）
+      if (this._cloudDeleteList.length > 200) this._cloudDeleteList = this._cloudDeleteList.slice(-200);
+    }
     this.flush();
   },
 
