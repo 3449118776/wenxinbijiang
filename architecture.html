@@ -1192,21 +1192,22 @@ function buildArchPrompt(module, idea, work, extraHint){
 
   // ===== 通用头部（所有模块共用）=====
   var head = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+
+  // ===== 用户核心诉求放在第一位，优先级最高 =====
+  var userBlock = '';
+  if(idea.trim().length > 0){
+    userBlock += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n';
+    userBlock += idea.trim() + '\n\n';
+  } else {
+    userBlock += '【用户核心诉求 — 本次无特殊要求，由你基于题材和作品自由发挥，但必须避免模板化】\n\n';
+  }
+
   head += '【作品基础信息】\n';
   head += '作品名称：' + title + '\n';
   if(genre) head += '一级题材：' + genre + '\n';
   if(plotType) head += '二级细分：' + plotType + '\n';
   head += '发布平台：' + platformTxt + '\n';
   head += '\n';
-
-  // ===== 用户核心诉求（永远最高权重）=====
-  var userBlock = '';
-  if(idea.trim().length > 0){
-    userBlock += '【用户核心诉求 — 权重最高，必须严格执行，任何其他参考都不能与它冲突】\n';
-    userBlock += idea.trim() + '\n\n';
-  } else {
-    userBlock += '【用户核心诉求 — 本次无特殊要求，由你基于题材和作品自由发挥，但必须避免模板化】\n\n';
-  }
 
   // ===== 白金作家创作法则（2025 年最新，每次随机注入 5 条）=====
   var platinumBlock = '【白金作家创作法则 — 必须遵循】\n' + getPlatinumRulesHint() + '\n\n';
@@ -1475,14 +1476,14 @@ function buildArchPrompt(module, idea, work, extraHint){
 
   // 输出前提示：先估算当前输入长度，若过长则进一步压缩
   var prePrompt = '';
-  var estimatedInputLen = (head + userBlock + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail).length;
+  var estimatedInputLen = (userBlock + head + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail).length;
   // 如果输入已经超过 6000 字，在开头警告 AI 需要精简（通过减少趋势信息的方式）
   if(estimatedInputLen > 6000){
     // 压缩趋势信息到更短
     trendBlock = '【2026 年题材趋势参考（精简版）】\n' + smartTruncate(trend, 200) + '\n\n';
   }
 
-  var fullPrompt = head + userBlock + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail;
+  var fullPrompt = userBlock + head + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail;
   return fullPrompt;
 }
 
@@ -1753,7 +1754,15 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint){
   try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
 
   var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
-  prompt += '【⚠️ 最高优先级·一致性铁律 — 违反任何一条即视为生成失败】\n';
+
+  // 用户核心诉求放在第一位，优先级最高
+  if(idea && idea.trim()){
+    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+  } else {
+    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+  }
+
+  prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
   prompt += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
   prompt += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
   prompt += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
@@ -1764,13 +1773,6 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint){
   prompt += '作品名称：' + title + '\n';
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
-
-  // 用户核心诉求始终放在最高权重位置
-  if(idea && idea.trim()){
-    prompt += '【用户核心诉求 — 权重最高，必须严格执行】\n' + idea.trim() + '\n\n';
-  } else {
-    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
-  }
 
   // 前置架构上下文（给本卡片作为一致性锚点，增大引用量）
   if(module !== 'world'){
