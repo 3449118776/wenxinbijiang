@@ -1307,6 +1307,78 @@ window.extractCharArcProgress = extractCharArcProgress;
 window.saveCharArcProgress = saveCharArcProgress;
 window.buildCharArcContext = buildCharArcContext;
 
+// ========== v55: 用户模板few-shot注入 — 从"我的模板"库检索匹配项作为写作示例 ==========
+// 检索逻辑：按当前章节类型（开篇/场景/细纲）+ 题材标签匹配，取最相关的1-2个模板片段
+function buildUserTemplateContext(work, chapterIdx) {
+  try {
+    var MY_TPL_KEY = 'wxbj_my_templates';
+    var raw = localStorage.getItem(MY_TPL_KEY);
+    if (!raw) return '';
+    var list = JSON.parse(raw);
+    if (!Array.isArray(list) || list.length === 0) return '';
+
+    var genre = getWorkGenre(work);
+    var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || '' : '';
+    var isFirstChapter = chapterIdx === 0;
+
+    // 确定当前需要的模板类型
+    // 第1章/开篇章 → opening；其他章 → scene/detail
+    var desiredCats = isFirstChapter ? ['opening', 'scene', 'detail'] : ['scene', 'detail', 'opening'];
+
+    // 评分每个模板的相关性
+    var scored = [];
+    list.forEach(function(tpl){
+      if (!tpl.content || tpl.content.length < 50) return;
+      var score = 0;
+      // 分类匹配
+      if (desiredCats.indexOf(tpl.category) >= 0) score += 30;
+      // 题材标签匹配
+      if (tpl.tag && genre) {
+        var tplTags = tpl.tag.toLowerCase().split(/[\/,，、\s]+/);
+        var genreLower = genre.toLowerCase();
+        tplTags.forEach(function(tt){
+          if (tt && genreLower.indexOf(tt) >= 0) score += 25;
+        });
+      }
+      // 内容关键词匹配（与当前章节标题/细纲）
+      if (work.detail && tpl.content) {
+        var detailSnippet = work.detail.substring(0, 500);
+        // 简单关键词重合度
+        var tplKeywords = (tpl.content.match(/[\u4e00-\u9fa5]{2,4}/g) || []).slice(0, 30);
+        var matchCount = 0;
+        tplKeywords.forEach(function(kw){
+          if (detailSnippet.indexOf(kw) >= 0) matchCount++;
+        });
+        score += Math.min(matchCount * 3, 15);
+      }
+      // 自定义模板降权（可能不相关）
+      if (tpl.category === 'custom') score -= 10;
+      if (score > 0) scored.push({ tpl: tpl, score: score });
+    });
+
+    if (scored.length === 0) return '';
+    // 按分数排序，取top 2
+    scored.sort(function(a, b){ return b.score - a.score; });
+    var selected = scored.slice(0, 2).map(function(s){ return s.tpl; });
+
+    var lines = ['【参考模板·few-shot示例 — 学习其结构/节奏/技法，但不要照抄内容】'];
+    selected.forEach(function(tpl, i){
+      var snippet = tpl.content;
+      // 限制每个模板最多800字，避免prompt过长
+      if (snippet.length > 800) snippet = snippet.substring(0, 800) + '\n...(略)...';
+      lines.push('--- 参考模板' + (i + 1) + '：' + tpl.title + '（' + (tpl.tag || tpl.category) + '）---');
+      lines.push(snippet);
+    });
+    lines.push('【写作指令】以上是用户提供的参考模板，请学习其叙事节奏、场景构建、对话技法，但本章的剧情和角色必须基于你自己的细纲，不要照搬模板内容。');
+    return lines.join('\n');
+  } catch(e) {
+    console.warn('[userTplCtx]', e);
+    return '';
+  }
+}
+
+window.buildUserTemplateContext = buildUserTemplateContext;
+
 
 // 从已有架构中提取关键元素清单，强制AI引用（防编造）
 
@@ -1961,6 +2033,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     var arcCtx = buildCharArcContext(work, chapterIdx);
     if (arcCtx) prompt += arcCtx + '\n\n';
   } catch(arcErr) { console.warn('[arcCtx]', arcErr); }
+
+  // === v55: 注入用户上传的模板作为few-shot示例（从"我的模板"库检索匹配项）===
+  try {
+    var userTplCtx = buildUserTemplateContext(work, chapterIdx);
+    if (userTplCtx) prompt += userTplCtx + '\n\n';
+  } catch(tplErr) { console.warn('[userTpl]', tplErr); }
   
   // === v29: 注入上一章质量短板，本章针对性补强 ===
   if (typeof QualityEngine !== 'undefined' && QualityEngine.lastHints) {

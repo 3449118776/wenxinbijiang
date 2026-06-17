@@ -74,6 +74,40 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
 /* Toast */
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
 .toast.show{opacity:1;}
+
+/* === v55: 我的模板（用户上传）样式 === */
+.my-tpl-toolbar{padding:12px 16px;background:#fff;display:flex;gap:8px;align-items:center;border-bottom:1px solid #eee;position:sticky;top:48px;z-index:50;}
+.my-tpl-toolbar button{padding:8px 14px;border-radius:8px;border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.my-tpl-toolbar .upload-btn{background:#f59e0b;color:#fff;position:relative;overflow:hidden;}
+.my-tpl-toolbar .upload-btn input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.my-tpl-toolbar .add-btn{background:#6366f1;color:#fff;}
+.my-tpl-toolbar .filter-select{padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:#fff;}
+.my-tpl-empty{text-align:center;padding:40px 20px;color:#999;}
+.my-tpl-empty .icon{font-size:48px;margin-bottom:12px;}
+.my-tpl-item{background:#fff;border-radius:12px;padding:14px;margin:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #f0f0f0;border-left:3px solid #f59e0b;}
+.my-tpl-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.my-tpl-item-title{font-size:15px;font-weight:600;color:#222;}
+.my-tpl-item-meta{font-size:11px;color:#999;margin-bottom:8px;}
+.my-tpl-item-meta .tag{display:inline-block;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:10px;margin-right:6px;}
+.my-tpl-item-actions{display:flex;gap:6px;margin-top:8px;}
+.my-tpl-item-actions button{padding:6px 10px;border-radius:6px;border:none;font-size:12px;cursor:pointer;}
+.my-tpl-item-actions .use-btn{background:#6366f1;color:#fff;}
+.my-tpl-item-actions .edit-btn{background:#f1f5f9;color:#333;}
+.my-tpl-item-actions .del-btn{background:#fee2e2;color:#dc2626;}
+
+/* 编辑/新增弹窗 */
+.edit-modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px;}
+.edit-modal.show{display:flex;}
+.edit-modal-content{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;}
+.edit-modal-title{font-size:16px;font-weight:600;margin-bottom:14px;}
+.edit-modal-field{margin-bottom:12px;}
+.edit-modal-field label{display:block;font-size:13px;color:#666;margin-bottom:4px;}
+.edit-modal-field input,.edit-modal-field select,.edit-modal-field textarea{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;}
+.edit-modal-field textarea{min-height:180px;resize:vertical;line-height:1.5;}
+.edit-modal-actions{display:flex;gap:8px;margin-top:14px;}
+.edit-modal-actions button{flex:1;padding:10px;border-radius:8px;border:none;font-size:14px;cursor:pointer;}
+.edit-modal-actions .save-btn{background:#6366f1;color:#fff;}
+.edit-modal-actions .cancel-btn{background:#f1f5f9;color:#333;}
 </style>
 </head>
 <body>
@@ -127,6 +161,11 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
       <div class="name">词句库</div>
       <div class="count">6大分类</div>
     </div>
+    <div class="tpl-card" onclick="showMyTemplates()" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;">
+      <div class="icon">&#11088;</div>
+      <div class="name">我的模板</div>
+      <div class="count" id="my-tpl-count">0个模板</div>
+    </div>
   </div>
 </div>
 
@@ -136,6 +175,41 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
   <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">&#127968;</div><div>首页</div></div>
   <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">&#128295;</div><div>工具</div></div>
   <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">&#9881;&#65039;</div><div>设置</div></div>
+</div>
+
+<!-- v55: 编辑/新增模板弹窗 -->
+<div class="edit-modal" id="edit-modal">
+  <div class="edit-modal-content">
+    <div class="edit-modal-title" id="edit-modal-title">新增模板</div>
+    <div class="edit-modal-field">
+      <label>模板标题</label>
+      <input type="text" id="edit-title" placeholder="如：我的开篇模板">
+    </div>
+    <div class="edit-modal-field">
+      <label>分类</label>
+      <select id="edit-category">
+        <option value="world">世界观</option>
+        <option value="chars">人物</option>
+        <option value="outline">大纲</option>
+        <option value="detail">细纲</option>
+        <option value="opening">开篇</option>
+        <option value="scene">场景</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+    <div class="edit-modal-field">
+      <label>标签（题材/风格）</label>
+      <input type="text" id="edit-tag" placeholder="如：玄幻/热血">
+    </div>
+    <div class="edit-modal-field">
+      <label>模板内容</label>
+      <textarea id="edit-content" placeholder="粘贴或输入模板内容..."></textarea>
+    </div>
+    <div class="edit-modal-actions">
+      <button class="cancel-btn" onclick="closeEditModal()">取消</button>
+      <button class="save-btn" onclick="saveMyTemplate()">保存</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -312,10 +386,267 @@ function handleFileImport(event){
   setTimeout(function(){event.target.value='';},800);
 }
 
+// ========== v55: 我的模板（用户上传/自建，持久化到localStorage）==========
+var MY_TPL_KEY = 'wxbj_my_templates';
+var editingTplId = null; // 当前编辑的模板ID（null=新增）
+
+// 读取用户模板
+function getMyTemplates(){
+  try{
+    var raw = localStorage.getItem(MY_TPL_KEY);
+    if(!raw) return [];
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+
+// 保存用户模板
+function saveMyTemplatesList(list){
+  try{
+    localStorage.setItem(MY_TPL_KEY, JSON.stringify(list));
+    updateMyTplCount();
+  }catch(e){ showToast('保存失败：存储空间不足'); }
+}
+
+// 更新首页"我的模板"数量
+function updateMyTplCount(){
+  var list = getMyTemplates();
+  var el = document.getElementById('my-tpl-count');
+  if(el) el.textContent = list.length + '个模板';
+}
+
+// 显示"我的模板"列表页
+function showMyTemplates(){
+  document.getElementById('page-title').textContent = '我的模板';
+  var html = '<div class="tpl-back"><button onclick="showTplGrid()">&#8249; 返回</button><span>&#11088; 我的模板</span></div>';
+  html += '<div class="my-tpl-toolbar">';
+  html += '<button class="upload-btn">&#128229; 上传文件<input type="file" id="my-tpl-upload" accept=".txt,.md,.json" multiple></button>';
+  html += '<button class="add-btn" onclick="openAddModal()">&#10133; 手动添加</button>';
+  html += '<select class="filter-select" id="my-tpl-filter" onchange="renderMyTplList()">';
+  html += '<option value="">全部分类</option>';
+  html += '<option value="world">世界观</option><option value="chars">人物</option>';
+  html += '<option value="outline">大纲</option><option value="detail">细纲</option>';
+  html += '<option value="opening">开篇</option><option value="scene">场景</option>';
+  html += '<option value="custom">自定义</option>';
+  html += '</select>';
+  html += '</div>';
+  html += '<div id="my-tpl-list-container"></div>';
+  document.getElementById('tpl-content').innerHTML = html;
+  renderMyTplList();
+  // 绑定上传
+  var up = document.getElementById('my-tpl-upload');
+  if(up) up.addEventListener('change', handleMyTplUpload);
+}
+
+// 渲染模板列表
+function renderMyTplList(){
+  var list = getMyTemplates();
+  var filter = '';
+  var fs = document.getElementById('my-tpl-filter');
+  if(fs) filter = fs.value;
+  if(filter) list = list.filter(function(t){ return t.category === filter; });
+  var container = document.getElementById('my-tpl-list-container');
+  if(!container) return;
+  if(list.length === 0){
+    container.innerHTML = '<div class="my-tpl-empty"><div class="icon">&#128193;</div><div>还没有模板</div><div style="font-size:13px;margin-top:8px;">点击"上传文件"或"手动添加"创建你的模板</div></div>';
+    return;
+  }
+  var catNames = {world:'世界观',chars:'人物',outline:'大纲',detail:'细纲',opening:'开篇',scene:'场景',custom:'自定义'};
+  var html = '';
+  list.forEach(function(t){
+    var preview = (t.content || '').substring(0, 100).replace(/\n/g, ' ');
+    html += '<div class="my-tpl-item">';
+    html += '<div class="my-tpl-item-head"><div class="my-tpl-item-title">'+escapeHtml(t.title)+'</div></div>';
+    html += '<div class="my-tpl-item-meta"><span class="tag">'+escapeHtml(catNames[t.category]||t.category)+'</span>';
+    if(t.tag) html += '<span class="tag">'+escapeHtml(t.tag)+'</span>';
+    if(t.source === 'upload') html += '<span class="tag">上传</span>';
+    html += '</div>';
+    html += '<div class="tpl-preview">'+escapeHtml(preview)+'...</div>';
+    html += '<div class="my-tpl-item-actions">';
+    html += '<button class="use-btn" onclick="useMyTemplate(\''+t.id+'\')">&#9997; 使用</button>';
+    html += '<button class="edit-btn" onclick="openEditModal(\''+t.id+'\')">&#9998; 编辑</button>';
+    html += '<button class="del-btn" onclick="deleteMyTemplate(\''+t.id+'\')">&#128465; 删除</button>';
+    html += '</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+// 处理文件上传（支持txt/md/json，可多文件）
+function handleMyTplUpload(event){
+  var files = event.target.files;
+  if(!files || files.length === 0) return;
+  var list = getMyTemplates();
+  var successCount = 0;
+  var processed = 0;
+  var totalFiles = files.length;
+
+  Array.prototype.forEach.call(files, function(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      processed++;
+      try{
+        var content = e.target.result;
+        var fileName = file.name.replace(/\.[^.]+$/, '');
+        var ext = file.name.split('.').pop().toLowerCase();
+        var tpl = null;
+
+        if(ext === 'json'){
+          // JSON格式：支持单个{title,content,category,tag}或数组
+          var parsed = JSON.parse(content);
+          if(Array.isArray(parsed)){
+            parsed.forEach(function(item){
+              if(item.content){
+                list.push(makeMyTpl(item.title || fileName, item.content, item.category || guessCategory(item.content), item.tag || '', 'upload'));
+                successCount++;
+              }
+            });
+          } else if(parsed.content){
+            tpl = makeMyTpl(parsed.title || fileName, parsed.content, parsed.category || guessCategory(parsed.content), parsed.tag || '', 'upload');
+          }
+        } else {
+          // txt/md：整文件作为一个模板
+          tpl = makeMyTpl(fileName, content, guessCategory(content), '', 'upload');
+        }
+        if(tpl){ list.push(tpl); successCount++; }
+      }catch(err){
+        console.warn('上传解析失败:', file.name, err);
+      }
+      // 所有文件处理完才保存
+      if(processed === totalFiles){
+        saveMyTemplatesList(list);
+        renderMyTplList();
+        showToast('成功导入 ' + successCount + ' 个模板');
+      }
+    };
+    reader.readAsText(file);
+  });
+  event.target.value = '';
+}
+
+// 根据内容猜测分类
+function guessCategory(content){
+  if(!content) return 'custom';
+  if(/世界规则|力量体系|地域|势力|修仙|魔法|世界观/.test(content)) return 'world';
+  if(/姓名|年龄|性格|背景|弱点|主角|配角|反派/.test(content)) return 'chars';
+  if(/第.卷|第一卷|第二卷|大纲|卷末/.test(content)) return 'outline';
+  if(/第.章|细纲|情绪基调|爽点|硬节点|数字面板/.test(content)) return 'detail';
+  if(/开篇|开头|开场|穿越开篇|重生开篇/.test(content)) return 'opening';
+  if(/场景|战斗场景|修炼场景|谈判/.test(content)) return 'scene';
+  return 'custom';
+}
+
+// 创建模板对象
+function makeMyTpl(title, content, category, tag, source){
+  return {
+    id: 'mt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+    title: title || '未命名模板',
+    content: content || '',
+    category: category || 'custom',
+    tag: tag || '',
+    source: source || 'manual',
+    createdAt: Date.now()
+  };
+}
+
+// 打开新增弹窗
+function openAddModal(){
+  editingTplId = null;
+  document.getElementById('edit-modal-title').textContent = '新增模板';
+  document.getElementById('edit-title').value = '';
+  document.getElementById('edit-category').value = 'custom';
+  document.getElementById('edit-tag').value = '';
+  document.getElementById('edit-content').value = '';
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+// 打开编辑弹窗
+function openEditModal(id){
+  var list = getMyTemplates();
+  var tpl = list.find(function(t){ return t.id === id; });
+  if(!tpl){ showToast('模板不存在'); return; }
+  editingTplId = id;
+  document.getElementById('edit-modal-title').textContent = '编辑模板';
+  document.getElementById('edit-title').value = tpl.title || '';
+  document.getElementById('edit-category').value = tpl.category || 'custom';
+  document.getElementById('edit-tag').value = tpl.tag || '';
+  document.getElementById('edit-content').value = tpl.content || '';
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').classList.remove('show');
+  editingTplId = null;
+}
+
+// 保存模板（新增或更新）
+function saveMyTemplate(){
+  var title = document.getElementById('edit-title').value.trim();
+  var content = document.getElementById('edit-content').value.trim();
+  if(!title){ showToast('请输入标题'); return; }
+  if(!content){ showToast('请输入内容'); return; }
+  if(content.length > 50000){ showToast('内容过长（超过5万字），请拆分'); return; }
+  var category = document.getElementById('edit-category').value;
+  var tag = document.getElementById('edit-tag').value.trim();
+  var list = getMyTemplates();
+  if(editingTplId){
+    // 更新
+    var idx = list.findIndex(function(t){ return t.id === editingTplId; });
+    if(idx >= 0){
+      list[idx].title = title;
+      list[idx].content = content;
+      list[idx].category = category;
+      list[idx].tag = tag;
+      list[idx].updatedAt = Date.now();
+    }
+    showToast('模板已更新');
+  } else {
+    // 新增
+    list.push(makeMyTpl(title, content, category, tag, 'manual'));
+    showToast('模板已添加');
+  }
+  saveMyTemplatesList(list);
+  renderMyTplList();
+  closeEditModal();
+}
+
+// 删除模板
+function deleteMyTemplate(id){
+  if(!confirm('确定删除这个模板？此操作不可撤销。')) return;
+  var list = getMyTemplates().filter(function(t){ return t.id !== id; });
+  saveMyTemplatesList(list);
+  renderMyTplList();
+  showToast('已删除');
+}
+
+// 使用模板（导入到当前作品）
+function useMyTemplate(id){
+  var list = getMyTemplates();
+  var tpl = list.find(function(t){ return t.id === id; });
+  if(!tpl){ showToast('模板不存在'); return; }
+  var work = DB.getWork();
+  if(!work){ showToast('请先创建作品'); location.href='new-book.html'; return; }
+  if(tpl.category === 'world'){ work.world = tpl.content; }
+  else if(tpl.category === 'chars'){ work.chars = tpl.content; }
+  else if(tpl.category === 'outline'){ work.outline = tpl.content; }
+  else if(tpl.category === 'detail'){ work.detail = tpl.content; }
+  else { localStorage.setItem('tpl_to_use', tpl.content); location.href='write.html'; return; }
+  DB.saveWork(work);
+  showToast('模板已导入到当前作品');
+  location.href = 'architecture.html';
+}
+
+// HTML转义防XSS
+function escapeHtml(str){
+  if(!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // 初始化时绑定文件导入事件
 window.addEventListener('DOMContentLoaded',function(){
   var fi=document.getElementById('file-input');
   if(fi){fi.addEventListener('change',handleFileImport);}
+  updateMyTplCount();
 });
 
 window.addEventListener('DOMContentLoaded',function(){
