@@ -422,6 +422,8 @@ CloudSync.prototype = {
               if (localWorks[ei].id === wid) {
                 _mergeWork(localWorks[ei], full.work.payload);
                 localWorks[ei]._version = full.work.version;
+                // 拉取后清除脏标记，避免推送逻辑混乱
+                delete localWorks[ei]._dirty;
                 existing = true;
                 break;
               }

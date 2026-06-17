@@ -252,16 +252,12 @@ export async function db_upsert_work(userId, body) {
     return { status: 'created', version: 1 };
   }
 
-  const clientVersion = parseInt(body.version) || 0;
-  if (clientVersion <= rec.version && rec.version > 0) {
-    return { status: 'unchanged', version: rec.version };
-  }
-
+  // 始终接受推送并递增版本（前端已通过 _dirty 标记确保只推送有意义的更新）
   rec.title = body.title || rec.title;
   rec.category = body.category || rec.category;
   rec.synopsis = body.synopsis || rec.synopsis;
   rec.payload = payloadStr;
-  rec.version = Math.max(rec.version + 1, clientVersion);
+  rec.version += 1;
   rec.chapterCount = body.chapterCount || rec.chapterCount || 0;
   rec.totalWords = body.totalWords || rec.totalWords || 0;
   rec.updatedAt = now;

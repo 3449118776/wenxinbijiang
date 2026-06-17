@@ -121,6 +121,15 @@ const DB = {
       });
       try { this.ensureAllFingerprints(); } catch(fpErr) {}
       if (this.works.length > 0) this.save();
+      // v47修复：标记所有已有作品为脏，强制与云端重新同步
+      // 解决历史作品因版本号相同而无法同步的问题
+      (this.works || []).forEach(function(w) {
+        if (w && w.id) {
+          // 保留_version，将dirty重置为true强制推送
+          // 如果_version为undefined，说明是从未同步过，不需要处理
+          w._dirty = true;
+        }
+      });
       // v38：启动App记忆自动维护
       try { this.startAutoMaintenance(); } catch(autoErr) {}
       this._initialized = true;
@@ -1423,17 +1432,19 @@ const DB = {
     return this.works.find(w => w.id === id) || this.works[0];
   },
 
-  // 保存作品（本地编辑后标记为脏，等待云端同步）
+  // 保存作品（本地编辑后标记为脏，递增版本号，等待云端同步）
   saveWork(work) {
     if (!this.validateWorkIsolation(work)) return false;
     this.ensureWorkFingerprint(work);
     const idx = this.works.findIndex(w => w.id === work.id);
     if (idx >= 0) {
-      // 保留原_version（云端同步版本），仅标记为脏
-      if (this.works[idx]._version !== undefined) work._version = this.works[idx]._version;
+      // 保留并递增_version（云端同步版本），确保每次编辑都能推送
+      var oldVersion = this.works[idx]._version || 0;
+      work._version = oldVersion + 1;
       work._dirty = true;
       this.works[idx] = work;
     } else {
+      work._version = 1;
       work._dirty = true;
       this.works.push(work);
     }
@@ -1462,7 +1473,9 @@ const DB = {
       archStatus: { world: 'pending', chars: 'locked', outline: 'locked', detail: 'locked' },
       longMemory: {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:'', memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}, chainConsistency:[]},
       settings: {genre:'', concept:'', platform:'general'},
-      created: new Date().toISOString()
+      created: new Date().toISOString(),
+      _version: 1,
+      _dirty: true
     };
     this.ensureWorkFingerprint(work);
     this.works.push(work);
