@@ -386,6 +386,11 @@ async function handle_ai_test(req) {
         else if (resp.status === 429) kind = 'rate';
         else if (resp.status >= 500) kind = 'network';
 
+        // 429 或 5xx 说明密钥有效，只是服务端繁忙
+        if (resp.status === 429 || resp.status >= 500) {
+          return json_response({ success: true, message: '密钥有效（服务繁忙，HTTP ' + resp.status + '，稍后即可正常使用）', kind: 'ok' });
+        }
+
         return json_response({ success: false, message: errMsg || ('HTTP ' + resp.status), kind, status: resp.status });
       } catch (e) {
         clearTimeout(tid);
