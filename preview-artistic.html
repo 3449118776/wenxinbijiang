@@ -83,20 +83,20 @@ body {
 
 /* 标题区 */
 .header {
-  padding: 32px 24px 20px;
+  padding: 24px 24px 16px;
   text-align: center;
 }
 
 .logo {
   font-family: 'ZCOOL XiaoWei', serif;
-  font-size: 28px;
+  font-size: 26px;
   color: var(--ink-dark);
-  letter-spacing: 6px;
-  margin-bottom: 4px;
+  letter-spacing: 5px;
+  margin-bottom: 2px;
 }
 
 .tagline {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ink-light);
   letter-spacing: 2px;
 }
@@ -110,13 +110,16 @@ body {
 .feature-card {
   background: linear-gradient(135deg, #fff 0%, var(--bg-warm) 100%);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 18px;
-  margin-bottom: 12px;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .feature-card::before {
@@ -143,33 +146,33 @@ body {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 8px;
+  gap: 12px;
+  flex: 1;
 }
 
 .card-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   background: var(--bg-paper);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
   box-shadow: 0 2px 8px rgba(139, 93, 73, 0.1);
+  flex-shrink: 0;
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-dark);
 }
 
 .card-desc {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-light);
-  line-height: 1.6;
-  padding-left: 58px;
+  line-height: 1.4;
 }
 
 /* 云端状态 */
@@ -178,12 +181,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   background: var(--bg-warm);
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-light);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   margin-left: 18px;
   margin-right: 18px;
 }
@@ -211,8 +214,8 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-subtle);
-  padding: 8px 0;
-  padding-bottom: calc(8px + var(--safe-bottom));
+  padding: 6px 0;
+  padding-bottom: calc(6px + var(--safe-bottom));
   display: flex;
   justify-content: space-around;
   z-index: 50;
@@ -222,11 +225,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   color: var(--ink-light);
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
-  padding: 6px 20px;
+  padding: 4px 16px;
   transition: color 0.2s;
 }
 
@@ -235,7 +238,7 @@ body {
 }
 
 .nav-item span:first-child {
-  font-size: 22px;
+  font-size: 20px;
 }
 
 /* 装饰线 */
@@ -243,9 +246,9 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 24px 18px;
+  margin: 16px 18px;
   color: var(--ink-light);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 2px;
 }
 
@@ -287,53 +290,65 @@ body {
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">✨</div>
-          <div class="card-title">新建小说</div>
+          <div>
+            <div class="card-title">新建小说</div>
+            <div class="card-desc">定名、简介与世界观</div>
+          </div>
         </div>
-        <div class="card-desc">定名、简介与世界观设定</div>
       </div>
       
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">📋</div>
-          <div class="card-title">架构设计</div>
+          <div>
+            <div class="card-title">架构设计</div>
+            <div class="card-desc">人物、情节与结构</div>
+          </div>
         </div>
-        <div class="card-desc">人物、情节与结构构建</div>
       </div>
       
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">✍</div>
-          <div class="card-title">AI写作</div>
+          <div>
+            <div class="card-title">AI写作</div>
+            <div class="card-desc">智能辅助创作润色</div>
+          </div>
         </div>
-        <div class="card-desc">智能辅助创作与润色</div>
       </div>
       
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">📂</div>
-          <div class="card-title">作品管理</div>
+          <div>
+            <div class="card-title">作品管理</div>
+            <div class="card-desc">章节整理与版本</div>
+          </div>
         </div>
-        <div class="card-desc">章节整理与版本管理</div>
       </div>
       
       <div class="divider">
-        <span>更多功能</span>
+        <span>更多</span>
       </div>
       
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">📄</div>
-          <div class="card-title">模板库</div>
+          <div>
+            <div class="card-title">模板库</div>
+            <div class="card-desc">经典架构模板</div>
+          </div>
         </div>
-        <div class="card-desc">经典架构模板参考</div>
       </div>
       
       <div class="feature-card">
         <div class="card-header">
           <div class="card-icon">🧭</div>
-          <div class="card-title">创作中枢</div>
+          <div>
+            <div class="card-title">创作中枢</div>
+            <div class="card-desc">记忆、备份、数据分析</div>
+          </div>
         </div>
-        <div class="card-desc">记忆、备份与数据分析</div>
       </div>
     </div>
   </div>
