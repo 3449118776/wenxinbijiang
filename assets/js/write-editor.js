@@ -1696,19 +1696,19 @@ function buildWriteConsistencyBlock(work, chapterIdx) {
 
 
 // 根据模型上下文窗口动态计算架构内容截断上限
-// 大上下文模型（128K+）传完整架构，小上下文模型按比例截断
+// 128K+ 模型：不截断，完整传架构；小模型：按比例
 function getArchTruncationLimits() {
-  var ctx = 131072; // 默认 128K
+  var ctx = 131072;
   try { if (typeof getModelContextWindow === 'function') ctx = getModelContextWindow(); } catch(e) {}
-  var limits = { world: 8000, chars: 5000, outline: 5000, detail: 5000 }; // 默认（8K-32K 模型）
   if (ctx >= 100000) {
-    // 128K+ 模型：基本不截断，传完整架构
-    limits = { world: 50000, chars: 30000, outline: 50000, detail: 50000 };
-  } else if (ctx >= 30000) {
-    // 32K-100K 模型：适度截断
-    limits = { world: 15000, chars: 10000, outline: 12000, detail: 12000 };
+    // 128K+ 模型：上下文足够大，不限制架构内容
+    return null;
   }
-  return limits;
+  if (ctx >= 30000) {
+    return { world: 15000, chars: 10000, outline: 12000, detail: 12000 };
+  }
+  // 8K-32K 模型
+  return { world: 8000, chars: 5000, outline: 5000, detail: 5000 };
 }
 
 // 构建章节写作prompt
@@ -1891,7 +1891,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = work.world.length > archLimits.world ? smartCompressArch(work.world, archLimits.world) : work.world;
+    var worldText = archLimits && work.world.length > archLimits.world ? smartCompressArch(work.world, archLimits.world) : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
