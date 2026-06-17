@@ -1910,7 +1910,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   if (work.chars) {
-    const charsText = work.chars.length > archLimits.chars ? smartCompressArch(work.chars, archLimits.chars) : work.chars;
+    const charsText = (archLimits && work.chars.length > archLimits.chars) ? smartCompressArch(work.chars, archLimits.chars) : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
   if (work.outline) {
@@ -1922,7 +1922,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
       prompt += '\n';
     } else {
-      const outlineText = work.outline.length > archLimits.outline ? smartCompressArch(work.outline, archLimits.outline) : work.outline;
+      const outlineText = (archLimits && work.outline.length > archLimits.outline) ? smartCompressArch(work.outline, archLimits.outline) : work.outline;
       prompt += '【全书大纲】\n' + outlineText + '\n\n';
     }
   }
@@ -1930,7 +1930,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   // 传细纲，截断防止token爆炸 + 按章节标题精准匹配
   if (work.detail) {
     var detailText = work.detail;
-    if (detailText.length > archLimits.detail) {
+    if (archLimits && detailText.length > archLimits.detail) {
       // 尝试找到当前章节附近的细纲
       var idxInDetail = detailText.indexOf(chTitle);
       if (idxInDetail >= 0) {
@@ -2158,6 +2158,11 @@ function smartCompressArch(text, maxLen) {
 }
 
 // === v46 智能压缩：根据模型上下文窗口动态设置阈值 ===
+  // 128K+ 模型：上下文足够大，跳过压缩，直接传完整架构
+  if (!archLimits) {
+    // archLimits 为 null 表示大上下文模型，无需压缩
+    return prompt;
+  }
   var totalLen = prompt.length;
   // 根据模型上下文窗口计算安全上限（留 30% 给输出 + 指令开销）
   var ctxWindow = 131072;

@@ -316,8 +316,10 @@ var MODEL_MAX_OUTPUT = {
 // 各模型的上下文窗口大小（token），用于判断是否能传完整架构内容
 var MODEL_CONTEXT_WINDOW = {
   // DeepSeek
-  'deepseek-chat': 131072,       // 128K
-  'deepseek-reasoner': 65536,    // 64K
+  'deepseek-chat': 1000000,       // V4: 1M tokens
+  'deepseek-v4': 1000000,         // V4-Pro / V4-Flash
+  'deepseek-v3': 131072,          // V3: 128K
+  'deepseek-reasoner': 65536,     // R1: 64K
   'deepseek-coder': 65536,
   // 通义千问 (DashScope)
   'qwen-max': 32768,
