@@ -1891,7 +1891,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = work.world.length > archLimits.world ? work.world.substring(0, archLimits.world) + '...(完整世界观请参考)' : work.world;
+    var worldText = work.world.length > archLimits.world ? smartCompressArch(work.world, archLimits.world) : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
@@ -1910,7 +1910,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   if (work.chars) {
-    const charsText = work.chars.length > archLimits.chars ? work.chars.substring(0, archLimits.chars) + '...(完整人设请参考)' : work.chars;
+    const charsText = work.chars.length > archLimits.chars ? smartCompressArch(work.chars, archLimits.chars) : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
   if (work.outline) {
@@ -1922,7 +1922,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
       prompt += '\n';
     } else {
-      const outlineText = work.outline.length > archLimits.outline ? work.outline.substring(0, archLimits.outline) + '...(完整大纲请参考)' : work.outline;
+      const outlineText = work.outline.length > archLimits.outline ? smartCompressArch(work.outline, archLimits.outline) : work.outline;
       prompt += '【全书大纲】\n' + outlineText + '\n\n';
     }
   }
@@ -2118,7 +2118,46 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '- 环境不是背景板，它是情绪放大器——雨天写悲伤比晴天更有效，烈日写愤怒比阴天更有力\n';
   prompt += '- 配角不是NPC，他们有自己的日程——主角找他们帮忙时，他们可能正在忙自己的事\n';
   
-  // === v46 智能压缩：根据模型上下文窗口动态设置阈值 ===
+  // 智能压缩架构文本：保留首部（概览框架）+ 关键规则 + 尾部（最新细节），中间部分压缩
+// 避免 naive substring 把末尾的重要规则/设定一刀切掉
+function smartCompressArch(text, maxLen) {
+  if (!text || text.length <= maxLen) return text;
+  var headRatio = 0.35;  // 首部保留比例
+  var tailRatio = 0.35;  // 尾部保留比例
+  var headLen = Math.floor(maxLen * headRatio);
+  var tailLen = Math.floor(maxLen * tailRatio);
+  var midBudget = maxLen - headLen - tailLen - 30; // 30 给分隔符
+  
+  // 提取关键规则句（代价/限制/必须/禁忌/体系/等级/势力/规则）
+  var keyRules = [];
+  var ruleRE = /[^。\n]{0,50}(代价|规则|限制|不能|不可|必须|才能|除非|禁忌|体系|等级|势力|禁地|失传|诅咒|契约|核心|运转|世界观|力量体系|种族|阶层|文明|经济|地理|时代|背景)[^。\n]{0,100}[。\n]/g;
+  var rm;
+  while ((rm = ruleRE.exec(text)) !== null) {
+    var r = rm[0].trim();
+    if (r.length > 15 && keyRules.indexOf(r) === -1) keyRules.push(r);
+  }
+  
+  // 构建压缩结果：首部 + 关键规则 + 尾部
+  var result = text.substring(0, headLen);
+  var rulesText = '';
+  if (keyRules.length > 0 && midBudget > 50) {
+    rulesText = '\n\n【关键规则提取】\n';
+    var rulesAdded = 0;
+    for (var i = 0; i < keyRules.length; i++) {
+      var candidate = '- ' + keyRules[i] + '\n';
+      if (rulesAdded + candidate.length > midBudget) break;
+      rulesText += candidate;
+      rulesAdded += candidate.length;
+    }
+  }
+  result += rulesText;
+  result += '\n\n...(中间部分已压缩)...\n\n';
+  result += text.substring(text.length - tailLen);
+  
+  return result;
+}
+
+// === v46 智能压缩：根据模型上下文窗口动态设置阈值 ===
   var totalLen = prompt.length;
   // 根据模型上下文窗口计算安全上限（留 30% 给输出 + 指令开销）
   var ctxWindow = 131072;
@@ -2136,12 +2175,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
     if (work.world && work.world.length > 200 && ratio < 0.95) {
       var maxWorld = Math.max(200, Math.floor(archLimits.world * ratio));
-      var worldText2 = work.world.length > maxWorld ? work.world.substring(0, maxWorld) + '...(完整世界观请参考)' : work.world;
+      var worldText2 = smartCompressArch(work.world, maxWorld);
       prompt = prompt.replace(/【世界观设定】\n.*?\n\n/, '【世界观设定】\n' + worldText2 + '\n\n');
     }
     if (work.chars && work.chars.length > 200 && ratio < 0.9) {
       var maxChars = Math.max(200, Math.floor(archLimits.chars * ratio));
-      var charsText2 = work.chars.length > maxChars ? work.chars.substring(0, maxChars) + '...(完整人设请参考)' : work.chars;
+      var charsText2 = smartCompressArch(work.chars, maxChars);
       prompt = prompt.replace(/【人物人设】\n.*?\n\n/, '【人物人设】\n' + charsText2 + '\n\n');
     }
     // 二次检查：如果仍然超限，进一步压缩记忆和上文
