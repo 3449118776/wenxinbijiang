@@ -476,8 +476,8 @@ CloudSync.prototype = {
         }
       }
 
-      // 保存本地
-      try { if (DB && DB.save) DB.save(); } catch(e) {}
+      // 保存本地（立即落盘，避免页面刷新导致拉取数据丢失）
+      try { if (DB && DB.flush) DB.flush(); } catch(e) {}
 
       // 同时同步 keys 和 settings（每次完整同步都顺带做）
       try {
