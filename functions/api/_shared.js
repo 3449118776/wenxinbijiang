@@ -146,6 +146,8 @@ function key_user_next_id() { return 'user:nextId'; }
 function key_work(userId, workId) { return 'work:' + userId + ':' + workId; }
 function key_works_list(userId) { return 'works:' + userId; }
 function key_snap(workKey, version) { return 'snap:' + workKey + ':' + version; }
+function key_user_keys(userId) { return 'user:keys:' + userId; }
+function key_user_settings(userId) { return 'user:settings:' + userId; }
 
 export async function db_get_user_by_email(email) {
   const store = KV();
@@ -265,6 +267,46 @@ export async function db_upsert_work(userId, body) {
   rec.updatedAt = now;
   await store.put(key_work(userId, workId), JSON.stringify(rec));
   return { status: 'updated', version: rec.version };
+}
+
+// ============ Keys & Settings ============
+export async function db_get_user_keys(userId) {
+  const store = KV();
+  if (!store) return { apiKeys: {} };
+  try {
+    const v = await store.get(key_user_keys(userId), { type: 'json' });
+    return v || { apiKeys: {} };
+  } catch (e) { return { apiKeys: {} }; }
+}
+
+export async function db_put_user_keys(userId, data) {
+  const store = KV();
+  if (!store) throw new Error('KV store not available');
+  await store.put(key_user_keys(userId), JSON.stringify({
+    apiKeys: data.apiKeys || {},
+    updatedAt: new Date().toISOString()
+  }));
+  return { ok: true };
+}
+
+export async function db_get_user_settings(userId) {
+  const store = KV();
+  if (!store) return { settings: {} };
+  try {
+    const v = await store.get(key_user_settings(userId), { type: 'json' });
+    return v || { settings: {} };
+  } catch (e) { return { settings: {} }; }
+}
+
+export async function db_put_user_settings(userId, data) {
+  const store = KV();
+  if (!store) throw new Error('KV store not available');
+  await store.put(key_user_settings(userId), JSON.stringify({
+    settings: data.settings || {},
+    apiConfig: data.apiConfig || {},
+    updatedAt: new Date().toISOString()
+  }));
+  return { ok: true };
 }
 
 // ============ 工具函数 ============

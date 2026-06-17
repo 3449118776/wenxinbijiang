@@ -1,10 +1,11 @@
 /**
- * 文心笔匠 云端同步模块 (v46)
+ * 文心笔匠 云端同步模块 (v47)
  * 
  * 功能：
  * - 注册 / 登录 / 登出
  * - 手动同步：拉取云端作品 / 推送本地作品
- * - 自动同步：定时 + 章节保存后触发
+ * - 自动同步：定时(1分钟) + 章节保存后触发
+ * - 同步 keys/settings + works
  * - 冲突处理：版本号比较，不覆盖
  * 
  * 使用方式：
@@ -20,8 +21,9 @@ function CloudSync(opts) {
   this.token = null;
   this.user = null;
   this.autoSync = !!opts.autoSync;
-  this.autoInterval = opts.autoInterval || 300000; // 5 分钟
+  this.autoInterval = opts.autoInterval || 60000; // 1 分钟（原5分钟太慢）
   this._timer = null;
+  this._syncTimer = null;
   this._loadToken();
 }
 
@@ -76,6 +78,116 @@ CloudSync.prototype = {
 
   logout: function() {
     this._clearToken();
+  },
+
+  // ==================== Keys & Settings 同步 ====================
+
+  /**
+   * 拉取云端 keys
+   */
+  getKeys: async function() {
+    return this._fetch('/user/keys');
+  },
+
+  /**
+   * 推送 keys 到云端
+   */
+  putKeys: async function(data) {
+    return this._fetch('/user/keys', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  /**
+   * 拉取云端 settings
+   */
+  getSettings: async function() {
+    return this._fetch('/user/settings');
+  },
+
+  /**
+   * 推送 settings 到云端
+   */
+  putSettings: async function(data) {
+    return this._fetch('/user/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  /**
+   * 同步 keys 和 settings（双向合并）
+   * - keys：本地有则推云端，云端有则拉回
+   * - settings：本地有则推，云端有的字段若本地为空也拉回
+   */
+  syncKeysAndSettings: async function() {
+    if (!this.isLoggedIn()) return { ok: false, error: '未登录' };
+    try {
+      var self = this;
+      var result = { keys: 0, settings: 0, errors: 0 };
+
+      // 同步 keys
+      try {
+        var cloudKeys = await this.getKeys();
+        var cloudApiKeys = (cloudKeys && cloudKeys.apiKeys) || {};
+        var localApiKeys = (DB && DB.apiKeys) || {};
+
+        // 云端有的 key 追加到本地（避免覆盖）
+        var changed = false;
+        for (var p in cloudApiKeys) {
+          if (!localApiKeys[p]) {
+            localApiKeys[p] = cloudApiKeys[p];
+            changed = true;
+          } else {
+            // 本地云端都有，合并去重
+            for (var ki = 0; ki < cloudApiKeys[p].length; ki++) {
+              if (localApiKeys[p].indexOf(cloudApiKeys[p][ki]) < 0) {
+                localApiKeys[p].push(cloudApiKeys[p][ki]);
+                changed = true;
+              }
+            }
+          }
+        }
+        if (DB) DB.apiKeys = localApiKeys;
+
+        // 本地 keys 推云端（整体覆盖）
+        await this.putKeys({ apiKeys: localApiKeys });
+        result.keys = 1;
+      } catch(e) { result.errors++; }
+
+      // 同步 settings
+      try {
+        var cloudSettings = await this.getSettings();
+        var cloudSettingsData = (cloudSettings && cloudSettings.settings) || {};
+        var cloudApiConfig = (cloudSettings && cloudSettings.apiConfig) || {};
+        var localSettings = (DB && DB.settings) || {};
+        var localApiConfig = (DB && DB.apiConfig) || {};
+
+        // 云端有但本地空的字段，拉回来
+        for (var sk in cloudSettingsData) {
+          if (localSettings[sk] === undefined || localSettings[sk] === '') {
+            localSettings[sk] = cloudSettingsData[sk];
+          }
+        }
+        if (cloudApiConfig.provider && !localApiConfig.provider) {
+          localApiConfig = cloudApiConfig;
+        }
+        if (DB) { DB.settings = localSettings; DB.apiConfig = localApiConfig; }
+
+        // 本地 settings 推云端
+        await this.putSettings({ settings: localSettings, apiConfig: localApiConfig });
+        result.settings = 1;
+      } catch(e) { result.errors++; }
+
+      // 保存本地（防抖）
+      try { if (DB && DB.save) DB.save(); } catch(e) {}
+
+      result.ok = true;
+      return result;
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
   },
 
   // ==================== 同步 ====================
@@ -328,6 +440,11 @@ CloudSync.prototype = {
 
       // 保存本地
       try { if (DB && DB.save) DB.save(); } catch(e) {}
+
+      // 同时同步 keys 和 settings（每次完整同步都顺带做）
+      try {
+        await this.syncKeysAndSettings();
+      } catch(ksErr) {}
 
       report.ok = true;
     } catch(e) {

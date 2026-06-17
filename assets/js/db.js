@@ -494,8 +494,8 @@ const DB = {
         var tx = db.transaction([self._backupStore], 'readwrite');
         var st = tx.objectStore(self._backupStore);
         rows.slice(maxCount).forEach(function(r){ st.delete(r.id); });
-      });
-    });
+      }).catch(function(e){});
+    }).catch(function(e){});
   },
 
   saveBackupDirectoryHandle(handle) {
@@ -843,14 +843,16 @@ const DB = {
       self.settings = data.settings || self.settings;
       self._trash = Array.isArray(data._trash) ? data._trash : [];
       try { self.ensureAllFingerprints(); } catch(fpErr) {}
-      localStorage.setItem('wxbj_data_v4', JSON.stringify({
-        _version: 44,
-        works: self.works,
-        apiConfig: self.apiConfig,
-        apiKeys: self.apiKeys,
-        settings: self.settings,
-        _trash: self._trash || []
-      }));
+      try {
+        localStorage.setItem('wxbj_data_v4', JSON.stringify({
+          _version: 44,
+          works: self.works,
+          apiConfig: self.apiConfig,
+          apiKeys: self.apiKeys,
+          settings: self.settings,
+          _trash: self._trash || []
+        }));
+      } catch(e) {}
       return data;
     });
   },
@@ -1510,6 +1512,17 @@ const DB = {
   saveApiConfig(config) {
     this.apiConfig = config;
     this.save();
+    this._cloudSyncKeysAndSettings();
+  },
+
+  // 立即触发云端 keys/settings 同步
+  _cloudSyncKeysAndSettings() {
+    try {
+      var _cloud = window.cloud;
+      if (_cloud && _cloud.isLoggedIn() && _cloud.syncKeysAndSettings) {
+        _cloud.syncKeysAndSettings().catch(function(){});
+      }
+    } catch(e) {}
   },
 
   // 获取某个服务商的所有密钥
@@ -1525,6 +1538,7 @@ const DB = {
     if (!this.apiKeys[provider].includes(k)) {
       this.apiKeys[provider].push(k);
       this.save();
+      this._cloudSyncKeysAndSettings();
       return true;
     }
     return false;
@@ -1545,7 +1559,7 @@ const DB = {
         dup++;
       }
     }
-    if (added > 0) this.save();
+    if (added > 0) { this.save(); this._cloudSyncKeysAndSettings(); }
     return { added, duplicated: dup };
   },
 
@@ -1555,6 +1569,7 @@ const DB = {
       this.apiKeys[provider].splice(index, 1);
       if (this.apiKeys[provider].length === 0) delete this.apiKeys[provider];
       this.save();
+      this._cloudSyncKeysAndSettings();
     }
   },
 
@@ -1567,6 +1582,7 @@ const DB = {
   saveSettings(settings) {
     this.settings = settings;
     this.save();
+    this._cloudSyncKeysAndSettings();
   }
 };
 

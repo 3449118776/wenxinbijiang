@@ -3,6 +3,7 @@ import {
   jwt_sign, jwt_verify, verify_password, hash_password,
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
   db_list_works, db_get_work, db_upsert_work,
+  db_get_user_keys, db_put_user_keys, db_get_user_settings, db_put_user_settings,
   random_hex, random_code, json_response
 } from './_shared.js';
 
@@ -30,6 +31,10 @@ export async function onRequest(context) {
   const userId = decoded.userId;
 
   if (apiPath === '/user/profile' && req.method === 'GET') return handle_profile(userId);
+  if (apiPath === '/user/keys' && req.method === 'GET') return handle_keys_get(userId);
+  if (apiPath === '/user/keys' && req.method === 'PUT') return handle_keys_put(req, userId);
+  if (apiPath === '/user/settings' && req.method === 'GET') return handle_settings_get(userId);
+  if (apiPath === '/user/settings' && req.method === 'PUT') return handle_settings_put(req, userId);
   if (apiPath === '/works' && req.method === 'GET') return handle_works_list(userId);
   if (apiPath.match(/^\/works\/[^\/]+$/) && req.method === 'GET') {
     const workId = apiPath.split('/')[2];
@@ -132,6 +137,45 @@ async function handle_profile(userId) {
     const user = await db_get_user_by_id(userId);
     if (!user) return json_response({ error: '用户不存在' }, 404);
     return json_response({ user: { id: user.id, email: user.email, nickname: user.nickname, visitCount: user.visitCount, lastVisitAt: user.lastVisitAt } });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+// ============ Keys & Settings ============
+async function handle_keys_get(userId) {
+  try {
+    const data = await db_get_user_keys(userId);
+    return json_response(data);
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+async function handle_keys_put(req, userId) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    await db_put_user_keys(userId, body);
+    return json_response({ ok: true });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+async function handle_settings_get(userId) {
+  try {
+    const data = await db_get_user_settings(userId);
+    return json_response(data);
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+async function handle_settings_put(req, userId) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    await db_put_user_settings(userId, body);
+    return json_response({ ok: true });
   } catch (e) {
     return json_response({ error: e.message }, 500);
   }
