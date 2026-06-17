@@ -2064,8 +2064,10 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   }
 
   // 注入用户自定义指令（放在核心要求之前，优先级更高且不会被截断）
+  // ⚠️ 用户指令移到 prompt 末尾，避免被后续大量系统指令淹没
+  var userCmdBlock = '';
   if (userCommand && userCommand.trim()) {
-    prompt += '\n\n【用户额外指令（优先级高）】\n' + userCommand.trim() + '\n';
+    userCmdBlock = '\n\n【用户额外指令（优先级高）】\n' + userCommand.trim() + '\n';
   }
 
   // 自然文风指引（替代机械反检测规则）
