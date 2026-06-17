@@ -360,9 +360,6 @@ function _lookupModelMaxTokens(modelName) {
   return DEFAULT_MAX_TOKENS;
 }
 
-// 根据当前模型获取最大输出 token 数（保留旧接口兼容）
-// 原函数已改为调用_lookupModelMaxTokens
-
 // 当前使用的密钥索引
 let currentKeyIndex = {};
 window.currentKeyIndex = currentKeyIndex;
