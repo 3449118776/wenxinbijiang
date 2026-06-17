@@ -1891,7 +1891,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = archLimits && work.world.length > archLimits.world ? smartCompressArch(work.world, archLimits.world) : work.world;
+    var worldText = (archLimits && work.world.length > archLimits.world) ? smartCompressArch(work.world, archLimits.world) : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
