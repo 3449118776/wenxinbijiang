@@ -132,7 +132,7 @@ export function setKVStore(store) {
   _kvStore = store;
 }
 
-const KV = () => {
+export function KV() {
   if (_kvStore) return _kvStore;
   if (globalThis.WXBJ_DATA) return globalThis.WXBJ_DATA;
   if (globalThis.WXBJ_USERS) return globalThis.WXBJ_USERS;
@@ -140,7 +140,7 @@ const KV = () => {
     if (globalThis[k]) return globalThis[k];
   }
   return null;
-};
+}
 
 function key_user_email(email) { return 'user:email:' + email.toLowerCase().trim(); }
 function key_user_id(id) { return 'user:id:' + id; }
@@ -284,6 +284,12 @@ export function random_code() {
 export function json_response(data, status) {
   return new Response(JSON.stringify(data), {
     status: status || 200,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400'
+    }
   });
 }

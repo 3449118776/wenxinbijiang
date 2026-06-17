@@ -4,7 +4,7 @@ import {
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
   db_list_works, db_get_work, db_upsert_work,
   random_hex, random_code, json_response,
-  setKVStore
+  setKVStore, KV
 } from './_shared.js';
 
 export async function onRequest(context) {
@@ -19,6 +19,19 @@ export async function onRequest(context) {
 
   // 从 URL 中移除 /api 前缀
   const apiPath = path.replace(/^\/api/, '') || '/';
+
+  // CORS 预检：所有 OPTIONS 请求直接返回成功
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+      }
+    });
+  }
 
   // 公开路由
   if (apiPath === '/auth/register' && req.method === 'POST') return handle_register(req);
@@ -44,6 +57,10 @@ export async function onRequest(context) {
   if (apiPath.match(/^\/works\/[^\/]+$/) && req.method === 'PUT') {
     const workId = apiPath.split('/')[2];
     return handle_work_upsert(req, userId, workId);
+  }
+  if (apiPath.match(/^\/works\/[^\/]+$/) && req.method === 'DELETE') {
+    const workId = apiPath.split('/')[2];
+    return handle_work_delete(userId, workId);
   }
   if (apiPath === '/works/sync/batch' && req.method === 'POST') return handle_batch(req, userId);
   if (apiPath.match(/^\/works\/[^\/]+\/delete$/) && req.method === 'POST') {
@@ -206,11 +223,10 @@ async function handle_batch(req, userId) {
 
 async function handle_work_delete(userId, workId) {
   try {
-    const store = globalThis.WXBJ_DATA || globalThis.WXBJ_USERS || globalThis.KV || globalThis.DATA || null;
+    const store = KV();
     if (!store) return json_response({ error: '存储未配置' }, 500);
     const key = 'work:' + userId + ':' + workId;
     await store.delete(key);
-    // 从列表移除
     let list = await store.get('works:' + userId, { type: 'json' }) || [];
     list = list.filter(id => id !== workId);
     await store.put('works:' + userId, JSON.stringify(list));
