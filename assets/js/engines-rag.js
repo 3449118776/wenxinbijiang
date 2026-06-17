@@ -252,10 +252,121 @@ var VectorRAG = (function () {
     return names;
   }
 
+  // ==========================================================================
+  // v54: 真实 embedding API 支持（语义检索，替代纯TF-IDF）
+  // 复用 api.js 已配置的服务商（DeepSeek/智谱/OpenAI/SiliconFlow等）
+  // ==========================================================================
+
+  // embedding模型端点配置（按服务商）
+  var EMBEDDING_ENDPOINTS = {
+    deepseek:   { url: 'https://api.deepseek.com/v1/embeddings', model: 'deepseek-embed' },
+    zhipu:      { url: 'https://open.bigmodel.cn/api/paas/v4/embeddings', model: 'embedding-3' },
+    openai:     { url: 'https://api.openai.com/v1/embeddings', model: 'text-embedding-3-small' },
+    siliconflow:{ url: 'https://api.siliconflow.cn/v1/embeddings', model: 'BAAI/bge-large-zh-v1.5' },
+    moonshot:   { url: 'https://api.moonshot.cn/v1/embeddings', model: 'moonshot-embed-v1' }
+  };
+
+  // 调用embedding API获取向量（失败返回null，降级到TF-IDF）
+  async function embedText(text) {
+    if (!text || text.trim().length < 5) return null;
+    try {
+      var config = (typeof DB !== 'undefined' && DB.getApiConfig) ? DB.getApiConfig() : {};
+      var provider = config.provider || 'deepseek';
+      var ep = EMBEDDING_ENDPOINTS[provider];
+      if (!ep) return null;
+      var keys = (typeof DB !== 'undefined' && DB.getApiKeys) ? DB.getApiKeys(provider) : [];
+      var key = keys && keys[0];
+      if (!key) return null;
+
+      var truncated = text.length > 1500 ? text.substring(0, 1500) : text; // embedding通常限制token
+      var resp = await fetch(ep.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify({ model: ep.model, input: truncated })
+      });
+      if (!resp.ok) return null;
+      var data = await resp.json();
+      if (data && data.data && data.data[0] && data.data[0].embedding) {
+        return data.data[0].embedding;
+      }
+      return null;
+    } catch(e) {
+      console.warn('[embedding] 失败，降级TF-IDF:', e && e.message);
+      return null;
+    }
+  }
+
+  // 语义检索：用真实embedding查询，返回top-K相关章节片段
+  // 失败时降级到TF-IDF retrieve
+  async function semanticRetrieve(index, queryText, topK, opts) {
+    topK = topK || 5;
+    opts = opts || {};
+    if (!index || !index.chunks || !index.chunks.length) return [];
+
+    // 尝试真实embedding
+    var queryEmbedding = await embedText(queryText);
+    if (queryEmbedding && queryEmbedding.length > 0) {
+      // 检查索引是否有缓存的embedding
+      var scored = [];
+      for (var i = 0; i < index.chunks.length; i++) {
+        var chunk = index.chunks[i];
+        if (chunk.chapterIdx >= (opts.currentChapter || index.chunks.length) - 1) continue;
+        var sim = 0;
+        if (chunk.embedding && chunk.embedding.length === queryEmbedding.length) {
+          // 真实embedding余弦相似度
+          var dot = 0, normA = 0, normB = 0;
+          for (var j = 0; j < queryEmbedding.length; j++) {
+            dot += queryEmbedding[j] * (chunk.embedding[j] || 0);
+            normA += queryEmbedding[j] * queryEmbedding[j];
+            normB += (chunk.embedding[j] || 0) * (chunk.embedding[j] || 0);
+          }
+          sim = (normA > 0 && normB > 0) ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+        } else {
+          // 该章节无缓存embedding，用TF-IDF兜底打分（降权）
+          var qTokens = tokenize(queryText);
+          var qVec = buildVector(qTokens);
+          sim = cosineSimilarity(qVec, chunk.vector) * 0.6; // 降权混合
+        }
+        // 近期章节加权
+        if (opts.boostRecent !== false) {
+          var distance = Math.abs((opts.currentChapter || index.chunks.length) - chunk.chapterIdx);
+          sim *= (1 + 1 / (distance + 1));
+        }
+        scored.push({ chunk: chunk, score: sim });
+      }
+      scored.sort(function(a, b){ return b.score - a.score; });
+      return scored.slice(0, topK).map(function(s){ return s.chunk; });
+    }
+
+    // 降级到纯TF-IDF
+    return retrieve(index, queryText, topK, opts);
+  }
+
+  // 为章节生成并缓存embedding（章节保存时异步调用）
+  async function embedChapter(work, chapterIdx) {
+    try {
+      if (!work || !work.chapters || !work.chapters[chapterIdx]) return;
+      var ch = work.chapters[chapterIdx];
+      if (!ch.content || ch.content.length < 100) return;
+      // 已有缓存且内容未变则跳过
+      if (ch._embedding && ch._embeddingContentHash === ch.content.length) return;
+      var embedding = await embedText(ch.content.substring(0, 1500));
+      if (embedding && embedding.length > 0) {
+        ch._embedding = embedding;
+        ch._embeddingContentHash = ch.content.length;
+      }
+    } catch(e) {
+      console.warn('[embedChapter] 失败:', e && e.message);
+    }
+  }
+
   return {
     tokenize: tokenize,
     buildIndex: buildIndex,
     retrieve: retrieve,
+    semanticRetrieve: semanticRetrieve,
+    embedText: embedText,
+    embedChapter: embedChapter,
     formatForPrompt: formatForPrompt,
     cosineSimilarity: cosineSimilarity,
     extractCharacterNames: extractCharacterNames,

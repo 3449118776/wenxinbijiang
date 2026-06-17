@@ -1152,37 +1152,82 @@ async function callMultiAI(prompt, onProgress, taskType) {
   if (!useMulti) {
     return callRealAPIWithFallback(prompt, onProgress, taskType);
   }
-  
-  // 多AI模式：并行调用路由里有密钥的所有服务商，取第一个成功返回结果
+
+  // v54: 多AI分工模式 — 不同任务路由到不同服务商
+  // 规划/质检用逻辑强的模型（如DeepSeek），正文写作用创意强的模型（如智谱/Claude）
   taskType = taskType || 'default';
   var config = DB.getApiConfig() || {};
   var userProvider = config.provider || 'deepseek';
-  var route = TASK_ROUTE[taskType] || TASK_ROUTE['default'];
-  
-  // 收集所有可用服务商（不重复）
+
+  // 任务分工映射：哪些任务用"逻辑型"服务商，哪些用"创意型"
+  var LOGIC_TASKS = ['memory','consistency','quality_logic','quality_consist','quality_proof','detail_check','chars_check','outline_logic'];
+  var CREATIVE_TASKS = ['write_normal','write_dialogue','write_key','write','world_creative','chars_integrate'];
+  var isLogicTask = LOGIC_TASKS.indexOf(taskType) >= 0;
+  var isCreativeTask = CREATIVE_TASKS.indexOf(taskType) >= 0;
+
+  // 收集所有可用服务商
   var seen = {};
-  var candidates = [];
+  var available = [];
+  var route = TASK_ROUTE[taskType] || TASK_ROUTE['default'];
   for (var ri = 0; ri < route.length; ri++) {
     var rp = route[ri];
     if (rp === '__user__') rp = userProvider;
     if (!seen[rp] && API_PROVIDERS[rp]) {
       var rkeys = DB.getApiKeys(rp);
       if (rkeys && rkeys.length > 0) {
-        candidates.push(rp);
+        available.push(rp);
         seen[rp] = true;
       }
     }
   }
-  // 如果只有一个，直接返回
-  if (candidates.length <= 1) {
+
+  // 如果只有一个可用服务商，直接用
+  if (available.length <= 1) {
     return callRealAPIWithFallback(prompt, onProgress, taskType);
   }
-  
-  // 并行请求，谁先成功返回谁
-  // v46：使用 AbortController，winner 确定后取消其余请求
+
+  // v54: 任务分工选择
+  // 逻辑型任务优先用 deepseek（推理强），创意型任务优先用 zhipu/claude/moonshot（创意强）
+  var preferredProvider = null;
+  if (isLogicTask) {
+    // 逻辑型优先级：deepseek > openai > others
+    var logicPriority = ['deepseek','openai','moonshot','zhipu','siliconflow'];
+    for (var pi = 0; pi < logicPriority.length; pi++) {
+      if (available.indexOf(logicPriority[pi]) >= 0) {
+        preferredProvider = logicPriority[pi];
+        break;
+      }
+    }
+  } else if (isCreativeTask) {
+    // 创意型优先级：claude > zhipu > moonshot > deepseek > others
+    var creativePriority = ['claude','zhipu','moonshot','deepseek','openai','siliconflow'];
+    for (var ci = 0; ci < creativePriority.length; ci++) {
+      if (available.indexOf(creativePriority[ci]) >= 0) {
+        preferredProvider = creativePriority[ci];
+        break;
+      }
+    }
+  }
+
+  // 如果选定了分工服务商，优先用它，失败再回退到并行竞争
+  if (preferredProvider && preferredProvider !== userProvider) {
+    try {
+      var result = await callRealAPI(prompt, onProgress, { provider: preferredProvider, silent: false });
+      if (result && result.length > 20 && result.indexOf('AI 暂不可用') < 0) {
+        if (onProgress && typeof onProgress === 'function') {
+          try { onProgress('[' + API_PROVIDERS[preferredProvider].name + ' 分工执行]'); } catch(e) {}
+        }
+        return result;
+      }
+    } catch(e) {
+      console.warn('[multiAI分工] ' + preferredProvider + ' 失败，回退并行:', e && e.message);
+    }
+  }
+
+  // 回退：并行竞争模式（谁先成功返回谁）
   var controller = new AbortController();
   var sharedSignal = controller.signal;
-  var promises = candidates.map(function(p) {
+  var promises = available.map(function(p) {
     return new Promise(function(resolve, reject) {
       callRealAPI(prompt, onProgress, { provider: p, silent: true, signal: sharedSignal }).then(function(r) {
         if (r && r.length > 20 && r.indexOf('AI 暂不可用') < 0) resolve({ provider: p, result: r });
@@ -1190,24 +1235,21 @@ async function callMultiAI(prompt, onProgress, taskType) {
       }).catch(reject);
     });
   });
-  
-  // Promise.race: 取第一个成功返回结果
+
   try {
     var winner = await Promise.race(promises);
-    // 取到结果后立即取消其余请求
     try { controller.abort(); } catch(e) {}
     if (winner && winner.result) {
-      if (winner.provider !== candidates[0]) {
+      if (winner.provider !== available[0]) {
         showToast('首服务商额度不足，' + API_PROVIDERS[winner.provider].name + ' 接力成功', { duration: 2000 });
       }
       return winner.result;
     }
   } catch(e) {
     try { controller.abort(); } catch(_) {}
-    console.warn('[multiAI] 首请求失败，回退到串行回退', e && e.message);
+    console.warn('[multiAI] 并行失败，回退串行', e && e.message);
   }
-  
-  // 如果所有并行都失败，回退到原来的串行回退机制
+
   return callRealAPIWithFallback(prompt, onProgress, taskType);
 }
 

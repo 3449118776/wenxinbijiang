@@ -1135,6 +1135,178 @@ function deepSelfCheckV48(work, chapterIdx, content) {
 // 挂载到全局
 window.deepSelfCheckV48 = deepSelfCheckV48;
 
+// ========== v54: LLM-as-judge 质检 — 用AI做裁判多维度评分，替代纯规则自检 ==========
+// 返回 { scores: {rhythm,emotion,foreshadow,voice,perspective,prose}, total, feedback, rewriteHints }
+async function llmJudgeChapter(work, chapterIdx, content) {
+  if (!content || content.trim().length < 200) return null;
+  var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第'+(chapterIdx+1)+'章') : ('第'+(chapterIdx+1)+'章');
+
+  var judgePrompt = '你是一位严苛的网文编辑，请对以下章节进行6维度评分（每维0-100分）并给出具体改进意见。\n\n';
+  judgePrompt += '【作品】' + (work.title || '未命名') + '\n';
+  judgePrompt += '【章节】' + chTitle + '\n\n';
+  judgePrompt += '【评分维度】\n';
+  judgePrompt += '1. rhythm（节奏控制）：长短句交替是否自然？紧张/舒缓节奏是否到位？有无平铺直叙？\n';
+  judgePrompt += '2. emotion（情感调动）：读者情绪是否被有效调动？有无"委屈→爆发"链路？情绪是否有撕裂感？\n';
+  judgePrompt += '3. foreshadow（伏笔钩子）：本章是否埋设/推进/回收伏笔？章末钩子是否让读者想看下一章？\n';
+  judgePrompt += '4. voice（角色声音）：不同角色说话是否有区分度？有无OOC？对话是否有潜台词？\n';
+  judgePrompt += '5. perspective（视角控制）：有无读心/视角跳/全知视角？视角是否统一？\n';
+  judgePrompt += '6. prose（文笔质量）：有无AI腔套路句式？比喻是否原创？描写是否具体？\n\n';
+  judgePrompt += '【输出格式·严格遵循】\n';
+  judgePrompt += 'rhythm: 分数 | 一句具体问题\n';
+  judgePrompt += 'emotion: 分数 | 一句具体问题\n';
+  judgePrompt += 'foreshadow: 分数 | 一句具体问题\n';
+  judgePrompt += 'voice: 分数 | 一句具体问题\n';
+  judgePrompt += 'perspective: 分数 | 一句具体问题\n';
+  judgePrompt += 'prose: 分数 | 一句具体问题\n';
+  judgePrompt += 'total: 总分\n';
+  judgePrompt += 'feedback: 2-3句总体评价\n';
+  judgePrompt += 'rewrite_hints: 用1-3个短句列出最需要重写的具体问题（如"第3段有读心描写""章末缺钩子"）\n\n';
+  judgePrompt += '【待评章节】\n' + content + '\n\n请直接输出评分：';
+
+  try {
+    var result = await callRealAPIWithFallback(judgePrompt, null, 'quality_logic', 400);
+    if (!result || result.length < 50) return null;
+    return parseJudgeResult(result);
+  } catch(e) {
+    console.warn('[llmJudge] 失败:', e && e.message);
+    return null;
+  }
+}
+
+function parseJudgeResult(text) {
+  var scores = {};
+  var total = 0;
+  var feedback = '';
+  var rewriteHints = [];
+  var lines = text.split('\n');
+  var dims = ['rhythm','emotion','foreshadow','voice','perspective','prose'];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    for (var d = 0; d < dims.length; d++) {
+      var dim = dims[d];
+      var re = new RegExp('^' + dim + '\\s*[:：]\\s*(\\d+)\\s*\\|?\\s*(.*)', 'i');
+      var m = line.match(re);
+      if (m) {
+        scores[dim] = Math.max(0, Math.min(100, parseInt(m[1], 10) || 0));
+        if (m[2]) scores[dim + '_issue'] = m[2].trim();
+      }
+    }
+    var tm = line.match(/^total\s*[:：]\s*(\d+)/i);
+    if (tm) total = parseInt(tm[1], 10) || 0;
+    var fm = line.match(/^feedback\s*[:：]\s*(.*)/i);
+    if (fm) feedback = fm[1].trim();
+    var rhm = line.match(/^rewrite_hints\s*[:：]\s*(.*)/i);
+    if (rhm) {
+      var hint = rhm[1].trim();
+      if (hint) rewriteHints.push(hint);
+      // 继续收集后续行的hints
+      for (var j = i + 1; j < lines.length && j < i + 4; j++) {
+        var nl = lines[j].trim();
+        if (!nl || /^(rhythm|emotion|foreshadow|voice|perspective|prose|total|feedback)\s*[:：]/i.test(nl)) break;
+        if (nl.length > 5 && nl.length < 100) rewriteHints.push(nl);
+      }
+    }
+  }
+  // 如果没有total，自动计算
+  if (!total && dims.every(function(d){ return scores[d] !== undefined; })) {
+    total = Math.round(dims.reduce(function(s,d){ return s + scores[d]; }, 0) / dims.length);
+  }
+  if (Object.keys(scores).length < 3) return null; // 解析失败
+  return { scores: scores, total: total, feedback: feedback, rewriteHints: rewriteHints.slice(0, 5) };
+}
+
+window.llmJudgeChapter = llmJudgeChapter;
+
+// ========== v54: 角色弧光追踪 — 每章生成后用AI提取主角弧光推进点，累积成轨迹 ==========
+// 返回 [{charName, changeType, description, chapterIdx}] 或空数组
+async function extractCharArcProgress(work, chapterIdx, content) {
+  if (!content || content.trim().length < 300) return [];
+  var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第'+(chapterIdx+1)+'章') : ('第'+(chapterIdx+1)+'章');
+
+  var prompt = '你是一位角色弧光分析师。请从以下章节中提取主要角色的弧光推进点（动机变化/弱点暴露/执念动摇/关系转变/能力突破等）。\n\n';
+  prompt += '【章节】' + chTitle + '（第' + (chapterIdx+1) + '章）\n\n';
+  prompt += '【输出格式·严格遵循】\n';
+  prompt += '每行一个角色推进点，格式：\n';
+  prompt += '角色名 | 变化类型 | 一句话描述\n';
+  prompt += '变化类型从以下选：动机变化/弱点暴露/执念动摇/关系转变/能力突破/认知刷新/情感转折/道德抉择\n\n';
+  prompt += '【约束】\n';
+  prompt += '1. 只提取本章真实发生的角色变化，不要编造\n';
+  prompt += '2. 最多5个推进点，按重要性排序\n';
+  prompt += '3. 如果本章无明显角色弧光推进，输出"无"\n\n';
+  prompt += '【章节内容】\n' + content.substring(0, 3000) + '\n\n请直接输出：';
+
+  try {
+    var result = await callRealAPIWithFallback(prompt, null, 'memory', 300);
+    if (!result || result.length < 5 || result.indexOf('无') === 0) return [];
+    var arcs = [];
+    var lines = result.split('\n');
+    for (var i = 0; i < lines.length && arcs.length < 5; i++) {
+      var line = lines[i].trim();
+      if (!line || line.indexOf('角色名') >= 0) continue;
+      var parts = line.split('|').map(function(s){ return s.trim(); });
+      if (parts.length >= 3 && parts[0].length >= 2 && parts[0].length <= 6) {
+        arcs.push({
+          charName: parts[0],
+          changeType: parts[1],
+          description: parts.slice(2).join(' ').substring(0, 80),
+          chapterIdx: chapterIdx,
+          chapterTitle: chTitle,
+          timestamp: Date.now()
+        });
+      }
+    }
+    return arcs;
+  } catch(e) {
+    console.warn('[arcExtract] 失败:', e && e.message);
+    return [];
+  }
+}
+
+// 将弧光推进点存入longMemory.charArcProgress
+function saveCharArcProgress(work, arcs) {
+  if (!work || !arcs || arcs.length === 0) return;
+  if (!work.longMemory) work.longMemory = {};
+  if (!work.longMemory.charArcProgress) work.longMemory.charArcProgress = [];
+  arcs.forEach(function(arc){
+    work.longMemory.charArcProgress.push(arc);
+  });
+  // 限制总量，保留最近的200条
+  if (work.longMemory.charArcProgress.length > 200) {
+    work.longMemory.charArcProgress = work.longMemory.charArcProgress.slice(-200);
+  }
+}
+
+// 构建角色弧光轨迹文本（注入写作prompt）
+function buildCharArcContext(work, chapterIdx) {
+  if (!work || !work.longMemory || !work.longMemory.charArcProgress) return '';
+  var arcs = work.longMemory.charArcProgress;
+  if (arcs.length === 0) return '';
+  // 按角色分组，每个角色取最近5条
+  var byChar = {};
+  arcs.forEach(function(a){
+    if (!byChar[a.charName]) byChar[a.charName] = [];
+    byChar[a.charName].push(a);
+  });
+  var lines = ['【角色弧光轨迹 — 本章写作必须承接以下进展，不得倒退】'];
+  var charCount = 0;
+  for (var name in byChar) {
+    if (charCount >= 5) break; // 最多5个角色
+    var charArcs = byChar[name].slice(-5); // 最近5条
+    lines.push('■ ' + name + '：');
+    charArcs.forEach(function(a){
+      lines.push('  第' + (a.chapterIdx + 1) + '章·' + a.changeType + '：' + a.description);
+    });
+    charCount++;
+  }
+  if (charCount === 0) return '';
+  lines.push('【写作指令】本章应承接以上弧光进展，角色不能无故倒退到之前的状态。如果本章涉及该角色，应推动其弧光进入下一阶段。');
+  return lines.join('\n');
+}
+
+window.extractCharArcProgress = extractCharArcProgress;
+window.saveCharArcProgress = saveCharArcProgress;
+window.buildCharArcContext = buildCharArcContext;
+
 
 // 从已有架构中提取关键元素清单，强制AI引用（防编造）
 
@@ -1783,6 +1955,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【📋 本章场景节拍表 — 结构骨架，必须严格遵循场景顺序与目的】\n' + work._sceneBeat.trim() + '\n\n';
     prompt += '⚠️ 以上节拍表是本章的结构骨架：场景顺序不可调整，每个场景的"目的"和"冲突"必须体现，"伏笔"字段标注的必须埋设或回收，最后一个场景的"钩子"必须作为章末。你的任务是把这个骨架写成血肉丰满的正文，而非重新规划结构。\n\n';
   }
+
+  // === v54: 注入角色弧光轨迹（承接前文进展，不得倒退）===
+  try {
+    var arcCtx = buildCharArcContext(work, chapterIdx);
+    if (arcCtx) prompt += arcCtx + '\n\n';
+  } catch(arcErr) { console.warn('[arcCtx]', arcErr); }
   
   // === v29: 注入上一章质量短板，本章针对性补强 ===
   if (typeof QualityEngine !== 'undefined' && QualityEngine.lastHints) {
@@ -3143,67 +3321,146 @@ async function aiWriteChapter(){
       }
     } catch(e) { console.warn('[quality]', e); }
 
-    // === v53: 深度自检 + 自动重写闭环（启用deepSelfCheckV48，score<75或有L1硬伤时重写一次）===
+    // === v54: LLM-as-judge质检 + 多轮迭代重写（T0级写作流程）===
+    // 流程：规则自检(deepSelfCheckV48) → LLM裁判(llmJudgeChapter) → 综合评分 → score<80时多轮重写
     var _deepReport = null;
+    var _judgeReport = null;
     var _rewritten = false;
+    var _rewriteRounds = 0;
     try {
       if (typeof deepSelfCheckV48 === 'function') {
         _deepReport = deepSelfCheckV48(work, chapterIdx, result);
-        // 判断是否需要重写：score<75 或 存在L1级硬伤（读心/视角跳/全知）
-        var hasL1Hard = _deepReport.issues.some(function(s){ return s.indexOf('[L1]') >= 0; });
-        var needRewrite = (_deepReport.score < 75) || hasL1Hard;
-        if (needRewrite) {
-          statusBar.style.background = '#fef3c7';
-          statusBar.style.color = '#92400e';
-          statusBar.textContent = '🔧 深度自检发现' + _deepReport.issues.length + '个问题（得分' + _deepReport.score + '），正在自动重写...';
-          // 构建重写prompt：原文 + 问题清单 + 修改要求
-          var rewritePrompt = '你是一位顶级网文编辑，请对以下章节进行修订重写。\n\n';
-          rewritePrompt += '【修订要求·最高优先级】\n';
-          rewritePrompt += '1. 必须修复以下所有问题（共' + _deepReport.issues.length + '条）：\n';
-          _deepReport.issues.slice(0, 12).forEach(function(iss, i){
-            rewritePrompt += '   ' + (i+1) + '. ' + iss + '\n';
-          });
-          rewritePrompt += '2. 保留原文的剧情走向、角色名、关键事件，只修订表达和技法问题\n';
-          rewritePrompt += '3. 保持原文字数（约' + result.length + '字），不要大幅增删剧情\n';
-          rewritePrompt += '4. 特别注意：\n';
-          if (hasL1Hard) {
-            rewritePrompt += '   - [L1硬伤] 读心/视角跳/全知必须彻底消除——角色不能"知道"他人想法，只能通过动作表情推测\n';
-          }
-          rewritePrompt += '   - AI腔句式（嘴角勾起/眼神一冷/众人震惊等）必须替换为具体描写\n';
-          rewritePrompt += '   - 直白情绪词（他很愤怒）必须改为微动作外化（攥紧拳头指甲陷进掌心）\n';
-          rewritePrompt += '   - 开篇400字必须有冲突/悬念，章末必须有钩子\n';
-          rewritePrompt += '\n【原文】\n' + result + '\n\n请直接输出修订后的完整章节（不要加说明、不要加标题）：';
-          try {
-            var rewriteResult = await callRealAPIWithFallback(rewritePrompt, null, 'write_normal', 3000);
-            if (rewriteResult && rewriteResult.length > result.length * 0.6 && rewriteResult.length < result.length * 2) {
-              // 重写后再次自检，确保问题真的修复了
-              var _recheckReport = deepSelfCheckV48(work, chapterIdx, rewriteResult);
-              if (_recheckReport.score >= _deepReport.score) {
-                // 重写有效，采用重写结果
-                result = rewriteResult;
-                _deepReport = _recheckReport;
-                _rewritten = true;
-                console.log('[v53重写] ' + _deepReport.score + '分（原' + (_deepReport.score) + '分）, 问题从' + _deepReport.issues.length + '条降至' + _recheckReport.issues.length + '条');
-              }
-            }
-          } catch(rewriteErr) {
-            console.warn('[v53重写] 失败，保留原文:', rewriteErr && rewriteErr.message);
-          }
-        }
       }
     } catch(deepErr) { console.warn('[deepSelfCheck]', deepErr); }
+
+    // v54: LLM-as-judge 质检（异步，失败则只用规则自检）
+    try {
+      if (typeof llmJudgeChapter === 'function') {
+        statusBar.style.background = '#dbeafe';
+        statusBar.style.color = '#1e40af';
+        statusBar.textContent = '🎯 LLM裁判正在多维度评分...';
+        _judgeReport = await llmJudgeChapter(work, chapterIdx, result);
+      }
+    } catch(judgeErr) { console.warn('[llmJudge]', judgeErr); }
+
+    // 综合评分：规则自检(40%) + LLM裁判(60%)，无LLM裁判时全用规则自检
+    var _combinedScore = 0;
+    if (_judgeReport && _judgeReport.total > 0) {
+      _combinedScore = _deepReport ? Math.round(_deepReport.score * 0.4 + _judgeReport.total * 0.6) : _judgeReport.total;
+    } else {
+      _combinedScore = _deepReport ? _deepReport.score : 80;
+    }
+
+    // v54: 多轮迭代重写（score<80 或 有L1硬伤时，最多2轮）
+    var hasL1Hard = _deepReport && _deepReport.issues.some(function(s){ return s.indexOf('[L1]') >= 0; });
+    var MAX_REWRITE_ROUNDS = 2;
+    var _allRewriteHints = [];
+
+    // 收集重写hints：优先用LLM裁判的rewriteHints，补充规则自检的issues
+    if (_judgeReport && _judgeReport.rewriteHints && _judgeReport.rewriteHints.length > 0) {
+      _allRewriteHints = _judgeReport.rewriteHints.slice();
+    }
+    if (_deepReport && _deepReport.issues && _deepReport.issues.length > 0) {
+      _deepReport.issues.slice(0, 8).forEach(function(iss){
+        if (_allRewriteHints.length < 10) _allRewriteHints.push(iss);
+      });
+    }
+
+    while ((_combinedScore < 80 || hasL1Hard) && _rewriteRounds < MAX_REWRITE_ROUNDS && _allRewriteHints.length > 0) {
+      _rewriteRounds++;
+      statusBar.style.background = '#fef3c7';
+      statusBar.style.color = '#92400e';
+      statusBar.textContent = '🔧 第' + _rewriteRounds + '轮重写（综合' + _combinedScore + '分，' + _allRewriteHints.length + '个问题）...';
+
+      // 构建重写prompt：原文 + 问题清单 + LLM裁判的具体反馈
+      var rewritePrompt = '你是一位顶级网文编辑，请对以下章节进行第' + _rewriteRounds + '轮修订重写。\n\n';
+      rewritePrompt += '【修订要求·最高优先级】\n';
+      rewritePrompt += '1. 必须修复以下所有问题（共' + _allRewriteHints.length + '条）：\n';
+      _allRewriteHints.slice(0, 12).forEach(function(iss, i){
+        rewritePrompt += '   ' + (i+1) + '. ' + iss + '\n';
+      });
+      if (_judgeReport && _judgeReport.feedback) {
+        rewritePrompt += '\n【编辑总评】' + _judgeReport.feedback + '\n';
+      }
+      // 维度低分项重点强调
+      if (_judgeReport && _judgeReport.scores) {
+        var dims = ['rhythm','emotion','foreshadow','voice','perspective','prose'];
+        var dimNames = {rhythm:'节奏',emotion:'情感',foreshadow:'伏笔钩子',voice:'角色声音',perspective:'视角',prose:'文笔'};
+        var lowDims = dims.filter(function(d){ return _judgeReport.scores[d] !== undefined && _judgeReport.scores[d] < 75; });
+        if (lowDims.length > 0) {
+          rewritePrompt += '\n【低分维度·重点改进】\n';
+          lowDims.forEach(function(d){
+            rewritePrompt += '- ' + dimNames[d] + '（' + _judgeReport.scores[d] + '分）：' + (_judgeReport.scores[d+'_issue'] || '需提升') + '\n';
+          });
+        }
+      }
+      rewritePrompt += '\n2. 保留原文的剧情走向、角色名、关键事件，只修订表达和技法问题\n';
+      rewritePrompt += '3. 保持原文字数（约' + result.length + '字），不要大幅增删剧情\n';
+      rewritePrompt += '4. 特别注意：\n';
+      if (hasL1Hard) {
+        rewritePrompt += '   - [L1硬伤] 读心/视角跳/全知必须彻底消除——角色不能"知道"他人想法，只能通过动作表情推测\n';
+      }
+      rewritePrompt += '   - AI腔句式必须替换为具体描写\n';
+      rewritePrompt += '   - 直白情绪词必须改为微动作外化\n';
+      rewritePrompt += '   - 开篇400字必须有冲突/悬念，章末必须有钩子\n';
+      rewritePrompt += '\n【原文】\n' + result + '\n\n请直接输出修订后的完整章节（不要加说明、不要加标题）：';
+
+      try {
+        var rewriteResult = await callRealAPIWithFallback(rewritePrompt, null, 'write_normal', 3000);
+        if (rewriteResult && rewriteResult.length > result.length * 0.6 && rewriteResult.length < result.length * 2) {
+          // 重写后再次双重质检
+          var _recheckDeep = typeof deepSelfCheckV48 === 'function' ? deepSelfCheckV48(work, chapterIdx, rewriteResult) : null;
+          var _recheckJudge = null;
+          try { _recheckJudge = await llmJudgeChapter(work, chapterIdx, rewriteResult); } catch(e) {}
+          var _recheckScore = 0;
+          if (_recheckJudge && _recheckJudge.total > 0) {
+            _recheckScore = _recheckDeep ? Math.round(_recheckDeep.score * 0.4 + _recheckJudge.total * 0.6) : _recheckJudge.total;
+          } else {
+            _recheckScore = _recheckDeep ? _recheckDeep.score : _combinedScore;
+          }
+          // 只有重写后分数提升才采用
+          if (_recheckScore >= _combinedScore) {
+            result = rewriteResult;
+            _deepReport = _recheckDeep || _deepReport;
+            _judgeReport = _recheckJudge || _judgeReport;
+            _combinedScore = _recheckScore;
+            _rewritten = true;
+            // 更新L1硬伤状态和hints
+            hasL1Hard = _deepReport && _deepReport.issues.some(function(s){ return s.indexOf('[L1]') >= 0; });
+            _allRewriteHints = [];
+            if (_judgeReport && _judgeReport.rewriteHints) _allRewriteHints = _judgeReport.rewriteHints.slice();
+            if (_deepReport && _deepReport.issues) {
+              _deepReport.issues.slice(0, 8).forEach(function(iss){
+                if (_allRewriteHints.length < 10) _allRewriteHints.push(iss);
+              });
+            }
+            console.log('[v54重写轮' + _rewriteRounds + '] ' + _combinedScore + '分, 剩余' + _allRewriteHints.length + '个问题');
+          } else {
+            // 重写反而变差，放弃
+            console.log('[v54重写轮' + _rewriteRounds + '] 分数下降，放弃重写');
+            break;
+          }
+        }
+      } catch(rewriteErr) {
+        console.warn('[v54重写轮' + _rewriteRounds + '] 失败:', rewriteErr && rewriteErr.message);
+        break;
+      }
+    }
 
     statusBar.style.background = '#dcfce7';
     statusBar.style.color = '#166534';
     var _scoreTxt = _qReport ? '，质量分 ' + _qReport.score + '/100' : '';
+    if (_judgeReport && _judgeReport.total > 0) {
+      _scoreTxt += '，LLM裁判 ' + _judgeReport.total + '/100';
+    }
     if (_deepReport) {
-      _scoreTxt += '，深度自检 ' + _deepReport.score + '/100' + (_rewritten ? '（已重写）' : '');
+      _scoreTxt += '，综合 ' + _combinedScore + '/100' + (_rewritten ? '（重写' + _rewriteRounds + '轮）' : '');
     }
     statusBar.textContent = 'AI生成成功（' + result.length + '字' + _scoreTxt + '）';
-    if (_deepReport && _deepReport.issues.length) {
+    if (_judgeReport && _judgeReport.feedback) {
+      statusBar.textContent += ' · ' + _judgeReport.feedback.substring(0, 40);
+    } else if (_deepReport && _deepReport.issues.length) {
       statusBar.textContent += ' · 待改进：' + _deepReport.issues.slice(0,2).join('、');
-    } else if (_qReport && _qReport.weaknesses.length) {
-      statusBar.textContent += ' · 短板：' + _qReport.weaknesses.slice(0,2).join('、');
     }
 
     // ===== 正文不自动续写，保持用户可控性 =====
@@ -3273,7 +3530,26 @@ async function aiWriteChapter(){
     DB.saveWork(work);
     // 通知可撤销
     showToast('✅ 生成完成 — 不满意可点右上角 <撤销> 按钮恢复原文', 5000);
-    
+
+    // === v54: 异步提取角色弧光推进点（不阻塞用户，后台累积轨迹）===
+    try {
+      var _arcs = await extractCharArcProgress(work, chapterIdx, ch.content || result);
+      if (_arcs && _arcs.length > 0) {
+        saveCharArcProgress(work, _arcs);
+        DB.saveWork(work);
+        console.log('[v54弧光] 提取' + _arcs.length + '个推进点');
+      }
+    } catch(arcErr) { console.warn('[arcExtract] 后台提取失败:', arcErr && arcErr.message); }
+
+    // === v54: 异步缓存章节embedding（供语义检索用，不阻塞用户）===
+    try {
+      if (window.VectorRAG && typeof VectorRAG.embedChapter === 'function') {
+        VectorRAG.embedChapter(work, chapterIdx).then(function(){
+          DB.saveWork(work);
+        }).catch(function(){});
+      }
+    } catch(embedErr) { console.warn('[embedChapter] 后台缓存失败:', embedErr && embedErr.message); }
+
     // 触发润色推荐
     setTimeout(function(){ showPolishRecommend(); }, 500);
     
