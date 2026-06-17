@@ -1505,6 +1505,268 @@ function smartTruncate(text, maxLen){
   return head + '...（后续略）';
 }
 
+// ========== 架构内容 → 长记忆同步 ==========
+// 将世界观/人设/大纲/细纲的关键信息提取到 longMemory，实现模块间记忆连接
+function syncArchToMemory(work, module){
+  if(!work || !module) return;
+  if(typeof initLongMemory === 'function'){
+    initLongMemory(work);
+  } else {
+    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}};
+  }
+  var mem = work.longMemory;
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]};
+  var anchors = mem.memoryAnchors;
+
+  // 世界观 → 提取核心设定到记忆锚点
+  if(module === 'world' && work.world && work.world.trim()){
+    anchors.core = anchors.core.filter(function(a){ return a.source !== 'world'; });
+    var worldLines = work.world.split('\n');
+    var worldKeyPoints = [];
+    for(var wi = 0; wi < worldLines.length; wi++){
+      var line = worldLines[wi].trim();
+      if(line.length < 5) continue;
+      // 提取包含关键设定的行
+      if(/境界|等级|体系|规则|代价|限制|势力|阵营|地理|大陆|禁地|秘境|历史|纪元|力量|修炼/.test(line)){
+        worldKeyPoints.push(line.slice(0, 200));
+      }
+    }
+    // 取前15条核心设定
+    worldKeyPoints.slice(0, 15).forEach(function(pt){
+      anchors.core.push({text: pt, source: 'world', chapterIdx: -1, priority: 100, ts: Date.now()});
+    });
+    // 提取地名到 locations
+    var geoMatches = work.world.match(/[\u4e00-\u9fa5]{2,6}(?:大陆|域|州|城|镇|村|山脉|河流|森林|沙漠|海域|岛屿|秘境|遗迹|深渊|禁地|谷|峰|阁|殿|宫)/g);
+    if(geoMatches){
+      var seenGeo = {};
+      geoMatches.forEach(function(g){
+        if(!seenGeo[g] && anchors.locations.filter(function(l){return l.text === g;}).length === 0){
+          anchors.locations.push({text: g, source: 'world', chapterIdx: -1, ts: Date.now()});
+          seenGeo[g] = true;
+        }
+      });
+      if(anchors.locations.length > 50) anchors.locations = anchors.locations.slice(-50);
+    }
+    // 提取势力名到 relationships
+    var factionMatches = work.world.match(/[\u4e00-\u9fa5]{2,8}(?:家族|宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄)/g);
+    if(factionMatches){
+      var seenFaction = {};
+      factionMatches.forEach(function(f){
+        if(!seenFaction[f] && anchors.relationships.filter(function(r){return r.text === f;}).length === 0){
+          anchors.relationships.push({text: f + '（势力）', source: 'world', chapterIdx: -1, ts: Date.now()});
+          seenFaction[f] = true;
+        }
+      });
+      if(anchors.relationships.length > 50) anchors.relationships = anchors.relationships.slice(-50);
+    }
+  }
+
+  // 人设 → 提取角色信息到记忆锚点
+  if(module === 'chars' && work.chars && work.chars.trim()){
+    anchors.characterTags = anchors.characterTags.filter(function(a){ return a.source !== 'chars'; });
+    var charLines = work.chars.split('\n');
+    var currentChar = '';
+    for(var ci = 0; ci < charLines.length; ci++){
+      var cline = charLines[ci].trim();
+      if(cline.length < 3) continue;
+      // 检测角色名行（通常包含"主角""反派""配角"或2-4字中文名+冒号）
+      var nameMatch = cline.match(/(?:主角|反派|配角|导师|伙伴|女主|男主)[：:]\s*([\u4e00-\u9fa5]{2,4})/) || cline.match(/^([\u4e00-\u9fa5]{2,4})[：:]/);
+      if(nameMatch){
+        currentChar = nameMatch[1] || nameMatch[0];
+        anchors.characterTags.push({text: currentChar + '（角色）', source: 'chars', chapterIdx: -1, ts: Date.now()});
+      }
+      // 提取角色特征（口癖、标志动作、弱点等）
+      if(currentChar && /口癖|标志|弱点|执念|伤疤|特征|性格|身份|秘密/.test(cline)){
+        anchors.characterTags.push({text: currentChar + '：' + cline.slice(0, 100), source: 'chars', chapterIdx: -1, ts: Date.now()});
+      }
+    }
+    if(anchors.characterTags.length > 80) anchors.characterTags = anchors.characterTags.slice(-80);
+  }
+
+  // 大纲 → 提取核心矛盾和伏笔到记忆锚点
+  if(module === 'outline' && work.outline && work.outline.trim()){
+    anchors.hooks = anchors.hooks.filter(function(a){ return a.source !== 'outline'; });
+    var outlineLines = work.outline.split('\n');
+    for(var oi = 0; oi < outlineLines.length; oi++){
+      var oline = outlineLines[oi].trim();
+      if(oline.length < 5) continue;
+      // 提取伏笔和悬念
+      if(/伏笔|悬念|秘密|真相|谜|隐藏|暗中|未解/.test(oline)){
+        anchors.hooks.push({text: oline.slice(0, 150), source: 'outline', chapterIdx: -1, ts: Date.now()});
+      }
+      // 提取承诺和约定
+      if(/承诺|约定|誓言|契约|必须|不能|禁忌/.test(oline)){
+        anchors.promises.push({text: oline.slice(0, 150), source: 'outline', chapterIdx: -1, ts: Date.now()});
+      }
+    }
+    if(anchors.hooks.length > 40) anchors.hooks = anchors.hooks.slice(-40);
+    if(anchors.promises.length > 40) anchors.promises = anchors.promises.slice(-40);
+  }
+
+  // 细纲 → 提取章节级伏笔和时间线
+  if(module === 'detail' && work.detail && work.detail.trim()){
+    var detailLines = work.detail.split('\n');
+    for(var di = 0; di < detailLines.length; di++){
+      var dline = detailLines[di].trim();
+      if(dline.length < 5) continue;
+      // 提取章节编号
+      var chMatch = dline.match(/第(\d+)章/);
+      if(chMatch){
+        var chNum = parseInt(chMatch[1]);
+        // 提取时间线信息
+        if(/黎明|黄昏|夜晚|三天后|一个月|一年|三年|十年|百年/.test(dline)){
+          anchors.timeline.push({text: '第' + chNum + '章：' + dline.slice(0, 100), source: 'detail', chapterIdx: chNum - 1, ts: Date.now()});
+        }
+        // 提取伏笔
+        if(/伏笔|悬念|钩子|爆点|转折/.test(dline)){
+          anchors.hooks.push({text: '第' + chNum + '章：' + dline.slice(0, 100), source: 'detail', chapterIdx: chNum - 1, ts: Date.now()});
+        }
+      }
+    }
+    if(anchors.timeline.length > 50) anchors.timeline = anchors.timeline.slice(-50);
+    if(anchors.hooks.length > 60) anchors.hooks = anchors.hooks.slice(-60);
+  }
+
+  // 保存
+  try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+}
+
+// ========== 架构模块间共享记忆上下文 ==========
+// 从 longMemory 提取已生成模块的关键信息，作为生成新模块时的一致性锚点
+// 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
+function buildArchMemoryContext(work, currentModule){
+  if(!work) return '';
+  if(typeof initLongMemory === 'function'){
+    initLongMemory(work);
+  }
+  var mem = work.longMemory;
+  if(!mem) return '';
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]};
+  var anchors = mem.memoryAnchors;
+
+  var ctx = '';
+  var added = 0;
+  var BUDGET = 1500;
+  function tryAdd(block){
+    if(!block || added >= BUDGET) return;
+    if(added + block.length > BUDGET){
+      var remaining = BUDGET - added;
+      if(remaining > 60){
+        ctx += block.substring(0, remaining - 3) + '...';
+        added = BUDGET;
+      }
+      return;
+    }
+    ctx += block;
+    added += block.length;
+  }
+
+  // 模块名映射
+  var moduleNames = {world:'世界观', chars:'人设', outline:'大纲', detail:'细纲'};
+
+  // L1: 核心设定（来自世界观，最高优先级）
+  var coreList = (anchors.core || []).filter(function(a){ return a.source !== currentModule; });
+  if(coreList.length > 0){
+    var coreBlock = '【📐 已确立的核心设定（来自世界观，必须严格遵守）】\n';
+    coreList.slice(0, 12).forEach(function(a){
+      coreBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(coreBlock + '\n');
+  }
+
+  // L2: 角色记忆点（来自人设）
+  var charList = (anchors.characterTags || []).filter(function(a){ return a.source !== currentModule; });
+  if(charList.length > 0){
+    var charBlock = '【👤 已确立的角色设定（来自人设，姓名/特征/关系不得矛盾）】\n';
+    charList.slice(0, 15).forEach(function(a){
+      charBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(charBlock + '\n');
+  }
+
+  // L3: 势力与关系（来自世界观）
+  var relList = (anchors.relationships || []).filter(function(a){ return a.source !== currentModule; });
+  if(relList.length > 0){
+    var relBlock = '【⚔️ 已确立的势力/关系（不得改名或新增冲突设定）】\n';
+    relList.slice(0, 10).forEach(function(a){
+      relBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(relBlock + '\n');
+  }
+
+  // L4: 地点（来自世界观）
+  var locList = (anchors.locations || []).filter(function(a){ return a.source !== currentModule; });
+  if(locList.length > 0){
+    var locBlock = '【🗺️ 已确立的地点（地名必须一致）】\n';
+    locList.slice(0, 10).forEach(function(a){
+      locBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(locBlock + '\n');
+  }
+
+  // L5: 伏笔/钩子（来自大纲/细纲）
+  var hookList = (anchors.hooks || []).filter(function(a){ return a.source !== currentModule; });
+  if(hookList.length > 0){
+    var hookBlock = '【🪝 已埋的伏笔/钩子（必须承接，不得遗漏）】\n';
+    hookList.slice(0, 10).forEach(function(a){
+      var chTag = (a.chapterIdx !== undefined && a.chapterIdx >= 0) ? '第' + (a.chapterIdx+1) + '章：' : '';
+      hookBlock += '  ■ ' + chTag + a.text + '\n';
+    });
+    tryAdd(hookBlock + '\n');
+  }
+
+  // L6: 承诺/约定（来自大纲）
+  var promiseList = (anchors.promises || []).filter(function(a){ return a.source !== currentModule; });
+  if(promiseList.length > 0){
+    var promiseBlock = '【📜 已确立的承诺/约定/禁忌（必须遵守）】\n';
+    promiseList.slice(0, 8).forEach(function(a){
+      promiseBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(promiseBlock + '\n');
+  }
+
+  // L7: 时间线（来自细纲）
+  var tlList = (anchors.timeline || []).filter(function(a){ return a.source !== currentModule; });
+  if(tlList.length > 0){
+    var tlBlock = '【⏰ 已确立的时间线（必须连续，不得矛盾）】\n';
+    tlList.slice(0, 8).forEach(function(a){
+      tlBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(tlBlock + '\n');
+  }
+
+  // L8: 章节衍生记忆（如果已有正文，注入角色状态/情节线索/伏笔）
+  if(mem.charStates && mem.charStates.length > 0){
+    var csBlock = '【🎭 正文中角色的当前状态（来自已写章节，必须承接）】\n';
+    mem.charStates.slice(0, 8).forEach(function(cs){
+      csBlock += '  ■ ' + cs.name + '：' + (cs.status || '') + (cs.location ? '，位于' + cs.location : '') + '\n';
+    });
+    tryAdd(csBlock + '\n');
+  }
+  if(mem.plotThreads && mem.plotThreads.length > 0){
+    var pending = mem.plotThreads.filter(function(t){ return t.status === '待解'; });
+    if(pending.length > 0){
+      var ptBlock = '【🔗 正文中待解的情节线索（必须延续）】\n';
+      pending.slice(0, 6).forEach(function(t){
+        ptBlock += '  ■ ' + (t.title || '') + (t.relatedTo ? ' [关联：' + t.relatedTo + ']' : '') + '\n';
+      });
+      tryAdd(ptBlock + '\n');
+    }
+  }
+  if(mem.foreshadows && mem.foreshadows.length > 0){
+    var unsolved = mem.foreshadows.filter(function(f){ return f.status === '未解'; });
+    if(unsolved.length > 0){
+      var fsBlock = '【🔮 正文中未解的伏笔（必须呼应）】\n';
+      unsolved.slice(0, 6).forEach(function(f){
+        fsBlock += '  ■ 第' + (f.chapterIdx + 1) + '章：' + (f.line || '') + '\n';
+      });
+      tryAdd(fsBlock + '\n');
+    }
+  }
+
+  return ctx;
+}
+
 // ========== 核心：架构模块生成主函数 ==========
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
@@ -1569,15 +1831,30 @@ window.generateArchModule = async function(opts){
       }
     } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
 
-    // 2.6 长记忆注入：如果作品已有章节和记忆，提取关键记忆作为生成上下文
+    // 2.6 长记忆注入：提取已生成模块和已写章节的关键记忆作为生成上下文
+    // 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
     var memoryContext = '';
     try {
-      if(work && work.chapters && work.chapters.length > 0 && work.longMemory){
-        if(typeof buildMemoryContext === 'function'){
-          memoryContext = buildMemoryContext(work, work.chapters.length);
-          if(memoryContext && memoryContext.length > 200){
-            memoryContext = smartTruncate(memoryContext, 1500);
+      if(work){
+        // 优先使用架构专用记忆上下文（模块间共享记忆连接）
+        if(typeof buildArchMemoryContext === 'function'){
+          memoryContext = buildArchMemoryContext(work, module);
+        }
+        // 如果已有章节，补充章节衍生的详细记忆（角色状态/情节线索/伏笔等）
+        if(work.chapters && work.chapters.length > 0 && typeof buildMemoryContext === 'function'){
+          var chapterMem = buildMemoryContext(work, work.chapters.length);
+          if(chapterMem && chapterMem.length > 200){
+            // 架构记忆优先，章节记忆作为补充（避免重复，只取架构记忆未覆盖的部分）
+            var supplement = smartTruncate(chapterMem, 800);
+            if(memoryContext){
+              memoryContext += '\n' + supplement;
+            } else {
+              memoryContext = supplement;
+            }
           }
+        }
+        if(memoryContext && memoryContext.length > 2500){
+          memoryContext = smartTruncate(memoryContext, 2500);
         }
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
@@ -1664,6 +1941,9 @@ window.generateArchModule = async function(opts){
     }
     work[module] = result;
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+
+    // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
+    try { syncArchToMemory(work, module); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
 
     if(typeof hideLoading === 'function') hideLoading();
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batches.length + ' 张卡片 · ' + result.length + '字）';
@@ -1849,9 +2129,9 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【📊 题材市场调研报告 — AI分工搜索结果，参考当前市场热点避免踩坑】\n' + smartTruncate(marketResearch, 1000) + '\n\n';
   }
 
-  // 长记忆上下文：已有章节的关键记忆（保持前后一致性）
+  // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
   if(memoryContext && memoryContext.trim()){
-    prompt += '【🧠 长记忆上下文 — 已有章节的关键信息，必须保持一致】\n' + memoryContext + '\n\n';
+    prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
   // 关键：已生成的卡片内容（作为一致性锚点，让 AI 知道前面写了什么）
