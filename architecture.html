@@ -1533,6 +1533,55 @@ window.generateArchModule = async function(opts){
       showToast('已按作品题材自动生成。你也可以在上方输入具体要求，AI 会优先按你的提示词生成。', {duration:3000});
     }
 
+    // 2.5 AI分工搜索：先生成一份"题材市场调研报告"，作为生成上下文
+    var marketResearch = '';
+    var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+    var plotType = (work && work.plotType) || (work && work.category && work.category.cat2) || '';
+    var platform = '起点';
+    try { if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; } catch(e){}
+    try {
+      if(typeof showLoading === 'function') showLoading('🔍 第1步：搜索2025-2026年' + (genre || '该题材') + '市场趋势…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(5, '🔍 搜索题材市场趋势…');
+
+      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
+      researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      if(plotType) researchPrompt += '【二级细分】' + plotType + '\n';
+      researchPrompt += '【发布平台】' + platform + '\n';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求】' + idea.trim().slice(0, 500) + '\n';
+      researchPrompt += '\n请分析以下内容（总字数控制在800字以内）：\n';
+      researchPrompt += '1. 2025-2026年该题材最火的3-5部代表作（书名+核心卖点+为什么火）\n';
+      researchPrompt += '2. 当前读者最买单的核心元素（如：反套路、系统流、凡人流等）\n';
+      researchPrompt += '3. 该题材当前已饱和/读者厌倦的套路（避免踩坑）\n';
+      researchPrompt += '4. 2026年该题材的新趋势和机会点（差异化方向）\n';
+      researchPrompt += '5. 基于以上分析，给出3条具体的创作建议\n';
+      researchPrompt += '\n直接输出分析结果，不要加对话语前缀。';
+
+      var researchResult = null;
+      try {
+        if(typeof callRealAPIWithFallback === 'function'){
+          researchResult = await callRealAPIWithFallback(researchPrompt, null, 'quality_consist', 1200);
+        }
+      } catch(reErr) { console.warn('[市场调研] 失败:', reErr); }
+
+      if(researchResult && researchResult.trim().length > 50){
+        marketResearch = researchResult.trim();
+        if(typeof showToast === 'function') showToast('✅ 市场调研完成，开始生成…', {duration: 2000});
+      }
+    } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
+
+    // 2.6 长记忆注入：如果作品已有章节和记忆，提取关键记忆作为生成上下文
+    var memoryContext = '';
+    try {
+      if(work && work.chapters && work.chapters.length > 0 && work.longMemory){
+        if(typeof buildMemoryContext === 'function'){
+          memoryContext = buildMemoryContext(work, work.chapters.length);
+          if(memoryContext && memoryContext.length > 200){
+            memoryContext = smartTruncate(memoryContext, 1500);
+          }
+        }
+      }
+    } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
+
     // 3. v48: 卡片分批生成（替代自动续写，每批独立调用，天然不截断且一致性好）
     var taskType = 'default';
     if(module === 'world') taskType = 'world_rules';
@@ -1558,8 +1607,8 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel);
       }
 
-      // 构建本卡片的 prompt：核心诉求 + 已生成内容（作为锚点）+ 本卡片具体目标 + 评价加强提示
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint);
+      // 构建本卡片的 prompt：核心诉求 + 市场调研 + 记忆上下文 + 已生成内容 + 本卡片具体目标 + 评价加强提示
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -1745,8 +1794,8 @@ function buildArchCardBatchesV48(module, work, idea){
 }
 
 // ===== v48: 为单张卡片构建 prompt =====
-// 关键点：用户诉求 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint){
+// 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
   var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
   var title = (work && work.title) || '未命名作品';
   var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
@@ -1793,6 +1842,16 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint){
   var trend = getTrendHint2026(work);
   if(trend){
     prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 400) + '\n\n';
+  }
+
+  // AI分工搜索：市场调研报告（作为创作参考，权重次于用户诉求）
+  if(marketResearch && marketResearch.trim()){
+    prompt += '【📊 题材市场调研报告 — AI分工搜索结果，参考当前市场热点避免踩坑】\n' + smartTruncate(marketResearch, 1000) + '\n\n';
+  }
+
+  // 长记忆上下文：已有章节的关键记忆（保持前后一致性）
+  if(memoryContext && memoryContext.trim()){
+    prompt += '【🧠 长记忆上下文 — 已有章节的关键信息，必须保持一致】\n' + memoryContext + '\n\n';
   }
 
   // 关键：已生成的卡片内容（作为一致性锚点，让 AI 知道前面写了什么）
