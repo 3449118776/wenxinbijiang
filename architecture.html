@@ -2294,13 +2294,13 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(module !== 'world'){
     prompt += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力/地名】\n';
     if(work && work.world && work.world.trim()){
-      prompt += '■ 世界观（全文引用，不可遗漏）：\n' + smartTruncate(work.world, 2000) + '\n';
+      prompt += '■ 世界观（核心要点，全文摘要）：\n' + smartTruncate(work.world, 3000) + '\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      prompt += '■ 人物人设（全文引用，不可遗漏）：\n' + smartTruncate(work.chars, 2000) + '\n';
+      prompt += '■ 人物人设（核心要点，全文摘要）：\n' + smartTruncate(work.chars, 3000) + '\n';
     }
     if(module === 'detail' && work && work.outline && work.outline.trim()){
-      prompt += '■ 全书大纲（全文引用，不可遗漏）：\n' + smartTruncate(work.outline, 2500) + '\n';
+      prompt += '■ 全书大纲（核心要点，全文摘要）：\n' + smartTruncate(work.outline, 3500) + '\n';
     }
     prompt += '\n';
   }
@@ -2326,8 +2326,13 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突、不得遗漏已提及的细节】\n';
     for(var pi = 0; pi < prevCards.length; pi++){
       var pc = prevCards[pi];
-      // 每张卡片取最后 1000 字（保持一致性的同时避免超长）
-      var snippet = pc.content.length > 1000 ? pc.content.slice(-1000) : pc.content;
+      // 每张卡片取关键摘要：前 500 字（开头核心设定）+ 最后 500 字（最新内容），确保上下文连贯
+      var snippet = '';
+      if(pc.content.length > 1500){
+        snippet = pc.content.substring(0, 500) + '\n...（中间略）...\n' + pc.content.slice(-500);
+      } else {
+        snippet = pc.content;
+      }
       prompt += '■ ' + pc.label + '：\n' + snippet.trim() + '\n\n';
     }
   }
@@ -2391,12 +2396,16 @@ window.evaluateArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
-    var rawEl = document.getElementById('raw-' + module);
-    if(!rawEl || !rawEl.value.trim()){
+    // 分页模式下 textarea 只显示当前页，需用全文缓存获取完整内容
+    var content = _archFullContent[module] || '';
+    if (!content) {
+      var rawEl = document.getElementById('raw-' + module);
+      if (rawEl && rawEl.value.trim()) content = rawEl.value.trim();
+    }
+    if(!content){
       showToast('先生成内容再评价');
       return;
     }
-    var content = rawEl.value.trim();
     var len = content.length;
 
     // ============== 本地启发式快速检查（离线可用）==============
@@ -2555,9 +2564,9 @@ window.strengthenDetailOutlineV46 = async function(){
     // 3. 通用上下文（给每批卡片共享）
     var contextBlock = '';
     contextBlock += '【作品题材】' + (work.genre || '未知') + '\n';
-    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + smartTruncate(work.world, 1000) + '\n';
-    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + smartTruncate(work.chars, 1000) + '\n';
-    if(work.outline) contextBlock += '【全书大纲参考】\n' + smartTruncate(work.outline, 1200) + '\n';
+    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + smartTruncate(work.world, 2000) + '\n';
+    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + smartTruncate(work.chars, 2000) + '\n';
+    if(work.outline) contextBlock += '【全书大纲参考】\n' + smartTruncate(work.outline, 2000) + '\n';
 
     // 4. 每批卡片独立调用 AI
     var allCards = [];
@@ -2780,9 +2789,15 @@ window.handleArchFileImport = function(event){
                   var rawE = document.getElementById('raw-' + key);
                   if(rawE){ rawE.value = data[key]; imported++; }
                   if(work) work[key] = data[key];
+                  // 清理每个模块的全文缓存和翻页器，重新初始化
+                  delete _archFullContent[key];
+                  _archPageMap[key + '_page'] = 1;
                 }
               }
               if(work && typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+              // 重新初始化所有模块的翻页器
+              ['world','chars','outline'].forEach(function(m){ initArchPager(m); });
+              initDetailPager();
               showToast('✅ 已导入 ' + imported + ' 个模块', {duration:3000});
             } else {
               // 当作纯文本导入当前模块
@@ -2958,14 +2973,17 @@ function initArchPager(module) {
 // 生成完成后自动启用分页显示
 var _origGenerateArchModule = window.generateArchModule;
 window.generateArchModule = async function(opts) {
+  var captureModule = _selectedModule || 'world'; // 捕获当前模块，防止异步期间切换
   var result = await _origGenerateArchModule.apply(this, arguments);
   setTimeout(function() {
-    var module = _selectedModule || 'world';
-    // 生成完成后更新全文缓存并初始化翻页器
-    if (module === 'detail') {
+    // 清除旧的全文本缓存（重新生成/按评价加强时，旧缓存可能指向旧内容）
+    delete _archFullContent[captureModule];
+    if (captureModule === 'detail') {
+      _detailPageIdx = 0;
       initDetailPager();
     } else {
-      initArchPager(module);
+      _archPageMap[captureModule + '_page'] = 1;
+      initArchPager(captureModule);
     }
   }, 100);
   return result;
