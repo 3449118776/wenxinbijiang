@@ -954,7 +954,8 @@ var TASK_ROUTE = {
 // 支持 taskType 参数，按任务智能选择首发服务商
 // 任意服务商有 key 能产出结果即返回；**所有服务商所有 key 都失败时给出明确的总括提示**
 // v48: 第4个参数 targetChars（目标中文字数）用于动态设置 max_tokens，避免输出被截断
-async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars) {
+// v49: 第5个参数 silent（true 时不在内部操作 loading，由外层统一管理）
+async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent) {
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
   // 根据目标字数动态计算 max_tokens
@@ -1000,7 +1001,7 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     return null;
   }
 
-  showLoading('AI生成中，尝试服务商…', true);
+  if (!silent) showLoading('AI生成中，尝试服务商…', true);
 
   var totalTry = 0;
   var result = null;
@@ -1011,23 +1012,23 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     var provider = order[oi];
     totalTry++;
     // v48: 构建动态输出选项（如果提供了 targetChars，会覆盖 DEFAULT_MAX_TOKENS）
-    var callOpts = { provider: provider, silent: oi !== 0 };
+    var callOpts = { provider: provider, silent: silent || oi !== 0 };
     if (dynamicMaxTokens) callOpts.maxTokens = dynamicMaxTokens;
 
     if (oi === 0) {
       // 静默尝试首选，用户无感
-      showLoading('AI生成中…', true);
+      if (!silent) showLoading('AI生成中…', true);
       result = await callRealAPI(prompt, onProgress, callOpts);
     } else {
       var name = API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider;
-      showLoading('切换到 ' + name + ' 重试…', true);
+      if (!silent) showLoading('切换到 ' + name + ' 重试…', true);
       result = await callRealAPI(prompt, onProgress, callOpts);
     }
     // 统计错误类型
     var le = callRealAPI && callRealAPI.lastErr;
     if (le && le.kind) lastKindSummary[le.kind] = (lastKindSummary[le.kind] || 0) + 1;
     if (result) {
-      hideLoading();
+      if (!silent) hideLoading();
       if (oi > 0) {
         showToast('已切换到 ' + (API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 完成生成', { duration: 2200 });
       }
@@ -1035,7 +1036,7 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     }
   }
 
-  hideLoading();
+  if (!silent) hideLoading();
 
   // ===== 全部失败：给出明确、可行动的总括提示（按错误类型占比）=====
   var totalFailed = lastKindSummary.quota + lastKindSummary.invalid + lastKindSummary.rate + lastKindSummary.network + lastKindSummary.other;

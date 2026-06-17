@@ -40,6 +40,7 @@ var _loadingText = '';
 var _loadingPct = 0;
 var _loadingTimer = null;
 var _loadingInc = 0;
+var _loadingHideTimers = []; // hideLoading 的淡出定时器，showLoading 时需清除
 function showLoading(text, keepProgress) {
   _loadingText = text || '加载中…';
   if (!keepProgress) {
@@ -47,6 +48,11 @@ function showLoading(text, keepProgress) {
     _loadingInc = 0;
   }
   if (_loadingTimer && !keepProgress) clearInterval(_loadingTimer);
+  // 清除 hideLoading 留下的淡出定时器，防止 loading 被意外隐藏
+  if (_loadingHideTimers.length) {
+    _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
+    _loadingHideTimers = [];
+  }
 
   var el = document.querySelector('#app-loading');
   if (!el) {
@@ -86,6 +92,9 @@ function showLoading(text, keepProgress) {
 
 function hideLoading() {
   if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
+  // 清除可能残留的淡出定时器
+  _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
+  _loadingHideTimers = [];
   var el = document.querySelector('#app-loading');
   if (!el) return;
   
@@ -95,12 +104,14 @@ function hideLoading() {
   if (fill) fill.style.width = '100%';
   if (pctEl) pctEl.textContent = '100%';
   
-  setTimeout(function() {
+  var t1 = setTimeout(function() {
     el.style.opacity = '0';
-    setTimeout(function() {
+    var t2 = setTimeout(function() {
       if (el.style.opacity === '0') el.style.display = 'none';
     }, 300);
+    _loadingHideTimers.push(t2);
   }, 200);
+  _loadingHideTimers.push(t1);
 }
 
 // 外部可调用：更新加载进度（0-100）
