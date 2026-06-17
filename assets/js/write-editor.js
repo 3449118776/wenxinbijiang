@@ -1695,6 +1695,22 @@ function buildWriteConsistencyBlock(work, chapterIdx) {
 }
 
 
+// 根据模型上下文窗口动态计算架构内容截断上限
+// 大上下文模型（128K+）传完整架构，小上下文模型按比例截断
+function getArchTruncationLimits() {
+  var ctx = 131072; // 默认 128K
+  try { if (typeof getModelContextWindow === 'function') ctx = getModelContextWindow(); } catch(e) {}
+  var limits = { world: 8000, chars: 5000, outline: 5000, detail: 5000 }; // 默认（8K-32K 模型）
+  if (ctx >= 100000) {
+    // 128K+ 模型：基本不截断，传完整架构
+    limits = { world: 50000, chars: 30000, outline: 50000, detail: 50000 };
+  } else if (ctx >= 30000) {
+    // 32K-100K 模型：适度截断
+    limits = { world: 15000, chars: 10000, outline: 12000, detail: 12000 };
+  }
+  return limits;
+}
+
 // 构建章节写作prompt
 function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   const chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第' + (chapterIdx + 1) + '章') : ('第' + (chapterIdx + 1) + '章');
@@ -1704,6 +1720,9 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   const genreVal = (work.settings && work.settings.genre) || '';
   const genreInfo = (typeof NOVEL_GENRES !== 'undefined') ? NOVEL_GENRES[genreVal] : null;
   const expertisePrompt = genreInfo ? genreInfo.expertise : '';
+  
+  // 根据模型上下文窗口动态获取架构内容截断上限
+  var archLimits = getArchTruncationLimits();
   
   // 获取前两章内容作为上文衔接（智能截断至~3000字，对齐段落边界）
   let prevContent = '';
@@ -1872,7 +1891,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = work.world.length > 8000 ? work.world.substring(0, 8000) + '...(完整世界观请参考)' : work.world;
+    var worldText = work.world.length > archLimits.world ? work.world.substring(0, archLimits.world) + '...(完整世界观请参考)' : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
@@ -1891,7 +1910,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   if (work.chars) {
-    const charsText = work.chars.length > 5000 ? work.chars.substring(0, 5000) + '...(完整人设请参考)' : work.chars;
+    const charsText = work.chars.length > archLimits.chars ? work.chars.substring(0, archLimits.chars) + '...(完整人设请参考)' : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
   if (work.outline) {
@@ -1903,7 +1922,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
       prompt += '\n';
     } else {
-      const outlineText = work.outline.length > 3000 ? work.outline.substring(0, 3000) + '...(完整大纲请参考)' : work.outline;
+      const outlineText = work.outline.length > archLimits.outline ? work.outline.substring(0, archLimits.outline) + '...(完整大纲请参考)' : work.outline;
       prompt += '【全书大纲】\n' + outlineText + '\n\n';
     }
   }
@@ -1911,15 +1930,15 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   // 传细纲，截断防止token爆炸 + 按章节标题精准匹配
   if (work.detail) {
     var detailText = work.detail;
-    if (detailText.length > 5000) {
+    if (detailText.length > archLimits.detail) {
       // 尝试找到当前章节附近的细纲
       var idxInDetail = detailText.indexOf(chTitle);
       if (idxInDetail >= 0) {
         var start = Math.max(0, idxInDetail - 800);
-        var end = Math.min(detailText.length, idxInDetail + 3500);
+        var end = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.7));
         detailText = '...(前略)\n' + detailText.substring(start, end) + '\n(后略)...';
       } else {
-        detailText = detailText.substring(0, 4000) + '...(细纲过长已截断)';
+        detailText = detailText.substring(0, Math.floor(archLimits.detail * 0.8)) + '...(细纲过长已截断)';
       }
     }
     prompt += '【全书细纲】\n' + detailText + '\n\n';

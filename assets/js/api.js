@@ -313,6 +313,139 @@ var MODEL_MAX_OUTPUT = {
   'custom-model': 16384,
 };
 
+// 各模型的上下文窗口大小（token），用于判断是否能传完整架构内容
+var MODEL_CONTEXT_WINDOW = {
+  // DeepSeek
+  'deepseek-chat': 131072,       // 128K
+  'deepseek-reasoner': 65536,    // 64K
+  'deepseek-coder': 65536,
+  // 通义千问 (DashScope)
+  'qwen-max': 32768,
+  'qwen-plus': 131072,           // 128K
+  'qwen-turbo': 131072,
+  'qwen-long': 10000000,         // 10M
+  'qwen-max-latest': 32768,
+  // QwenLM
+  'qwen3-max': 131072,
+  'qwen3-coder': 131072,
+  // OpenAI
+  'gpt-4o': 131072,
+  'gpt-4o-mini': 131072,
+  'gpt-4-turbo': 131072,
+  'gpt-4': 8192,
+  'gpt-3.5-turbo': 16384,
+  // Claude / Anthropic
+  'claude-sonnet-4': 200000,
+  'claude-3-5-sonnet': 200000,
+  'claude-3-5-haiku': 200000,
+  'claude-3-opus': 200000,
+  'claude-opus-4': 200000,
+  'claude-haiku-4': 200000,
+  // 智谱AI (Zhipu)
+  'glm-4-plus': 131072,
+  'glm-4': 131072,
+  'glm-4-flash': 131072,
+  'glm-4-air': 131072,
+  'glm-3-turbo': 131072,
+  // Kimi (Moonshot)
+  'moonshot-v1-128k': 131072,
+  'moonshot-v1-32k': 32768,
+  'moonshot-v1-8k': 8192,
+  // 火山引擎 / 豆包
+  'doubao-pro-32k': 32768,
+  'doubao-pro-4k': 4096,
+  'doubao-lite-4k': 4096,
+  // 百度文心
+  'ernie-4.0-8k': 8192,
+  'ernie-4.0-turbo-8k': 8192,
+  'ernie-3.5-8k': 8192,
+  'ernie-speed-8k': 8192,
+  'ernie-lite-8k': 8192,
+  // 讯飞星火
+  'generalv3.5': 8192,
+  'generalv3': 8192,
+  'generalv2': 8192,
+  'general': 8192,
+  // MiniMax
+  'MiniMax-Text-01': 131072,
+  'abab6.5s-chat': 8192,
+  'abab6.5-chat': 8192,
+  'abab5.5-chat': 8192,
+  // 硅基流动 (SiliconFlow)
+  'deepseek-ai/DeepSeek-V3': 131072,
+  'deepseek-ai/DeepSeek-R1': 131072,
+  'deepseek-ai/deepseek-chat': 131072,
+  'Qwen/Qwen2.5-72B-Instruct': 32768,
+  'Qwen/Qwen2.5-32B-Instruct': 32768,
+  'THUDM/glm-4-9b-chat': 131072,
+  // xAI Grok
+  'grok-3': 131072,
+  'grok-3-fast': 131072,
+  'grok-3-mini': 131072,
+  // Mistral
+  'mistral-large-latest': 131072,
+  'mistral-small-latest': 32768,
+  'codestral-latest': 32768,
+  // 零一万物 (Yi)
+  'yi-lightning': 16384,
+  'yi-large': 32768,
+  'yi-medium': 16384,
+  'yi-spark': 16384,
+  // 百川智能
+  'Baichuan4': 32768,
+  'Baichuan3-Turbo': 32768,
+  'Baichuan2-Turbo': 8192,
+  // 阶跃星辰 (StepFun)
+  'step-1.5-pro': 131072,
+  'step-1.5-flash': 131072,
+  'step-1o': 131072,
+  // Cohere
+  'command-r-plus-08-2024': 131072,
+  'command-r-08-2024': 131072,
+  'command-nightly': 131072,
+  // Groq
+  'llama-3.3-70b': 131072,
+  'llama-3.1-8b': 131072,
+  'mixtral-8x7b': 32768,
+  'gemma2-9b-it': 8192,
+  // Together
+  'meta-llama/Meta-Llama-3.1-8B-Instruct': 131072,
+  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 131072,
+  'mistralai/Mixtral-8x22B-Instruct-v0.1': 65536,
+  // OpenRouter
+  'deepseek/deepseek-chat': 131072,
+  'anthropic/claude-3.5-sonnet': 200000,
+  'openai/gpt-4o-mini': 131072,
+  'meta-llama/llama-3.1-8b-instruct': 131072,
+  'google/gemma-3-27b-it': 8192,
+  'mistralai/ministral-3b': 131072,
+  // QwenLM 其他
+  'qwen2.5-72b-instruct': 32768,
+  // 自定义
+  'custom-model': 131072,
+};
+
+// 获取当前模型上下文窗口大小（token）
+function getModelContextWindow() {
+  try {
+    var config = DB.getApiConfig() || {};
+    var model = config.model || '';
+    return _lookupContextWindow(model);
+  } catch(e) {}
+  return 131072; // 默认 128K
+}
+
+function _lookupContextWindow(modelName) {
+  if (!modelName) return 131072;
+  if (MODEL_CONTEXT_WINDOW[modelName]) return MODEL_CONTEXT_WINDOW[modelName];
+  for (var key in MODEL_CONTEXT_WINDOW) {
+    if (modelName.indexOf(key) === 0 || key.indexOf(modelName) === 0) {
+      return MODEL_CONTEXT_WINDOW[key];
+    }
+  }
+  return 131072; // 默认 128K
+}
+
 // ================================================================
 // 🆓 免费模式：内置社区公开端点，无需注册/填 key，打开即用
 // 这些是 GitHub/社区维护的免费 OpenAI 兼容代理，自动轮询，一个失败换下一个
@@ -1153,6 +1286,7 @@ window.API_PROVIDERS = API_PROVIDERS;
 window.MODEL_CONFIGS = MODEL_CONFIGS;
 window.getApiTimeoutMs = getApiTimeoutMs;
 window.getModelMaxOutputTokens = getModelMaxOutputTokens;
+window.getModelContextWindow = getModelContextWindow;
 window.testApiKey = testApiKey;
 
 // === v46: 多AI协作调用 —— 同时请求多个服务商，取第一个成功结果 ===
