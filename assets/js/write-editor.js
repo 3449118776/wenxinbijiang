@@ -1193,6 +1193,17 @@ function buildFullChainLock(work, chapterIdx) {
   // L0：世界观锁（最高优先级，绝不能违反）
   if (work.world) {
     lock += '【L0 世界观锁】力量体系、地理、势力、时代规则、等级稀缺度、能力代价必须以【世界观设定】为准；不得新增与世界观冲突的体系；角色使用能力必须承受设定中的代价。\n';
+    // 提取世界观中的关键规则短句，强化约束
+    var worldRules = [];
+    var wrRE = /[^。\n]{0,30}(代价|规则|限制|不能|不可|必须|才能|除非|禁忌|体系|等级|势力|禁地|失传|诅咒|契约)[^。\n]{0,80}[。\n]/g;
+    var wrm;
+    while ((wrm = wrRE.exec(work.world)) !== null) {
+      var wr = wrm[0].trim();
+      if (wr.length > 15 && worldRules.indexOf(wr) === -1 && worldRules.length < 4) worldRules.push(wr);
+    }
+    if (worldRules.length > 0) {
+      lock += '  关键规则：' + worldRules.join(' | ') + '\n';
+    }
     has = true;
   }
   
@@ -1556,26 +1567,29 @@ function getCurrentVolumeContext(work, chapterIdx) {
   }
   var currentVol = Math.floor(chapterIdx / volSize);
   var volLabel = '第' + (currentVol + 1) + '卷';
-  var volRE = new RegExp('(第[一二三四五六七八九十\\d]+[卷部章节])\\s*[《「]?([^《」\\n]+)[》」]?\\s*[：:]?\\s*([\\s\\S]*?)(?=\\n\\s*(?:第[一二三四五六七八九十\\d]+[卷部章节])|$)', 'i');
+  // 支持多种格式：第1卷、第 1 卷、第 1 卷（起势）、第 1 卷·起势
+  var volRE = /(第\s*[一二三四五六七八九十\d]+\s*[卷部章节])\s*[（(]?([^）)\n]{0,8})[）)]?\s*[：:]?\s*([\s\S]*?)(?=\n\s*第\s*[一二三四五六七八九十\d]+\s*[卷部章节]|$)/gi;
   var volMatches = [];
   var m;
   while ((m = volRE.exec(outlineText)) !== null) {
-    volMatches.push({ label: m[1], title: m[2], body: m[3] });
+    volMatches.push({ label: m[1], phase: (m[2] || '').trim(), body: m[3] });
   }
-  var currentVolData = volMatches.find(function(v) { return v.label === volLabel || v.label.includes((currentVol + 1)); });
-  var prevVolData = volMatches.filter(function(v) { return volMatches.indexOf(v) < volMatches.indexOf(currentVolData); }).slice(-2);
+  var currentVolData = volMatches.find(function(v) { return v.label === volLabel || v.label.replace(/\s/g, '') === volLabel.replace(/\s/g, ''); });
+  var prevVolData = volMatches.filter(function(v) { return volMatches.indexOf(v) < volMatches.indexOf(currentVolData); }).slice(-3);
+  var nextVolData = volMatches.filter(function(v) { return volMatches.indexOf(v) > volMatches.indexOf(currentVolData); }).slice(0, 1);
   var result = {
-    volumeLabel: currentVolData ? (currentVolData.label + '《' + currentVolData.title + '》') : volLabel,
+    volumeLabel: currentVolData ? (currentVolData.label + (currentVolData.phase ? '（' + currentVolData.phase + '）' : '')) : volLabel,
     currentConflict: '',
     currentGoal: '',
-    prevVolumes: prevVolData.map(function(v) { return v.label + '《' + v.title + '》'; }).join(' / '),
-    nextVolumeHook: ''
+    prevVolumes: prevVolData.map(function(v) { return v.label + (v.phase ? '（' + v.phase + '）' : ''); }).join(' → '),
+    nextVolumeHook: nextVolData.map(function(v) { return v.label + (v.phase ? '（' + v.phase + '）' : ''); }).join('')
   };
   if (currentVolData && currentVolData.body) {
-    var conflictMatch = currentVolData.body.match(/(?:核心冲突|主要冲突|本章?卷?矛盾)[：:]([\s\S]{10,200}?)(?=\n|\r|$)/);
-    if (conflictMatch) result.currentConflict = conflictMatch[1].trim();
-    var goalMatch = currentVolData.body.match(/(?:阶段目标|本章?卷?目标|主角目标)[：:]([\s\S]{10,200}?)(?=\n|\r|$)/);
-    if (goalMatch) result.currentGoal = goalMatch[1].trim();
+    // 支持新旧两种格式：新格式【本卷核心冲突】、旧格式 核心冲突：
+    var conflictMatch = currentVolData.body.match(/(?:【本卷核心冲突】|核心冲突|主要冲突|本章?卷?矛盾)[】\s：:]*([\s\S]{3,300}?)(?=\n\s*(?:【|\[|核心冲突|阶段目标|主角目标|核心事件|本卷[\s\S]*?：)|$)/);
+    if (conflictMatch) result.currentConflict = '核心冲突：' + conflictMatch[1].trim();
+    var goalMatch = currentVolData.body.match(/(?:【本卷主角阶段性目标】|阶段目标|本章?卷?目标|主角目标)[】\s：:]*([\s\S]{3,300}?)(?=\n\s*(?:【|\[|核心冲突|阶段目标|主角目标|核心事件|本卷[\s\S]*?：)|$)/);
+    if (goalMatch) result.currentGoal = '阶段目标：' + goalMatch[1].trim();
   }
   return result;
 }
@@ -1868,7 +1882,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = work.world.length > 3000 ? work.world.substring(0, 3000) + '...(完整世界观请参考)' : work.world;
+    var worldText = work.world.length > 6000 ? work.world.substring(0, 6000) + '...(完整世界观请参考)' : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
@@ -1887,8 +1901,22 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   if (work.chars) {
-    const charsText = work.chars.length > 2500 ? work.chars.substring(0, 2500) + '...(完整人设请参考)' : work.chars;
+    const charsText = work.chars.length > 4000 ? work.chars.substring(0, 4000) + '...(完整人设请参考)' : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
+  }
+  if (work.outline) {
+    // 提取当前章节所在卷的大纲上下文，避免全文溢出
+    var volCtx = getCurrentVolumeContext(work, chapterIdx);
+    if (volCtx && volCtx.currentConflict) {
+      prompt += '【当前卷大纲】\n' + volCtx.currentConflict + '\n' + volCtx.currentGoal + '\n';
+      if (volCtx.prevVolumes) prompt += '【前卷概要】' + volCtx.prevVolumes + '\n';
+      if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
+      prompt += '\n';
+    } else {
+      // 无卷匹配时截取大纲前 3000 字
+      const outlineText = work.outline.length > 3000 ? work.outline.substring(0, 3000) + '...(完整大纲请参考)' : work.outline;
+      prompt += '【全书大纲】\n' + outlineText + '\n\n';
+    }
   }
 
   // 传细纲，截断防止token爆炸 + 按章节标题精准匹配
