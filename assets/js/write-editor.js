@@ -1559,7 +1559,7 @@ function runFullChainAfterWrite(work, chapterIdx, content) {
 
 // 提取当前章节所在卷的大纲上下文（支持outline和detail格式）
 function getCurrentVolumeContext(work, chapterIdx) {
-  if (!work || !work.outline) return { volumeLabel: '', currentConflict: '', currentGoal: '', prevVolumes: '', nextVolumeHook: '' };
+  if (!work || !work.outline) return { volumeLabel: '', currentBody: '', prevVolumes: '', nextVolumeHook: '' };
   var outlineText = work.outline;
   var volSize = 50;
   if (work.longMemory && work.longMemory.ultraMeta && work.longMemory.ultraMeta.volumeSize) {
@@ -1579,18 +1579,10 @@ function getCurrentVolumeContext(work, chapterIdx) {
   var nextVolData = volMatches.filter(function(v) { return volMatches.indexOf(v) > volMatches.indexOf(currentVolData); }).slice(0, 1);
   var result = {
     volumeLabel: currentVolData ? (currentVolData.label + (currentVolData.phase ? '（' + currentVolData.phase + '）' : '')) : volLabel,
-    currentConflict: '',
-    currentGoal: '',
+    currentBody: currentVolData ? currentVolData.body.trim() : '',
     prevVolumes: prevVolData.map(function(v) { return v.label + (v.phase ? '（' + v.phase + '）' : ''); }).join(' → '),
     nextVolumeHook: nextVolData.map(function(v) { return v.label + (v.phase ? '（' + v.phase + '）' : ''); }).join('')
   };
-  if (currentVolData && currentVolData.body) {
-    // 支持新旧两种格式：新格式【本卷核心冲突】、旧格式 核心冲突：
-    var conflictMatch = currentVolData.body.match(/(?:【本卷核心冲突】|核心冲突|主要冲突|本章?卷?矛盾)[】\s：:]*([\s\S]{3,300}?)(?=\n\s*(?:【|\[|核心冲突|阶段目标|主角目标|核心事件|本卷[\s\S]*?：)|$)/);
-    if (conflictMatch) result.currentConflict = '核心冲突：' + conflictMatch[1].trim();
-    var goalMatch = currentVolData.body.match(/(?:【本卷主角阶段性目标】|阶段目标|本章?卷?目标|主角目标)[】\s：:]*([\s\S]{3,300}?)(?=\n\s*(?:【|\[|核心冲突|阶段目标|主角目标|核心事件|本卷[\s\S]*?：)|$)/);
-    if (goalMatch) result.currentGoal = '阶段目标：' + goalMatch[1].trim();
-  }
   return result;
 }
 
@@ -1686,9 +1678,7 @@ function buildWriteConsistencyBlock(work, chapterIdx) {
       hasAny = true;
     }
     if (volCtx.volumeLabel) {
-      block += '【当前卷重点（' + volCtx.volumeLabel + '）】\n';
-      if (volCtx.currentConflict) block += '  · 核心冲突：' + volCtx.currentConflict.substring(0, 100) + '\n';
-      if (volCtx.currentGoal) block += '  · 阶段目标：' + volCtx.currentGoal.substring(0, 100) + '\n';
+      block += '【当前卷重点（' + volCtx.volumeLabel + '）】请严格遵循当前卷大纲中的核心冲突、阶段目标、核心事件和伏笔设计。\n';
       if (volCtx.prevVolumes) block += '  · 前置卷：' + volCtx.prevVolumes + '\n';
       hasAny = true;
     }
@@ -1882,7 +1872,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
 
   // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
   if (work.world && work.world.length > 200) {
-    var worldText = work.world.length > 6000 ? work.world.substring(0, 6000) + '...(完整世界观请参考)' : work.world;
+    var worldText = work.world.length > 8000 ? work.world.substring(0, 8000) + '...(完整世界观请参考)' : work.world;
     prompt += '【世界观设定】\n' + worldText + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
@@ -1901,19 +1891,18 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   if (work.chars) {
-    const charsText = work.chars.length > 4000 ? work.chars.substring(0, 4000) + '...(完整人设请参考)' : work.chars;
+    const charsText = work.chars.length > 5000 ? work.chars.substring(0, 5000) + '...(完整人设请参考)' : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
   if (work.outline) {
-    // 提取当前章节所在卷的大纲上下文，避免全文溢出
     var volCtx = getCurrentVolumeContext(work, chapterIdx);
-    if (volCtx && volCtx.currentConflict) {
-      prompt += '【当前卷大纲】\n' + volCtx.currentConflict + '\n' + volCtx.currentGoal + '\n';
+    if (volCtx && volCtx.currentBody) {
+      // 传入完整卷大纲（2000字），让AI知道本卷要发生什么
+      prompt += '【当前卷大纲（完整）】\n' + volCtx.currentBody + '\n';
       if (volCtx.prevVolumes) prompt += '【前卷概要】' + volCtx.prevVolumes + '\n';
       if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
       prompt += '\n';
     } else {
-      // 无卷匹配时截取大纲前 3000 字
       const outlineText = work.outline.length > 3000 ? work.outline.substring(0, 3000) + '...(完整大纲请参考)' : work.outline;
       prompt += '【全书大纲】\n' + outlineText + '\n\n';
     }
@@ -2200,6 +2189,16 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       }
     }
   } catch (e) {}
+
+  // === 一致性自检指令 ===
+  prompt += '\n\n【⚠️ 输出前自检 — 必须逐条确认】\n';
+  prompt += '1. 本章出现的人物名字是否全部来自【人物人设】？新增人物是否为临时配角？\n';
+  prompt += '2. 本章使用的力量/能力/技能是否在【世界观设定】中有定义？代价是否体现？\n';
+  prompt += '3. 本章剧情是否推进了【当前卷大纲】中的核心冲突或阶段目标？\n';
+  prompt += '4. 本章是否严格遵守了【细纲】中的场景、人物、剧情节点？\n';
+  prompt += '5. 本章是否使用了【世界观设定】中的地名/势力名/规则，而非自创？\n';
+  prompt += '6. 本章的事件是否与【L0世界观锁】和【L1人设锁】中的规则冲突？\n';
+  prompt += '7. 若有偏离，必须在偏离处标注【偏离说明：原因】，且偏离必须服务于更好的故事体验。\n';
 
   return prompt;
 }

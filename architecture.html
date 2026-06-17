@@ -2314,13 +2314,13 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(module !== 'world'){
     prompt += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力/地名】\n';
     if(work && work.world && work.world.trim()){
-      prompt += '■ 世界观（核心要点，全文摘要）：\n' + smartTruncate(work.world, 3000) + '\n';
+      prompt += '■ 世界观（核心要点，全文摘要）：\n' + smartTruncate(work.world, 4000) + '\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      prompt += '■ 人物人设（核心要点，全文摘要）：\n' + smartTruncate(work.chars, 3000) + '\n';
+      prompt += '■ 人物人设（核心要点，全文摘要）：\n' + smartTruncate(work.chars, 4000) + '\n';
     }
     if(module === 'detail' && work && work.outline && work.outline.trim()){
-      prompt += '■ 全书大纲（核心要点，全文摘要）：\n' + smartTruncate(work.outline, 3500) + '\n';
+      prompt += '■ 全书大纲（核心要点，全文摘要）：\n' + smartTruncate(work.outline, 4500) + '\n';
     }
     prompt += '\n';
   }
