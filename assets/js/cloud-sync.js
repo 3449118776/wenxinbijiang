@@ -278,6 +278,10 @@ CloudSync.prototype = {
     if (!this.isLoggedIn()) return { ok: false, error: '未登录' };
     // 并发锁：防止自动同步和保存触发的同步同时执行
     if (this._syncing) return { ok: false, error: '同步进行中' };
+    // KV配额超限检测：暂停同步5分钟
+    if (this._kvQuotaExceeded && Date.now() - this._kvQuotaExceeded < 300000) {
+      return { ok: false, error: '云端存储配额已超限，5分钟后重试' };
+    }
     this._syncing = true;
     var report = { pushed: 0, pulled: 0, unchanged: 0, errors: 0 };
     try {
@@ -551,6 +555,12 @@ CloudSync.prototype = {
   _fetch: async function(path, opts) {
     opts = opts || {};
     if (!this.apiBase) return { error: '未配置后端地址' };
+    // KV配额超限检测：如果之前检测到配额超限，暂停写入类请求5分钟
+    if (this._kvQuotaExceeded && Date.now() - this._kvQuotaExceeded < 300000) {
+      if (opts.method === 'PUT' || opts.method === 'POST' || opts.method === 'DELETE') {
+        return { error: '云端存储配额已超限，请稍后再试（每天UTC 0点重置）' };
+      }
+    }
     var headers = (opts.headers || {});
     headers['Content-Type'] = 'application/json';
     if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
@@ -570,6 +580,11 @@ CloudSync.prototype = {
     try { if (text) data = JSON.parse(text); } catch (_) {}
     if (!data) data = { error: '服务器返回异常（' + (text ? text.substring(0, 30) : '空响应') + '）' };
     if (!resp.ok) {
+      // KV配额超限检测：记录时间戳，暂停后续写入
+      if (data.error && data.error.indexOf('KV put() limit exceeded') >= 0) {
+        this._kvQuotaExceeded = Date.now();
+        console.warn('[cloud-sync] KV配额超限，暂停写入5分钟');
+      }
       if (resp.status === 401) this._clearToken();
       throw new Error(data.error || '请求失败 ' + resp.status);
     }
