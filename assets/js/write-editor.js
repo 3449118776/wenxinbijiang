@@ -1379,15 +1379,22 @@ function buildUserTemplateContext(work, chapterIdx) {
 
 window.buildUserTemplateContext = buildUserTemplateContext;
 
-// ========== v55: 网文库检索注入 — 从用户上传的网文片段库检索最相关片段作为参考 ==========
-// 检索逻辑：按题材匹配 + 场景类型匹配 + 关键词重合度，取top 2片段
+// ========== v55: 网文库检索注入 — 从预置数据集+用户上传片段库检索最相关片段作为参考 ==========
+// 检索逻辑：合并预置数据集(window.NOVEL_PRESET) + 用户上传(localStorage)，按题材+场景+关键词评分
 function buildNovelLibraryContext(work, chapterIdx) {
   try {
-    var NOVEL_LIB_KEY = 'wxbj_novel_library';
-    var raw = localStorage.getItem(NOVEL_LIB_KEY);
-    if (!raw) return '';
-    var list = JSON.parse(raw);
-    if (!Array.isArray(list) || list.length === 0) return '';
+    // 合并预置数据集和用户上传片段
+    var preset = (window.NOVEL_PRESET || []).slice();
+    var userList = [];
+    try {
+      var raw = localStorage.getItem('wxbj_novel_library');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) userList = parsed;
+      }
+    } catch(e) {}
+    var list = preset.concat(userList);
+    if (list.length === 0) return '';
 
     var genre = getWorkGenre(work);
     var isFirstChapter = chapterIdx === 0;
@@ -1406,18 +1413,19 @@ function buildNovelLibraryContext(work, chapterIdx) {
     // 评分每个片段的相关性
     var scored = [];
     list.forEach(function(n){
-      if (!n.content || n.content.length < 100) return;
+      if (!n.content || n.content.length < 50) return;
       var score = 0;
       // 题材匹配（权重最高）
-      if (n.genre && genre) {
+      if (n.genre && genre && n.genre !== '通用' && n.genre !== '古典') {
         var nGenres = n.genre.toLowerCase().split(/[\/,，、\s]+/);
         var genreLower = genre.toLowerCase();
         nGenres.forEach(function(ng){
           if (ng && genreLower.indexOf(ng) >= 0) score += 40;
-          // 反向匹配
           if (ng && ng.indexOf(genreLower) >= 0) score += 40;
         });
       }
+      // 通用/古典题材小幅加分（作为通用参考）
+      if (n.genre === '通用' || n.genre === '古典') score += 5;
       // 场景类型匹配
       if (desiredScenes.indexOf(n.scene) >= 0) score += 25;
       // 细纲关键词重合度
@@ -1429,25 +1437,26 @@ function buildNovelLibraryContext(work, chapterIdx) {
         });
         score += Math.min(matchCount * 2, 20);
       }
-      // 长度适中加分（500-3000字最佳）
+      // 长度适中加分（300-3000字最佳）
       var len = n.content.length;
-      if (len >= 500 && len <= 3000) score += 10;
+      if (len >= 300 && len <= 3000) score += 10;
       if (score > 0) scored.push({ novel: n, score: score });
     });
 
     if (scored.length === 0) return '';
     scored.sort(function(a, b){ return b.score - a.score; });
-    var selected = scored.slice(0, 2).map(function(s){ return s.novel; });
+    // 取top 3（预置数据集质量高，可以多取1个）
+    var selected = scored.slice(0, 3).map(function(s){ return s.novel; });
 
     var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
     var lines = ['【网文参考库·优秀片段 — 学习其叙事技法/节奏/对话，但严禁照抄内容或人名】'];
     selected.forEach(function(n, i){
       var snippet = n.content;
-      // 限制每个片段最多1000字
-      if (snippet.length > 1000) snippet = snippet.substring(0, 1000) + '\n...(略)...';
+      // 限制每个片段最多800字（取3个片段时控制总长度）
+      if (snippet.length > 800) snippet = snippet.substring(0, 800) + '\n...(略)...';
       var meta = n.title;
-      if (n.genre) meta += '（题材：' + n.genre + '）';
-      if (n.scene && n.scene !== 'other') meta += '（场景：' + (sceneNames[n.scene]||n.scene) + '）';
+      if (n.genre) meta += '（' + n.genre + '）';
+      if (n.scene && n.scene !== 'other') meta += '（' + (sceneNames[n.scene]||n.scene) + '）';
       lines.push('--- 参考片段' + (i+1) + '：' + meta + ' ---');
       lines.push(snippet);
     });

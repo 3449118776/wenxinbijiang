@@ -4,6 +4,7 @@ import {
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
   db_list_works, db_get_work, db_upsert_work,
   db_get_user_keys, db_put_user_keys, db_get_user_settings, db_put_user_settings,
+  db_get_novel_library, db_save_novel_library,
   random_hex, random_code, json_response
 } from './_shared.js';
 
@@ -49,6 +50,10 @@ export async function onRequest(context) {
     const workId = apiPath.split('/')[2];
     return handle_work_delete(userId, workId);
   }
+
+  // v55: 网文库路由
+  if (apiPath === '/novel-library' && req.method === 'GET') return handle_novel_library_get(userId);
+  if (apiPath === '/novel-library' && req.method === 'POST') return handle_novel_library_save(req, userId);
 
   return json_response({ error: '路由不存在: ' + apiPath }, 404);
 }
@@ -260,5 +265,32 @@ async function handle_work_delete(userId, workId) {
     return json_response({ ok: true });
   } catch (e) {
     return json_response({ error: e.message }, 500);
+  }
+}
+
+// ============ v55: 网文库 ============
+async function handle_novel_library_get(userId) {
+  try {
+    const list = await db_get_novel_library(userId);
+    return json_response({ ok: true, list: list || [] });
+  } catch (e) {
+    return json_response({ ok: true, list: [], error: e.message });
+  }
+}
+
+async function handle_novel_library_save(req, userId) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const list = Array.isArray(body.list) ? body.list : [];
+    // 限制总片段数和总大小，防滥用
+    if (list.length > 500) return json_response({ error: '片段数超过500上限' }, 400);
+    const totalSize = JSON.stringify(list).length;
+    if (totalSize > 5 * 1024 * 1024) return json_response({ error: '总大小超过5MB上限' }, 400);
+    await db_save_novel_library(userId, list);
+    return json_response({ ok: true, count: list.length });
+  } catch (e) {
+    // KV配额超限等错误容错
+    console.warn('[novel-library] save failed:', e && e.message);
+    return json_response({ ok: false, error: '云端保存失败（可能配额超限），已保留本地副本' }, 200);
   }
 }

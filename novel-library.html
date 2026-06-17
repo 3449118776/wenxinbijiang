@@ -196,12 +196,20 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
 
 <script src="assets/js/db.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/novel-preset.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
 <script>
 // ========== v55: 网文库存储与检索 ==========
 var NOVEL_LIB_KEY = 'wxbj_novel_library';
 var editingId = null;
 
-function getNovelLibrary(){
+// 获取预置数据集
+function getPresetNovels(){
+  return (window.NOVEL_PRESET || []).slice();
+}
+
+// 获取用户上传的片段（本地）
+function getUserNovels(){
   try{
     var raw = localStorage.getItem(NOVEL_LIB_KEY);
     if(!raw) return [];
@@ -210,21 +218,69 @@ function getNovelLibrary(){
   }catch(e){ return []; }
 }
 
+// 获取全部片段（预置+用户上传）
+function getAllNovels(){
+  var preset = getPresetNovels();
+  var user = getUserNovels();
+  return preset.concat(user);
+}
+
 function saveNovelLibrary(list){
   try{
     localStorage.setItem(NOVEL_LIB_KEY, JSON.stringify(list));
     updateStats();
+    // 异步同步到云端
+    syncToCloud(list);
   }catch(e){
     showToast('保存失败：存储空间不足，请删除部分片段');
   }
 }
 
+// 云端同步（上传用户片段到云端）
+function syncToCloud(list){
+  try{
+    if(typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
+    var token = localStorage.getItem('wxbj_cloud_token');
+    if(!token) return;
+    fetch('/api/novel-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ list: list })
+    }).catch(function(e){ console.warn('[novel-lib] sync failed:', e); });
+  }catch(e){ /* 静默失败 */ }
+}
+
+// 从云端拉取用户片段
+function loadFromCloud(){
+  try{
+    if(typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
+    var token = localStorage.getItem('wxbj_cloud_token');
+    if(!token) return;
+    fetch('/api/novel-library', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data.ok && Array.isArray(data.list) && data.list.length > 0){
+        // 合并云端和本地（云端优先，但保留本地独有的）
+        var local = getUserNovels();
+        var cloudIds = data.list.map(function(n){ return n.id; });
+        var localOnly = local.filter(function(n){ return cloudIds.indexOf(n.id) < 0; });
+        var merged = data.list.concat(localOnly);
+        localStorage.setItem(NOVEL_LIB_KEY, JSON.stringify(merged));
+        updateStats();
+        renderList();
+      }
+    }).catch(function(e){ console.warn('[novel-lib] load failed:', e); });
+  }catch(e){ /* 静默失败 */ }
+}
+
 function updateStats(){
-  var list = getNovelLibrary();
-  document.getElementById('stat-total').textContent = list.length;
+  var preset = getPresetNovels();
+  var user = getUserNovels();
+  var all = preset.concat(user);
+  document.getElementById('stat-total').textContent = all.length;
   var genres = {};
   var totalWords = 0;
-  list.forEach(function(n){
+  all.forEach(function(n){
     if(n.genre) genres[n.genre] = true;
     totalWords += (n.content || '').length;
   });
@@ -242,29 +298,32 @@ function updateStats(){
 }
 
 function renderList(){
-  var list = getNovelLibrary();
+  var allList = getAllNovels();
   var search = (document.getElementById('search-input').value || '').toLowerCase().trim();
   var fGenre = document.getElementById('filter-genre').value;
   var fScene = document.getElementById('filter-scene').value;
   
-  if(search) list = list.filter(function(n){
+  if(search) allList = allList.filter(function(n){
     return (n.title||'').toLowerCase().indexOf(search)>=0 || (n.content||'').toLowerCase().indexOf(search)>=0;
   });
-  if(fGenre) list = list.filter(function(n){ return n.genre === fGenre; });
-  if(fScene) list = list.filter(function(n){ return n.scene === fScene; });
+  if(fGenre) allList = allList.filter(function(n){ return n.genre === fGenre; });
+  if(fScene) allList = allList.filter(function(n){ return n.scene === fScene; });
   
   var container = document.getElementById('novel-list');
-  if(list.length === 0){
-    container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><div class="title">网文库还是空的</div><div class="desc">上传你喜欢的网文片段，AI写作时会自动检索参考。<br>支持txt/md/json格式，可批量上传。</div></div>';
+  if(allList.length === 0){
+    container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><div class="title">没有匹配的片段</div><div class="desc">试试调整搜索或筛选条件</div></div>';
     return;
   }
   
   var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
+  var userNovels = getUserNovels();
+  var userIds = userNovels.map(function(n){ return n.id; });
   var html = '';
-  list.forEach(function(n){
+  allList.forEach(function(n){
+    var isPreset = userIds.indexOf(n.id) < 0;
     var preview = (n.content||'').substring(0,120).replace(/\n/g,' ');
-    html += '<div class="novel-item">';
-    html += '<div class="novel-item-head"><div class="novel-item-title">'+escapeHtml(n.title||'未命名')+'</div></div>';
+    html += '<div class="novel-item"'+(isPreset?' style="border-left-color:#6366f1;"':'')+'>';
+    html += '<div class="novel-item-head"><div class="novel-item-title">'+escapeHtml(n.title||'未命名')+(isPreset?' <span style="font-size:10px;color:#6366f1;background:#eef2ff;padding:1px 6px;border-radius:8px;margin-left:4px;">预置</span>':'')+'</div></div>';
     html += '<div class="novel-item-meta">';
     if(n.genre) html += '<span class="tag genre">'+escapeHtml(n.genre)+'</span>';
     if(n.scene) html += '<span class="tag scene">'+escapeHtml(sceneNames[n.scene]||n.scene)+'</span>';
@@ -274,8 +333,10 @@ function renderList(){
     html += '<div class="novel-preview">'+escapeHtml(preview)+'...</div>';
     html += '<div class="novel-actions">';
     html += '<button class="view-btn" onclick="viewNovel(\''+n.id+'\')">👁 查看</button>';
-    html += '<button class="edit-btn" onclick="openEditModal(\''+n.id+'\')">✏️ 编辑</button>';
-    html += '<button class="del-btn" onclick="deleteNovel(\''+n.id+'\')">🗑 删除</button>';
+    if(!isPreset){
+      html += '<button class="edit-btn" onclick="openEditModal(\''+n.id+'\')">✏️ 编辑</button>';
+      html += '<button class="del-btn" onclick="deleteNovel(\''+n.id+'\')">🗑 删除</button>';
+    }
     html += '</div>';
     html += '</div>';
   });
@@ -306,9 +367,9 @@ function openAddModal(){
 }
 
 function openEditModal(id){
-  var list = getNovelLibrary();
+  var list = getUserNovels();
   var n = list.find(function(x){ return x.id === id; });
-  if(!n){ showToast('片段不存在'); return; }
+  if(!n){ showToast('只能编辑用户上传的片段'); return; }
   editingId = id;
   document.getElementById('edit-modal-title').textContent = '编辑片段';
   document.getElementById('edit-title').value = n.title||'';
@@ -333,7 +394,7 @@ function saveNovel(){
   var genre = document.getElementById('edit-genre').value.trim();
   var scene = document.getElementById('edit-scene').value;
   var source = document.getElementById('edit-source').value.trim();
-  var list = getNovelLibrary();
+  var list = getUserNovels();
   if(editingId){
     var idx = list.findIndex(function(x){ return x.id === editingId; });
     if(idx>=0){
@@ -356,14 +417,14 @@ function saveNovel(){
 
 function deleteNovel(id){
   if(!confirm('确定删除？')) return;
-  var list = getNovelLibrary().filter(function(x){ return x.id !== id; });
+  var list = getUserNovels().filter(function(x){ return x.id !== id; });
   saveNovelLibrary(list);
   renderList();
   showToast('已删除');
 }
 
 function viewNovel(id){
-  var n = getNovelLibrary().find(function(x){ return x.id === id; });
+  var n = getAllNovels().find(function(x){ return x.id === id; });
   if(!n) return;
   var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
   document.getElementById('view-title').textContent = n.title||'未命名';
@@ -385,7 +446,7 @@ function closeViewModal(){
 function handleUpload(event){
   var files = event.target.files;
   if(!files || files.length===0) return;
-  var list = getNovelLibrary();
+  var list = getUserNovels();
   var success = 0, processed = 0;
   var total = files.length;
   
@@ -498,6 +559,8 @@ window.addEventListener('DOMContentLoaded', function(){
   var tu = document.getElementById('toolbar-upload');
   if(hu) hu.addEventListener('change', handleUpload);
   if(tu) tu.addEventListener('change', handleUpload);
+  // 异步从云端拉取用户片段
+  setTimeout(loadFromCloud, 500);
 });
 </script>
 </body>

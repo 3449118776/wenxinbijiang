@@ -305,6 +305,29 @@ export async function db_put_user_settings(userId, data) {
   return { ok: true };
 }
 
+// ============ v55: 网文库存储 ============
+const key_novel_library = (userId) => 'novel_lib:' + userId;
+
+export async function db_get_novel_library(userId) {
+  const store = KV();
+  if (!store) return [];
+  try {
+    const data = await store.get(key_novel_library(userId), { type: 'json' });
+    if (!data) return [];
+    return Array.isArray(data.list) ? data.list : [];
+  } catch (e) { return []; }
+}
+
+export async function db_save_novel_library(userId, list) {
+  const store = KV();
+  if (!store) throw new Error('KV store not available');
+  await store.put(key_novel_library(userId), JSON.stringify({
+    list: list,
+    updatedAt: new Date().toISOString()
+  }));
+  return { ok: true };
+}
+
 // ============ 工具函数 ============
 export function random_hex(len) {
   const bytes = crypto.getRandomValues(new Uint8Array(len || 16));
