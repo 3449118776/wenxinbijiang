@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>文心笔匠 - 网文库</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body{background:#f6f7f9;color:#333;padding-bottom:78px;}
+
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
+.page-title{flex:1;font-size:17px;font-weight:600;text-align:center;}
+.header-actions{display:flex;gap:8px;align-items:center;}
+.header-btn{padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:#10b981;color:#fff;position:relative;overflow:hidden;}
+.header-btn input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+
+/* 统计卡片 */
+.stats-bar{display:flex;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;}
+.stat-card{flex:1;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:10px;text-align:center;border:1px solid #a7f3d0;}
+.stat-card .num{font-size:20px;font-weight:700;color:#065f46;}
+.stat-card .label{font-size:11px;color:#047857;margin-top:2px;}
+
+/* 工具栏 */
+.toolbar{padding:10px 16px;background:#fff;display:flex;gap:8px;align-items:center;border-bottom:1px solid #eee;position:sticky;top:48px;z-index:50;flex-wrap:wrap;}
+.toolbar button{padding:7px 12px;border-radius:8px;border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.toolbar .upload-btn{background:#10b981;color:#fff;position:relative;overflow:hidden;}
+.toolbar .upload-btn input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.toolbar .add-btn{background:#6366f1;color:#fff;}
+.toolbar .search-input{flex:1;min-width:120px;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;}
+.toolbar .filter-select{padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:#fff;}
+
+/* 网文条目 */
+.novel-item{background:#fff;border-radius:12px;padding:14px;margin:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #f0f0f0;border-left:3px solid #10b981;}
+.novel-item-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.novel-item-title{font-size:15px;font-weight:600;color:#222;flex:1;}
+.novel-item-meta{font-size:11px;color:#999;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px;}
+.novel-item-meta .tag{display:inline-block;padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:10px;}
+.novel-item-meta .tag.genre{background:#dbeafe;color:#1e40af;}
+.novel-item-meta .tag.scene{background:#fef3c7;color:#92400e;}
+.novel-preview{font-size:13px;color:#666;line-height:1.5;max-height:80px;overflow:hidden;margin-bottom:8px;}
+.novel-actions{display:flex;gap:6px;}
+.novel-actions button{padding:6px 10px;border-radius:6px;border:none;font-size:12px;cursor:pointer;}
+.novel-actions .view-btn{background:#f1f5f9;color:#333;}
+.novel-actions .use-btn{background:#10b981;color:#fff;}
+.novel-actions .edit-btn{background:#f1f5f9;color:#333;}
+.novel-actions .del-btn{background:#fee2e2;color:#dc2626;}
+
+.empty-state{text-align:center;padding:50px 20px;color:#999;}
+.empty-state .icon{font-size:56px;margin-bottom:14px;}
+.empty-state .title{font-size:16px;font-weight:600;color:#666;margin-bottom:6px;}
+.empty-state .desc{font-size:13px;line-height:1.6;max-width:280px;margin:0 auto;}
+
+/* 弹窗 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal-content{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:14px;}
+.modal-field{margin-bottom:12px;}
+.modal-field label{display:block;font-size:13px;color:#666;margin-bottom:4px;}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;}
+.modal-field textarea{min-height:200px;resize:vertical;line-height:1.5;}
+.modal-actions{display:flex;gap:8px;margin-top:14px;}
+.modal-actions button{flex:1;padding:10px;border-radius:8px;border:none;font-size:14px;cursor:pointer;}
+.modal-actions .save-btn{background:#10b981;color:#fff;}
+.modal-actions .cancel-btn{background:#f1f5f9;color:#333;}
+
+/* 查看全文弹窗 */
+.view-modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px;}
+.view-modal.show{display:flex;}
+.view-modal-content{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;}
+.view-modal-title{font-size:16px;font-weight:600;margin-bottom:6px;}
+.view-modal-meta{font-size:12px;color:#999;margin-bottom:14px;}
+.view-modal-text{font-size:14px;line-height:1.7;white-space:pre-wrap;color:#333;}
+
+/* 底部导航 */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
+.tab-item.active{color:#10b981;}
+.tab-icon{font-size:22px;line-height:1;}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+
+.tip-banner{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 14px;margin:10px 16px;font-size:12px;color:#065f46;line-height:1.5;}
+.tip-banner b{color:#047857;}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="back-btn" onclick="location.href='index.html'">‹</div>
+  <div class="page-title">网文库</div>
+  <div class="header-actions">
+    <div class="header-btn">📥 上传
+      <input type="file" id="header-upload" accept=".txt,.md,.json" multiple>
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-card"><div class="num" id="stat-total">0</div><div class="label">总片段</div></div>
+  <div class="stat-card"><div class="num" id="stat-genres">0</div><div class="label">题材数</div></div>
+  <div class="stat-card"><div class="num" id="stat-words">0</div><div class="label">总字数</div></div>
+</div>
+
+<div class="tip-banner">
+  💡 <b>网文库用途</b>：上传你喜欢的网文片段（开篇/战斗/对话/情感等），AI写作时自动检索最相关的片段作为参考，学习其叙事节奏和技法。<br>
+  📚 <b>数据来源</b>：可从GitHub免费数据集下载（如chinese-novel古典小说、MNBVC网文子集），或自己收集的优秀片段。
+</div>
+
+<div class="toolbar">
+  <button class="upload-btn">📤 上传<input type="file" id="toolbar-upload" accept=".txt,.md,.json" multiple></button>
+  <button class="add-btn" onclick="openAddModal()">➕ 添加</button>
+  <input type="text" class="search-input" id="search-input" placeholder="搜索标题/内容..." oninput="renderList()">
+  <select class="filter-select" id="filter-genre" onchange="renderList()">
+    <option value="">全部题材</option>
+  </select>
+  <select class="filter-select" id="filter-scene" onchange="renderList()">
+    <option value="">全部场景</option>
+    <option value="opening">开篇</option>
+    <option value="battle">战斗</option>
+    <option value="dialogue">对话</option>
+    <option value="emotion">情感</option>
+    <option value="transition">转折</option>
+    <option value="climax">高潮</option>
+    <option value="ending">结尾钩子</option>
+    <option value="other">其他</option>
+  </select>
+</div>
+
+<div id="novel-list"></div>
+
+<!-- 新增/编辑弹窗 -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-content">
+    <div class="modal-title" id="edit-modal-title">添加网文片段</div>
+    <div class="modal-field">
+      <label>标题</label>
+      <input type="text" id="edit-title" placeholder="如：诡秘之主开篇">
+    </div>
+    <div class="modal-field">
+      <label>题材</label>
+      <input type="text" id="edit-genre" placeholder="如：玄幻/都市/悬疑（可自定义）">
+    </div>
+    <div class="modal-field">
+      <label>场景类型</label>
+      <select id="edit-scene">
+        <option value="opening">开篇</option>
+        <option value="battle">战斗</option>
+        <option value="dialogue">对话</option>
+        <option value="emotion">情感</option>
+        <option value="transition">转折</option>
+        <option value="climax">高潮</option>
+        <option value="ending">结尾钩子</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>来源（可选）</label>
+      <input type="text" id="edit-source" placeholder="如：诡秘之主·第1章">
+    </div>
+    <div class="modal-field">
+      <label>片段内容</label>
+      <textarea id="edit-content" placeholder="粘贴网文片段..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeEditModal()">取消</button>
+      <button class="save-btn" onclick="saveNovel()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 查看全文弹窗 -->
+<div class="view-modal" id="view-modal">
+  <div class="view-modal-content">
+    <div class="view-modal-title" id="view-title"></div>
+    <div class="view-modal-meta" id="view-meta"></div>
+    <div class="view-modal-text" id="view-text"></div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="cancel-btn" onclick="closeViewModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+// ========== v55: 网文库存储与检索 ==========
+var NOVEL_LIB_KEY = 'wxbj_novel_library';
+var editingId = null;
+
+function getNovelLibrary(){
+  try{
+    var raw = localStorage.getItem(NOVEL_LIB_KEY);
+    if(!raw) return [];
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+
+function saveNovelLibrary(list){
+  try{
+    localStorage.setItem(NOVEL_LIB_KEY, JSON.stringify(list));
+    updateStats();
+  }catch(e){
+    showToast('保存失败：存储空间不足，请删除部分片段');
+  }
+}
+
+function updateStats(){
+  var list = getNovelLibrary();
+  document.getElementById('stat-total').textContent = list.length;
+  var genres = {};
+  var totalWords = 0;
+  list.forEach(function(n){
+    if(n.genre) genres[n.genre] = true;
+    totalWords += (n.content || '').length;
+  });
+  document.getElementById('stat-genres').textContent = Object.keys(genres).length;
+  document.getElementById('stat-words').textContent = totalWords >= 10000 ? (totalWords/10000).toFixed(1)+'万' : totalWords;
+  // 更新题材筛选
+  var sel = document.getElementById('filter-genre');
+  var curVal = sel.value;
+  var opts = '<option value="">全部题材</option>';
+  Object.keys(genres).sort().forEach(function(g){
+    opts += '<option value="'+escapeAttr(g)+'">'+escapeHtml(g)+'</option>';
+  });
+  sel.innerHTML = opts;
+  sel.value = curVal;
+}
+
+function renderList(){
+  var list = getNovelLibrary();
+  var search = (document.getElementById('search-input').value || '').toLowerCase().trim();
+  var fGenre = document.getElementById('filter-genre').value;
+  var fScene = document.getElementById('filter-scene').value;
+  
+  if(search) list = list.filter(function(n){
+    return (n.title||'').toLowerCase().indexOf(search)>=0 || (n.content||'').toLowerCase().indexOf(search)>=0;
+  });
+  if(fGenre) list = list.filter(function(n){ return n.genre === fGenre; });
+  if(fScene) list = list.filter(function(n){ return n.scene === fScene; });
+  
+  var container = document.getElementById('novel-list');
+  if(list.length === 0){
+    container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><div class="title">网文库还是空的</div><div class="desc">上传你喜欢的网文片段，AI写作时会自动检索参考。<br>支持txt/md/json格式，可批量上传。</div></div>';
+    return;
+  }
+  
+  var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
+  var html = '';
+  list.forEach(function(n){
+    var preview = (n.content||'').substring(0,120).replace(/\n/g,' ');
+    html += '<div class="novel-item">';
+    html += '<div class="novel-item-head"><div class="novel-item-title">'+escapeHtml(n.title||'未命名')+'</div></div>';
+    html += '<div class="novel-item-meta">';
+    if(n.genre) html += '<span class="tag genre">'+escapeHtml(n.genre)+'</span>';
+    if(n.scene) html += '<span class="tag scene">'+escapeHtml(sceneNames[n.scene]||n.scene)+'</span>';
+    if(n.source) html += '<span class="tag">'+escapeHtml(n.source)+'</span>';
+    html += '<span class="tag">'+(n.content||'').length+'字</span>';
+    html += '</div>';
+    html += '<div class="novel-preview">'+escapeHtml(preview)+'...</div>';
+    html += '<div class="novel-actions">';
+    html += '<button class="view-btn" onclick="viewNovel(\''+n.id+'\')">👁 查看</button>';
+    html += '<button class="edit-btn" onclick="openEditModal(\''+n.id+'\')">✏️ 编辑</button>';
+    html += '<button class="del-btn" onclick="deleteNovel(\''+n.id+'\')">🗑 删除</button>';
+    html += '</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function makeNovel(title, content, genre, scene, source){
+  return {
+    id: 'nl_'+Date.now()+'_'+Math.random().toString(36).substr(2,6),
+    title: title||'未命名片段',
+    content: content||'',
+    genre: genre||'',
+    scene: scene||'other',
+    source: source||'',
+    createdAt: Date.now()
+  };
+}
+
+function openAddModal(){
+  editingId = null;
+  document.getElementById('edit-modal-title').textContent = '添加网文片段';
+  document.getElementById('edit-title').value = '';
+  document.getElementById('edit-genre').value = '';
+  document.getElementById('edit-scene').value = 'other';
+  document.getElementById('edit-source').value = '';
+  document.getElementById('edit-content').value = '';
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function openEditModal(id){
+  var list = getNovelLibrary();
+  var n = list.find(function(x){ return x.id === id; });
+  if(!n){ showToast('片段不存在'); return; }
+  editingId = id;
+  document.getElementById('edit-modal-title').textContent = '编辑片段';
+  document.getElementById('edit-title').value = n.title||'';
+  document.getElementById('edit-genre').value = n.genre||'';
+  document.getElementById('edit-scene').value = n.scene||'other';
+  document.getElementById('edit-source').value = n.source||'';
+  document.getElementById('edit-content').value = n.content||'';
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').classList.remove('show');
+  editingId = null;
+}
+
+function saveNovel(){
+  var title = document.getElementById('edit-title').value.trim();
+  var content = document.getElementById('edit-content').value.trim();
+  if(!title){ showToast('请输入标题'); return; }
+  if(!content){ showToast('请输入内容'); return; }
+  if(content.length > 50000){ showToast('内容过长（超5万字），请拆分'); return; }
+  var genre = document.getElementById('edit-genre').value.trim();
+  var scene = document.getElementById('edit-scene').value;
+  var source = document.getElementById('edit-source').value.trim();
+  var list = getNovelLibrary();
+  if(editingId){
+    var idx = list.findIndex(function(x){ return x.id === editingId; });
+    if(idx>=0){
+      list[idx].title = title;
+      list[idx].content = content;
+      list[idx].genre = genre;
+      list[idx].scene = scene;
+      list[idx].source = source;
+      list[idx].updatedAt = Date.now();
+    }
+    showToast('已更新');
+  } else {
+    list.push(makeNovel(title, content, genre, scene, source));
+    showToast('已添加');
+  }
+  saveNovelLibrary(list);
+  renderList();
+  closeEditModal();
+}
+
+function deleteNovel(id){
+  if(!confirm('确定删除？')) return;
+  var list = getNovelLibrary().filter(function(x){ return x.id !== id; });
+  saveNovelLibrary(list);
+  renderList();
+  showToast('已删除');
+}
+
+function viewNovel(id){
+  var n = getNovelLibrary().find(function(x){ return x.id === id; });
+  if(!n) return;
+  var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
+  document.getElementById('view-title').textContent = n.title||'未命名';
+  var meta = '';
+  if(n.genre) meta += '题材：'+n.genre+'  ';
+  if(n.scene) meta += '场景：'+(sceneNames[n.scene]||n.scene)+'  ';
+  if(n.source) meta += '来源：'+n.source;
+  meta += '  '+(n.content||'').length+'字';
+  document.getElementById('view-meta').textContent = meta;
+  document.getElementById('view-text').textContent = n.content||'';
+  document.getElementById('view-modal').classList.add('show');
+}
+
+function closeViewModal(){
+  document.getElementById('view-modal').classList.remove('show');
+}
+
+// 文件上传
+function handleUpload(event){
+  var files = event.target.files;
+  if(!files || files.length===0) return;
+  var list = getNovelLibrary();
+  var success = 0, processed = 0;
+  var total = files.length;
+  
+  Array.prototype.forEach.call(files, function(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      processed++;
+      try{
+        var content = e.target.result;
+        var fileName = file.name.replace(/\.[^.]+$/, '');
+        var ext = file.name.split('.').pop().toLowerCase();
+        
+        if(ext === 'json'){
+          var parsed = JSON.parse(content);
+          if(Array.isArray(parsed)){
+            parsed.forEach(function(item){
+              if(item.content){
+                list.push(makeNovel(item.title||fileName, item.content, item.genre||'', item.scene||guessScene(item.content), item.source||''));
+                success++;
+              }
+            });
+          } else if(parsed.content){
+            list.push(makeNovel(parsed.title||fileName, parsed.content, parsed.genre||'', parsed.scene||guessScene(parsed.content), parsed.source||''));
+            success++;
+          }
+        } else {
+          // txt/md：长文本自动分段（每段800-1500字）
+          var segments = splitLongText(content, 1200);
+          segments.forEach(function(seg, i){
+            var segTitle = segments.length > 1 ? fileName+'·片段'+(i+1) : fileName;
+            list.push(makeNovel(segTitle, seg, guessGenre(seg), guessScene(seg), fileName));
+            success++;
+          });
+        }
+      }catch(err){ console.warn('上传失败:', file.name, err); }
+      
+      if(processed === total){
+        saveNovelLibrary(list);
+        renderList();
+        showToast('成功导入 '+success+' 个片段');
+      }
+    };
+    reader.readAsText(file);
+  });
+  event.target.value = '';
+}
+
+// 长文本分段（按段落边界切分）
+function splitLongText(text, targetLen){
+  if(text.length <= targetLen) return [text];
+  var segments = [];
+  var paras = text.split(/\n\s*\n/);
+  var cur = '';
+  for(var i=0; i<paras.length; i++){
+    if((cur + paras[i]).length > targetLen && cur){
+      segments.push(cur.trim());
+      cur = paras[i];
+    } else {
+      cur += '\n\n' + paras[i];
+    }
+  }
+  if(cur.trim()) segments.push(cur.trim());
+  return segments;
+}
+
+function guessGenre(content){
+  if(/修仙|灵气|筑基|元婴|渡劫|宗门|功法/.test(content)) return '玄幻';
+  if(/都市|公司|总裁|校园|异能|都市/.test(content)) return '都市';
+  if(/悬疑|案件|侦探|凶手|线索|推理/.test(content)) return '悬疑';
+  if(/武侠|江湖|武功|内力|门派|剑客/.test(content)) return '武侠';
+  if(/科幻|星际|飞船|人工智能|未来|赛博/.test(content)) return '科幻';
+  if(/历史|朝代|皇帝|将军|战争|古风/.test(content)) return '历史';
+  if(/言情|爱情|心动|暗恋|告白/.test(content)) return '言情';
+  return '';
+}
+
+function guessScene(content){
+  if(/开篇|第一章|故事开始|一切从|那年/.test(content)) return 'opening';
+  if(/剑光|拳风|招式|厮杀|战斗|对决|杀招/.test(content)) return 'battle';
+  if(/["「"].*["」"]/.test(content) && (content.match(/["「"]/g)||[]).length > 6) return 'dialogue';
+  if(/泪|哭|心痛|爱|拥抱|吻|心动/.test(content)) return 'emotion';
+  if(/突然|然而|但是|转折|没想到|不料/.test(content)) return 'transition';
+  if(/爆发|巅峰|最终|决战|全力以赴/.test(content)) return 'climax';
+  if(/未完|待续|下章|预知后事|钩子|悬念/.test(content)) return 'ending';
+  return 'other';
+}
+
+function escapeHtml(str){
+  if(!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escapeAttr(str){
+  if(!str) return '';
+  return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+
+// 初始化
+window.addEventListener('DOMContentLoaded', function(){
+  if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; }
+  updateStats();
+  renderList();
+  var hu = document.getElementById('header-upload');
+  var tu = document.getElementById('toolbar-upload');
+  if(hu) hu.addEventListener('change', handleUpload);
+  if(tu) tu.addEventListener('change', handleUpload);
+});
+</script>
+</body>
+</html>

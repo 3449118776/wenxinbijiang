@@ -1379,6 +1379,88 @@ function buildUserTemplateContext(work, chapterIdx) {
 
 window.buildUserTemplateContext = buildUserTemplateContext;
 
+// ========== v55: 网文库检索注入 — 从用户上传的网文片段库检索最相关片段作为参考 ==========
+// 检索逻辑：按题材匹配 + 场景类型匹配 + 关键词重合度，取top 2片段
+function buildNovelLibraryContext(work, chapterIdx) {
+  try {
+    var NOVEL_LIB_KEY = 'wxbj_novel_library';
+    var raw = localStorage.getItem(NOVEL_LIB_KEY);
+    if (!raw) return '';
+    var list = JSON.parse(raw);
+    if (!Array.isArray(list) || list.length === 0) return '';
+
+    var genre = getWorkGenre(work);
+    var isFirstChapter = chapterIdx === 0;
+    // 推断当前章节需要的场景类型
+    var desiredScenes = isFirstChapter ? ['opening', 'climax', 'dialogue'] : ['dialogue', 'battle', 'emotion', 'transition', 'climax', 'ending'];
+
+    // 获取当前章节细纲片段（用于关键词匹配）
+    var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || '' : '';
+    var detailSnippet = '';
+    if (work.detail) {
+      var idx = work.detail.indexOf(chTitle);
+      if (idx >= 0) detailSnippet = work.detail.substring(idx, idx + 800);
+      else detailSnippet = work.detail.substring(0, 800);
+    }
+
+    // 评分每个片段的相关性
+    var scored = [];
+    list.forEach(function(n){
+      if (!n.content || n.content.length < 100) return;
+      var score = 0;
+      // 题材匹配（权重最高）
+      if (n.genre && genre) {
+        var nGenres = n.genre.toLowerCase().split(/[\/,，、\s]+/);
+        var genreLower = genre.toLowerCase();
+        nGenres.forEach(function(ng){
+          if (ng && genreLower.indexOf(ng) >= 0) score += 40;
+          // 反向匹配
+          if (ng && ng.indexOf(genreLower) >= 0) score += 40;
+        });
+      }
+      // 场景类型匹配
+      if (desiredScenes.indexOf(n.scene) >= 0) score += 25;
+      // 细纲关键词重合度
+      if (detailSnippet && n.content) {
+        var nKeywords = (n.content.match(/[\u4e00-\u9fa5]{2,4}/g) || []).slice(0, 40);
+        var matchCount = 0;
+        nKeywords.forEach(function(kw){
+          if (detailSnippet.indexOf(kw) >= 0) matchCount++;
+        });
+        score += Math.min(matchCount * 2, 20);
+      }
+      // 长度适中加分（500-3000字最佳）
+      var len = n.content.length;
+      if (len >= 500 && len <= 3000) score += 10;
+      if (score > 0) scored.push({ novel: n, score: score });
+    });
+
+    if (scored.length === 0) return '';
+    scored.sort(function(a, b){ return b.score - a.score; });
+    var selected = scored.slice(0, 2).map(function(s){ return s.novel; });
+
+    var sceneNames = {opening:'开篇',battle:'战斗',dialogue:'对话',emotion:'情感',transition:'转折',climax:'高潮',ending:'结尾钩子',other:'其他'};
+    var lines = ['【网文参考库·优秀片段 — 学习其叙事技法/节奏/对话，但严禁照抄内容或人名】'];
+    selected.forEach(function(n, i){
+      var snippet = n.content;
+      // 限制每个片段最多1000字
+      if (snippet.length > 1000) snippet = snippet.substring(0, 1000) + '\n...(略)...';
+      var meta = n.title;
+      if (n.genre) meta += '（题材：' + n.genre + '）';
+      if (n.scene && n.scene !== 'other') meta += '（场景：' + (sceneNames[n.scene]||n.scene) + '）';
+      lines.push('--- 参考片段' + (i+1) + '：' + meta + ' ---');
+      lines.push(snippet);
+    });
+    lines.push('【写作指令】以上是网文库中的优秀片段，请学习其：①叙事节奏（长短句交替、紧张舒缓）②场景构建（环境/动作/对话比例）③对话技法（潜台词/动作伴随）④情绪调动手法。但本章的剧情、角色、世界观必须基于你自己的设定，严禁照抄片段中的人名/地名/招式名/具体情节。');
+    return lines.join('\n');
+  } catch(e) {
+    console.warn('[novelLibCtx]', e);
+    return '';
+  }
+}
+
+window.buildNovelLibraryContext = buildNovelLibraryContext;
+
 
 // 从已有架构中提取关键元素清单，强制AI引用（防编造）
 
@@ -2039,6 +2121,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     var userTplCtx = buildUserTemplateContext(work, chapterIdx);
     if (userTplCtx) prompt += userTplCtx + '\n\n';
   } catch(tplErr) { console.warn('[userTpl]', tplErr); }
+
+  // === v55: 注入网文库检索结果（从用户上传的网文片段库检索最相关片段）===
+  try {
+    var novelCtx = buildNovelLibraryContext(work, chapterIdx);
+    if (novelCtx) prompt += novelCtx + '\n\n';
+  } catch(novelErr) { console.warn('[novelLib]', novelErr); }
   
   // === v29: 注入上一章质量短板，本章针对性补强 ===
   if (typeof QualityEngine !== 'undefined' && QualityEngine.lastHints) {
