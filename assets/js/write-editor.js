@@ -2118,26 +2118,31 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '- 环境不是背景板，它是情绪放大器——雨天写悲伤比晴天更有效，烈日写愤怒比阴天更有力\n';
   prompt += '- 配角不是NPC，他们有自己的日程——主角找他们帮忙时，他们可能正在忙自己的事\n';
   
-  // === v46 智能压缩：整体token估计，超长时裁剪低优先级内容 ===
+  // === v46 智能压缩：根据模型上下文窗口动态设置阈值 ===
   var totalLen = prompt.length;
-  // 中文1字≈1.5token，16K输出模型通常有64K+上下文
-  // 输入prompt安全上限：约20000字（~30000 token），留足输出空间
-  var PROMPT_CHAR_LIMIT = 20000;
-  var PROMPT_SOFT_LIMIT = 14000; // 超过此值开始压缩低优先级内容
+  // 根据模型上下文窗口计算安全上限（留 30% 给输出 + 指令开销）
+  var ctxWindow = 131072;
+  try { if (typeof getModelContextWindow === 'function') ctxWindow = getModelContextWindow(); } catch(e) {}
+  var outTokens = 16384;
+  try { if (typeof getModelMaxOutputTokens === 'function') outTokens = getModelMaxOutputTokens(); } catch(e) {}
+  var safeInputTokens = Math.max(5000, Math.floor((ctxWindow - outTokens) * 0.7));
+  // 中文 1 字 ≈ 1.5 token（保守估计）
+  var PROMPT_CHAR_LIMIT = Math.floor(safeInputTokens / 1.5);
+  var PROMPT_SOFT_LIMIT = Math.floor(PROMPT_CHAR_LIMIT * 0.75); // 超过 75% 开始压缩
 
   if (totalLen > PROMPT_SOFT_LIMIT) {
     // 优先级从低到高：世界设定 → 人物人设 → 记忆 → 链锁 → 核心指令（永远保留）
     var ratio = PROMPT_SOFT_LIMIT / totalLen;
 
-    if (work.world && work.world.length > 800 && ratio < 0.9) {
-      var maxWorld = Math.max(400, Math.floor(800 * ratio));
-      var worldText = work.world.length > maxWorld ? work.world.substring(0, maxWorld) + '...(完整世界观请参考)' : work.world;
-      prompt = prompt.replace(/【世界观设定】\n.*?\n\n/, '【世界观设定】\n' + worldText + '\n\n');
+    if (work.world && work.world.length > 200 && ratio < 0.95) {
+      var maxWorld = Math.max(200, Math.floor(archLimits.world * ratio));
+      var worldText2 = work.world.length > maxWorld ? work.world.substring(0, maxWorld) + '...(完整世界观请参考)' : work.world;
+      prompt = prompt.replace(/【世界观设定】\n.*?\n\n/, '【世界观设定】\n' + worldText2 + '\n\n');
     }
-    if (work.chars && work.chars.length > 600 && ratio < 0.85) {
-      var maxChars = Math.max(300, Math.floor(600 * ratio));
-      var charsText = work.chars.length > maxChars ? work.chars.substring(0, maxChars) + '...(完整人设请参考)' : work.chars;
-      prompt = prompt.replace(/【人物人设】\n.*?\n\n/, '【人物人设】\n' + charsText + '\n\n');
+    if (work.chars && work.chars.length > 200 && ratio < 0.9) {
+      var maxChars = Math.max(200, Math.floor(archLimits.chars * ratio));
+      var charsText2 = work.chars.length > maxChars ? work.chars.substring(0, maxChars) + '...(完整人设请参考)' : work.chars;
+      prompt = prompt.replace(/【人物人设】\n.*?\n\n/, '【人物人设】\n' + charsText2 + '\n\n');
     }
     // 二次检查：如果仍然超限，进一步压缩记忆和上文
     if (prompt.length > PROMPT_CHAR_LIMIT) {
