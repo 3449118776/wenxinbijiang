@@ -1658,6 +1658,70 @@ function buildWriteConsistencyBlock(work, chapterIdx) {
 }
 
 
+// ========== v53: 前置场景规划 — 写正文前先让AI列场景节拍表，降低单次生成注意力负担 ==========
+// 返回节拍表文本（3-5个场景的结构骨架），失败返回空字符串
+function buildSceneBeatPrompt(work, chapterIdx) {
+  var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第' + (chapterIdx + 1) + '章') : ('第' + (chapterIdx + 1) + '章');
+  var genre = getWorkGenre(work);
+
+  var prompt = '你是一位资深网文结构师。请为以下章节规划3-5个场景的节拍表（只列结构，不写正文）。\n\n';
+  prompt += '【作品】' + (work.title || '未命名') + '\n';
+  prompt += '【题材】' + genre + '\n';
+  prompt += '【当前章节】' + chTitle + '（第' + (chapterIdx + 1) + '章）\n\n';
+
+  // 注入细纲当前章节片段
+  if (work.detail) {
+    var detailText = work.detail;
+    var idxInDetail = detailText.indexOf(chTitle);
+    if (idxInDetail >= 0) {
+      var start = Math.max(0, idxInDetail - 200);
+      var end = Math.min(detailText.length, idxInDetail + 1500);
+      prompt += '【本章细纲】\n' + detailText.substring(start, end) + '\n\n';
+    } else if (detailText.length > 2000) {
+      prompt += '【细纲片段】\n' + detailText.substring(0, 2000) + '\n\n';
+    } else {
+      prompt += '【全书细纲】\n' + detailText + '\n\n';
+    }
+  }
+
+  // 注入上一章结尾摘要（承接用）
+  if (work.chapters && chapterIdx > 0 && work.chapters[chapterIdx - 1]) {
+    var prevC = work.chapters[chapterIdx - 1].content || '';
+    if (prevC.length > 400) prevC = prevC.slice(-400);
+    if (prevC) prompt += '【上一章结尾】\n' + prevC + '\n\n';
+  }
+
+  // 注入长记忆关键锚点（精简版）
+  try {
+    if (work.longMemory && work.longMemory.memoryAnchors) {
+      var core = (work.longMemory.memoryAnchors.core || []).slice(0, 5);
+      if (core.length > 0) {
+        prompt += '【关键记忆锚点】\n';
+        core.forEach(function(c){ prompt += '- ' + (c.text || '').substring(0, 80) + '\n'; });
+        prompt += '\n';
+      }
+    }
+  } catch(e) {}
+
+  prompt += '【输出要求·严格遵循】\n';
+  prompt += '请输出3-5个场景的节拍表，每个场景用以下格式：\n';
+  prompt += '场景N《场景名》\n';
+  prompt += '目的：本场景要推进什么（1句话）\n';
+  prompt += '冲突：本场景的核心矛盾是什么（1句话）\n';
+  prompt += '角色：出场人物（标注视角人物）\n';
+  prompt += '伏笔：本场景埋下或回收什么伏笔（无则写"无"）\n';
+  prompt += '钩子：本场景结尾留什么悬念（仅最后场景必填）\n\n';
+  prompt += '【约束】\n';
+  prompt += '1. 只列结构骨架，绝对不写正文对话或描写\n';
+  prompt += '2. 场景之间必须有因果推进，不能是并列的独立事件\n';
+  prompt += '3. 第一个场景必须用冲突/动作开场，禁止"主角醒来/走在路上"等平淡开场\n';
+  prompt += '4. 最后一个场景的钩子必须让读者想看下一章\n';
+  prompt += '5. 总字数控制在400-600字\n\n';
+  prompt += '请直接输出节拍表：';
+
+  return prompt;
+}
+
 // 构建章节写作prompt
 function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   const chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第' + (chapterIdx + 1) + '章') : ('第' + (chapterIdx + 1) + '章');
@@ -1713,6 +1777,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '【题材】' + genre + '\n';
   prompt += '【当前章节】' + chTitle + '（第' + (chapterIdx + 1) + '章）\n';
   prompt += '【写作身份】你不是在"生成文本"，你是在"经历故事"。写每个场景时，你就是那个角色，你在那个世界里，你看到、听到、感受到的是角色所感知的一切。你的笔触要让读者忘记自己在看小说。\n\n';
+
+  // === v53: 注入前置场景节拍表（若已生成）===
+  if (work._sceneBeat && work._sceneBeat.trim()) {
+    prompt += '【📋 本章场景节拍表 — 结构骨架，必须严格遵循场景顺序与目的】\n' + work._sceneBeat.trim() + '\n\n';
+    prompt += '⚠️ 以上节拍表是本章的结构骨架：场景顺序不可调整，每个场景的"目的"和"冲突"必须体现，"伏笔"字段标注的必须埋设或回收，最后一个场景的"钩子"必须作为章末。你的任务是把这个骨架写成血肉丰满的正文，而非重新规划结构。\n\n';
+  }
   
   // === v29: 注入上一章质量短板，本章针对性补强 ===
   if (typeof QualityEngine !== 'undefined' && QualityEngine.lastHints) {
@@ -2999,7 +3069,25 @@ async function aiWriteChapter(){
   const statusBar = document.getElementById('api-status-bar');
   const config = DB.getApiConfig();
   
-  // 构建章节prompt（已含流派expertise和longMemory上下文）
+  // === v53: 前置场景规划 — 先让AI列节拍表，再写正文（降低单次生成注意力负担）===
+  work._sceneBeat = ''; // 清空旧节拍表
+  try {
+    statusBar.style.display = 'block';
+    statusBar.style.background = '#dbeafe';
+    statusBar.style.color = '#1e40af';
+    statusBar.textContent = '📋 正在规划「' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '」的场景结构...';
+    var beatPrompt = buildSceneBeatPrompt(work, chapterIdx);
+    var beatResult = await callRealAPIWithFallback(beatPrompt, null, 'outline', 600);
+    if (beatResult && beatResult.length > 100 && beatResult.indexOf('场景') >= 0) {
+      work._sceneBeat = beatResult.trim();
+      console.log('[v53规划] 节拍表已生成，' + beatResult.length + '字');
+    }
+  } catch(beatErr) {
+    console.warn('[v53规划] 节拍表生成失败，直接走原流程:', beatErr && beatErr.message);
+    work._sceneBeat = '';
+  }
+  
+  // 构建章节prompt（已含流派expertise和longMemory上下文 + v53节拍表）
   const prompt = buildChapterPrompt(work, chapterIdx, content);
 
   // 显示输入token估算
@@ -3055,11 +3143,66 @@ async function aiWriteChapter(){
       }
     } catch(e) { console.warn('[quality]', e); }
 
+    // === v53: 深度自检 + 自动重写闭环（启用deepSelfCheckV48，score<75或有L1硬伤时重写一次）===
+    var _deepReport = null;
+    var _rewritten = false;
+    try {
+      if (typeof deepSelfCheckV48 === 'function') {
+        _deepReport = deepSelfCheckV48(work, chapterIdx, result);
+        // 判断是否需要重写：score<75 或 存在L1级硬伤（读心/视角跳/全知）
+        var hasL1Hard = _deepReport.issues.some(function(s){ return s.indexOf('[L1]') >= 0; });
+        var needRewrite = (_deepReport.score < 75) || hasL1Hard;
+        if (needRewrite) {
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '🔧 深度自检发现' + _deepReport.issues.length + '个问题（得分' + _deepReport.score + '），正在自动重写...';
+          // 构建重写prompt：原文 + 问题清单 + 修改要求
+          var rewritePrompt = '你是一位顶级网文编辑，请对以下章节进行修订重写。\n\n';
+          rewritePrompt += '【修订要求·最高优先级】\n';
+          rewritePrompt += '1. 必须修复以下所有问题（共' + _deepReport.issues.length + '条）：\n';
+          _deepReport.issues.slice(0, 12).forEach(function(iss, i){
+            rewritePrompt += '   ' + (i+1) + '. ' + iss + '\n';
+          });
+          rewritePrompt += '2. 保留原文的剧情走向、角色名、关键事件，只修订表达和技法问题\n';
+          rewritePrompt += '3. 保持原文字数（约' + result.length + '字），不要大幅增删剧情\n';
+          rewritePrompt += '4. 特别注意：\n';
+          if (hasL1Hard) {
+            rewritePrompt += '   - [L1硬伤] 读心/视角跳/全知必须彻底消除——角色不能"知道"他人想法，只能通过动作表情推测\n';
+          }
+          rewritePrompt += '   - AI腔句式（嘴角勾起/眼神一冷/众人震惊等）必须替换为具体描写\n';
+          rewritePrompt += '   - 直白情绪词（他很愤怒）必须改为微动作外化（攥紧拳头指甲陷进掌心）\n';
+          rewritePrompt += '   - 开篇400字必须有冲突/悬念，章末必须有钩子\n';
+          rewritePrompt += '\n【原文】\n' + result + '\n\n请直接输出修订后的完整章节（不要加说明、不要加标题）：';
+          try {
+            var rewriteResult = await callRealAPIWithFallback(rewritePrompt, null, 'write_normal', 3000);
+            if (rewriteResult && rewriteResult.length > result.length * 0.6 && rewriteResult.length < result.length * 2) {
+              // 重写后再次自检，确保问题真的修复了
+              var _recheckReport = deepSelfCheckV48(work, chapterIdx, rewriteResult);
+              if (_recheckReport.score >= _deepReport.score) {
+                // 重写有效，采用重写结果
+                result = rewriteResult;
+                _deepReport = _recheckReport;
+                _rewritten = true;
+                console.log('[v53重写] ' + _deepReport.score + '分（原' + (_deepReport.score) + '分）, 问题从' + _deepReport.issues.length + '条降至' + _recheckReport.issues.length + '条');
+              }
+            }
+          } catch(rewriteErr) {
+            console.warn('[v53重写] 失败，保留原文:', rewriteErr && rewriteErr.message);
+          }
+        }
+      }
+    } catch(deepErr) { console.warn('[deepSelfCheck]', deepErr); }
+
     statusBar.style.background = '#dcfce7';
     statusBar.style.color = '#166534';
     var _scoreTxt = _qReport ? '，质量分 ' + _qReport.score + '/100' : '';
+    if (_deepReport) {
+      _scoreTxt += '，深度自检 ' + _deepReport.score + '/100' + (_rewritten ? '（已重写）' : '');
+    }
     statusBar.textContent = 'AI生成成功（' + result.length + '字' + _scoreTxt + '）';
-    if (_qReport && _qReport.weaknesses.length) {
+    if (_deepReport && _deepReport.issues.length) {
+      statusBar.textContent += ' · 待改进：' + _deepReport.issues.slice(0,2).join('、');
+    } else if (_qReport && _qReport.weaknesses.length) {
       statusBar.textContent += ' · 短板：' + _qReport.weaknesses.slice(0,2).join('、');
     }
 

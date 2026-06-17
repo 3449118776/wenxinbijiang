@@ -215,7 +215,75 @@ var StyleEngine = (function () {
 
     // 生成人类可读签名文本
     sig.signatureText = buildSignatureText(sig);
+    // v53: 提取风格代表性片段（few-shot示例，比统计数字更有效）
+    sig.styleSamples = extractStyleSamples(sampleText);
+    if (sig.styleSamples && sig.styleSamples.length > 0) {
+      sig.signatureText += '\n\n【风格代表性片段·few-shot示例 — 请模仿以下片段的叙事声音、句式节奏、用词偏好】';
+      for (var si = 0; si < sig.styleSamples.length; si++) {
+        sig.signatureText += '\n--- 示例片段' + (si + 1) + ' ---\n' + sig.styleSamples[si];
+      }
+      sig.signatureText += '\n【写作指令：以上片段是作者真实风格的代表，本章写作请模仿其叙事声音、句式节奏、用词偏好，而非照抄内容。】';
+    }
     return sig;
+  }
+
+  // v53: 从样本中提取3-5段风格代表性片段（按对话/描写/动作密度差异化选取）
+  function extractStyleSamples(sampleText) {
+    if (!sampleText || sampleText.length < 500) return [];
+    // 按双换行分段，过滤过短段落
+    var paras = sampleText.split(/\n\s*\n/).filter(function(p){
+      return p && p.trim().length >= 150 && p.trim().length <= 400;
+    });
+    if (paras.length < 3) {
+      // 退而求其次：按单换行分段
+      paras = sampleText.split(/\n/).filter(function(p){
+        return p && p.trim().length >= 150 && p.trim().length <= 400;
+      });
+    }
+    if (paras.length < 3) return [];
+
+    // 计算每段的特征密度
+    var scored = paras.map(function(p, i){
+      var pLen = p.length || 1;
+      var dialogDensity = ((p.match(/[“"][^”"]{2,}[”"]/g) || []).length * 100) / pLen * 100;
+      var actionDensity = ((p.match(/抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|喝|甩|扔|推|击|刺|砍|劈|躲/g) || []).length * 100) / pLen * 100;
+      var descDensity = ((p.match(/的|着|了|地|像|如|仿佛|宛如|似乎/g) || []).length * 100) / pLen * 100;
+      return {
+        text: p.trim(),
+        idx: i,
+        dialog: dialogDensity,
+        action: actionDensity,
+        desc: descDensity,
+        total: dialogDensity + actionDensity + descDensity
+      };
+    });
+
+    // 按特征分类选取：对话密集型、动作密集型、描写密集型各取1段，再取1段平衡型
+    var samples = [];
+    // 对话密集型
+    var byDialog = scored.slice().sort(function(a,b){ return b.dialog - a.dialog; });
+    if (byDialog[0] && byDialog[0].dialog > 0) samples.push(byDialog[0]);
+    // 动作密集型
+    var byAction = scored.slice().sort(function(a,b){ return b.action - a.action; });
+    if (byAction[0] && byAction[0].action > 0 && samples.indexOf(byAction[0]) === -1) samples.push(byAction[0]);
+    // 描写密集型
+    var byDesc = scored.slice().sort(function(a,b){ return b.desc - a.desc; });
+    if (byDesc[0] && byDesc[0].desc > 0 && samples.indexOf(byDesc[0]) === -1) samples.push(byDesc[0]);
+    // 平衡型（三者最接近的）
+    var byBalance = scored.slice().sort(function(a,b){
+      var aRange = Math.max(a.dialog, a.action, a.desc) - Math.min(a.dialog, a.action, a.desc);
+      var bRange = Math.max(b.dialog, b.action, b.desc) - Math.min(b.dialog, b.action, b.desc);
+      return aRange - bRange;
+    });
+    if (byBalance[0] && samples.indexOf(byBalance[0]) === -1) samples.push(byBalance[0]);
+
+    // 按原顺序排列，截取200-300字
+    samples.sort(function(a,b){ return a.idx - b.idx; });
+    return samples.slice(0, 4).map(function(s){
+      var t = s.text;
+      if (t.length > 300) t = t.substring(0, 300) + '...';
+      return t;
+    });
   }
 
   function buildSignatureText(sig) {

@@ -685,7 +685,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
               model: ep.model,
               messages: messages,
               max_tokens: maxTokens,
-              temperature: 0.7
+              temperature: (extraOpts && typeof extraOpts.temperature === 'number') ? extraOpts.temperature : 0.7
             }),
             signal: signal
           });
@@ -731,6 +731,8 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
         messages: filteredMsgs,
         max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS
       };
+      // v53: 差异化温度
+      if (extraOpts && typeof extraOpts.temperature === 'number') reqBody.temperature = extraOpts.temperature;
       if (systemMsg) reqBody.system = systemMsg;
       response = await fetch(providerConfig.url, {
         method: 'POST',
@@ -773,7 +775,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           model: targetModel || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat'),
           messages: messages,
           max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS,
-          temperature: 0.7
+          temperature: (extraOpts && typeof extraOpts.temperature === 'number') ? extraOpts.temperature : 0.7
         }),
         signal: signal
       });
@@ -856,6 +858,12 @@ async function callRealAPI(prompt, onProgress, opts) {
     try {
       // v48: 如果调用时指定了 maxTokens，优先使用它（覆盖 DEFAULT_MAX_TOKENS）
       var extraOpts = opts.maxTokens ? { maxTokens: opts.maxTokens } : null;
+      // v53: 传递差异化温度（若有）
+      if (typeof opts.temperature === 'number' && extraOpts) {
+        extraOpts.temperature = opts.temperature;
+      } else if (typeof opts.temperature === 'number') {
+        extraOpts = { temperature: opts.temperature };
+      }
       const result = await _callOnce(provider, key, prompt, model, ac.signal, extraOpts);
       clearTimeout(timeoutId);
       if (!opts.silent) hideLoading();
@@ -950,6 +958,56 @@ var TASK_ROUTE = {
   default:        ['__user__', 'deepseek', 'dashscope', 'volcano', 'moonshot', 'zhipu', 'baidu', 'siliconflow', 'groq', 'claude', 'minimax', 'yi', 'baichuan', 'spark', 'xai', 'stepfun', 'qwenlm', 'mistral', 'cohere', 'together']
 };
 
+// === v53: 按任务类型差异化温度 — 记忆/一致性用低温度（确定性），正文/创意用高温度（发散）===
+var TASK_TEMPERATURE = {
+  // 低温度（0.2-0.3）：需要确定性、不丢信息的任务
+  memory:         0.2,
+  consistency:    0.2,
+  quality_logic:  0.3,
+  quality_consist:0.3,
+  quality_proof:  0.3,
+  detail_check:   0.3,
+  chars_check:    0.3,
+
+  // 中低温度（0.4-0.5）：结构化但需一定创意
+  outline:        0.5,
+  outline_logic:  0.4,
+  detail:         0.5,
+  detail_base:    0.5,
+  fill:           0.5,
+  quality_polish: 0.4,
+  polish:         0.4,
+
+  // 中高温度（0.6-0.7）：平衡创意与可控
+  world:          0.7,
+  world_rules:    0.6,
+  world_integrate:0.6,
+  chars:          0.7,
+  chars_core:     0.7,
+  chars_minor:    0.6,
+  outline_optimize:0.7,
+  outline_detail: 0.6,
+  outline_integrate:0.6,
+  detail_emotion: 0.7,
+  publish:        0.6,
+  publish_meta:   0.5,
+  publish_seo:    0.5,
+
+  // 高温度（0.8-0.9）：需要最大创意发散
+  write_normal:   0.8,
+  write_dialogue: 0.85,
+  write_key:      0.8,
+  write:          0.8,
+  world_creative: 0.9,
+  chars_integrate:0.8,
+  write_context:  0.7,
+  batch:          0.7,
+  quality:        0.6,
+
+  // 默认
+  default:        0.7
+};
+
 // 跨服务商回退（不写入 DB.apiConfig，避免污染用户设置）
 // 支持 taskType 参数，按任务智能选择首发服务商
 // 任意服务商有 key 能产出结果即返回；**所有服务商所有 key 都失败时给出明确的总括提示**
@@ -1013,6 +1071,9 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     // v48: 构建动态输出选项（如果提供了 targetChars，会覆盖 DEFAULT_MAX_TOKENS）
     var callOpts = { provider: provider, silent: oi !== 0 };
     if (dynamicMaxTokens) callOpts.maxTokens = dynamicMaxTokens;
+    // v53: 按任务类型注入差异化温度
+    var taskTemp = TASK_TEMPERATURE[taskType];
+    if (typeof taskTemp === 'number') callOpts.temperature = taskTemp;
 
     if (oi === 0) {
       // 静默尝试首选，用户无感
