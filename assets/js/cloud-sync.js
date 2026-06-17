@@ -366,9 +366,27 @@ CloudSync.prototype = {
         }
       }
 
-      // 批量推送
+      // 批量推送（先从 IndexedDB 加载瘦身章节的正文）
       if (toPush.length > 0) {
         try {
+          // 加载瘦身章节正文：逐个作品，逐个瘦身章节
+          for (var pii = 0; pii < toPush.length; pii++) {
+            var pw = toPush[pii];
+            if (pw && pw.chapters && pw.id) {
+              for (var ci = 0; ci < pw.chapters.length; ci++) {
+                var ch = pw.chapters[ci];
+                if (ch && ch._slim === true && DB && DB.loadChapterShard) {
+                  try {
+                    var shard = await DB.loadChapterShard(pw.id, ci);
+                    if (shard && shard.content) {
+                      ch.content = shard.content;
+                      ch._slim = false;
+                    }
+                  } catch(se) {}
+                }
+              }
+            }
+          }
           var batchItems = toPush.map(function(w){ return _packWork(w); });
           var batchResult = await this.pushBatch(batchItems, '');
           if (batchResult && batchResult.results) {
@@ -470,6 +488,21 @@ CloudSync.prototype = {
         }
       }
       if (!w) return { ok: false, error: '未找到作品' };
+      // 从 IndexedDB 加载瘦身章节的正文，避免推送空内容
+      if (w.chapters && Array.isArray(w.chapters) && DB && DB.loadChapterShard) {
+        for (var ci = 0; ci < w.chapters.length; ci++) {
+          var ch = w.chapters[ci];
+          if (ch && ch._slim === true) {
+            try {
+              var shard = await DB.loadChapterShard(w.id, ci);
+              if (shard && shard.content) {
+                ch.content = shard.content;
+                ch._slim = false;
+              }
+            } catch(se) {}
+          }
+        }
+      }
       return await this.pushWork(_packWork(w));
     } catch(e) {
       return { ok: false, error: e.message };

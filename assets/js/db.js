@@ -99,6 +99,7 @@ const DB = {
         this.apiKeys = data.apiKeys || {};
         this.settings = data.settings || this.settings;
         this._trash = Array.isArray(data._trash) ? data._trash : [];
+        this._cloudDeleteList = Array.isArray(data._cloudDeleteList) ? data._cloudDeleteList : [];
 
         // 自动检测拆分存储：如果主key是轻量化的，自动合并
         if (data._split === true) {
@@ -933,7 +934,8 @@ const DB = {
         apiConfig: this.apiConfig,
         apiKeys: this.apiKeys,
         settings: this.settings,
-        _trash: this._trash || []
+        _trash: this._trash || [],
+        _cloudDeleteList: this._cloudDeleteList || []
       });
       // 预检查大小 — 超过2MB时自动启动存储拆分（降低阈值，提前预防溢出）
       if (json.length > 2 * 1024 * 1024) {
@@ -950,7 +952,8 @@ const DB = {
           apiConfig: this.apiConfig,
           apiKeys: this.apiKeys,
           settings: this.settings,
-          _trash: this._trash || []
+          _trash: this._trash || [],
+          _cloudDeleteList: this._cloudDeleteList || []
         });
         // 拆分后仍超大，提示用户
         if (json.length > 3.5 * 1024 * 1024) {
@@ -985,7 +988,8 @@ const DB = {
           apiConfig: this.apiConfig,
           apiKeys: this.apiKeys,
           settings: this.settings,
-          _trash: this._trash || []
+          _trash: this._trash || [],
+          _cloudDeleteList: this._cloudDeleteList || []
         });
         this.saveAppMemoryMirror(jsonFallback).then(function(ok){
           try { DB.saveAllChapterShards(); } catch(shardErr) {}
