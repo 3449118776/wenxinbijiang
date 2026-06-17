@@ -79,7 +79,12 @@ async function handle_login(req) {
     if (!ok) return json_response({ error: '邮箱或密码不正确' }, 401);
     user.visitCount = (user.visitCount || 0) + 1;
     user.lastVisitAt = new Date().toISOString();
-    await db_update_user(user);
+    // 容错：KV写入失败（如配额超限）不阻断登录，token照常签发
+    try {
+      await db_update_user(user);
+    } catch (updateErr) {
+      console.warn('[login] db_update_user failed (non-fatal):', updateErr && updateErr.message);
+    }
     const token = await jwt_sign({ userId: user.id, email: user.email }, null, 30 * 24 * 3600);
     return json_response({ token, user: { id: user.id, email: user.email, nickname: user.nickname } });
   } catch (e) {

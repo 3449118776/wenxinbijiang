@@ -21,7 +21,7 @@ function CloudSync(opts) {
   this.token = null;
   this.user = null;
   this.autoSync = !!opts.autoSync;
-  this.autoInterval = opts.autoInterval || 60000; // 1 分钟（原5分钟太慢）
+  this.autoInterval = opts.autoInterval || 300000; // 5 分钟（避免KV写入配额超限）
   this._timer = null;
   this._syncTimer = null;
   this._loadToken();

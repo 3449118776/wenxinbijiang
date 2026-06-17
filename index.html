@@ -143,9 +143,22 @@ window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });
   function setToken(token, user){
     try{ localStorage.setItem('wxbj_cloud_token', token); }catch(e){}
     try{ localStorage.setItem('wxbj_cloud_user', JSON.stringify(user)); }catch(e){}
+    // 同步更新 cloud 实例状态，确保登录后立即可以调用 smartSync
+    if(window.cloud){
+      window.cloud.token = token;
+      window.cloud.user = user;
+    }
     updateCloudBtn();
   }
-  function clearToken(){ try{ localStorage.removeItem('wxbj_cloud_token'); }catch(e){} try{ localStorage.removeItem('wxbj_cloud_user'); }catch(e){} updateCloudBtn(); }
+  function clearToken(){
+    try{ localStorage.removeItem('wxbj_cloud_token'); }catch(e){}
+    try{ localStorage.removeItem('wxbj_cloud_user'); }catch(e){}
+    if(window.cloud){
+      window.cloud.token = null;
+      window.cloud.user = null;
+    }
+    updateCloudBtn();
+  }
 
   function updateCloudBtn(){
     var token = getToken();
