@@ -44,9 +44,17 @@ CloudSync.prototype = {
   _loadToken: function() {
     try { this.token = localStorage.getItem('wxbj_cloud_token') || ''; } catch(e) { this.token = ''; }
     try { this.user = JSON.parse(localStorage.getItem('wxbj_cloud_user') || 'null'); } catch(e) { this.user = null; }
-    // 恢复登录状态后立即触发一次同步，确保能看到云端老作品
+    // 恢复登录状态后，等待DB初始化完成，然后触发同步
     if (this.isLoggedIn()) {
-      setTimeout(() => { this.smartSync().catch(() => {}); }, 800);
+      var self = this;
+      var trySync = function() {
+        if (window.DB && window.DB._initialized) {
+          setTimeout(function() { self.smartSync().catch(function(){}); }, 300);
+        } else {
+          setTimeout(trySync, 200);
+        }
+      };
+      setTimeout(trySync, 200);
     }
   },
 
