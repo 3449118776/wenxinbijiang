@@ -15,9 +15,26 @@ var MEMORY_TIER_META = {
   relationships:{ tier: 1, maxRaw: 120, compressAfter: 25, archiveAfter: 40,  weight: 8,  label: 'L1关系' },
   items:        { tier: 1, maxRaw: 100, compressAfter: 25, archiveAfter: 40,  weight: 8,  label: 'L1道具' },
   promises:     { tier: 1, maxRaw: 80,  compressAfter: 20, archiveAfter: 35,  weight: 7,  label: 'L1承诺' },
+  // v51 新增：记更多东西
+  dialogues:    { tier: 1, maxRaw: 80,  compressAfter: 20, archiveAfter: 35,  weight: 7,  label: 'L1金句' },     // 角色标志性台词/金句
+  abilityCosts: { tier: 1, maxRaw: 60,  compressAfter: 15, archiveAfter: 25,  weight: 7,  label: 'L1能力代价' },  // 能力使用代价/反噬/限制
+  emotionTrack: { tier: 1, maxRaw: 100, compressAfter: 20, archiveAfter: 35,  weight: 6,  label: 'L1情感轨迹' },  // 角色情感变化轨迹
+  scenes:       { tier: 2, maxRaw: 80,  compressAfter: 15, archiveAfter: 25,  weight: 5,  label: 'L2场景细节' },  // 重要场景的感官细节
   locations:    { tier: 2, maxRaw: 80,  compressAfter: 15, archiveAfter: 25,  weight: 6,  label: 'L2地点' },
   timeline:     { tier: 2, maxRaw: 60,  compressAfter: 15, archiveAfter: 25,  weight: 6,  label: 'L2时间' },
   hooks:        { tier: 2, maxRaw: 80,  compressAfter: 15, archiveAfter: 25,  weight: 5,  label: 'L2钩子' }
+};
+
+// v51：角色分级权重（主角记忆最重，龙套最轻，超长篇自动遗忘龙套）
+var CHAR_ROLE_WEIGHT = {
+  '主角':  { weight: 5, maxAnchors: 30, label: '主角', neverForget: true },
+  '女主':  { weight: 4, maxAnchors: 25, label: '女主', neverForget: true },
+  '男主':  { weight: 4, maxAnchors: 25, label: '男主', neverForget: true },
+  '反派':  { weight: 4, maxAnchors: 20, label: '反派', neverForget: false },
+  '配角':  { weight: 3, maxAnchors: 15, label: '配角', neverForget: false },
+  '导师':  { weight: 3, maxAnchors: 12, label: '导师', neverForget: false },
+  '伙伴':  { weight: 3, maxAnchors: 12, label: '伙伴', neverForget: false },
+  '龙套':  { weight: 1, maxAnchors: 5,  label: '龙套', neverForget: false }
 };
 
 // ========== PLATINUM_RULES v50：白金作家创作法则（注入正文生成） ==========
@@ -3614,6 +3631,12 @@ function initLongMemory(w) {
   ['core','characterTags','relationships','items','locations','promises','timeline','hooks'].forEach(function(k){
     if (!Array.isArray(a[k])) a[k] = [];
   });
+  // v51 新增：记更多东西 — 对话金句/能力代价/情感轨迹/场景细节
+  ['dialogues','abilityCosts','emotionTrack','scenes'].forEach(function(k){
+    if (!Array.isArray(a[k])) a[k] = [];
+  });
+  // v51 新增：角色分级表（主角/配角/反派/龙套），用于记忆权重和遗忘策略
+  if (!w.longMemory.charRoles) w.longMemory.charRoles = {};
   // v28：长篇级记忆结构
   if (!Array.isArray(w.longMemory.chapterIndex)) w.longMemory.chapterIndex = [];
   if (!w.longMemory.characterHistory) w.longMemory.characterHistory = {};
@@ -3634,7 +3657,7 @@ function initLongMemory(w) {
   if (!w.longMemory.ultraMeta) w.longMemory.ultraMeta = {volumeSize:50, lastUltraUpdateAt:-1};
   // v46：锚点摘要层（用于压缩累积过量的anchors）
   if (!w.longMemory._anchorDigest) w.longMemory._anchorDigest = {};
-  ['core','characterTags','relationships','items','locations','promises','timeline','hooks'].forEach(function(k){
+  ['core','characterTags','relationships','items','locations','promises','timeline','hooks','dialogues','abilityCosts','emotionTrack','scenes'].forEach(function(k){
     if (!Array.isArray(w.longMemory._anchorDigest[k])) w.longMemory._anchorDigest[k] = [];
   });
   // v50：记忆分级元数据
@@ -3669,14 +3692,51 @@ function extractChapterSummary(content, title) {
 }
 
 function extractCharNameMap(chars) {
-  const map = {names:[], aliasMap:{}};
+  const map = {names:[], aliasMap:{}, roles:{}};
   if (!chars) return map;
   const lines = chars.split('\n').filter(l => l.trim());
+  // v51：角色分级检测 — 识别主角/女主/男主/反派/配角/导师/伙伴/龙套
+  const roleKeywords = {
+    '主角':  ['主角','男主','女主','主人公','第一主角'],
+    '女主':  ['女主','女主角','女一'],
+    '男主':  ['男主','男主角','男一'],
+    '反派':  ['反派','大反派','最终boss','敌人','敌对','对手','幕后黑手'],
+    '配角':  ['配角','次要角色','重要配角'],
+    '导师':  ['导师','师傅','师父','老师','引路人'],
+    '伙伴':  ['伙伴','队友','同伴','挚友','兄弟','姐妹'],
+    '龙套':  ['龙套','路人','次要','背景','小角色']
+  };
+  let currentRole = '配角'; // 默认配角
   lines.forEach(l => {
+    // 检测角色分级标记行（如"【主角】"、"主角：xxx"、"反派："）
+    let detectedRole = null;
+    for (const [role, kws] of Object.entries(roleKeywords)) {
+      for (const kw of kws) {
+        const roleRe = new RegExp('(?:^|[【\\[（(])\\s*' + kw + '\\s*(?:[】\\]）)：:]|$)', 'i');
+        if (roleRe.test(l)) { detectedRole = role; break; }
+      }
+      if (detectedRole) break;
+    }
+    if (detectedRole) currentRole = detectedRole;
+
     const m = l.match(/^([^：:：\s]{1,6})[：:：\s]/);
     if (m) {
       const name = m[1].trim();
+      // 跳过纯角色标记词（如"主角""反派"本身作为名字）
+      const allRoleWords = Object.values(roleKeywords).flat();
+      if (allRoleWords.includes(name)) return;
+
       map.names.push(name);
+      // v51：记录角色分级（优先级：已检测的当前角色 > 默认配角）
+      if (!map.roles[name]) {
+        map.roles[name] = currentRole;
+      } else {
+        // 已有角色，升级但不降级（主角>配角）
+        const roleOrder = ['主角','女主','男主','反派','导师','伙伴','配角','龙套'];
+        if (roleOrder.indexOf(currentRole) < roleOrder.indexOf(map.roles[name])) {
+          map.roles[name] = currentRole;
+        }
+      }
       if (name.length >= 2) {
         const sur = name[0];
         if (!map.aliasMap[sur]) map.aliasMap[sur] = {main:name, type:'surname'};
@@ -3689,10 +3749,33 @@ function extractCharNameMap(chars) {
     }
   });
   if (map.names.length === 0) map.names.push('主角');
+  // 第一个名字默认为主角
+  if (!map.roles[map.names[0]]) map.roles[map.names[0]] = '主角';
   map.aliasMap['他'] = {main:map.names[0], type:'pronoun'};
   map.aliasMap['她'] = {main:map.names.length > 1 ? map.names[1] : map.names[0], type:'pronoun'};
   map.aliasMap['我'] = {main:map.names[0], type:'pronoun'};
   return map;
+}
+
+// v51：获取角色分级权重（主角5分，龙套1分）
+function getCharRoleWeight(name, charRoles){
+  if (!name) return 1;
+  var role = '龙套';
+  if (charRoles && charRoles[name]) role = charRoles[name];
+  if (CHAR_ROLE_WEIGHT[role]) return CHAR_ROLE_WEIGHT[role].weight;
+  return 1;
+}
+
+// v51：更新作品的charRoles表（从人设文本中识别并持久化角色分级）
+function updateCharRoles(w){
+  if (!w || !w.chars) return;
+  initLongMemory(w);
+  try {
+    var map = extractCharNameMap(w.chars);
+    if (map.roles && Object.keys(map.roles).length > 0) {
+      w.longMemory.charRoles = Object.assign(w.longMemory.charRoles || {}, map.roles);
+    }
+  } catch(e) { console.warn('[charRoles] 更新失败:', e); }
 }
 
 function extractCharStateFromText(content, chars) {
@@ -3794,6 +3877,8 @@ function upsertMemoryAnchor(w, bucket, value, meta) {
     exists.updatedAt = Date.now();
     exists.weight = Math.min(10, Math.max(exists.weight || 1, meta.weight || 1) + 1);
     if (meta.status) exists.status = meta.status;
+    if (meta.charName && !exists.charName) exists.charName = meta.charName;
+    if (meta.charRole && !exists.charRole) exists.charRole = meta.charRole;
     return;
   }
   anchors[bucket].push({
@@ -3803,23 +3888,56 @@ function upsertMemoryAnchor(w, bucket, value, meta) {
     chapterTitle: meta.chapterTitle || '',
     weight: meta.weight || 1,
     status: meta.status || '有效',
+    charName: meta.charName || '',
+    charRole: meta.charRole || '',
     createdAt: Date.now(),
     updatedAt: Date.now()
   });
-  // 每类保留高权重+近期的 30 条，防止记忆膨胀
-  anchors[bucket] = anchors[bucket]
-    .sort(function(a,b){ return (b.weight||1)-(a.weight||1) || (b.updatedAt||0)-(a.updatedAt||0); })
-    .slice(0, 30);
+  // v51：角色分级限量 — 主角30条、配角15条、龙套5条，超长篇自动遗忘龙套
+  var charRoles = w.longMemory.charRoles || {};
+  if (bucket === 'characterTags' || bucket === 'emotionTrack' || bucket === 'dialogues') {
+    // 按角色分组限量
+    var byRole = {};
+    anchors[bucket].forEach(function(a){
+      var role = a.charRole || charRoles[a.charName] || '龙套';
+      if (!byRole[role]) byRole[role] = [];
+      byRole[role].push(a);
+    });
+    var kept = [];
+    Object.keys(byRole).forEach(function(role){
+      var maxN = (CHAR_ROLE_WEIGHT[role] && CHAR_ROLE_WEIGHT[role].maxAnchors) || 10;
+      var sorted = byRole[role].sort(function(a,b){
+        return (b.weight||1)-(a.weight||1) || (b.updatedAt||0)-(a.updatedAt||0);
+      });
+      kept = kept.concat(sorted.slice(0, maxN));
+    });
+    anchors[bucket] = kept.sort(function(a,b){ return (b.weight||1)-(a.weight||1) || (b.updatedAt||0)-(a.updatedAt||0); });
+  } else {
+    // 其他桶：每类保留高权重+近期的 30 条，防止记忆膨胀
+    anchors[bucket] = anchors[bucket]
+      .sort(function(a,b){ return (b.weight||1)-(a.weight||1) || (b.updatedAt||0)-(a.updatedAt||0); })
+      .slice(0, 30);
+  }
 }
 
 function extractMemoryAnchorsFromText(w, idx, content) {
   if (!content || content.length < 40) return;
   initLongMemory(w);
+  // v51：先更新角色分级表
+  updateCharRoles(w);
   const ch = w.chapters && w.chapters[idx] ? w.chapters[idx] : {};
   const chapterTitle = ch.title || ('第' + (idx + 1) + '章');
   const meta = {chapterIdx: idx, chapterTitle: chapterTitle};
   const sentences = content.split(/[。！？\n]+/).map(function(s){return s.trim();}).filter(function(s){return s.length >= 6 && s.length <= 90;});
-  const names = extractCharNameMap(w.chars || '').names || [];
+  const nameMap = extractCharNameMap(w.chars || '');
+  const names = nameMap.names || [];
+  const charRoles = w.longMemory.charRoles || {};
+
+  // 辅助：构建带角色信息的meta
+  function metaWithChar(name){
+    var role = charRoles[name] || nameMap.roles[name] || '龙套';
+    return Object.assign({charName: name, charRole: role}, meta);
+  }
 
   // 1. 角色标志：口癖、动作、伤疤、弱点、执念
   names.forEach(function(name) {
@@ -3827,7 +3945,7 @@ function extractMemoryAnchorsFromText(w, idx, content) {
     sentences.forEach(function(s) {
       if (!s.includes(name)) return;
       if (/(习惯|总是|从不|最怕|怕|弱点|执念|口头禅|伤疤|疤|旧伤|握紧|眯眼|冷笑|咬牙|沉默)/.test(s)) {
-        upsertMemoryAnchor(w, 'characterTags', name + '：' + s.slice(0, 70), Object.assign({key:name + s.slice(0,18), weight:3}, meta));
+        upsertMemoryAnchor(w, 'characterTags', name + '：' + s.slice(0, 70), Object.assign({key:name + s.slice(0,18), weight:3}, metaWithChar(name)));
       }
     });
   });
@@ -3883,11 +4001,13 @@ function extractMemoryAnchorsFromText(w, idx, content) {
     }
   });
 
-  // 9. 能力代价：使用能力后的反噬/消耗/限制
+  // 9. 能力代价：使用能力后的反噬/消耗/限制 → v51独立到 abilityCosts 桶
   sentences.forEach(function(s) {
     if (/(代价|反噬|消耗|寿元|精神崩溃|身体损伤|副作用|透支|虚弱|昏厥|咳血|经脉寸断|走火入魔|灵力枯竭|元气大伤).{0,15}(能力|功法|秘术|禁术|血脉|天赋|术法|招式|神通)/.test(s) ||
         /(能力|功法|秘术|禁术|血脉|天赋|术法|招式|神通).{0,15}(代价|反噬|消耗|寿元|精神崩溃|身体损伤|副作用|透支|虚弱|昏厥|咳血)/.test(s)) {
+      // v51：同时写入 core（永久）和 abilityCosts（可压缩）
       upsertMemoryAnchor(w, 'core', s.slice(0, 90), Object.assign({weight:5}, meta));
+      upsertMemoryAnchor(w, 'abilityCosts', s.slice(0, 90), Object.assign({weight:5}, meta));
     }
   });
 
@@ -3899,13 +4019,59 @@ function extractMemoryAnchorsFromText(w, idx, content) {
     }
   });
 
-  // 11. 情绪转折：角色心理的重大变化
+  // 11. 情绪转折：角色心理的重大变化 → v51独立到 emotionTrack 桶
   names.forEach(function(name) {
     if (!name || name === '主角') return;
     sentences.forEach(function(s) {
       if (!s.includes(name)) return;
       if (/(绝望|崩溃|心死|放弃|不再信任|彻底失望|幡然醒悟|终于明白|恍然大悟|决心|坚定|从绝望|重燃|释然|放下)/.test(s)) {
-        upsertMemoryAnchor(w, 'characterTags', name + '：' + s.slice(0, 70), Object.assign({key:name + 'emotion' + s.slice(0,14), weight:4}, meta));
+        // 同时写入 characterTags（角色标签）和 emotionTrack（情感轨迹，可压缩）
+        upsertMemoryAnchor(w, 'characterTags', name + '：' + s.slice(0, 70), Object.assign({key:name + 'emotion' + s.slice(0,14), weight:4}, metaWithChar(name)));
+        upsertMemoryAnchor(w, 'emotionTrack', name + '：' + s.slice(0, 70), Object.assign({key:name + 'emo' + idx, weight:4}, metaWithChar(name)));
+      }
+    });
+  });
+
+  // 12. v51 新增：对话金句 — 角色标志性台词（带引号的句子，且包含角色名或角色关键词）
+  sentences.forEach(function(s) {
+    // 匹配带引号的对话
+    var dialogueMatch = s.match(/[“"\u300c\u300e]([^”"\u300d\u300f]{6,60})[”"\u300d\u300f]/);
+    if (dialogueMatch) {
+      var quote = dialogueMatch[1].trim();
+      // 金句特征：包含决心/誓言/哲理/反讽/标志性表达
+      if (/(发誓|绝不|一定|宁可|就算|哪怕|永远|从此|再也不|凭什么|为什么|我不信|我不甘|我命由我|天命|命运|选择|代价|活着|死去|守护|毁灭)/.test(quote)) {
+        // 找出说话者
+        var speaker = '';
+        for (var ni = 0; ni < names.length; ni++) {
+          if (names[ni] && names[ni] !== '主角' && s.includes(names[ni])) { speaker = names[ni]; break; }
+        }
+        // 如果句子前面有"XX道/说/冷声道"
+        if (!speaker) {
+          var speakerMatch = s.match(/^([\u4e00-\u9fa5]{2,4})(?:道|说|冷声|沉声|低声|怒道|笑道|喊道)/);
+          if (speakerMatch && names.includes(speakerMatch[1])) speaker = speakerMatch[1];
+        }
+        if (speaker) {
+          upsertMemoryAnchor(w, 'dialogues', speaker + '：「' + quote + '」', Object.assign({key:speaker + 'quote' + quote.slice(0,15), weight:4}, metaWithChar(speaker)));
+        }
+      }
+    }
+  });
+
+  // 13. v51 新增：场景细节 — 重要场景的感官锚点（天气/光影/气味/声音/温度）
+  sentences.forEach(function(s) {
+    if (/(雷声|闪电|暴雨|大雪|寒风|烈日|月光|夕阳|晨光|暮色|黑暗|浓雾|血腥味|药味|檀香|烟火气|冷意|灼热|刺骨|阴冷)/.test(s) &&
+        /(山|谷|城|府|殿|楼|阁|村|营|牢|院|门|堂|宫|街|巷|战场|悬崖|深渊|密室|荒野)/.test(s)) {
+      upsertMemoryAnchor(w, 'scenes', s.slice(0, 90), Object.assign({weight:3}, meta));
+    }
+  });
+
+  // 14. v51 新增：能力突破/觉醒 — 角色实力跃迁（写入core永久保留）
+  names.forEach(function(name) {
+    if (!name || name === '主角') return;
+    sentences.forEach(function(s) {
+      if (!s.includes(name)) return;
+      if (/(突破|晋升|觉醒|开窍|结丹|元婴|化神|渡劫|飞升|入圣|封王|封侯|称帝|登基|血脉觉醒|天赋觉醒|功法大成)/.test(s)) {
+        upsertMemoryAnchor(w, 'core', name + '：' + s.slice(0, 80), Object.assign({key:name + 'break' + idx, weight:6}, metaWithChar(name)));
       }
     });
   });
@@ -3925,7 +4091,12 @@ function scoreMemoryAnchor(anchor, idx) {
   const urgencyScore = (anchor.urgent || anchor.level === 'high' || anchor.status === '待回收' || anchor.status === '待兑现') ? 3 : 0;
   // L0核心事实额外加权（永不被遗忘）
   const l0Bonus = tierMeta.tier === 0 ? 5 : 0;
-  return typeScore + distanceScore + manualWeight + urgencyScore + l0Bonus;
+  // v51：角色分级加权 — 主角+5，女主/男主/反派+4，配角/导师/伙伴+3，龙套+1
+  var roleScore = 0;
+  if (anchor.charRole && CHAR_ROLE_WEIGHT[anchor.charRole]) {
+    roleScore = CHAR_ROLE_WEIGHT[anchor.charRole].weight;
+  }
+  return typeScore + distanceScore + manualWeight + urgencyScore + l0Bonus + roleScore;
 }
 
 
@@ -4203,7 +4374,8 @@ function compressMemoryAnchors(w, idx) {
   initLongMemory(w);
   var anchors = w.longMemory.memoryAnchors;
   var digests = w.longMemory._anchorDigest;
-  var names = ['core','characterTags','relationships','items','locations','promises','timeline','hooks'];
+  // v51：包含新增桶
+  var names = ['core','characterTags','relationships','items','locations','promises','timeline','hooks','dialogues','abilityCosts','emotionTrack','scenes'];
   // tier-aware: 根据MEMORY_TIER_META决定每个桶的压缩时机
   names.forEach(function(bucket){
     var tierMeta = MEMORY_TIER_META[bucket] || { tier: 2, maxRaw: 60, compressAfter: 15, archiveAfter: 25 };
@@ -4274,24 +4446,32 @@ function buildAnchorContext(w, idx) {
     characterTags: 'L1 角色记忆点',
     relationships: 'L1 关系变化',
     items: 'L1 道具归属',
-    locations: 'L2 地点状态',
     promises: 'L2 承诺/禁忌/时限',
+    dialogues: 'L1 角色金句（必须保持角色声音一致）',
+    abilityCosts: 'L1 能力代价/反噬（防止无限开挂）',
+    emotionTrack: 'L1 情感轨迹（情绪必须连贯）',
+    scenes: 'L2 场景细节（感官回响）',
+    locations: 'L2 地点状态',
     timeline: 'L2 时间线锚点',
     hooks: 'L3 未兑现爽点钩子'
   };
-  // 分级输出：先输出高优先级，再输出低优先级
-  var priorityOrder = ['core', 'characterTags', 'relationships', 'items', 'promises', 'locations', 'timeline', 'hooks'];
+  // v51：分级输出顺序 — 高优先级在前，新增桶按tier插入
+  var priorityOrder = ['core', 'characterTags', 'dialogues', 'emotionTrack', 'relationships', 'items', 'abilityCosts', 'promises', 'locations', 'scenes', 'timeline', 'hooks'];
   var ctx = '';
   priorityOrder.forEach(function(bucket) {
     var list = (anchors[bucket] || [])
       .filter(function(a){ return (a.chapterIdx || 0) < idx && a.status !== '失效'; })
       .sort(function(a,b){ return scoreMemoryAnchor(b, idx) - scoreMemoryAnchor(a, idx); })
-      .slice(0, bucket === 'core' ? 10 : bucket === 'characterTags' ? 8 : 6);
+      .slice(0, bucket === 'core' ? 12 : bucket === 'characterTags' ? 10 : bucket === 'dialogues' ? 6 : bucket === 'emotionTrack' ? 6 : 6);
     if (!list.length) return;
     ctx += '【' + names[bucket] + '】\n';
     list.forEach(function(a) {
       var urgency = a.urgent || a.level === 'high' ? ' ⚠️' : '';
-      ctx += '  - 第' + ((a.chapterIdx || 0) + 1) + '章：' + a.text + urgency + '\n';
+      // v51：角色分级标签（主角/配角/反派等）
+      var roleTag = '';
+      if (a.charRole && a.charRole !== '龙套') roleTag = '[' + a.charRole + '] ';
+      else if (a.charRole === '龙套') roleTag = '[龙套] ';
+      ctx += '  - 第' + ((a.chapterIdx || 0) + 1) + '章：' + roleTag + a.text + urgency + '\n';
     });
     // v46：追加蒸馏摘要（早期锚点压缩版）
     var digests = (w.longMemory._anchorDigest && w.longMemory._anchorDigest[bucket] ? w.longMemory._anchorDigest[bucket] : []);

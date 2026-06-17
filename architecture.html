@@ -1507,15 +1507,70 @@ function smartTruncate(text, maxLen){
 
 // ========== 架构内容 → 长记忆同步 ==========
 // 将世界观/人设/大纲/细纲的关键信息提取到 longMemory，实现模块间记忆连接
+
+// v51：角色分级权重表（架构页面本地副本，write-editor.js未加载时使用）
+var ARCH_CHAR_ROLE_WEIGHT = {
+  '主角': 5, '女主': 4, '男主': 4, '反派': 4,
+  '配角': 3, '导师': 3, '伙伴': 3, '龙套': 1
+};
+
+// v51：架构页面本地角色分级识别（write-editor.js未加载时的fallback）
+function archUpdateCharRoles(work){
+  if(!work || !work.chars) return;
+  if(!work.longMemory) work.longMemory = {};
+  if(!work.longMemory.charRoles) work.longMemory.charRoles = {};
+  var lines = (work.chars || '').split('\n');
+  var currentRole = '配角';
+  var roleKeywords = {
+    '主角': ['主角','男主','女主','主人公'],
+    '女主': ['女主','女主角','女一'],
+    '男主': ['男主','男主角','男一'],
+    '反派': ['反派','大反派','最终boss','敌人','对手','幕后黑手'],
+    '配角': ['配角','次要角色'],
+    '导师': ['导师','师傅','师父','老师','引路人'],
+    '伙伴': ['伙伴','队友','同伴','挚友'],
+    '龙套': ['龙套','路人','背景']
+  };
+  lines.forEach(function(l){
+    l = l.trim();
+    if(!l) return;
+    // 检测角色分级标记
+    var detectedRole = null;
+    for(var role in roleKeywords){
+      for(var i = 0; i < roleKeywords[role].length; i++){
+        var kw = roleKeywords[role][i];
+        if(new RegExp('(?:^|[【\\[（(])\\s*' + kw + '\\s*(?:[】\\]）)：:]|$)', 'i').test(l)){
+          detectedRole = role; break;
+        }
+      }
+      if(detectedRole) break;
+    }
+    if(detectedRole) currentRole = detectedRole;
+    // 提取角色名
+    var m = l.match(/^([^：:：\s]{1,6})[：:：\s]/);
+    if(m){
+      var name = m[1].trim();
+      var allRoleWords = ['主角','男主','女主','反派','配角','导师','伙伴','龙套','主人公','女主角','男主角'];
+      if(allRoleWords.indexOf(name) >= 0) return;
+      var existing = work.longMemory.charRoles[name];
+      var roleOrder = ['主角','女主','男主','反派','导师','伙伴','配角','龙套'];
+      if(!existing || roleOrder.indexOf(currentRole) < roleOrder.indexOf(existing)){
+        work.longMemory.charRoles[name] = currentRole;
+      }
+    }
+  });
+}
+
 function syncArchToMemory(work, module){
   if(!work || !module) return;
   if(typeof initLongMemory === 'function'){
     initLongMemory(work);
   } else {
-    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}};
+    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}, charRoles:{}, _anchorDigest:{}};
   }
   var mem = work.longMemory;
-  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]};
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]};
+  if(!mem.charRoles) mem.charRoles = {};
   var anchors = mem.memoryAnchors;
 
   // 世界观 → 提取核心设定到记忆锚点
@@ -1559,28 +1614,66 @@ function syncArchToMemory(work, module){
       });
       if(anchors.relationships.length > 50) anchors.relationships = anchors.relationships.slice(-50);
     }
+    // v51 新增：提取能力体系/代价/限制到 abilityCosts
+    var abilityMatches = work.world.match(/[^。\n]{0,40}(?:代价|反噬|消耗|限制|副作用|禁忌|不可|不能|必须|才能|除非)[^。\n]{0,80}[。\n]/g);
+    if(abilityMatches){
+      if(!anchors.abilityCosts) anchors.abilityCosts = [];
+      anchors.abilityCosts = anchors.abilityCosts.filter(function(a){ return a.source !== 'world'; });
+      abilityMatches.slice(0, 15).forEach(function(am){
+        var t = am.trim();
+        if(t.length > 10 && t.length < 120){
+          anchors.abilityCosts.push({text: t, source: 'world', chapterIdx: -1, ts: Date.now()});
+        }
+      });
+      if(anchors.abilityCosts.length > 30) anchors.abilityCosts = anchors.abilityCosts.slice(-30);
+    }
   }
 
   // 人设 → 提取角色信息到记忆锚点
   if(module === 'chars' && work.chars && work.chars.trim()){
     anchors.characterTags = anchors.characterTags.filter(function(a){ return a.source !== 'chars'; });
+    // v51：同步更新charRoles分级表
+    try {
+      if(typeof updateCharRoles === 'function'){
+        updateCharRoles(work);
+      } else {
+        archUpdateCharRoles(work);
+      }
+    } catch(roleErr) { console.warn('[charRoles] 更新失败:', roleErr); }
+    var charRoles = (work.longMemory && work.longMemory.charRoles) || {};
     var charLines = work.chars.split('\n');
     var currentChar = '';
+    var currentRole = '配角';
     for(var ci = 0; ci < charLines.length; ci++){
       var cline = charLines[ci].trim();
       if(cline.length < 3) continue;
+      // v51：检测角色分级标记
+      var roleMatch = cline.match(/(?:【|\[)?(主角|女主|男主|反派|配角|导师|伙伴|龙套)(?:】|\])?[：:]/);
+      if(roleMatch) currentRole = roleMatch[1];
       // 检测角色名行（通常包含"主角""反派""配角"或2-4字中文名+冒号）
       var nameMatch = cline.match(/(?:主角|反派|配角|导师|伙伴|女主|男主)[：:]\s*([\u4e00-\u9fa5]{2,4})/) || cline.match(/^([\u4e00-\u9fa5]{2,4})[：:]/);
       if(nameMatch){
         currentChar = nameMatch[1] || nameMatch[0];
-        anchors.characterTags.push({text: currentChar + '（角色）', source: 'chars', chapterIdx: -1, ts: Date.now()});
+        var role = charRoles[currentChar] || currentRole;
+        anchors.characterTags.push({text: currentChar + '（' + role + '）', source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role, ts: Date.now()});
       }
       // 提取角色特征（口癖、标志动作、弱点等）
       if(currentChar && /口癖|标志|弱点|执念|伤疤|特征|性格|身份|秘密/.test(cline)){
-        anchors.characterTags.push({text: currentChar + '：' + cline.slice(0, 100), source: 'chars', chapterIdx: -1, ts: Date.now()});
+        var role2 = charRoles[currentChar] || currentRole;
+        anchors.characterTags.push({text: currentChar + '：' + cline.slice(0, 100), source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role2, ts: Date.now()});
+      }
+      // v51 新增：提取角色金句（带引号的台词）
+      if(currentChar){
+        var quoteMatch = cline.match(/[“"\u300c\u300e]([^”"\u300d\u300f]{6,60})[”"\u300d\u300f]/);
+        if(quoteMatch && /发誓|绝不|一定|宁可|就算|哪怕|永远|从此|再也不|凭什么|为什么|我不信|我不甘|我命由我|天命|命运|选择|代价|活着|死去|守护|毁灭/.test(quoteMatch[1])){
+          var role3 = charRoles[currentChar] || currentRole;
+          if(!anchors.dialogues) anchors.dialogues = [];
+          anchors.dialogues.push({text: currentChar + '：「' + quoteMatch[1] + '」', source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role3, ts: Date.now()});
+        }
       }
     }
     if(anchors.characterTags.length > 80) anchors.characterTags = anchors.characterTags.slice(-80);
+    if(anchors.dialogues && anchors.dialogues.length > 30) anchors.dialogues = anchors.dialogues.slice(-30);
   }
 
   // 大纲 → 提取核心矛盾和伏笔到记忆锚点
@@ -1641,12 +1734,13 @@ function buildArchMemoryContext(work, currentModule){
   }
   var mem = work.longMemory;
   if(!mem) return '';
-  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[]};
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]};
   var anchors = mem.memoryAnchors;
+  var charRoles = mem.charRoles || {};
 
   var ctx = '';
   var added = 0;
-  var BUDGET = 1500;
+  var BUDGET = 1800;
   function tryAdd(block){
     if(!block || added >= BUDGET) return;
     if(added + block.length > BUDGET){
@@ -1661,6 +1755,12 @@ function buildArchMemoryContext(work, currentModule){
     added += block.length;
   }
 
+  // 辅助：角色分级标签
+  function roleTag(a){
+    if(a.charRole && a.charRole !== '龙套') return '[' + a.charRole + '] ';
+    return '';
+  }
+
   // 模块名映射
   var moduleNames = {world:'世界观', chars:'人设', outline:'大纲', detail:'细纲'};
 
@@ -1669,19 +1769,37 @@ function buildArchMemoryContext(work, currentModule){
   if(coreList.length > 0){
     var coreBlock = '【📐 已确立的核心设定（来自世界观，必须严格遵守）】\n';
     coreList.slice(0, 12).forEach(function(a){
-      coreBlock += '  ■ ' + a.text + '\n';
+      coreBlock += '  ■ ' + roleTag(a) + a.text + '\n';
     });
     tryAdd(coreBlock + '\n');
   }
 
-  // L2: 角色记忆点（来自人设）
+  // L2: 角色记忆点（来自人设）— v51按角色分级排序，主角在前
   var charList = (anchors.characterTags || []).filter(function(a){ return a.source !== currentModule; });
   if(charList.length > 0){
+    // v51：主角优先，配角其次，龙套最后
+    var roleOrder = ['主角','女主','男主','反派','导师','伙伴','配角','龙套'];
+    charList.sort(function(a,b){
+      var ra = roleOrder.indexOf(a.charRole || '龙套');
+      var rb = roleOrder.indexOf(b.charRole || '龙套');
+      if(ra !== rb) return ra - rb;
+      return (b.weight||0) - (a.weight||0);
+    });
     var charBlock = '【👤 已确立的角色设定（来自人设，姓名/特征/关系不得矛盾）】\n';
-    charList.slice(0, 15).forEach(function(a){
-      charBlock += '  ■ ' + a.text + '\n';
+    charList.slice(0, 18).forEach(function(a){
+      charBlock += '  ■ ' + roleTag(a) + a.text + '\n';
     });
     tryAdd(charBlock + '\n');
+  }
+
+  // L2.5: 角色金句（来自人设/正文）— v51新增
+  var dialogueList = (anchors.dialogues || []).filter(function(a){ return a.source !== currentModule; });
+  if(dialogueList.length > 0){
+    var dialogueBlock = '【💬 角色金句（必须保持角色声音一致，不得OOC）】\n';
+    dialogueList.slice(0, 8).forEach(function(a){
+      dialogueBlock += '  ■ ' + roleTag(a) + a.text + '\n';
+    });
+    tryAdd(dialogueBlock + '\n');
   }
 
   // L3: 势力与关系（来自世界观）
@@ -1692,6 +1810,16 @@ function buildArchMemoryContext(work, currentModule){
       relBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(relBlock + '\n');
+  }
+
+  // L3.5: 能力代价/限制（来自世界观/正文）— v51新增
+  var abilityList = (anchors.abilityCosts || []).filter(function(a){ return a.source !== currentModule; });
+  if(abilityList.length > 0){
+    var abilityBlock = '【⚡ 已确立的能力代价/限制（防止无限开挂，必须遵守）】\n';
+    abilityList.slice(0, 8).forEach(function(a){
+      abilityBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(abilityBlock + '\n');
   }
 
   // L4: 地点（来自世界观）
