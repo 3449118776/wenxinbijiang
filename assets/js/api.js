@@ -164,6 +164,35 @@ const MODEL_CONFIGS = {
   ]
 };
 
+// 各服务商默认模型（fallback：model 为空或跨服务商切换时使用）
+// 只使用 MODEL_CONFIGS[provider][0].value，确保 100% 匹配该服务商
+const DEFAULT_MODELS_BY_PROVIDER = {
+  dashscope: 'qwen-max',
+  deepseek: 'deepseek-chat',
+  moonshot: 'moonshot-v1-128k',
+  zhipu: 'glm-4-flash',
+  volcano: 'doubao-pro-4k',
+  openai: 'gpt-4o-mini',
+  baidu: 'ernie-4.0-8k',
+  spark: 'generalv3.5',
+  minimax: 'MiniMax-Text-01',
+  siliconflow: 'deepseek-ai/DeepSeek-V3',
+  yi: 'yi-lightning',
+  baichuan: 'Baichuan4',
+  groq: 'llama-3.1-8b-instant',
+  claude: 'claude-sonnet-4-20250514',
+  xai: 'grok-3',
+  mistral: 'mistral-large-latest',
+  cohere: 'command-r-plus-08-2024',
+  together: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo',
+  anthropic: 'claude-sonnet-4-20250514',
+  stepfun: 'step-1.5-flash',
+  qwenlm: 'qwen3-max',
+  openrouter: 'mistralai/ministral-3b',
+  custom: 'custom-model',
+  free: 'deepseek-chat'
+};
+
 // 全局重试参数
 // 单服务商内：最多轮询到的密钥数（一个服务商内会把该服务商的 key 全部尝试一次，失败后才跨服务商兜底）
 const API_MAX_KEY_RETRY  = 999;
@@ -741,7 +770,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
         body: JSON.stringify({
-          model: targetModel || 'deepseek-chat',
+          model: targetModel || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat'),
           messages: messages,
           max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS,
           temperature: 0.7
@@ -793,9 +822,15 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
 // 任一 key 成功即返回结果；全部失败返回 null，并把最后一次错误挂在 callRealAPI.lastErr 上
 async function callRealAPI(prompt, onProgress, opts) {
   opts = opts || {};
-  const config = DB.getApiConfig();
-  const provider = (opts.provider) || (config && config.provider) || 'deepseek';
-  const model    = (opts.model)    || (config && config.model)    || '';
+  const config = DB.getApiConfig() || {};
+  const provider = (opts.provider) || config.provider || 'deepseek';
+  // ⚠️ 关键修复：当 opts.provider 与 config.provider 不同（跨服务商回退）时，绝不能复用 config.model
+  // 否则会把 deepseek-chat 发给 通义千问/Kimi/智谱AI，导致 404！
+  let model = opts.model || '';
+  if (!model) {
+    const sameProvider = provider === config.provider;
+    model = sameProvider ? (config.model || '') : '';
+  }
   const keys = DB.getApiKeys(provider);
   if (!keys || keys.length === 0) {
     // 🆓 free 模式不要求 key，直接进入调用
