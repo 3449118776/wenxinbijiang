@@ -364,6 +364,85 @@ CloudSync.prototype = {
   }
 };
 
+// ==================== 密钥与设置云端同步 ====================
+
+// 从云端拉取密钥和设置
+CloudSync.prototype.syncKeysAndSettings = async function() {
+  if (!this.token) return;
+  try {
+    // 拉取云端密钥
+    var keysData = await this._fetch('/user/keys', { method: 'GET' });
+    if (keysData && keysData.apiKeys) {
+      // 合并：云端有但本地没有的密钥 → 补充到本地
+      var localKeys = (typeof DB !== 'undefined' && DB.apiKeys) ? DB.apiKeys : {};
+      var merged = false;
+      for (var provider in keysData.apiKeys) {
+        var cloudKeys = keysData.apiKeys[provider] || [];
+        var localArr = localKeys[provider] || [];
+        for (var ci = 0; ci < cloudKeys.length; ci++) {
+          if (localArr.indexOf(cloudKeys[ci]) < 0) {
+            localArr.push(cloudKeys[ci]);
+            merged = true;
+          }
+        }
+        if (localArr.length > 0) localKeys[provider] = localArr;
+      }
+      // 合并 apiConfig
+      if (keysData.apiConfig && typeof DB !== 'undefined') {
+        var localCfg = DB.getApiConfig ? DB.getApiConfig() : {};
+        for (var k in keysData.apiConfig) {
+          if (localCfg[k] === undefined || localCfg[k] === '') {
+            localCfg[k] = keysData.apiConfig[k];
+            merged = true;
+          }
+        }
+        if (DB.setApiConfig) DB.setApiConfig(localCfg);
+      }
+      if (merged && typeof DB !== 'undefined' && DB.save) {
+        DB.apiKeys = localKeys;
+        DB.save();
+      }
+    }
+
+    // 拉取云端设置
+    var settingsData = await this._fetch('/user/settings', { method: 'GET' });
+    if (settingsData && settingsData.settings && typeof DB !== 'undefined') {
+      var localSettings = DB.getSettings ? DB.getSettings() : {};
+      var settingsMerged = false;
+      for (var sk in settingsData.settings) {
+        if (localSettings[sk] === undefined) {
+          localSettings[sk] = settingsData.settings[sk];
+          settingsMerged = true;
+        }
+      }
+      if (settingsMerged && DB.saveSettings) DB.saveSettings(localSettings);
+    }
+  } catch (e) {
+    console.warn('syncKeysAndSettings failed:', e);
+  }
+};
+
+// 推送本地密钥和设置到云端
+CloudSync.prototype.pushKeysAndSettings = async function() {
+  if (!this.token) return;
+  try {
+    if (typeof DB === 'undefined') return;
+    var apiKeys = DB.apiKeys || {};
+    var apiConfig = DB.getApiConfig ? DB.getApiConfig() : {};
+    await this._fetch('/user/keys', {
+      method: 'PUT',
+      body: JSON.stringify({ apiKeys: apiKeys, apiConfig: apiConfig })
+    });
+    var settings = DB.getSettings ? DB.getSettings() : {};
+    await this._fetch('/user/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ settings: settings })
+    });
+  } catch (e) {
+    console.warn('pushKeysAndSettings failed:', e);
+  }
+};
+
 // ==================== 辅助 ====================
 
 function _packWork(w) {

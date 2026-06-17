@@ -53,6 +53,10 @@ export async function onRequest(context) {
   const userId = decoded.userId;
 
   if (apiPath === '/user/profile' && req.method === 'GET') return handle_profile(userId);
+  if (apiPath === '/user/keys' && req.method === 'GET') return handle_keys_get(userId);
+  if (apiPath === '/user/keys' && req.method === 'PUT') return handle_keys_save(req, userId);
+  if (apiPath === '/user/settings' && req.method === 'GET') return handle_settings_get(userId);
+  if (apiPath === '/user/settings' && req.method === 'PUT') return handle_settings_save(req, userId);
   if (apiPath === '/works' && req.method === 'GET') return handle_works_list(userId);
   if (apiPath.match(/^\/works\/[^\/]+$/) && req.method === 'GET') {
     const workId = apiPath.split('/')[2];
@@ -498,5 +502,66 @@ async function handle_ai_chat(req) {
     }
   } catch (e) {
     return json_response({ error: e.message || 'AI调用异常' }, 500);
+  }
+}
+
+// ============ 用户密钥与设置云端同步 ============
+
+// 获取用户云端密钥
+async function handle_keys_get(userId) {
+  try {
+    const store = KV();
+    if (!store) return json_response({ error: '存储未配置' }, 500);
+    const data = await store.get('keys:' + userId, { type: 'json' }) || {};
+    return json_response({ apiKeys: data.apiKeys || {}, apiConfig: data.apiConfig || {} });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+// 保存用户密钥到云端
+async function handle_keys_save(req, userId) {
+  try {
+    const store = KV();
+    if (!store) return json_response({ error: '存储未配置' }, 500);
+    const body = await req.json().catch(() => ({}));
+    const data = {
+      apiKeys: body.apiKeys || {},
+      apiConfig: body.apiConfig || {},
+      updatedAt: Date.now()
+    };
+    await store.put('keys:' + userId, JSON.stringify(data));
+    return json_response({ ok: true });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+// 获取用户云端设置
+async function handle_settings_get(userId) {
+  try {
+    const store = KV();
+    if (!store) return json_response({ error: '存储未配置' }, 500);
+    const data = await store.get('settings:' + userId, { type: 'json' }) || {};
+    return json_response({ settings: data.settings || {} });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+// 保存用户设置到云端
+async function handle_settings_save(req, userId) {
+  try {
+    const store = KV();
+    if (!store) return json_response({ error: '存储未配置' }, 500);
+    const body = await req.json().catch(() => ({}));
+    const data = {
+      settings: body.settings || {},
+      updatedAt: Date.now()
+    };
+    await store.put('settings:' + userId, JSON.stringify(data));
+    return json_response({ ok: true });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
   }
 }

@@ -1137,6 +1137,29 @@ window.addEventListener('DOMContentLoaded', function() {
   } else {
     goToLevel(1);
   }
+
+  // 登录状态下主动拉取云端作品
+  if (window.cloud && window.cloud.token) {
+    var loadingEl = document.createElement('div');
+    loadingEl.id = 'cloud-sync-loading';
+    loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.7);color:#fff;padding:16px 24px;border-radius:12px;font-size:14px;z-index:9999;';
+    loadingEl.textContent = '正在同步云端作品…';
+    document.body.appendChild(loadingEl);
+
+    window.cloud.smartSync().then(function() {
+      var el = document.getElementById('cloud-sync-loading');
+      if (el) el.remove();
+      // 同步完成后重新渲染
+      if (DB.works && DB.works.length > 0) {
+        if (_currentLevel !== 2) goToLevel(2);
+        else renderLevel2();
+      }
+    }).catch(function(e) {
+      var el = document.getElementById('cloud-sync-loading');
+      if (el) el.remove();
+      console.warn('cloud sync failed:', e);
+    });
+  }
 });
 </script>
 </body>

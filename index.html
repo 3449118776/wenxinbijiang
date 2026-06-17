@@ -339,9 +339,13 @@ window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });
         setToken(data.token, data.user);
         document.getElementById('login-mask').classList.remove('show');
         showToast((mode === 'login' ? '登录' : '注册') + '成功，正在同步数据...');
-        // 登录成功后自动同步：推送本地作品到云端 + 从云端拉取作品
+        // 登录成功后自动同步：推送本地作品到云端 + 从云端拉取作品 + 拉取密钥设置
         if(window.cloud && window.cloud.isLoggedIn()){
-          window.cloud.smartSync().then(function(report){
+          // 先拉取云端密钥和设置（换设备登录时恢复）
+          window.cloud.syncKeysAndSettings().then(function() {
+            // 再同步作品
+            return window.cloud.smartSync();
+          }).then(function(report){
             var msg = '同步完成';
             if(report.pushed > 0) msg += '，上传' + report.pushed + '部作品';
             if(report.pulled > 0) msg += '，下载' + report.pulled + '部作品';

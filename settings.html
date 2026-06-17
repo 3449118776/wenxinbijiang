@@ -460,6 +460,10 @@ async function addNewKey(){
         input.value='';
         renderKeyList();
         showToast('✅ 密钥有效！已添加到 '+providerName,{type:'success'});
+        // 推送到云端（换设备后自动恢复）
+        if(window.cloud && window.cloud.isLoggedIn()){
+          window.cloud.pushKeysAndSettings();
+        }
       }else{
         input.value='';
         showToast('ℹ️ 该密钥已存在，跳过',{type:'info'});
@@ -575,6 +579,11 @@ async function addNewKeys(){
   if(results.duplicated>0)msg+='，已存在 '+results.duplicated+' 个';
   if(results.failed>0)msg+='，失败 '+results.failed+' 个';
   showToast(msg,{type:results.failed>0?'warn':'success',duration:5000});
+
+  // 推送到云端（换设备后自动恢复）
+  if(results.added > 0 && window.cloud && window.cloud.isLoggedIn()){
+    window.cloud.pushKeysAndSettings();
+  }
 }
 
 // 判断一个 token "看起来像密钥"（用于批量拆分时过滤掉注释）
