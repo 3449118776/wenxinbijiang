@@ -2039,8 +2039,8 @@ window.generateArchModule = async function(opts){
       researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
       if(plotType) researchPrompt += '【二级细分】' + plotType + '\n';
       researchPrompt += '【发布平台】' + platform + '\n';
-      if(idea && idea.trim()) researchPrompt += '【用户核心诉求】' + idea.trim().slice(0, 500) + '\n';
-      researchPrompt += '\n请分析以下内容（总字数控制在800字以内）：\n';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求 · 必须严格遵循】\n' + idea.trim() + '\n';
+      researchPrompt += '\n请分析以下内容（总字数控制在1500字以内）：\n';
       researchPrompt += '1. 2025-2026年该题材最火的3-5部代表作（书名+核心卖点+为什么火）\n';
       researchPrompt += '2. 当前读者最买单的核心元素（如：反套路、系统流、凡人流等）\n';
       researchPrompt += '3. 该题材当前已饱和/读者厌倦的套路（避免踩坑）\n';
@@ -2373,12 +2373,12 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   // 2026 题材趋势（精简版）
   var trend = getTrendHint2026(work);
   if(trend){
-    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 400) + '\n\n';
+    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 600) + '\n\n';
   }
 
-  // AI分工搜索：市场调研报告（作为创作参考，权重次于用户诉求）
+  // AI分工搜索：市场调研报告（作为硬性约束，确保内容符合当前市场）
   if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 题材市场调研报告 — AI分工搜索结果，参考当前市场热点避免踩坑】\n' + smartTruncate(marketResearch, 1000) + '\n\n';
+    prompt += '【📊 题材市场调研报告 · 必须严格参考 · AI搜索2025-2026年市场数据】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
   }
 
   // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
