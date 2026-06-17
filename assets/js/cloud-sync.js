@@ -25,6 +25,10 @@ function CloudSync(opts) {
   this._timer = null;
   this._syncTimer = null;
   this._loadToken();
+  // 启动自动同步（如果配置了）
+  if (this.autoSync) {
+    this.startAutoSync();
+  }
 }
 
 CloudSync.prototype = {
@@ -40,6 +44,10 @@ CloudSync.prototype = {
   _loadToken: function() {
     try { this.token = localStorage.getItem('wxbj_cloud_token') || ''; } catch(e) { this.token = ''; }
     try { this.user = JSON.parse(localStorage.getItem('wxbj_cloud_user') || 'null'); } catch(e) { this.user = null; }
+    // 恢复登录状态后立即触发一次同步，确保能看到云端老作品
+    if (this.isLoggedIn()) {
+      setTimeout(() => { this.smartSync().catch(() => {}); }, 800);
+    }
   },
 
   _saveToken: function(token, user) {
@@ -73,6 +81,8 @@ CloudSync.prototype = {
     });
     if (resp.error) throw new Error(resp.error);
     this._saveToken(resp.token, resp.user);
+    // 登录成功后立即同步一次，确保能看到云端作品
+    setTimeout(() => { this.smartSync().catch(() => {}); }, 500);
     return resp;
   },
 
