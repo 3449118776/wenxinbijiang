@@ -1,5 +1,10 @@
 /* 文心笔匠 - AI API模块 */
 
+// 后端 API 基础地址（用于 AI 代理，解决浏览器 CORS 问题）
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787/api'
+  : location.origin + '/api';
+
 // API服务商配置（无硬编码密钥，URL自动填充）
 const API_PROVIDERS = {
   dashscope:   { name: '通义千问',   url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', type: 'openai' },
@@ -315,155 +320,35 @@ function getApiTimeoutMs() {
 
 // ========== 密钥测试函数（v48 新增）==========
 // 用于添加密钥前验证有效性：返回 { success: boolean, message: string, kind?: string }
-// 策略：发极简请求；若返回 404（模型/endpoint 不存在）但不是 401/403，则换模型重试
+// 通过后端代理测试，避免浏览器 CORS 限制
 async function testApiKey(provider, key) {
-  const providerConfig = API_PROVIDERS[provider];
-  if (!providerConfig) {
-    return { success: false, message: '未知服务商: ' + provider };
+  if (!provider) {
+    return { success: false, message: '未知服务商' };
   }
   if (!key || !key.trim()) {
     return { success: false, message: '密钥为空' };
   }
-  const trimmedKey = key.trim();
 
-  // v48: 为每个服务商准备多个候选模型（按轻量 → 正常顺序）
-  // 第一个失败（404）时换下一个，避免因模型名问题导致有效密钥被误判
-  let modelCandidates = [];
-  if (provider === 'claude' || provider === 'anthropic') {
-    modelCandidates = ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-20250514'];
-  } else if (provider === 'deepseek') {
-    modelCandidates = ['deepseek-chat', 'deepseek-reasoner'];
-  } else if (provider === 'openai') {
-    modelCandidates = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
-  } else if (provider === 'groq') {
-    modelCandidates = ['llama-3-8b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
-  } else if (provider === 'zhipu') {
-    modelCandidates = ['glm-4-flash', 'glm-4-air', 'glm-4', 'glm-4-plus'];
-  } else if (provider === 'dashscope') {
-    modelCandidates = ['qwen-turbo', 'qwen-plus', 'qwen-max'];
-  } else if (provider === 'moonshot') {
-    modelCandidates = ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'];
-  } else if (provider === 'volcano') {
-    modelCandidates = ['doubao-pro-4k', 'doubao-1-5-pro-32k', 'doubao-lite-4k'];
-  } else if (provider === 'baidu') {
-    modelCandidates = ['ernie-4.0-8k', 'ernie-3.5-8k'];
-  } else if (provider === 'spark') {
-    modelCandidates = ['generalv3.5', 'generalv3', 'general'];
-  } else if (provider === 'minimax') {
-    modelCandidates = ['MiniMax-Text-01', 'abab6.5s-chat'];
-  } else if (provider === 'siliconflow') {
-    modelCandidates = ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'];
-  } else if (provider === 'yi') {
-    modelCandidates = ['yi-lightning', 'yi-large', 'yi-medium'];
-  } else if (provider === 'baichuan') {
-    modelCandidates = ['Baichuan4', 'Baichuan3-Turbo'];
-  } else if (provider === 'xai') {
-    modelCandidates = ['grok-2-1212', 'grok-2'];
-  } else if (provider === 'mistral') {
-    modelCandidates = ['mistral-small-latest', 'mistral-large-latest'];
-  } else if (provider === 'cohere') {
-    modelCandidates = ['command-r', 'command-r-plus'];
-  } else if (provider === 'together') {
-    modelCandidates = ['meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo'];
-  } else if (provider === 'stepfun') {
-    modelCandidates = ['step-1-flash'];
-  } else if (provider === 'qwenlm') {
-    modelCandidates = ['qwen-coder-plus-latest'];
-  } else {
-    const models = MODEL_CONFIGS[provider] || [];
-    modelCandidates = models.map(function(m) { return m.value; });
-    if (modelCandidates.length === 0) modelCandidates = ['deepseek-chat'];
-  }
+  try {
+    const response = await fetch(API_BASE + '/ai/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: provider, key: key.trim() })
+    });
 
-  const timeoutMs = 25 * 1000;
-
-  let last404 = null;
-  for (let mi = 0; mi < modelCandidates.length; mi++) {
-    const model = modelCandidates[mi];
-    const ac = new AbortController();
-    const timeoutId = setTimeout(function() { ac.abort(); }, timeoutMs);
-
-    try {
-      let response;
-      if (providerConfig.type === 'claude') {
-        response = await fetch(providerConfig.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': trimmedKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: model,
-            max_tokens: 5,
-            messages: [{ role: 'user', content: 'hi' }]
-          }),
-          signal: ac.signal
-        });
-      } else {
-        response = await fetch(providerConfig.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + trimmedKey
-          },
-          body: JSON.stringify({
-            model: model,
-            max_tokens: 5,
-            temperature: 0.1,
-            messages: [{ role: 'user', content: 'hi' }]
-          }),
-          signal: ac.signal
-        });
-      }
-      clearTimeout(timeoutId);
-
-      // 读取响应体（无论 HTTP 2xx 也要检查内容是否真的成功）
-      let text = '';
-      let json = null;
-      try {
-        text = await response.text();
-        try { json = JSON.parse(text); } catch(je) { json = null; }
-      } catch(te) {}
-
-      // 关键修复：HTTP 200 时也必须验证响应体
-      // 很多服务商返回 HTTP 200 但 body 是错误信息
-      const bodyCheck = _validateApiResponse(response.status, text, json, providerConfig.type);
-
-      if (response.ok && bodyCheck.ok) {
-        // 真正有效：HTTP 2xx 且响应体是正常的 completion
-        return { success: true, message: '密钥有效（' + model + '，响应正常）', kind: 'ok' };
-      }
-
-      // 以下为失败情况
-      const err = _classifyApiError(response.status, text, json);
-
-      // 如果是 404 或模型不存在，尝试下一个模型
-      if (response.status === 404 || (err.kind === 'other' && /model|endpoint|not found|不存在|invalid_model|model_not_found/i.test(text))) {
-        last404 = err;
-        continue;
-      }
-
-      return { success: false, message: bodyCheck.message || err.message, kind: err.kind || bodyCheck.kind || 'other', status: response.status };
-    } catch(e) {
-      clearTimeout(timeoutId);
-      if (e && (e.name === 'AbortError' || (e.message && e.message.indexOf('Abort') >= 0))) {
-        return { success: false, message: '请求超时（25s），请检查网络或 URL 是否正确', kind: 'timeout' };
-      }
-      return { success: false, message: '网络错误：' + (e && e.message ? e.message : 'unknown'), kind: 'network' };
-    }
-  }
-
-  if (last404) {
+    const data = await response.json().catch(() => ({}));
     return {
-      success: false,
-      message: '所有测试模型均返回 404（可能该服务商需要先在控制台创建 endpoint，或密钥格式对不上当前服务商）。原始错误：' + last404.message,
-      kind: 'model',
-      status: 404
+      success: !!data.success,
+      message: data.message || (data.success ? '密钥有效' : '测试失败'),
+      kind: data.kind || 'other',
+      status: data.status
     };
+  } catch (e) {
+    if (e && (e.name === 'AbortError' || (e.message && e.message.indexOf('Abort') >= 0))) {
+      return { success: false, message: '请求超时，请检查网络', kind: 'timeout' };
+    }
+    return { success: false, message: '网络错误：' + (e && e.message ? e.message : 'unknown'), kind: 'network' };
   }
-  return { success: false, message: '测试失败（未知原因）', kind: 'other' };
 }
 
 // 辅助函数：验证 API 响应体是否为真正成功（即便 HTTP 2xx 也可能是错误）
@@ -714,90 +599,41 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
       throw fe;
     }
 
-    if (providerConfig.type === 'claude') {
-      // Claude (Anthropic) 专用格式
-      var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
-      var systemMsg = '';
-      var filteredMsgs = [];
-      for (var mi = 0; mi < messages.length; mi++) {
-        if (messages[mi].role === 'system') {
-          systemMsg = messages[mi].content;
-        } else {
-          filteredMsgs.push(messages[mi]);
-        }
-      }
-      var reqBody = {
-        model: model || 'claude-sonnet-4-20250514',
-        messages: filteredMsgs,
-        max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS
-      };
-      if (systemMsg) reqBody.system = systemMsg;
-      response = await fetch(providerConfig.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify(reqBody),
-        signal: signal
-      });
-      var okText = '';
-      try { okText = await response.text(); } catch (_) {}
-      if (!response.ok) {
-        var json = null;
-        try { if (okText) json = JSON.parse(okText); } catch (je) {}
-        if (!json) json = { error: { message: okText || ('服务器返回异常（HTTP ' + response.status + '）') } };
-        var err = _classifyApiError(response.status, okText, json);
-        var e = new Error(err.message);
-        e.kind = err.kind;
-        e.status = response.status;
-        e.provider = provider;
-        throw e;
-      }
-      var okData = null;
-      try { if (okText) okData = JSON.parse(okText); } catch (je) {}
-      if (!okData) {
-        var err3 = new Error('服务返回非 JSON：' + (okText ? okText.substring(0, 60) : '空'));
-        err3.kind = 'network'; err3.provider = provider; throw err3;
-      }
-      result = (okData.content && okData.content[0] && okData.content[0].text) || '';
-    } else {
-      // OpenAI 兼容
-      var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
-      response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-        body: JSON.stringify({
-          model: targetModel || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat'),
-          messages: messages,
-          max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS,
-          temperature: 0.7
-        }),
-        signal: signal
-      });
-      var okText2 = '';
-      try { okText2 = await response.text(); } catch (_) {}
-      if (!response.ok) {
-        var json2 = null;
-        try { if (okText2) json2 = JSON.parse(okText2); } catch (je) {}
-        if (!json2) json2 = { error: { message: okText2 || ('服务器返回异常（HTTP ' + response.status + '）') } };
-        var err2 = _classifyApiError(response.status, okText2, json2);
-        var e2 = new Error(err2.message);
-        e2.kind = err2.kind;
-        e2.status = response.status;
-        e2.provider = provider;
-        throw e2;
-      }
-      var okData2 = null;
-      try { if (okText2) okData2 = JSON.parse(okText2); } catch (je) {}
-      if (!okData2) {
-        var ne2 = new Error('服务返回非 JSON：' + (okText2 ? okText2.substring(0, 60) : '空'));
-        ne2.kind = 'network'; ne2.provider = provider; throw ne2;
-      }
-      result = (okData2.choices && okData2.choices[0] && okData2.choices[0].message && okData2.choices[0].message.content) || '';
+    // 通过后端代理调用 AI（解决浏览器 CORS 问题）
+    var chatMessages = isMsg ? prompt : [{ role: 'user', content: prompt }];
+    var chatModel = targetModel || model || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat');
+    var chatMaxTokens = (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS;
+
+    var proxyResp = await fetch(API_BASE + '/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: provider,
+        key: key,
+        model: chatModel,
+        messages: chatMessages,
+        maxTokens: chatMaxTokens,
+        temperature: 0.7
+      }),
+      signal: signal
+    });
+
+    var proxyText = '';
+    try { proxyText = await proxyResp.text(); } catch (_) {}
+    var proxyData = null;
+    try { if (proxyText) proxyData = JSON.parse(proxyText); } catch (_) {}
+
+    if (!proxyResp.ok || !proxyData || !proxyData.success) {
+      var pmsg = (proxyData && proxyData.error) || proxyText || ('HTTP ' + proxyResp.status);
+      var perr = _classifyApiError(proxyResp.status, proxyText, proxyData);
+      var pe = new Error(pmsg);
+      pe.kind = perr.kind;
+      pe.status = proxyResp.status;
+      pe.provider = provider;
+      throw pe;
     }
+
+    result = proxyData.content || '';
   } catch (e) {
     // 网络级错误（如跨域、DNS、断开、AbortError）
     if (e && e.name === 'AbortError') throw e;
