@@ -276,6 +276,9 @@ CloudSync.prototype = {
    */
   smartSync: async function() {
     if (!this.isLoggedIn()) return { ok: false, error: '未登录' };
+    // 并发锁：防止自动同步和保存触发的同步同时执行
+    if (this._syncing) return { ok: false, error: '同步进行中' };
+    this._syncing = true;
     var report = { pushed: 0, pulled: 0, unchanged: 0, errors: 0 };
     try {
       // 1. 获取本地作品列表
@@ -489,6 +492,8 @@ CloudSync.prototype = {
       report.errors++;
       report.ok = false;
       report.error = e.message;
+    } finally {
+      this._syncing = false;
     }
     return report;
   },
@@ -598,11 +603,13 @@ function _packWork(w) {
 
 function _mergeWork(local, cloudPayload) {
   if (!cloudPayload || !local) return;
-  // 云端数据覆盖本地核心字段，但保留本地writing状态
+  // 云端数据覆盖本地核心字段，但保留本地特有字段和writing状态
   var localWriting = local._writing;
+  // 需要保留的本地特有字段（不被云端覆盖）
+  var preserveKeys = {'_version':1,'_writing':1,'_dirty':1,'_fingerprint':1,'_slimMeta':1,'_moduleIdeas':1};
   var keys = Object.keys(cloudPayload);
   for (var i = 0; i < keys.length; i++) {
-    if (keys[i] !== '_version' && keys[i] !== '_writing') {
+    if (!preserveKeys[keys[i]]) {
       local[keys[i]] = cloudPayload[keys[i]];
     }
   }

@@ -85,6 +85,7 @@ const DB = {
 
   // 初始化
   init() {
+    if (this._initialized) return;
     try {
       var saved = localStorage.getItem('wxbj_data_v4');
       if (saved) {
@@ -1097,6 +1098,7 @@ const DB = {
         _fingerprint: w._fingerprint || '',
         _platform: w._platform || '',
         genre: w.genre || '',
+        plotType: w.plotType || '',
         chapterCount: chapterCount,
         wordCount: wordCount,
         chapters: (w.chapters || []).map(function(ch, i) {

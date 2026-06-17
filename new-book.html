@@ -206,16 +206,17 @@ function submitNewBook(){
     return;
   }
 
-  var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStyles ? selectedStylesArr(selectedStyles) : []});
+  var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStylesArr(selectedStyles)});
 
   // 保存题材信息到作品根字段，供AI模块使用
   work.genre = selectedCat1;
   work.plotType = selectedCat2;
   work._platform = selectedPlatform;
-  DB.saveWork(work);
+  // createWork内部已调用save()，这里只需flush立即落盘
+  DB.flush();
 
   showToast('创建成功');
-  setTimeout(function(){location.href='architecture.html';},500);
+  setTimeout(function(){location.href='architecture.html';},800);
   } catch(e) {
     var errMsg = '创建失败：' + (e.message || '未知错误');
     try { showToast(errMsg, {error: true, duration: 5000}); } catch(e2) {}
