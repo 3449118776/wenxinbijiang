@@ -121,16 +121,8 @@ const DB = {
         if (!w.settings) w.settings = {genre:'', concept:'', platform:'general'};
       });
       try { this.ensureAllFingerprints(); } catch(fpErr) {}
-      if (this.works.length > 0) this.save();
-      // v47修复：标记所有已有作品为脏，强制与云端重新同步
-      // 解决历史作品因版本号相同而无法同步的问题
-      (this.works || []).forEach(function(w) {
-        if (w && w.id) {
-          // 保留_version，将dirty重置为true强制推送
-          // 如果_version为undefined，说明是从未同步过，不需要处理
-          w._dirty = true;
-        }
-      });
+      // 注意：不再在init中标记所有作品为脏，避免每次刷新都强制推送覆盖云端新数据
+      // _dirty 标记只在 saveWork 时设置（用户实际编辑后）
       // v38：启动App记忆自动维护
       try { this.startAutoMaintenance(); } catch(autoErr) {}
       this._initialized = true;
@@ -164,11 +156,9 @@ const DB = {
     var currentId = '';
     try { currentId = localStorage.getItem('last_edit_work') || ''; } catch(e) {}
     if (currentId && currentId !== work.id) {
-      console.warn('[Isolation] 阻止跨作品保存：current=' + currentId + ', work=' + work.id);
-      if (!silent && typeof window.showToast === 'function') {
-        window.showToast('⚠️ 已阻止跨作品写入，请刷新页面后再保存', 4500);
-      }
-      return false;
+      // 自动更新 last_edit_work 为当前作品，避免跨页面保存被阻止
+      try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
+      return true;
     }
     return true;
   },
