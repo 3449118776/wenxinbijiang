@@ -122,8 +122,8 @@ window.updateLoadingProgress = function(pct, text) {
   var s = document.createElement('style');
   s.id = 'loading-style';
   s.textContent = 
-    '#app-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.3s;}'
-    + '.loading-content{width:280px;text-align:center;}'
+    '#app-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.25);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.3s;pointer-events:none;}'
+    + '.loading-content{width:320px;text-align:center;background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);pointer-events:auto;}'
     + '.loading-progress-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-bottom:12px;}'
     + '.loading-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:4px;transition:width 0.2s ease;}'
     + '.loading-text-wrap{display:flex;justify-content:space-between;align-items:center;}'
