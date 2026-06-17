@@ -281,23 +281,27 @@ function getModelMaxOutputTokens() {
   try {
     var config = DB.getApiConfig() || {};
     var model = config.model || '';
-    if (!model) return DEFAULT_MAX_TOKENS;
-    // 精确匹配
-    if (MODEL_MAX_OUTPUT[model]) return MODEL_MAX_OUTPUT[model];
-    // 前缀匹配
-    for (var key in MODEL_MAX_OUTPUT) {
-      if (model.indexOf(key) === 0 || key.indexOf(model) === 0) {
-        return MODEL_MAX_OUTPUT[key];
-      }
-    }
-    // 按服务商默认值
-    var provider = config.provider || '';
-    if (provider === 'groq') return 32768;
-    if (provider === 'siliconflow') return 8192;
-    if (provider === 'together') return 8192;
+    return _lookupModelMaxTokens(model);
   } catch(e) {}
   return DEFAULT_MAX_TOKENS;
 }
+
+// 根据指定模型名查最大输出 token（不依赖用户配置，供跨服务商回退时使用）
+function _lookupModelMaxTokens(modelName) {
+  if (!modelName) return DEFAULT_MAX_TOKENS;
+  // 精确匹配
+  if (MODEL_MAX_OUTPUT[modelName]) return MODEL_MAX_OUTPUT[modelName];
+  // 前缀匹配
+  for (var key in MODEL_MAX_OUTPUT) {
+    if (modelName.indexOf(key) === 0 || key.indexOf(modelName) === 0) {
+      return MODEL_MAX_OUTPUT[key];
+    }
+  }
+  return DEFAULT_MAX_TOKENS;
+}
+
+// 根据当前模型获取最大输出 token 数（保留旧接口兼容）
+// 原函数已改为调用_lookupModelMaxTokens
 
 // 当前使用的密钥索引
 let currentKeyIndex = {};
@@ -677,6 +681,10 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
       // 尝试一轮 FREE_ENDPOINTS（每次调用取不同起点）
       for (var fi = 0; fi < FREE_ENDPOINTS.length; fi++) {
         var ep = _nextFreeEndpoint();
+        // 安全上限：按当前端点的模型实际能力限制 max_tokens
+        var epMaxTokens = maxTokens;
+        var epModelMax = _lookupModelMaxTokens(ep.model);
+        if (epModelMax && epMaxTokens > epModelMax) epMaxTokens = epModelMax;
         try {
           var fres = await fetch(ep.url, {
             method: 'POST',
@@ -684,7 +692,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
             body: JSON.stringify({
               model: ep.model,
               messages: messages,
-              max_tokens: maxTokens,
+              max_tokens: epMaxTokens,
               temperature: 0.7
             }),
             signal: signal
@@ -726,10 +734,15 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           filteredMsgs.push(messages[mi]);
         }
       }
+      var claudeModel = model || 'claude-sonnet-4-20250514';
+      var claudeMaxTokens = (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS;
+      // 安全上限：不超过模型实际最大输出
+      var claudeModelMax = _lookupModelMaxTokens(claudeModel);
+      if (claudeModelMax && claudeMaxTokens > claudeModelMax) claudeMaxTokens = claudeModelMax;
       var reqBody = {
-        model: model || 'claude-sonnet-4-20250514',
+        model: claudeModel,
         messages: filteredMsgs,
-        max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS
+        max_tokens: claudeMaxTokens
       };
       if (systemMsg) reqBody.system = systemMsg;
       response = await fetch(providerConfig.url, {
@@ -766,13 +779,18 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
     } else {
       // OpenAI 兼容
       var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
+      var oaiModel = targetModel || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat');
+      var oaiMaxTokens = (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS;
+      // 安全上限：不超过模型实际最大输出
+      var oaiModelMax = _lookupModelMaxTokens(oaiModel);
+      if (oaiModelMax && oaiMaxTokens > oaiModelMax) oaiMaxTokens = oaiModelMax;
       response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
         body: JSON.stringify({
-          model: targetModel || (DEFAULT_MODELS_BY_PROVIDER[provider] || 'deepseek-chat'),
+          model: oaiModel,
           messages: messages,
-          max_tokens: (extraOpts && extraOpts.maxTokens) || DEFAULT_MAX_TOKENS,
+          max_tokens: oaiMaxTokens,
           temperature: 0.7
         }),
         signal: signal
@@ -959,20 +977,20 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
   // 根据目标字数动态计算 max_tokens
-  // 策略：取「模型最大输出能力」和「目标字数换算」中的较大值，让AI发挥极限
+  // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
   var dynamicMaxTokens = null;
-  var modelMaxTokens = getModelMaxOutputTokens();
   if(targetChars && targetChars > 0){
     // 中文约 1.5 token/字，留 30% 余量
     var charsToTokens = Math.floor(targetChars * 1.5 * 1.3);
-    // 取模型极限和字数需求的较大值，不人为设上限
-    dynamicMaxTokens = Math.max(charsToTokens, modelMaxTokens);
+    // 取「字数需求」和「模型最大输出」中的较小值，确保不超模型限制
+    var modelMaxTokens = getModelMaxOutputTokens();
+    dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
+    // 最低保底 800 token，确保至少能生成内容
+    dynamicMaxTokens = Math.max(800, dynamicMaxTokens);
   } else {
     // 没有指定字数时，直接用模型极限
-    dynamicMaxTokens = modelMaxTokens;
+    dynamicMaxTokens = getModelMaxOutputTokens();
   }
-  // 最低保底 800
-  dynamicMaxTokens = Math.max(800, dynamicMaxTokens);
   var config = DB.getApiConfig() || {};
   var userProvider = config.provider || 'deepseek';
   var route = TASK_ROUTE[taskType] || TASK_ROUTE['default'];
