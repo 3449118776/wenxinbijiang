@@ -1759,6 +1759,15 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   }
   
   let prompt = '你是一位顶级网文写手，拥有十年网文创作经验，深谙读者心理和商业写作技巧。你的文字让读者欲罢不能，每章结尾都让读者忍不住点"下一章"。\n\n';
+  
+  // ⚠️ 用户指令放在最前面，AI 第一眼看到，优先级最高
+  if (userCommand && userCommand.trim()) {
+    prompt += '══════════════════════════════════════\n';
+    prompt += '【⚠️ 最高优先级 · 用户指令 · 必须首先执行】\n';
+    prompt += userCommand.trim() + '\n';
+    prompt += '══════════════════════════════════════\n\n';
+  }
+  
   if (expertisePrompt) {
     prompt += expertisePrompt + '\n\n';
   }
@@ -2063,12 +2072,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '   不满足条件则严禁切换视角。禁止在同一段落内从A视角跳到B视角。\n\n';
   }
 
-  // 注入用户自定义指令（放在核心要求之前，优先级更高且不会被截断）
-  // ⚠️ 用户指令移到 prompt 末尾，避免被后续大量系统指令淹没
-  var userCmdBlock = '';
-  if (userCommand && userCommand.trim()) {
-    userCmdBlock = '\n\n【用户额外指令（优先级高）】\n' + userCommand.trim() + '\n';
-  }
+  // 用户指令已移至 prompt 最前面，确保 AI 第一眼看到
 
   // 自然文风指引（替代机械反检测规则）
   prompt += '\n\n【文风与自然度指引】\n优先追求"读起来像人写的"而非"严格按照规则写作"。以下为方向性指引，非强制模板：\n\n';
