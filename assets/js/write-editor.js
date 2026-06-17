@@ -92,21 +92,19 @@ var PLATINUM_RULES = {
 function getPlatinumRulesHint(work){
   var keys = Object.keys(PLATINUM_RULES);
   var selected = [];
-  // 必选核心：冰山对话3条 + 禁读心 + 视角锁 + 情绪峰值 + 节奏密度 + 逻辑意外 + 地文对话 + 正文公式
-  var mustSelect = ['iceberg_dialogue', 'iceberg_micro_action', 'iceberg_answer_nonanswer', 'no_mind_reading', 'perspective_locked', 'emotion_peak', 'rhythm_grid', 'logic_surprise', 'ground_dialogue_cycle', 'chapter_formula'];
+  // v52去重：冰山对话/视角锁/爽点密度/禁读心/地文对话 已在 buildChapterPrompt 详细版注入，
+  // 这里只保留独有且未被覆盖的核心法则，避免重复占用prompt空间
+  var mustSelect = ['logic_surprise', 'chapter_formula', 'key_moment_interrupt', 'character_flaws'];
   for(var i = 0; i < mustSelect.length; i++){
     if(PLATINUM_RULES[mustSelect[i]]) selected.push(PLATINUM_RULES[mustSelect[i]]);
   }
-  // 视角特殊化：如果作品设置了第一人称，替换视角锁描述
-  if (work && work.perspective === 'first') {
-    var idx = selected.indexOf(PLATINUM_RULES['perspective_locked']);
-    if (idx >= 0) {
-      selected[idx] = '【视角锁定】本作品为第一人称（"我"）叙事。所有叙述必须从"我"的感官出发，"我"不在场的场景绝对不能写（只能通过后续对话/信/报告间接获知）。严禁跳转到其他角色的内心活动。';
-    }
-  }
-  // 随机选2条补充（少而精，不挤掉核心）
-  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; });
-  var addCount = 2;
+  // 随机选4条补充（从非重复法则池中选）
+  var excluded = ['iceberg_dialogue','iceberg_micro_action','iceberg_answer_nonanswer','iceberg_daily_cover',
+                  'no_mind_reading','perspective_locked','perspective_switch',
+                  'rhythm_grid','emotion_peak','ground_dialogue_cycle',
+                  'logic_surprise','chapter_formula','key_moment_interrupt','character_flaws'];
+  var remaining = keys.filter(function(k){ return excluded.indexOf(k) === -1; });
+  var addCount = 4;
   for(var j = 0; j < addCount && remaining.length > 0; j++){
     var idx2 = Math.floor(Math.random() * remaining.length);
     selected.push(PLATINUM_RULES[remaining[idx2]]);
@@ -678,18 +676,9 @@ function deleteCurrentChapter(){
 }
 
 function buildWritePrompt(work,content,cmd){
-  let prompt='你是一位网文写作助手。\n\n';
-  prompt += getWriteConstraint(getWorkGenre(work), work) + '\n';
-  var cb = buildWriteConsistencyBlock(work, typeof currentChapterIdx !== "undefined" ? currentChapterIdx : 0);
-  if (cb) prompt += cb + '\n';
-  if(work.world)prompt+='【世界观】'+work.world+'\n';
-  if(work.chars)prompt+='【人物人设】'+work.chars+'\n';
-  if(work.outline)prompt+='【全书大纲】'+work.outline+'\n';
-  if(work.detail)prompt+='【章节细纲】'+work.detail+'\n';
-  prompt+='\n【当前内容】\n'+content+'\n\n';
-  prompt+='【用户指令】'+cmd+'\n\n';
-  prompt+='请严格按照上述全套架构设定生成内容，保持风格一致。';
-  return prompt;
+  // v52: 此函数已废弃，所有写作路径统一走 buildChapterPrompt（含长记忆/白金法则/视角锁/冰山对话/爽点密度等完整能力）
+  // 保留函数签名仅为兼容性兜底，实际调用应使用 buildChapterPrompt
+  return buildChapterPrompt(work, typeof currentChapterIdx !== "undefined" ? currentChapterIdx : 0, content, cmd);
 }
 
 // 兼容函数：获取作品题材（处理旧数据）
@@ -1242,29 +1231,7 @@ function buildFullChainLock(work, chapterIdx) {
     has = true;
   }
 
-  // L1：视角锁（比叙事规则更高一层的结构性一致性）
-  var mainChar = '';
-  if (work.chars) {
-    var m = work.chars.match(/[【\[<]?([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9]{1,7})[】\]>]?\s*[：(]/);
-    if (m) mainChar = m[1];
-  }
-  var p = work.perspective || 'third';
-  if (p === 'first') {
-    lock += '【L1 视角锁·第一人称】\n';
-    lock += '   - 全文以"我"为唯一叙述主体（"我" = ' + (mainChar || '主角') + '）\n';
-    lock += '   - "我"不在场的场景绝对不能写（只能通过后续对话/信/报告间接获知）\n';
-    lock += '   - 禁读心：绝不能知道其他角色"在想什么"，只能通过动作/表情/语气推测\n';
-    lock += '   - 禁全知："我"看不到的东西不能出现在正文里（如"他在我身后冷笑"应改为"我身后传来一声冷笑"）\n';
-    has = true;
-  } else {
-    lock += '【L1 视角锁·第三人称有限视角】\n';
-    lock += '   - 全文只能从' + (mainChar ? '【' + mainChar + '】' : '主角') + '的视角叙述（他/她看到、听到、想到的）\n';
-    lock += '   - 禁读心：其他角色的想法必须通过动作/表情/语气/沉默/行为让读者体会\n';
-    lock += '   - 禁全知：主角不知道的事情，叙述者无权直接告诉读者\n';
-    lock += '   - 禁同段多视角切换：同一段落内严禁从A视角跳到B视角再跳回\n';
-    lock += '   - 如需切换视角（仅为揭露关键线索），必须：①该角色前文已出现过 ②新起一段/一章并空行隔开 ③300字内切回或有独立叙事价值\n';
-    has = true;
-  }
+  // L1：视角锁已迁移至 buildChapterPrompt 详细版（避免重复注入），此处不再注入
 
   // L3：写作后自检要求
   lock += '【L3 写作自检要求】正文必须能回答以下问题：\n';
@@ -1891,6 +1858,46 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
 
+  // v52：注入角色声音锚点 — 从longMemory提取每个角色的金句/口头禅，让AI写对话时有声音参考
+  try {
+    if (work.longMemory && work.longMemory.memoryAnchors) {
+      var dialogues = work.longMemory.memoryAnchors.dialogues || [];
+      var charTags = work.longMemory.memoryAnchors.characterTags || [];
+      var charRoles = work.longMemory.charRoles || {};
+      if (dialogues.length > 0 || charTags.length > 0) {
+        var voiceBlock = '【角色声音锚点 — 写对话时必须参考，保持角色声音一致，不得OOC】\n';
+        // 按角色分组收集声音锚点
+        var voiceMap = {};
+        dialogues.forEach(function(d){
+          var name = d.charName || '未知角色';
+          if (!voiceMap[name]) voiceMap[name] = {role: d.charRole || charRoles[name] || '', quotes: [], tags: []};
+          voiceMap[name].quotes.push(d.text);
+        });
+        charTags.forEach(function(t){
+          var name = t.charName || '';
+          if (!name) return;
+          if (!voiceMap[name]) voiceMap[name] = {role: t.charRole || charRoles[name] || '', quotes: [], tags: []};
+          // 只收集口癖/标志动作相关的tag
+          if (/口癖|标志|习惯|语气|口头禅/.test(t.text)) {
+            voiceMap[name].tags.push(t.text);
+          }
+        });
+        // 输出每个角色的声音锚点（最多8个角色，每个最多2句金句+2个tag）
+        var voiceCount = 0;
+        for (var vname in voiceMap) {
+          if (voiceCount >= 8) break;
+          var v = voiceMap[vname];
+          var roleTag = v.role ? '[' + v.role + '] ' : '';
+          voiceBlock += '■ ' + roleTag + vname + '：\n';
+          if (v.quotes.length > 0) voiceBlock += '  金句：' + v.quotes.slice(0, 2).join(' / ') + '\n';
+          if (v.tags.length > 0) voiceBlock += '  特征：' + v.tags.slice(0, 2).join(' / ') + '\n';
+          voiceCount++;
+        }
+        prompt += voiceBlock + '\n';
+      }
+    }
+  } catch(voiceErr) { console.warn('[角色声音] 注入失败:', voiceErr); }
+
   // 传细纲，截断防止token爆炸 + 按章节标题精准匹配
   if (work.detail) {
     var detailText = work.detail;
@@ -1921,13 +1928,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   const memoryContext = buildMemoryContext(work, chapterIdx);
   if (memoryContext) {
     prompt += memoryContext + '\n';
-    prompt += '【重要·记忆一致性指令】\n';
-    prompt += '1. 人物状态必须与上述记忆一致：受伤的角色不能突然完好，已死亡的角色不能复活，已离开的角色不能凭空出现\n';
-    prompt += '2. 关系变化必须承接：已结盟的角色不能无故敌对，已决裂的角色不能突然亲密，必须写出转变过程\n';
-    prompt += '3. 道具归属必须正确：谁拿着什么、谁丢了什么、谁欠了什么，后文必须一致\n';
-    prompt += '4. 伏笔和承诺必须推进：未解的伏笔要逐步揭示，未兑现的承诺要安排兑现或制造障碍\n';
-    prompt += '5. 能力代价必须体现：角色使用能力后必须承受相应代价，不能无限开挂\n';
-    prompt += '6. 情绪轨迹必须连贯：角色的情绪不能无故跳变，必须与前章的情绪状态有承接\n\n';
+    // v52去重：记忆一致性指令已由 buildFullChainLock 的 L1长记忆锁 覆盖，此处不再重复
   }
   
   if (prevContent) {
@@ -2047,11 +2048,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '   - "不由得/忍不住/情不自禁"做情绪过渡词\n';
   prompt += '   - "缓缓/慢慢/轻轻/淡淡"四个副词连续出现在同一段\n';
   prompt += '   - "只见/但见/却见"做叙事引导词\n\n';
-  prompt += '3. **对话自然化（冰山法则）**：这是最重要的单条技法。成年人的情绪不外露——愤怒不大喊大叫，心虚不主动辩解，暧昧不明说。对话中：\n';
-  prompt += '   - 被质问时不正面回答：转移话题、纠结无关细节、顾左右而言他、用动作代替回答\n';
-  prompt += '   - 禁止"XX说/道/问道/答道"堆砌：每段对话最多一个"他说"，其余全用动作和沉默承载\n';
-  prompt += '   - 潜台词公式：表面在说A，实际在说B。比如"这香水味不错"实际上在说"你出轨了"\n';
-  prompt += '   - 允许"答非所问"：对方问A，角色答B，或者干脆沉默用动作回应，这才是真实的人\n\n';
+  prompt += '3. **对话自然化**：禁止"XX说/道/问道/答道"堆砌：每段对话最多一个"他说"，其余全用动作和沉默承载。潜台词公式：表面在说A，实际在说B。（注：冰山对话详细技法见前文【核心技法·冰山对话】部分，此处不重复）\n\n';
   prompt += '4. **描写具体化**：避免"很冷""很美""很可怕"等抽象形容词。用感官细节替代：温度用身体反应，外貌用动作体现，氛围用环境暗示。写"冷"不如写"他呼出的气在眼前凝成白雾"，写"美"不如写"她侧头时耳后的碎发被风撩起"。\n\n';
   prompt += '5. **比喻原创化**：禁止"像狼的眼睛""像嚼湿柴""像从肺里刮出来"等常见比喻。从当前世界观中取材造比喻，宁可不用比喻也不要用套路比喻。好的比喻来自角色身份——铁匠的比喻和书生的比喻绝不会一样。\n\n';
   prompt += '6. **口语化微瑕**：允许极轻微的口语省略（如"他槊杆"代替"他的槊杆"），但每1500字不超过1处，必须自然不刻意。绝对禁止错别字和语法错误。\n\n';
