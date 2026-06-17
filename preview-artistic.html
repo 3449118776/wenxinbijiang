@@ -3,33 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>文心笔匠 - 预览</title>
-<style>
-/* 手机端优化 */
-@media (max-width: 480px) {
-  .logo {
-    font-size: 28px;
-    letter-spacing: 6px;
-  }
-  
-  .feature-card {
-    padding: 20px;
-  }
-  
-  .card-icon {
-    width: 44px;
-    height: 44px;
-    font-size: 22px;
-  }
-  
-  .card-title {
-    font-size: 16px;
-  }
-  
-  .card-desc {
-    font-size: 12px;
-  }
-}
+<title>文心笔匠 - 手机预览</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -40,56 +14,96 @@
   --accent-red: #c45c4a;
   --accent-gold: #b8956c;
   --border-subtle: rgba(139, 119, 92, 0.15);
+  --safe-top: env(safe-area-inset-top, 20px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Noto Serif SC', serif;
-  background: var(--bg-paper);
-  color: var(--ink-dark);
+  font-family: 'Noto Serif SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #1a1a1a;
   min-height: 100vh;
-  line-height: 1.8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
 }
 
-/* 宣纸纹理背景 */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: 
-    radial-gradient(ellipse at 20% 30%, rgba(200, 180, 150, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 70%, rgba(180, 160, 130, 0.06) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: -1;
+/* 手机外框 */
+.phone-frame {
+  width: 100%;
+  max-width: 390px;
+  height: 844px;
+  background: var(--bg-paper);
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 50px 100px rgba(0,0,0,0.5);
 }
 
-/* 顶部标题 */
+/* 刘海区域 */
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 30px;
+  background: #000;
+  border-radius: 0 0 20px 20px;
+  z-index: 100;
+}
+
+/* 内容区 */
+.phone-content {
+  height: 100%;
+  overflow-y: auto;
+  padding-top: 50px;
+  padding-bottom: calc(90px + var(--safe-bottom));
+}
+
+/* 状态栏 */
+.status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  padding-top: var(--safe-top);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-dark);
+  z-index: 50;
+}
+
+/* 标题区 */
 .header {
-  padding: 32px 24px 24px;
+  padding: 32px 24px 20px;
   text-align: center;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 .logo {
   font-family: 'ZCOOL XiaoWei', serif;
-  font-size: 32px;
+  font-size: 28px;
   color: var(--ink-dark);
-  letter-spacing: 8px;
-  margin-bottom: 8px;
+  letter-spacing: 6px;
+  margin-bottom: 4px;
 }
 
 .tagline {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--ink-light);
-  letter-spacing: 4px;
+  letter-spacing: 2px;
 }
 
 /* 主内容 */
 .main {
-  max-width: 420px;
-  margin: 0 auto;
-  padding: 32px 20px 100px;
+  padding: 0 18px;
 }
 
 /* 功能卡片 */
@@ -97,10 +111,10 @@ body::before {
   background: linear-gradient(135deg, #fff 0%, var(--bg-warm) 100%);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 16px;
+  padding: 18px;
+  margin-bottom: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -112,74 +126,107 @@ body::before {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--accent-red);
-  opacity: 0;
-  transition: opacity 0.3s;
+  background: linear-gradient(180deg, var(--accent-red), var(--accent-gold));
+  transform: scaleY(0);
+  transition: transform 0.3s;
 }
 
-.feature-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 8px 32px rgba(139, 93, 73, 0.1);
+.feature-card:active {
+  transform: scale(0.98);
+  background: var(--bg-warm);
 }
 
 .feature-card:hover::before {
-  opacity: 1;
+  transform: scaleY(1);
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 8px;
 }
 
 .card-icon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   background: var(--bg-paper);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 22px;
+  box-shadow: 0 2px 8px rgba(139, 93, 73, 0.1);
 }
 
 .card-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink-dark);
 }
 
 .card-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink-light);
-  line-height: 1.7;
+  line-height: 1.6;
+  padding-left: 58px;
+}
+
+/* 云端状态 */
+.cloud-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-warm);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--ink-light);
+  margin-bottom: 20px;
+  margin-left: 18px;
+  margin-right: 18px;
+}
+
+.cloud-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* 底部导航 */
 .nav-bar {
-  position: fixed;
+  position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   background: rgba(250, 248, 245, 0.95);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-subtle);
-  padding: 12px 0;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 0;
+  padding-bottom: calc(8px + var(--safe-bottom));
   display: flex;
   justify-content: space-around;
+  z-index: 50;
 }
 
 .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   color: var(--ink-light);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 6px 20px;
   transition: color 0.2s;
 }
 
@@ -191,136 +238,123 @@ body::before {
   font-size: 22px;
 }
 
-/* 云端状态 */
-.cloud-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: var(--bg-warm);
-  border-radius: 24px;
-  font-size: 13px;
-  color: var(--ink-light);
-  margin-bottom: 24px;
-}
-
-.cloud-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--accent-gold);
-  border-radius: 50%;
-}
-
-/* 分割线装饰 */
+/* 装饰线 */
 .divider {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin: 32px 0;
+  gap: 12px;
+  margin: 24px 18px;
   color: var(--ink-light);
-  font-size: 12px;
+  font-size: 10px;
+  letter-spacing: 2px;
 }
 
 .divider::before, .divider::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border-subtle);
+  background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
 }
 
-.divider-text {
-  letter-spacing: 4px;
-}
-
-/* 墨迹效果 */
-.ink-splash {
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  background: radial-gradient(ellipse, rgba(44, 36, 22, 0.03) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
+/* 滚动条隐藏 */
+.phone-content::-webkit-scrollbar {
+  display: none;
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="logo">文心笔匠</div>
-  <div class="tagline">以文载道 · 匠心独运</div>
-</div>
-
-<div class="main">
-  <div class="cloud-status">
-    <div class="cloud-dot"></div>
-    <span>云端同步已连接</span>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">✨</div>
-      <div class="card-title">新建小说</div>
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  
+  <div class="phone-content">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>📶 📡 🔋</span>
     </div>
-    <div class="card-desc">定名、简介与世界观设定，开启你的创作之旅</div>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">📋</div>
-      <div class="card-title">架构设计</div>
+    
+    <div class="header">
+      <div class="logo">文心笔匠</div>
+      <div class="tagline">以文载道 · 匠心独运</div>
     </div>
-    <div class="card-desc">人物、情节与结构，构建完整的故事骨架</div>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">✍</div>
-      <div class="card-title">AI写作</div>
+    
+    <div class="cloud-status">
+      <div class="cloud-dot"></div>
+      <span>云端同步已连接</span>
     </div>
-    <div class="card-desc">智能辅助创作，激发灵感，润色文笔</div>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">📂</div>
-      <div class="card-title">作品管理</div>
+    
+    <div class="main">
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">✨</div>
+          <div class="card-title">新建小说</div>
+        </div>
+        <div class="card-desc">定名、简介与世界观设定</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">📋</div>
+          <div class="card-title">架构设计</div>
+        </div>
+        <div class="card-desc">人物、情节与结构构建</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">✍</div>
+          <div class="card-title">AI写作</div>
+        </div>
+        <div class="card-desc">智能辅助创作与润色</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">📂</div>
+          <div class="card-title">作品管理</div>
+        </div>
+        <div class="card-desc">章节整理与版本管理</div>
+      </div>
+      
+      <div class="divider">
+        <span>更多功能</span>
+      </div>
+      
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">📄</div>
+          <div class="card-title">模板库</div>
+        </div>
+        <div class="card-desc">经典架构模板参考</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="card-header">
+          <div class="card-icon">🧭</div>
+          <div class="card-title">创作中枢</div>
+        </div>
+        <div class="card-desc">记忆、备份与数据分析</div>
+      </div>
     </div>
-    <div class="card-desc">章节整理与版本管理，井然有序</div>
   </div>
-
-  <div class="divider">
-    <span class="divider-text">更多功能</span>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">📄</div>
-      <div class="card-title">模板库</div>
+  
+  <div class="nav-bar">
+    <div class="nav-item active">
+      <span>🏠</span>
+      <span>首页</span>
     </div>
-    <div class="card-desc">经典架构模板，助你快速起步</div>
-  </div>
-
-  <div class="feature-card">
-    <div class="card-header">
-      <div class="card-icon">🧭</div>
-      <div class="card-title">创作中枢</div>
+    <div class="nav-item">
+      <span>🔧</span>
+      <span>工具</span>
     </div>
-    <div class="card-desc">记忆、备份与数据分析，全方位辅助</div>
-  </div>
-</div>
-
-<div class="nav-bar">
-  <div class="nav-item active">
-    <span>🏠</span>
-    <span>首页</span>
-  </div>
-  <div class="nav-item">
-    <span>🔧</span>
-    <span>工具</span>
-  </div>
-  <div class="nav-item">
-    <span>⚙️</span>
-    <span>设置</span>
+    <div class="nav-item">
+      <span>📊</span>
+      <span>数据</span>
+    </div>
+    <div class="nav-item">
+      <span>⚙️</span>
+      <span>设置</span>
+    </div>
   </div>
 </div>
 
