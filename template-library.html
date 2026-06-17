@@ -129,7 +129,7 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
     <div class="tpl-card" onclick="showTplList('world')">
       <div class="icon">&#127757;</div>
       <div class="name">世界观模板</div>
-      <div class="count">5个模板</div>
+      <div class="count">9个模板</div>
     </div>
     <div class="tpl-card" onclick="showTplList('chars')">
       <div class="icon">&#128100;</div>
@@ -159,7 +159,7 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
     <div class="tpl-card" onclick="showPhraseLib()">
       <div class="icon">&#128172;</div>
       <div class="name">词句库</div>
-      <div class="count">6大分类</div>
+      <div class="count">11大分类</div>
     </div>
     <div class="tpl-card" onclick="showMyTemplates()" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;">
       <div class="icon">&#11088;</div>
@@ -316,7 +316,8 @@ function toggleExpand(el,idx){
 
 function showTplGrid(){
   document.getElementById('page-title').textContent='模板库';
-  document.getElementById('tpl-content').innerHTML='<div class="tpl-grid" id="tpl-grid"><div class="tpl-card" onclick="showTplList(\'world\')"><div class="icon">&#127757;</div><div class="name">世界观模板</div><div class="count">9个模板</div></div><div class="tpl-card" onclick="showTplList(\'chars\')"><div class="icon">&#128100;</div><div class="name">人物模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showTplList(\'outline\')"><div class="icon">&#128203;</div><div class="name">大纲模板</div><div class="count">4个模板</div></div><div class="tpl-card" onclick="showTplList(\'detail\')"><div class="icon">&#128221;</div><div class="name">细纲模板</div><div class="count">5个模板</div></div><div class="tpl-card" onclick="showTplList(\'opening\')"><div class="icon">&#128214;</div><div class="name">开篇模板</div><div class="count">8个模板</div></div><div class="tpl-card" onclick="showTplList(\'scene\')"><div class="icon">&#127916;</div><div class="name">场景模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showPhraseLib()"><div class="icon">&#128172;</div><div class="name">词句库</div><div class="count">11大分类</div></div></div>';
+  document.getElementById('tpl-content').innerHTML='<div class="tpl-grid" id="tpl-grid"><div class="tpl-card" onclick="showTplList(\'world\')"><div class="icon">&#127757;</div><div class="name">世界观模板</div><div class="count">9个模板</div></div><div class="tpl-card" onclick="showTplList(\'chars\')"><div class="icon">&#128100;</div><div class="name">人物模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showTplList(\'outline\')"><div class="icon">&#128203;</div><div class="name">大纲模板</div><div class="count">4个模板</div></div><div class="tpl-card" onclick="showTplList(\'detail\')"><div class="icon">&#128221;</div><div class="name">细纲模板</div><div class="count">5个模板</div></div><div class="tpl-card" onclick="showTplList(\'opening\')"><div class="icon">&#128214;</div><div class="name">开篇模板</div><div class="count">8个模板</div></div><div class="tpl-card" onclick="showTplList(\'scene\')"><div class="icon">&#127916;</div><div class="name">场景模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showPhraseLib()"><div class="icon">&#128172;</div><div class="name">词句库</div><div class="count">11大分类</div></div><div class="tpl-card" onclick="showMyTemplates()" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;"><div class="icon">&#11088;</div><div class="name">我的模板</div><div class="count" id="my-tpl-count">0个模板</div></div></div>';
+  updateMyTplCount();
 }
 
 function showPhraseLib(){
@@ -382,6 +383,10 @@ function handleFileImport(event){
       showToast('已读取文件，可在写作页面使用');
     }
   };
+  reader.onerror = function(){
+    console.warn('[tpl-import] 读取文件失败:', file.name, reader.error);
+    showToast('文件读取失败，请重试');
+  };
   reader.readAsText(file);
   setTimeout(function(){event.target.value='';},800);
 }
@@ -405,7 +410,8 @@ function saveMyTemplatesList(list){
   try{
     localStorage.setItem(MY_TPL_KEY, JSON.stringify(list));
     updateMyTplCount();
-  }catch(e){ showToast('保存失败：存储空间不足'); }
+    return true;
+  }catch(e){ showToast('保存失败：存储空间不足'); return false; }
 }
 
 // 更新首页"我的模板"数量
@@ -514,9 +520,18 @@ function handleMyTplUpload(event){
       }
       // 所有文件处理完才保存
       if(processed === totalFiles){
-        saveMyTemplatesList(list);
+        var ok = saveMyTemplatesList(list);
         renderMyTplList();
-        showToast('成功导入 ' + successCount + ' 个模板');
+        if(ok) showToast('成功导入 ' + successCount + ' 个模板');
+      }
+    };
+    reader.onerror = function(){
+      processed++;
+      console.warn('[my-tpl] 读取文件失败:', file.name, reader.error);
+      if(processed === totalFiles){
+        var ok = saveMyTemplatesList(list);
+        renderMyTplList();
+        if(ok) showToast('成功导入 ' + successCount + ' 个模板');
       }
     };
     reader.readAsText(file);

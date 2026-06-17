@@ -231,20 +231,20 @@ function saveNovelLibrary(list){
     updateStats();
     // 异步同步到云端
     syncToCloud(list);
+    return true;
   }catch(e){
     showToast('保存失败：存储空间不足，请删除部分片段');
+    return false;
   }
 }
 
 // 云端同步（上传用户片段到云端）
 function syncToCloud(list){
   try{
-    if(typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
-    var token = localStorage.getItem('wxbj_cloud_token');
-    if(!token) return;
-    fetch('/api/novel-library', {
+    if(!window.cloud || !window.cloud.isLoggedIn()) return;
+    window.cloud._fetch('/novel-library', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ list: list })
     }).catch(function(e){ console.warn('[novel-lib] sync failed:', e); });
   }catch(e){ /* 静默失败 */ }
@@ -253,18 +253,23 @@ function syncToCloud(list){
 // 从云端拉取用户片段
 function loadFromCloud(){
   try{
-    if(typeof CloudSync === 'undefined' || !CloudSync.isLoggedIn()) return;
-    var token = localStorage.getItem('wxbj_cloud_token');
-    if(!token) return;
-    fetch('/api/novel-library', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    }).then(function(r){ return r.json(); }).then(function(data){
-      if(data.ok && Array.isArray(data.list) && data.list.length > 0){
-        // 合并云端和本地（云端优先，但保留本地独有的）
+    if(!window.cloud || !window.cloud.isLoggedIn()) return;
+    window.cloud._fetch('/novel-library', {
+      headers: { 'Content-Type': 'application/json' }
+    }).then(function(data){
+      // _fetch 已返回解析后的对象，无需再调用 .json()
+      if(data && data.ok && Array.isArray(data.list) && data.list.length > 0){
+        // 合并云端和本地，按updatedAt时间戳保留较新版本
         var local = getUserNovels();
-        var cloudIds = data.list.map(function(n){ return n.id; });
-        var localOnly = local.filter(function(n){ return cloudIds.indexOf(n.id) < 0; });
-        var merged = data.list.concat(localOnly);
+        var localMap = {};
+        local.forEach(function(n){ localMap[n.id] = n; });
+        data.list.forEach(function(cn){
+          var ln = localMap[cn.id];
+          if(!ln || (cn.updatedAt||0) >= (ln.updatedAt||0)){
+            localMap[cn.id] = cn;
+          }
+        });
+        var merged = Object.keys(localMap).map(function(k){ return localMap[k]; });
         localStorage.setItem(NOVEL_LIB_KEY, JSON.stringify(merged));
         updateStats();
         renderList();
@@ -484,9 +489,18 @@ function handleUpload(event){
       }catch(err){ console.warn('上传失败:', file.name, err); }
       
       if(processed === total){
-        saveNovelLibrary(list);
+        var ok = saveNovelLibrary(list);
         renderList();
-        showToast('成功导入 '+success+' 个片段');
+        if(ok) showToast('成功导入 '+success+' 个片段');
+      }
+    };
+    reader.onerror = function(){
+      processed++;
+      console.warn('[novel-lib] 读取文件失败:', file.name, reader.error);
+      if(processed === total){
+        var ok = saveNovelLibrary(list);
+        renderList();
+        if(ok) showToast('成功导入 '+success+' 个片段');
       }
     };
     reader.readAsText(file);

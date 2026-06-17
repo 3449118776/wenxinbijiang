@@ -1318,7 +1318,6 @@ function buildUserTemplateContext(work, chapterIdx) {
     if (!Array.isArray(list) || list.length === 0) return '';
 
     var genre = getWorkGenre(work);
-    var chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || '' : '';
     var isFirstChapter = chapterIdx === 0;
 
     // 确定当前需要的模板类型
