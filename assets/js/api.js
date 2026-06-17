@@ -681,7 +681,9 @@ async function callRealAPI(prompt, onProgress, opts) {
   let lastErr = null;
   // 轮询该服务商下的 **全部** 密钥（上限 API_MAX_KEY_RETRY，避免异常数据导致死循环）
   // 🆓 free 模式：没有 key，但是 _callOnce 内部会轮询多个内置端点，因此只需跑一次
-  const total = (provider === 'free') ? 1 : Math.min(keys.length, API_MAX_KEY_RETRY);
+  // 429 重试不占用 key 轮换次数，因此 total 额外加上重试余量
+  const baseTotal = (provider === 'free') ? 1 : Math.min(keys.length, API_MAX_KEY_RETRY);
+  const total = baseTotal + 2; // 额外 2 次 429 重试机会
   for (let attempt = 0; attempt < total; attempt++) {
     const key = (provider === 'free') ? 'free' : getAiKey(provider);
     if (!key) break;
@@ -710,7 +712,14 @@ async function callRealAPI(prompt, onProgress, opts) {
       } else if (!opts.silent && e && e.kind === 'invalid') {
         showToast((API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 密钥无效，尝试下一个密钥…', { duration: 2000 });
       } else if (!opts.silent && e && e.kind === 'rate') {
-        showToast((API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 频率超限，尝试下一个密钥…', { duration: 1800 });
+        // 429 频率限制：等待 3 秒后重试同一个 key（最多重试 2 次）
+        if (attempt < 2) {
+          if (!opts.silent) showToast((API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 服务繁忙，3秒后自动重试…', { duration: 2500 });
+          await new Promise(function(r) { setTimeout(r, 3000); });
+          // 不 rotate，重试同一个 key
+          continue;
+        }
+        if (!opts.silent) showToast((API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 频率超限，尝试下一个密钥…', { duration: 1800 });
       } else if (!opts.silent && e && e.kind === 'network') {
         if (attempt === 0) showToast((API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 网络错误，尝试下一个密钥…', { duration: 1800 });
       }
