@@ -126,14 +126,16 @@ export async function verify_password(password, storedHash) {
 }
 
 // ============ KV 存储键管理 ============
-const KV_USERS = () => globalThis.WXBJ_USERS || null;
-const KV_WORKS = () => globalThis.WXBJ_WORKS || null;
+let _kvStore = null;
 
-// 如果没有单独命名空间，回退到 WXBJ_DATA 或 KV
+export function setKVStore(store) {
+  _kvStore = store;
+}
+
 const KV = () => {
+  if (_kvStore) return _kvStore;
   if (globalThis.WXBJ_DATA) return globalThis.WXBJ_DATA;
   if (globalThis.WXBJ_USERS) return globalThis.WXBJ_USERS;
-  // 尝试通用的 KV binding 名称
   for (const k of ['KV', 'DB', 'DATA', 'STORE']) {
     if (globalThis[k]) return globalThis[k];
   }

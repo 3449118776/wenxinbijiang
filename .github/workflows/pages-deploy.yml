@@ -20,7 +20,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          projectName: wxbj-main
+          projectName: wenxin-bijiang
           directory: .
           branch: main
           wranglerVersion: '3'

@@ -3,13 +3,19 @@ import {
   jwt_sign, jwt_verify, verify_password, hash_password,
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
   db_list_works, db_get_work, db_upsert_work,
-  random_hex, random_code, json_response
+  random_hex, random_code, json_response,
+  setKVStore
 } from './_shared.js';
 
 export async function onRequest(context) {
   const req = context.request;
   const url = new URL(req.url);
   const path = url.pathname;
+
+  // 设置 KV 存储（从 context.env 获取）
+  if (context.env && context.env.WXBJ_DATA) {
+    setKVStore(context.env.WXBJ_DATA);
+  }
 
   // 从 URL 中移除 /api 前缀
   const apiPath = path.replace(/^\/api/, '') || '/';
