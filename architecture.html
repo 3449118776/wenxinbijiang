@@ -1545,6 +1545,16 @@ function buildArchPrompt(module, idea, work, extraHint){
 }
 
 // v48: 辅助工具 —— 智能截断（保留完整段落，避免中段切断）
+// 判断是否大上下文模型（128K+），是则不需要截断架构内容
+function isLargeContextModel(){
+  try {
+    if(typeof getModelContextWindow === 'function'){
+      return getModelContextWindow() >= 100000;
+    }
+  } catch(e) {}
+  return false;
+}
+
 function smartTruncate(text, maxLen){
   if(!text) return '';
   if(text.length <= maxLen) return text;
@@ -2583,10 +2593,11 @@ window.strengthenDetailOutlineV46 = async function(){
 
     // 3. 通用上下文（给每批卡片共享）
     var contextBlock = '';
+    var largeModel = isLargeContextModel();
     contextBlock += '【作品题材】' + (work.genre || '未知') + '\n';
-    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + smartTruncate(work.world, 2000) + '\n';
-    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + smartTruncate(work.chars, 2000) + '\n';
-    if(work.outline) contextBlock += '【全书大纲参考】\n' + smartTruncate(work.outline, 2000) + '\n';
+    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + (largeModel ? work.world : smartTruncate(work.world, 2000)) + '\n';
+    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + (largeModel ? work.chars : smartTruncate(work.chars, 2000)) + '\n';
+    if(work.outline) contextBlock += '【全书大纲参考】\n' + (largeModel ? work.outline : smartTruncate(work.outline, 2000)) + '\n';
 
     // 4. 每批卡片独立调用 AI
     var allCards = [];

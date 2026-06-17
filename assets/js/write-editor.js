@@ -3308,8 +3308,13 @@ async function aiPolish(polishType){
   if(work){
     prompt+='【作品】'+work.title+'\n';
     prompt+='【题材】'+getWorkGenre(work)+'\n';
-    if(work.world)prompt+='【世界观】'+work.world.substring(0,800)+'\n\n';
-    if(work.chars)prompt+='【人物】'+work.chars.substring(0,600)+'\n\n';
+    var archLimits = getArchTruncationLimits();
+    var worldLimit = archLimits ? Math.min(archLimits.world, 3000) : 0;
+    var charsLimit = archLimits ? Math.min(archLimits.chars, 2000) : 0;
+    if(work.world && worldLimit > 0) prompt+='【世界观】'+smartCompressArch(work.world, worldLimit)+'\n\n';
+    else if(work.world) prompt+='【世界观】'+work.world+'\n\n';
+    if(work.chars && charsLimit > 0) prompt+='【人物】'+smartCompressArch(work.chars, charsLimit)+'\n\n';
+    else if(work.chars) prompt+='【人物】'+work.chars+'\n\n';
     // 注入本章细纲
     var dl = getDetailLineForChapter(work, chapterIdx);
     if (dl) prompt += '【本章细纲（润色后必须符合）】\n' + dl.slice(0, 600) + '\n\n';
@@ -3332,7 +3337,8 @@ async function aiPolish(polishType){
     // 注入记忆要点
     var memCtx = buildMemoryContext(work, chapterIdx);
     if (memCtx) {
-      var shortMem = memCtx.length > 800 ? memCtx.substring(0, 800) + '...(记忆已截断)' : memCtx;
+      var memLimit = archLimits ? 800 : 3000;
+      var shortMem = memCtx.length > memLimit ? memCtx.substring(0, memLimit) + '...(记忆已截断)' : memCtx;
       prompt += '【关键记忆（人物状态/伏笔/关系不能冲突）】\n' + shortMem + '\n\n';
     }
   }
@@ -3510,8 +3516,15 @@ async function applyEvalFix(){
   // 构建精准修改prompt（传入完整上下文）
   let prompt='你是一位专业网文编辑。请根据评价建议，对正文进行精准修改。\n\n';
   prompt+='【作品】'+(work?work.title:'')+'\n';
-  if(work&&work.world)prompt+='【世界观】'+work.world.substring(0,600)+'\n\n';
-  if(work&&work.chars)prompt+='【人物】'+work.chars.substring(0,400)+'\n\n';
+  var archLimits2 = getArchTruncationLimits();
+  if(work&&work.world){
+    var wl = archLimits2 ? Math.min(archLimits2.world, 2000) : 0;
+    prompt += wl > 0 ? '【世界观】'+smartCompressArch(work.world, wl)+'\n\n' : '【世界观】'+work.world+'\n\n';
+  }
+  if(work&&work.chars){
+    var cl = archLimits2 ? Math.min(archLimits2.chars, 1500) : 0;
+    prompt += cl > 0 ? '【人物】'+smartCompressArch(work.chars, cl)+'\n\n' : '【人物】'+work.chars+'\n\n';
+  }
   
   prompt+='【评价建议】\n'+evalText+'\n\n';
   prompt+='【原文】\n'+content+'\n\n';
@@ -4847,7 +4860,8 @@ function buildMemoryContext(w, idx) {
   initLongMemory(w);
   var mem = w.longMemory;
   var ctx = '';
-  var BUDGET = 12000; // 记忆上下文总字数硬上限（支撑3000章超长篇）
+  var archLimits = getArchTruncationLimits();
+  var BUDGET = archLimits ? 12000 : 30000; // 大模型给更多记忆空间
 
   // 前情提要（近25章摘要，增加覆盖范围）
   var summaries = [];
