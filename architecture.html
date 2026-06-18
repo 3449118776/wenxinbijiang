@@ -2647,7 +2647,7 @@ window.evaluateArchModule = async function(){
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
 
-// ========== v53: 按评价加强 —— 精准修复低分维度 ==========
+// ========== v53: 按评价加强 —— 精准修复低分维度（≤5分）==========
 window.fixArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
@@ -2656,15 +2656,20 @@ window.fixArchModule = async function(){
     var evalData = work._archEval && work._archEval[module];
     if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
 
-    // 构造精准修复提示：只修复低分维度（≤4分），不重写整篇
+    // 构造精准修复提示：只修复低分维度（≤5分）
     var extraHint = '';
     if(evalData.dimensions){
-      var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 4; });
+      var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 5; });
       if(lowDims.length > 0){
         extraHint += '本次重新生成，只修复以下低分维度，保持其他部分不变：\n';
-        lowDims.forEach(function(d){
-          extraHint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
-        });
+        // 使用好坏标准学习指南（正文维度适用）
+        if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && module === 'text'){
+          extraHint += QualityEngine.getFixGuide(evalData.dimensions);
+        } else {
+          lowDims.forEach(function(d){
+            extraHint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
+          });
+        }
       }
     }
     if(evalData.issues && evalData.issues.length){

@@ -4138,15 +4138,21 @@ async function applyEvalFix(){
   statusBar.style.color = '#1e40af';
   statusBar.textContent = '🛠️ 正在按评价精准修复...';
 
-  // 构建精准修复提示：只修复低分维度（≤4分）
+  // 构建精准修复提示：只修复低分维度（≤5分），加入好坏标准
   var fixTargets = '';
   if(evalData && evalData.dimensions){
-    var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 4; });
+    var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 5; });
     if(lowDims.length > 0){
       fixTargets += '【只修复以下低分维度，保持其他部分完全不变】\n';
-      lowDims.forEach(function(d){
-        fixTargets += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
-      });
+      fixTargets += '【以下是每个维度的好坏标准，请认真学习后再改】\n';
+      // 使用好坏标准学习指南
+      if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide){
+        fixTargets += QualityEngine.getFixGuide(evalData.dimensions);
+      } else {
+        lowDims.forEach(function(d){
+          fixTargets += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
+        });
+      }
     }
     if(evalData.suggestions && evalData.suggestions.length){
       fixTargets += '\n【具体改进建议】\n';
@@ -4157,6 +4163,7 @@ async function applyEvalFix(){
     fixTargets = '【修复以下问题，其他部分保持不变】\n';
     evalData.issues.slice(0, 5).forEach(function(iss){ fixTargets += '- ' + iss + '\n'; });
   }
+  if(!fixTargets){ fixTargets = '请全面优化本章的文字质量，提升写作水平\n'; }
 
   let prompt='你是一位专业网文编辑。请根据评价建议，对正文进行精准修改。\n\n';
   prompt+='【作品】'+(work?work.title:'')+'\n';
@@ -6112,13 +6119,17 @@ async function aiPolishByQuality(){
   var q = ch._quality;
   var content = document.getElementById('editor').value;
   if (!content.trim()) { showToast('当前章节为空'); return; }
-  // 优先使用新格式的低分维度
+  // 优先使用新格式的低分维度 + 好坏标准
   var hint = '';
   if(q.dimensions){
-    var lowDims = q.dimensions.filter(function(d){ return d.score <= 4; });
+    var lowDims = q.dimensions.filter(function(d){ return d.score <= 5; });
     if(lowDims.length > 0){
       hint += '请只修复以下低分维度，保持其他部分不变：\n';
-      lowDims.forEach(function(d){ hint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '') + '\n'; });
+      if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide){
+        hint += QualityEngine.getFixGuide(q.dimensions);
+      } else {
+        lowDims.forEach(function(d){ hint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '') + '\n'; });
+      }
     }
   }
   if(!hint && q.suggestions && q.suggestions.length){
