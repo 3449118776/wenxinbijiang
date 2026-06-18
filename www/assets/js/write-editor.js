@@ -4047,111 +4047,58 @@ async function aiPolish(polishType){
   }
 }
 
+// ========== v53: 正文评价（新引擎 + 卡片UI）==========
 async function aiEvaluate(){
   const content=document.getElementById('editor').value;
   if(!content){showToast('请先输入内容');return;}
   const work=getCurrentWork();
   const chapterIdx=currentChapterIdx||0;
-  
-  // 先尝试API评价
-  let prompt='你是一位资深网文编辑，请对以下章节进行专业评价。\n\n';
-  if(work){
-    prompt+='【作品】'+work.title+'\n';
-    prompt+='【题材】'+getWorkGenre(work)+'\n';
-    if(work.world)prompt+='【世界观】'+work.world.substring(0,500)+'\n\n';
-    if(work.chars)prompt+='【人物】'+work.chars.substring(0,400)+'\n\n';
-    if(work.detail){
-      const detailChapters=work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
-      // split+前瞻导致索引0为空或卷标题，索引1才是第1章，需+1偏移
-      var detailIdx = chapterIdx + 1;
-      if(detailChapters.length > detailIdx){
-        prompt+='【本章细纲】'+detailChapters[detailIdx]+'\n\n';
-      }
-    }
+
+  // 1. 本地结构化评价（新引擎，12维度）
+  var result = null;
+  if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluateText){
+    result = QualityEngine.evaluateText(content, work);
   }
-  prompt+='请从以下维度评分（每项1-10分），并给出具体改进建议：\n\n';
-  prompt+='1. 【剧情契合度】是否按照细纲展开，有无偏离\n';
-  prompt+='2. 【开篇吸引力】开头是否抓住读者\n';
-  prompt+='3. 【爽点节奏】爽点/高潮的安排是否合理\n';
-  prompt+='4. 【情绪张力】情绪描写是否到位\n';
-  prompt+='5. 【对话质量】对话是否自然、有个性\n';
-  prompt+='6. 【描写质量】场景/动作/心理描写是否生动\n';
-  prompt+='7. 【节奏控制】叙事节奏是否合适，有无拖沓\n';
-  prompt+='8. 【悬念钩子】结尾是否有吸引力\n';
-  prompt+='9. 【文笔水平】用词、句式、修辞是否出色\n';
-  prompt+='10. 【综合评分】加权平均分\n\n';
-  prompt+='格式要求：\n';
-  prompt+='- 每个维度一行：维度名：X分 具体评价\n';
-  prompt+='- 最后给出【综合评分】：X分\n';
-  prompt+='- 给出【核心问题】（最需要改进的1-2点）\n';
-  prompt+='- 给出【具体修改建议】（可操作的改法）\n\n';
-  prompt+='【正文】\n'+content;
-  
-  let result = await callRealAPIWithFallback(prompt, null, 'quality_logic', 600); // v48: 评价简短，快速响应
-  
-  // 解析评估结果
-  if(!result){
-    // API不可用，使用本地评价
-    const ch = work ? work.chapters[chapterIdx] : {content: content};
-    if (typeof checkEval === 'function') {
-      // 使用完整版12维度评价
-      showToast('使用本地12维度评价...');
-      const ev = checkEval(ch, chapterIdx, work || {chars:'', settings:{genre:'', platform:'general'}});
-      ch.evalCache = ev;
-      
-      let report = '【12维度评价报告】（本地规则引擎）\n\n';
-      report += '综合评分：' + ev.total + '分 ' + (typeof getGrade === 'function' ? getGrade(ev.total) : '') + '\n';
-      report += '字数：' + ev.len + '字 | 段落：' + ev.paras + '段\n\n';
-      
-      report += '各维度评分：\n';
-      ev.dims.forEach(d => {
-        const bar = d.score >= 80 ? '##' : (d.score >= 60 ? '#.' : '..');
-        report += '  ' + d.name + '：' + d.score + '分 ' + bar + '\n';
-        // 显示未通过的检查项
-        const failed = d.items.filter(it => !it.a);
-        if (failed.length > 0) {
-          failed.slice(0, 2).forEach(it => {
-            report += '    x ' + it.q + '\n';
-          });
-        }
-      });
-      
-      // 流派专属建议
-      const genreVal = work && work.settings ? work.settings.genre : '';
-      if (genreVal && typeof getGenreEvalTips === 'function') {
-        const weakDims = ev.dims.filter(d => d.score < 70);
-        const tips = getGenreEvalTips(genreVal, weakDims);
-        if (tips) {
-          report += '\n【流派建议（' + (NOVEL_GENRES[genreVal] ? NOVEL_GENRES[genreVal].label : genreVal) + '）】\n';
-          if (tips.generic) tips.generic.forEach(t => { report += '  - ' + t + '\n'; });
-          if (tips.specific && tips.specific.length > 0) {
-            report += '\n针对性建议：\n';
-            tips.specific.forEach(t => { report += '  ! ' + t + '\n'; });
-          }
-        }
-      }
-      
-      if (ev.clicheCount > 0) {
-        report += '\n【套路化表达】共' + ev.clicheCount + '处\n';
-        ev.clicheDetails.slice(0, 5).forEach(d => { report += '  - ' + d.pattern + '\n'; });
-      }
-      
-      result = report;
-      
-      if (work) DB.saveWork(work);
-    } else if (window.EvaluateEngine) {
-      // 降级：使用简化版8维度评价
-      showToast('使用本地简化评价...');
-      result = window.EvaluateEngine.evaluate(content);
+
+  // 2. AI 补充评价（可选）
+  if(result && typeof callRealAPIWithFallback === 'function' && content.length > 100){
+    if(typeof showLoading === 'function') showLoading('AI评价分析中…');
+    var evalPrompt = '你是一位资深网文编辑。请对以下章节内容进行专业评价。\n\n';
+    if(work){
+      evalPrompt += '【作品】'+work.title+'\n';
+      evalPrompt += '【题材】'+getWorkGenre(work)+'\n\n';
     }
+    evalPrompt += '请列出：\n1. 2-3条最具体的改进建议（针对文本内容，不要泛泛而谈）\n';
+    evalPrompt += '2. 不要超过200字，用简短犀利的编辑口吻\n';
+    evalPrompt += '【正文】\n' + content.slice(0, 2000);
+    try{
+      var aiReport = await callRealAPIWithFallback(evalPrompt, null, 'quality_logic', 400);
+      if(aiReport && aiReport.trim() && aiReport.indexOf('暂不可用') === -1){
+        result.aiReport = typeof cleanAIOutput === 'function' ? cleanAIOutput(aiReport) : aiReport;
+        var aiLines = aiReport.split(/[\n。]/).filter(function(l){ return l.length > 10 && l.length < 60; });
+        if(!result.suggestions) result.suggestions = [];
+        result.suggestions = result.suggestions.concat(aiLines.slice(0, 3));
+      }
+    }catch(e){}
+    if(typeof hideLoading === 'function') hideLoading();
   }
-  
-  if(result){
-    if(typeof result === 'object'){
-      result = JSON.stringify(result, null, 2);
-    }
-    showEvalModal(result);
-    // 触发润色推荐
+
+  // 3. 保存到作品
+  if(work && result){
+    try{
+      if(!work.chapters) work.chapters = [];
+      while(work.chapters.length <= chapterIdx) work.chapters.push({});
+      work.chapters[chapterIdx]._quality = result;
+      if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    }catch(e){}
+  }
+
+  // 4. 用卡片UI展示
+  if(result && typeof EvalUI !== 'undefined' && EvalUI.show){
+    EvalUI.show(result, function(r) { applyEvalFix(); });
+  } else if(result){
+    var msg = '【' + (result.moduleName || '正文') + '评价】\n' + (result.grade || '') + ' ' + (result.totalScore || '') + '/100\n';
+    showEvalModal(msg);
     setTimeout(function(){ showPolishRecommend(); }, 300);
   }
 }
@@ -4169,24 +4116,48 @@ function showEvalModal(text){
   modal.style.display='flex';
 }
 
-// 按评价建议自动修改正文
+// ========== v53: 按评价精准修改 —— 只修复低分维度，保留优点 ==========
 async function applyEvalFix(){
   const work=getCurrentWork();
   const content=document.getElementById('editor').value;
   if(!content){showToast('没有内容可修改');return;}
-  
-  const evalText = document.getElementById('eval-content').textContent;
-  document.getElementById('eval-modal').style.display='none';
-  
+
+  // 关闭旧弹窗
+  try{ document.getElementById('eval-modal').style.display='none'; }catch(e){}
+  if(typeof EvalUI !== 'undefined' && EvalUI.close) EvalUI.close();
+
+  const chapterIdx=currentChapterIdx||0;
+  var evalData = null;
+  if(work && work.chapters && work.chapters[chapterIdx] && work.chapters[chapterIdx]._quality){
+    evalData = work.chapters[chapterIdx]._quality;
+  }
+
   const statusBar = document.getElementById('api-status-bar');
   statusBar.style.display = 'block';
   statusBar.style.background = '#dbeafe';
   statusBar.style.color = '#1e40af';
-  statusBar.textContent = '🛠️ 正在按评价建议修改...';
-  
-  const chapterIdx=currentChapterIdx||0;
-  
-  // 构建精准修改prompt（传入完整上下文）
+  statusBar.textContent = '🛠️ 正在按评价精准修复...';
+
+  // 构建精准修复提示：只修复低分维度（≤4分）
+  var fixTargets = '';
+  if(evalData && evalData.dimensions){
+    var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 4; });
+    if(lowDims.length > 0){
+      fixTargets += '【只修复以下低分维度，保持其他部分完全不变】\n';
+      lowDims.forEach(function(d){
+        fixTargets += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
+      });
+    }
+    if(evalData.suggestions && evalData.suggestions.length){
+      fixTargets += '\n【具体改进建议】\n';
+      evalData.suggestions.slice(0, 3).forEach(function(s){ fixTargets += '- ' + s + '\n'; });
+    }
+  }
+  if(!fixTargets && evalData && evalData.issues && evalData.issues.length){
+    fixTargets = '【修复以下问题，其他部分保持不变】\n';
+    evalData.issues.slice(0, 5).forEach(function(iss){ fixTargets += '- ' + iss + '\n'; });
+  }
+
   let prompt='你是一位专业网文编辑。请根据评价建议，对正文进行精准修改。\n\n';
   prompt+='【作品】'+(work?work.title:'')+'\n';
   var archLimits2 = getArchTruncationLimits();
@@ -4198,25 +4169,43 @@ async function applyEvalFix(){
     var cl = archLimits2 ? Math.min(archLimits2.chars, 1500) : 0;
     prompt += cl > 0 ? '【人物】'+smartCompressArch(work.chars, cl)+'\n\n' : '【人物】'+work.chars+'\n\n';
   }
-  
-  prompt+='【评价建议】\n'+evalText+'\n\n';
-  prompt+='【原文】\n'+content+'\n\n';
-  prompt+='【修改原则】\n';
-  prompt+='1. 只修改评价中指出的具体问题，不要改动其他部分\n';
-  prompt+='2. 保持原有剧情走向、角色性格、对话风格不变\n';
-  prompt+='3. 保留原文的优点和精彩段落\n';
-  prompt+='4. 修改要精准，不要为了改而改\n';
-  prompt+='5. 输出修改后的完整正文，不要加任何解释、标记或对比\n';
-  
-  let result = await callRealAPIWithFallback(prompt, null, 'quality_polish', Math.max(500, content.length)); // v48: 控制输出长度，加快响应
+
+  prompt += fixTargets + '\n\n';
+  prompt += '【原文】\n'+content+'\n\n';
+  prompt += '【修改原则】\n';
+  prompt += '1. 只修改上面列出的低分维度，不要改动其他写得好好的部分\n';
+  prompt += '2. 保持原有剧情走向、角色性格、对话风格不变\n';
+  prompt += '3. 保留原文的优点和精彩段落\n';
+  prompt += '4. 修改要精准，不要为了改而改\n';
+  prompt += '5. 输出修改后的完整正文，不要加任何解释、标记或对比\n';
+
+  let result = await callRealAPIWithFallback(prompt, null, 'quality_polish', Math.max(500, content.length));
   if(result){
+    // 修改前后评分对比
+    var beforeScore = evalData ? evalData.totalScore : null;
+    var afterResult = null;
+    if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluateText){
+      afterResult = QualityEngine.evaluateText(result, work);
+    }
+
     statusBar.style.background = '#dcfce7';
     statusBar.style.color = '#166534';
-    statusBar.textContent = '✅ 已按评价修改完成（' + result.length + '字）';
-    setTimeout(function(){ statusBar.style.display='none'; }, 3000);
+    var scoreMsg = '';
+    if(beforeScore && afterResult && afterResult.totalScore){
+      var diff = afterResult.totalScore - beforeScore;
+      scoreMsg = ' | ' + (diff >= 0 ? '↑' : '↓') + Math.abs(diff) + '分 (' + beforeScore + '→' + afterResult.totalScore + ')';
+    }
+    statusBar.textContent = '✅ 已按评价修改完成（' + result.length + '字）' + scoreMsg;
+    setTimeout(function(){ statusBar.style.display='none'; }, 4000);
     document.getElementById('editor').value = result;
     updateWordCount();
-    showToast('已按评价修改');
+
+    // 显示修改后评分
+    if(afterResult && typeof EvalUI !== 'undefined' && EvalUI.show){
+      showToast('已按评价修改，评分：' + afterResult.grade + ' ' + afterResult.totalScore + '/100');
+    } else {
+      showToast('已按评价修改');
+    }
   } else {
     statusBar.style.background = '#fef3c7';
     statusBar.style.color = '#92400e';
@@ -6065,11 +6054,18 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ===== v29: 质量报告面板 =====
+// ========== v53: 质量报告（使用新EvalUI）==========
 function showQualityReport(){
   var work = getCurrentWork(); if (!work) return;
   var ch = work.chapters && work.chapters[currentChapterIdx];
   if (!ch || !ch._quality) { showToast('当前章节暂无质量报告，先用 AI 写作或润色一次'); return; }
   var q = ch._quality;
+  // 如果用新格式（有dimensions数组），直接用EvalUI
+  if(q.dimensions && typeof EvalUI !== 'undefined' && EvalUI.show){
+    EvalUI.show(q, function() { aiPolishByQuality(); });
+    return;
+  }
+  // 兼容旧格式
   var html = '<div style="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998;" onclick="closeQualityReport(event)">' +
     '<div onclick="event.stopPropagation()" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90%;max-width:480px;max-height:80vh;overflow:auto;background:#fff;border-radius:12px;padding:18px 18px 14px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
@@ -6106,6 +6102,7 @@ function closeQualityReport(e){
   if (e && e.target && !e.target.id) return;
   var el = document.getElementById('quality-report-overlay');
   if (el) el.parentNode.removeChild(el);
+  if(typeof EvalUI !== 'undefined' && EvalUI.close) EvalUI.close();
 }
 async function aiPolishByQuality(){
   var work = getCurrentWork(); if (!work) return;
@@ -6115,8 +6112,20 @@ async function aiPolishByQuality(){
   var q = ch._quality;
   var content = document.getElementById('editor').value;
   if (!content.trim()) { showToast('当前章节为空'); return; }
-  var hint = '请按以下短板对本章进行针对性润色，保持原情节、原人物、原长度，只优化文字：\n';
-  for (var i=0;i<(q.suggestions||[]).length;i++) hint += (i+1) + '. ' + q.suggestions[i] + '\n';
+  // 优先使用新格式的低分维度
+  var hint = '';
+  if(q.dimensions){
+    var lowDims = q.dimensions.filter(function(d){ return d.score <= 4; });
+    if(lowDims.length > 0){
+      hint += '请只修复以下低分维度，保持其他部分不变：\n';
+      lowDims.forEach(function(d){ hint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '') + '\n'; });
+    }
+  }
+  if(!hint && q.suggestions && q.suggestions.length){
+    hint += '请按以下短板对本章进行针对性润色：\n';
+    for (var i=0;i<q.suggestions.length;i++) hint += (i+1) + '. ' + q.suggestions[i] + '\n';
+  }
+  if(!hint){ hint = '请优化本章的文字质量，提升写作水平'; }
   var prompt = '你是一位资深网文编辑。\n\n' + hint + '\n\n【原文】\n' + content + '\n\n【输出要求】直接给出润色后的完整章节正文，不要解释。';
   showLoading('按建议润色中…');
   try {
@@ -6127,13 +6136,12 @@ async function aiPolishByQuality(){
       document.getElementById('editor').value = r;
       ch.content = r;
       ch.wordCount = r.length;
-      // 重新打分
+      // 重新打分（新引擎）
       try {
-        var prev = currentChapterIdx > 0 && work.chapters[currentChapterIdx-1] ? (work.chapters[currentChapterIdx-1].content||'') : '';
-        if(typeof QualityEngine !== 'undefined' && QualityEngine.score){
-          var nq = QualityEngine.score(r, { work: work, prevContent: prev, genre: getWorkGenre(work) });
-          QualityEngine.attach(work, currentChapterIdx, nq);
-          showToast('润色完成，质量分 ' + nq.score + '/100');
+        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluateText){
+          var nq = QualityEngine.evaluateText(r, work);
+          ch._quality = nq;
+          showToast('润色完成 ' + nq.grade + ' ' + nq.totalScore + '/100');
         }
       } catch(e){}
       DB.saveWork(work);

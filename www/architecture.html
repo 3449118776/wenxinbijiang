@@ -586,6 +586,8 @@ body{display:flex;flex-direction:column;}
 <script src="assets/js/ai-local.js"></script>
 <script src="assets/js/speech.js"></script>
 <script src="assets/js/cards.js"></script>
+<script src="assets/js/quality.js"></script>
+<script src="assets/js/eval-ui.js"></script>
 <script src="assets/js/architecture.js"></script>
 <script src="assets/js/engines-rag.js"></script>
 <script src="assets/js/engines-style.js"></script>
@@ -2579,160 +2581,73 @@ window.deleteCurrentAIGeneration = function(){
   }catch(e){ console.error(e); showToast('操作失败'); }
 };
 
-// ========== v48: 架构模块深度评价（AI 评价 + 本地启发式双路检查）==========
-// 功能：分析当前模块的生成内容，输出结构化问题列表，为"按评价加强"提供修复线索
+// ========== v53: 架构模块评价（5种类型独立引擎 + 卡片UI）==========
 window.evaluateArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
-    // 分页模式下 textarea 只显示当前页，需用全文缓存获取完整内容
     var content = _archFullContent[module] || '';
     if (!content) {
       var rawEl = document.getElementById('raw-' + module);
       if (rawEl && rawEl.value.trim()) content = rawEl.value.trim();
     }
-    if(!content){
-      showToast('先生成内容再评价');
-      return;
-    }
-    var len = content.length;
+    if(!content){ showToast('先生成内容再评价'); return; }
 
-    // ============== 本地启发式快速检查（离线可用）==============
-    var issues = [];
-    var strengths = [];
-
-    // 长度检查
-    if(len < 600) issues.push('内容偏短（<600字），设定/细节可能不足');
-    else if(len >= 800 && len <= 3000) strengths.push('篇幅合理');
-
-    // AI 腔 / 模板化表达检测
-    var aiPatterns = /(他的内心五味杂陈|时间仿佛静止|空气仿佛凝固|心中百感交集|众人震惊|全场震惊|一片哗然|所有人都惊呆了|命运的齿轮开始转动|仿佛是|如同是)/;
-    if(aiPatterns.test(content)) issues.push('检测到 AI 腔/模板化表达（应替换为具体动作/对话）');
-    else strengths.push('模板化表达少');
-
-    // 细纲格式检查
-    if(module === 'detail'){
-      var chapterCount = (content.match(/第[\d一二三四五六七八九十百零两]+章/g) || []).length;
-      if(chapterCount === 0) issues.push('细纲中未检测到"第N章"格式；建议明确分章');
-      if(chapterCount < 5) issues.push('细纲章节数偏少（<5）；建议扩展到10-20章');
-      var hasHookPattern = /(原来|其实|秘密|真正|不仅|更|可|却|谁也没想到|就在这时)/;
-      if(chapterCount > 0 && !hasHookPattern.test(content)) issues.push('悬念钩子不足；每章末应有让读者想点下一章的内容');
-      var pipeCount = (content.match(/\|/g) || []).length;
-      if(chapterCount > 0 && pipeCount < chapterCount) issues.push('部分章节未使用"|"字段分隔符；统一格式便于后续写作');
-      if(chapterCount >= 8 && pipeCount >= chapterCount) strengths.push('细纲格式规范');
+    // 1. 本地结构化评价（新引擎）
+    var result = null;
+    if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+      result = QualityEngine.evaluate(content, module);
     }
 
-    // 人设检查
-    if(module === 'chars'){
-      if(!/反派|对手|敌人|敌对/.test(content)) issues.push('人设中未见明确的反派/敌对角色');
-      var nameCount = (content.match(/[\u4e00-\u9fa5]{2,4}(?=\s*[（(]|：|:)/g) || []).length;
-      if(nameCount >= 4) strengths.push('人物名识别正常');
-      if(content.length < 800) issues.push('人物设定偏短；建议补充每个人物的动机/弱点/弧光起点');
-    }
-
-    // 世界观检查
-    if(module === 'world'){
-      if(!/(代价|限制|规则|矛盾|冲突|力量|体系|社会|势力)/.test(content)) issues.push('世界观缺少"代价/规则/矛盾/势力"等核心要素');
-      if(/(四大神兽|五行|元素|斗气|魔法)/.test(content)) issues.push('使用了较泛的传统设定；建议添加独特变体以避免套路化');
-    }
-
-    // 大纲检查
-    if(module === 'outline'){
-      var juanCount = (content.match(/第[一二三四五六七八九十\d]+卷|卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十\d]+幕/g) || []).length;
-      if(juanCount === 0) issues.push('未见明确分卷结构；建议按"卷"组织全书');
-      if(!/(伏笔|钩子|悬念|转折|冲突|爆点|揭示)/.test(content)) issues.push('大纲缺少伏笔/钩子/转折等结构要素');
-    }
-
-    // ============== AI 深度评价（按模块不同评价维度）==============
+    // 2. AI 深度评价（可选，异步补充）
     var aiReport = '';
-    if(typeof callRealAPIWithFallback === 'function' && len > 100){
-      if(typeof showLoading === 'function') showLoading('评价分析中…');
-      var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿，找出具体的可改进点。\n\n';
-      evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
+    if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
+      if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
+      var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿。\n\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
-      
-      // 按模块不同评价维度
-      evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
-      if(module === 'world'){
-        evalPrompt += '1. 设定完整度：世界观体系是否自洽、有层次\n';
-        evalPrompt += '2. 独特创新：是否有区别于传统套路的独特要素\n';
-        evalPrompt += '3. 冲突张力：规则/矛盾/冲突源设计是否有力\n';
-        evalPrompt += '4. 力量体系：规则是否清晰、有代价和限制\n';
-        evalPrompt += '5. 社会结构：势力/阶层/组织分布是否合理\n';
-        evalPrompt += '6. 叙事潜力：是否为故事提供了足够的戏剧空间\n';
-      } else if(module === 'chars'){
-        evalPrompt += '1. 人物立体度：是否有动机、弱点、弧光\n';
-        evalPrompt += '2. 关系网络：人物之间的关系/冲突是否清晰\n';
-        evalPrompt += '3. 反派/对抗力：对立面是否足够强大有趣\n';
-        evalPrompt += '4. 差异化：人物之间性格/背景是否足够区分\n';
-        evalPrompt += '5. 成长空间：人物是否有可追踪的成长弧线\n';
-        evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入\n';
-      } else if(module === 'outline'){
-        evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理\n';
-        evalPrompt += '2. 节奏把控：高潮点和休息点的安排是否得当\n';
-        evalPrompt += '3. 伏笔设计：是否有足够的伏笔和钩子\n';
-        evalPrompt += '4. 主线清晰：主线是否明确、支线不喧宾夺主\n';
-        evalPrompt += '5. 冲突递进：冲突是否逐级升级\n';
-        evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足\n';
-      } else if(module === 'detail'){
-        evalPrompt += '1. 章节连贯：章与章之间的衔接是否自然\n';
-        evalPrompt += '2. 钩子密度：每章结尾是否有让读者想点下一章的钩子\n';
-        evalPrompt += '3. 信息释放：信息是否有序释放、不堆砌\n';
-        evalPrompt += '4. 节奏控制：每章节奏是否得当、有无拖沓\n';
-        evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布\n';
-        evalPrompt += '6. 可执行性：每章目标是否明确、适合写正文\n';
-      } else {
-        evalPrompt += '1. 内容质量：整体水平\n';
-        evalPrompt += '2. 结构完整：结构是否合理\n';
-        evalPrompt += '3. 创新性：是否有独特之处\n';
-        evalPrompt += '4. 可执行性：是否适合后续写作\n';
-      }
-      evalPrompt += '\n【你的输出格式】\n';
-      evalPrompt += '- 每个维度：维度名 X分 — 具体评价\n';
-      evalPrompt += '- 列出 3-6 条具体问题（必须针对上文内容，不能泛泛而谈）\n';
-      evalPrompt += '- 给出 2-3 条针对性改进建议\n';
-      evalPrompt += '- 不要超过 400 字；用简短犀利的编辑口吻\n';
-      evalPrompt += '- 不要用"好的""收到"等对话语';
-      try{
-        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default');
-      }catch(e){ aiReport = ''; }
+      evalPrompt += '请列出：\n1. 3-5条具体问题（必须针对内容，不能泛泛而谈）\n';
+      evalPrompt += '2. 2-3条针对性改进建议\n3. 不要超过300字，用简短犀利的编辑口吻\n';
+      try{ aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default'); }catch(e){ aiReport = ''; }
       if(typeof hideLoading === 'function') hideLoading();
     }
 
-    // ============== 汇总报告 ==============
-    var localReport = '【本地检查】' + (strengths.length ? '优点：' + strengths.join('、') : '') + (issues.length ? '；问题：' + issues.join('；') : '整体结构良好 ✅');
-    var fullReport = localReport;
-    if(aiReport && aiReport.trim() && aiReport.indexOf('暂不可用') === -1){
-      fullReport += '\n\n【编辑意见】\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(aiReport) : aiReport);
+    // 3. 合并AI意见到结果
+    if(result && aiReport && aiReport.trim() && aiReport.indexOf('暂不可用') === -1){
+      result.aiReport = typeof cleanAIOutput === 'function' ? cleanAIOutput(aiReport) : aiReport;
+      if(!result.suggestions) result.suggestions = [];
+      // 提取AI建议中的关键句
+      var aiLines = aiReport.split(/[\n。]/).filter(function(l){ return l.length > 10 && l.length < 60; });
+      result.suggestions = result.suggestions.concat(aiLines.slice(0, 3));
     }
 
-    // 保存到作品元数据（供"按评价加强"读取）
+    // 4. 保存到作品元数据
     var work = getCurrentWork();
     if(work){
       work._archEval = work._archEval || {};
-      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, time: Date.now() };
+      work._archEval[module] = result;
       try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
     }
 
-    // 展示修复按钮 + 报告（v48: 每个模块有独立 ID）
+    // 5. 显示修复按钮
     var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
     var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-    if(fixBtn){
+    if(fixBtn && result){
       fixBtn.style.display = '';
-      fixBtn.textContent = '🔥 按评价加强（' + issues.length + '个问题）';
+      var issueCount = (result.issues && result.issues.length) || 0;
+      fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
     }
 
-    // 用 alert 显示完整报告（便于阅读长文）
-    var finalMsg = '【' + moduleName + ' · 质量评价】\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
-    try{
-      alert(finalMsg);
-    }catch(e){
-      showToast(localReport, {duration:6000});
+    // 6. 用卡片UI展示（替代alert）
+    if(result && typeof EvalUI !== 'undefined' && EvalUI.show){
+      EvalUI.show(result, function(r) { window.fixArchModule(); });
+    } else {
+      var msg = '【' + moduleName + ' · 质量评价】\n\n' + (result ? result.grade + ' ' + result.totalScore + '/100' : '') + '\n';
+      alert(msg);
     }
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
 
-// ========== v48: 按评价加强 —— 基于最近一次评价的问题重新生成 ==========
+// ========== v53: 按评价加强 —— 精准修复低分维度 ==========
 window.fixArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
@@ -2741,19 +2656,26 @@ window.fixArchModule = async function(){
     var evalData = work._archEval && work._archEval[module];
     if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
 
-    // 构造针对本次问题的加强提示（从本地 issues 中提炼）
+    // 构造精准修复提示：只修复低分维度（≤4分），不重写整篇
     var extraHint = '';
-    if(evalData.issues && evalData.issues.length){
-      extraHint += '本次重新生成，你必须特别解决以下问题：\n';
-      for(var i=0;i<evalData.issues.length;i++){
-        extraHint += '- ' + evalData.issues[i] + '\n';
+    if(evalData.dimensions){
+      var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 4; });
+      if(lowDims.length > 0){
+        extraHint += '本次重新生成，只修复以下低分维度，保持其他部分不变：\n';
+        lowDims.forEach(function(d){
+          extraHint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
+        });
       }
     }
-    if(evalData.aiReport && evalData.aiReport.trim() && evalData.aiReport.indexOf('暂不可用') === -1){
-      extraHint += '\n此外，参考编辑的以下意见：\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport);
+    if(evalData.issues && evalData.issues.length){
+      if(!extraHint) extraHint += '本次重新生成，必须特别解决以下问题：\n';
+      evalData.issues.slice(0, 5).forEach(function(iss){ extraHint += '- ' + iss + '\n'; });
+    }
+    if(evalData.aiReport){
+      extraHint += '\n编辑意见参考：\n' + evalData.aiReport;
     }
 
-    // 调用 generateArchModule 并注入加强提示
+    showToast('正在按评价精准修复…');
     await window.generateArchModule({ isFix: true, extraHint: extraHint });
   }catch(e){ console.error('fixArchModule error:', e); showToast('加强失败：' + (e.message||e), {error:true}); }
 };
