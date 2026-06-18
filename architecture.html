@@ -492,8 +492,8 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-count-selector" id="count-select-detail">
         <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数">卷
-        <span>约</span><input type="number" id="ch-count-detail" value="90" min="30" max="300" step="10" title="总章数">章
-        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">10</span>章）</span>
+        <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
+        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -2379,7 +2379,7 @@ function buildArchCardBatchesV48(module, work, idea){
     var chInputEl = document.getElementById('ch-count-detail');
     if(chInputEl){
       var c = parseInt(chInputEl.value);
-      if(c >= 30 && c <= 300) chaptersPerVolume = Math.max(3, Math.round(c / volumeCount));
+      if(c >= 1000 && c <= 20000) chaptersPerVolume = Math.max(10, Math.round(c / volumeCount));
     }
     
     // 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
@@ -3054,7 +3054,7 @@ window.addEventListener('DOMContentLoaded',function(){
   if(volInput && chInput && hintEl){
     var updateHint = function(){
       var v = parseInt(volInput.value) || 9;
-      var c = parseInt(chInput.value) || 90;
+      var c = parseInt(chInput.value) || 3000;
       hintEl.textContent = Math.max(1, Math.round(c / v));
     };
     volInput.addEventListener('input', updateHint);
