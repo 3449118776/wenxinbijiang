@@ -314,6 +314,7 @@ body{display:flex;flex-direction:column;}
     <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">‹</div>
     <div class="page-title" id="global-page-title">架构设计</div>
     <span style="font-size:10px;color:#ccc;margin-right:4px;">v66</span>
+    <button class="btn-pipeline" style="padding:3px 10px;font-size:11px;margin-right:6px;" onclick="openMaterialLib()">📦 素材库</button>
     <div class="more-btn" onclick="showRMenu()">⋯</div>
   </div>
   <!-- 面包屑导航 -->
@@ -532,6 +533,28 @@ body{display:flex;flex-direction:column;}
   <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
   <div class="tab-item active"><div class="tab-icon">🔧</div><div>工具</div></div>
   <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<!-- 素材库面板 -->
+<div class="modal-overlay" id="matlib-overlay" onclick="closeMaterialLib()"></div>
+<div class="modal-card" id="matlib-panel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:92vw;max-width:560px;max-height:80vh;overflow-y:auto;z-index:10000;background:#fff;border-radius:12px;padding:0;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+  <div style="position:sticky;top:0;background:#fff;padding:16px 20px 12px;border-bottom:1px solid #eee;z-index:1;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:16px;font-weight:700;">📦 素材库</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-pipeline" style="padding:4px 12px;font-size:11px;" onclick="aiExtractMaterialLib()">🤖 AI 提取</button>
+        <button style="background:none;border:none;font-size:18px;cursor:pointer;color:#999;" onclick="closeMaterialLib()">✕</button>
+      </div>
+    </div>
+    <div id="matlib-status" style="font-size:11px;color:#999;margin-top:4px;"></div>
+  </div>
+  <div id="matlib-content" style="padding:16px 20px;font-size:13px;line-height:1.8;color:#555;">
+    <div style="text-align:center;padding:40px;color:#ccc;">尚未提取素材库<br>点击「🤖 AI 提取」自动从设定中提取</div>
+  </div>
+  <div style="padding:12px 20px;border-top:1px solid #eee;display:flex;gap:8px;">
+    <button class="btn-cancel" onclick="closeMaterialLib()">关闭</button>
+    <button class="btn-confirm" onclick="saveMaterialLib()">💾 保存素材库</button>
+  </div>
 </div>
 
 <!-- 右键菜单 -->
@@ -3376,6 +3399,151 @@ window.confirmSave = function(){
     if(next){ _selectedModule = next; goToLevel(4); }
   }catch(e){ console.error('confirmSave:',e); showToast('保存失败',{error:true}); }
 };
+
+// ===== v52: 素材库面板 =====
+var _matLib = null; // 当前素材库缓存
+
+function openMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  _matLib = work.materialLib || null;
+  document.getElementById('matlib-overlay').style.display = 'block';
+  document.getElementById('matlib-panel').style.display = 'block';
+  var statusEl = document.getElementById('matlib-status');
+  if (_matLib && _matLib.extractedAt) {
+    statusEl.textContent = '上次提取：' + new Date(_matLib.extractedAt).toLocaleString() + ' | 共 ' + (_matLib.categoryCount || 0) + ' 个类别';
+  } else {
+    statusEl.textContent = '尚未提取';
+  }
+  renderMaterialLib();
+}
+
+function closeMaterialLib() {
+  document.getElementById('matlib-overlay').style.display = 'none';
+  document.getElementById('matlib-panel').style.display = 'none';
+}
+
+function renderMaterialLib() {
+  var el = document.getElementById('matlib-content');
+  if (!_matLib || !_matLib.categories) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#ccc;">尚未提取素材库<br>点击「🤖 AI 提取」自动从设定中提取</div>';
+    return;
+  }
+  var cats = _matLib.categories;
+  var html = '';
+  var catNames = ['地名/地点', '势力/组织', '功法/技能', '道具/物品', '货币/资源', '修炼等级', '特殊称谓', '时间单位', '文化习俗', '种族/物种', '法则/规则', '其他'];
+  var catKeys = ['places', 'factions', 'skills', 'items', 'currency', 'levels', 'titles', 'timeUnits', 'customs', 'races', 'rules', 'other'];
+  var shown = 0;
+  for (var ci = 0; ci < catKeys.length; ci++) {
+    var key = catKeys[ci];
+    var items = cats[key];
+    if (!items || !items.length) continue;
+    shown++;
+    html += '<div style="margin-bottom:14px;"><strong style="color:#333;">' + catNames[ci] + '</strong>';
+    html += '<div style="color:#666;margin-top:2px;">';
+    for (var ii = 0; ii < items.length; ii++) {
+      var item = items[ii];
+      if (typeof item === 'string') {
+        html += '<span style="display:inline-block;background:#f0f0ff;padding:2px 8px;border-radius:4px;margin:2px 4px 2px 0;font-size:12px;">' + item + '</span>';
+      } else if (item && item.name) {
+        var desc = item.desc ? ' <span style="color:#999;font-size:11px;">— ' + item.desc + '</span>' : '';
+        html += '<span style="display:inline-block;background:#f0f0ff;padding:2px 8px;border-radius:4px;margin:2px 4px 2px 0;font-size:12px;">' + item.name + '</span>' + desc;
+      }
+    }
+    html += '</div></div>';
+  }
+  if (shown === 0) {
+    html = '<div style="text-align:center;padding:20px;color:#ccc;">素材库为空，请点击「AI 提取」</div>';
+  }
+  el.innerHTML = html;
+}
+
+async function aiExtractMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  
+  var statusEl = document.getElementById('matlib-status');
+  statusEl.textContent = '🤖 AI 正在分析设定，提取素材...';
+  var contentEl = document.getElementById('matlib-content');
+  contentEl.innerHTML = '<div style="text-align:center;padding:40px;color:#6366f1;">🤖 AI 正在分析你的世界观、人设、大纲...<br><span style="font-size:12px;color:#999;">提取地名、势力、功法、道具、货币、等级、称谓、习俗等</span></div>';
+  
+  var worldText = work.world || '';
+  var charsText = work.chars || '';
+  var outlineText = work.outline || '';
+  var detailText = work.detail || '';
+  var allText = worldText + '\n\n' + charsText + '\n\n' + outlineText + '\n\n' + detailText;
+  
+  if (allText.trim().length < 50) {
+    statusEl.textContent = '⚠️ 设定内容太少，请先生成世界观/人设/大纲';
+    contentEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">设定内容不足，无法提取素材库</div>';
+    return;
+  }
+  
+  // 截断过长文本
+  if (allText.length > 15000) allText = allText.substring(0, 15000) + '\n...(内容过长，已截断)';
+  
+  var prompt = '请从以下小说设定中提取结构化素材库。输出必须是纯JSON格式，不要加任何解释。\n\n';
+  prompt += '【小说设定】\n' + allText + '\n\n';
+  prompt += '【输出格式】严格按以下JSON结构输出，每个类别最多15项：\n';
+  prompt += '{\n';
+  prompt += '  "places": ["地名1", "地名2"],\n';
+  prompt += '  "factions": ["势力名1", "势力名2"],\n';
+  prompt += '  "skills": ["功法/技能名1", "功法/技能名2"],\n';
+  prompt += '  "items": ["道具/物品名1", "道具/物品名2"],\n';
+  prompt += '  "currency": ["货币/资源名1", "货币/资源名2"],\n';
+  prompt += '  "levels": [{"name":"境界名","desc":"简要说明"}, ...],\n';
+  prompt += '  "titles": ["称谓/身份1", "称谓/身份2"],\n';
+  prompt += '  "timeUnits": ["时间单位1", "时间单位2"],\n';
+  prompt += '  "customs": ["文化习俗1", "文化习俗2"],\n';
+  prompt += '  "races": ["种族/物种1", "种族/物种2"],\n';
+  prompt += '  "rules": ["世界观法则1", "世界观法则2"],\n';
+  prompt += '  "other": ["其他重要设定元素"]\n';
+  prompt += '}\n\n';
+  prompt += '规则：\n';
+  prompt += '1. 只提取在设定中明确出现过或强烈暗示过的元素，不要凭空编造\n';
+  prompt += '2. 如果某个类别在设定中没有任何内容，返回空数组[]\n';
+  prompt += '3. 名称要简洁（2-8字），便于AI在写作时引用\n';
+  prompt += '4. levels 类别需要包含 name 和 desc 两个字段\n';
+  prompt += '5. 直接输出JSON，不要加```json标记或任何其他文字\n';
+  
+  try {
+    var result = await callRealAPI(prompt, null, 'matlib', 2000);
+    // 尝试解析JSON
+    var jsonStr = result.trim();
+    // 清理可能的markdown标记
+    jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+    var parsed = JSON.parse(jsonStr);
+    
+    _matLib = {
+      categories: parsed,
+      categoryCount: Object.keys(parsed).filter(function(k) { return parsed[k] && parsed[k].length > 0; }).length,
+      extractedAt: Date.now()
+    };
+    
+    statusEl.textContent = '✅ 提取完成！共 ' + _matLib.categoryCount + ' 个类别 | ' + new Date().toLocaleString();
+    renderMaterialLib();
+  } catch (e) {
+    console.error('素材库提取失败:', e);
+    statusEl.textContent = '❌ 提取失败，请重试';
+    contentEl.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e;">解析失败，AI 返回格式不正确<br><span style="font-size:12px;color:#999;">请重试，或检查设定内容是否足够丰富</span></div>';
+  }
+}
+
+function saveMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  if (!_matLib || !_matLib.categories) { showToast('素材库为空，请先提取', {error: true}); return; }
+  
+  work.materialLib = _matLib;
+  if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+  showToast('✅ 素材库已保存');
+  closeMaterialLib();
+}
+
+window.openMaterialLib = openMaterialLib;
+window.closeMaterialLib = closeMaterialLib;
+window.aiExtractMaterialLib = aiExtractMaterialLib;
+window.saveMaterialLib = saveMaterialLib;
 </script>
 </body>
 </html>

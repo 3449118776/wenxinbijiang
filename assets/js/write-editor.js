@@ -2229,84 +2229,76 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【人物人设】\n' + charsText + '\n\n';
   }
   
-  // ===== v51: 素材库 · 从世界观/人设中提取可复用元素（地名/势力/功法/道具/货币/称谓） =====
-  var materialLib = {};
-  var allArchText = (work.world || '') + '\n' + (work.chars || '') + '\n' + (work.outline || '');
-  
-  // 提取地名
-  var placeRE = /[【\[]?([^】\]\n]{2,8}(?:城|镇|村|谷|山|海|河|域|界|殿|宫|府|阁|楼|堂|院|塔|林|原|漠|岛|州|国|郡|都|堡|寨|关|崖|渊|洞|窟|峰|岭|湖|江|泽|墟))[】\]]?/g;
-  var places = [];
-  var pm;
-  while ((pm = placeRE.exec(allArchText)) !== null) {
-    var p = pm[1];
-    if (p.length >= 2 && places.indexOf(p) === -1 && places.length < 15) places.push(p);
-  }
-  if (places.length) materialLib.places = places;
-  
-  // 提取势力/组织名
-  var factionRE = /[【\[]?([^】\]\n]{2,8}(?:宗|门|派|教|会|盟|帮|族|家|国|朝|军|团|队|组|殿|阁|楼|府|堂|院|塔|谷|山|岛|堡|城|坊|司|局|卫|营|旗|舵|坛|社|联|党|部|处|所|馆|斋|居|轩|苑|园|庄|店|铺|行|号|坊))[】\]]?/g;
-  var factions = [];
-  var fm;
-  while ((fm = factionRE.exec(allArchText)) !== null) {
-    var f = fm[1];
-    if (f.length >= 2 && factions.indexOf(f) === -1 && factions.length < 12) factions.push(f);
-  }
-  if (factions.length) materialLib.factions = factions;
-  
-  // 提取功法/技能/招式名
-  var skillRE = /[【\[]?([^】\]\n]{2,10}(?:功|法|诀|术|技|式|剑|刀|拳|掌|指|腿|步|身法|心法|功法|秘籍|神通|秘术|禁术|奥义|绝学|传承|血脉|天赋|能力|异能|灵力|斗气|魔法|仙术|道法|佛法|巫术|诅咒|契约|炼金|符文|阵法|炼丹|炼器|御兽|召唤|附魔|铭文|图腾|灵根|武魂|魂环|魂骨|领域|法则|大道|天道|仙道|魔道|妖道|鬼道|神道|武道|剑道|刀道|拳道|掌道|指道|丹道|器道|阵道|符道|咒道|蛊道|毒道|医道|幻道|梦道|时道|空道|生道|死道|因果|轮回|命运|气运|功德|业力|灵力|真气|元气|仙气|魔气|妖气|鬼气|神气|龙气|凤气|灵气|斗气|霸气|杀气|剑气|刀气|拳意|掌意|指意|意境|奥义|领域|法则))[】\]]?/g;
-  var skills = [];
-  var skm;
-  while ((skm = skillRE.exec(allArchText)) !== null) {
-    var sk = skm[1];
-    if (sk.length >= 2 && skills.indexOf(sk) === -1 && skills.length < 15) skills.push(sk);
-  }
-  if (skills.length) materialLib.skills = skills;
-  
-  // 提取道具/物品名
-  var itemRE = /[【\[]?([^】\]\n]{2,8}(?:剑|刀|枪|戟|斧|锤|鞭|弓|弩|盾|甲|铠|袍|衣|冠|靴|戒|环|镯|链|珠|玉|符|印|鼎|炉|丹|药|草|石|晶|矿|木|果|花|液|水|火|雷|风|冰|光|暗|镜|图|卷|书|册|令|牌|钥|匙|锁|盒|囊|袋|瓶|罐|盘|杯|盏|针|线|索|绳|网|旗|幡|扇|伞|灯|烛|香|炉|琴|笛|箫|钟|鼓|砚|笔|墨|纸|棋|盘|石|碑|柱|门|桥|船|车|舟|翼|翅|羽|鳞|角|爪|牙|骨|血|肉|皮|筋|脉|髓|核|晶|魂|灵|魄|神|魔|妖|鬼|仙|佛|圣|帝|王|皇|尊|祖|宗|师|匠|徒|者|士|兵|将|帅|侯|爵|公|卿|相|宰|臣|吏|民|奴|婢|侍|卫|护|守|监|察|判|断|裁|决|执|行|掌|管|控|御|统|领|率|带|引|导|指|挥|令|命|遣|派|差|使|役|雇|佣|租|借|贷|赊|买|卖|贸|易|商|贾|贩|货|物|品|器|具|材|料|资|源|产|业|财|富|钱|币|金|银|铜|铁|钢|锡|铅|汞|硫|硝|碳|硅|铝|钛|铬|镍|钴|锌|锰|镁|钙|钾|钠|磷|氯|氟|碘|溴|氦|氖|氩|氪|氙|氡|铀|钚|钍|镭|钋|锕|镤|镎|镅|锔|锫|锎|锿|镄|钔|锘|铹))[】\]]?/g;
-  var items = [];
-  var im;
-  while ((im = itemRE.exec(allArchText)) !== null) {
-    var it = im[1];
-    if (it.length >= 2 && items.indexOf(it) === -1 && items.length < 15) items.push(it);
-  }
-  if (items.length) materialLib.items = items;
-  
-  // 提取特殊称谓/身份
-  var titleRE = /[【\[]?([^】\]\n]{2,8}(?:尊者|圣者|帝者|王者|皇者|仙者|神者|魔者|妖者|鬼者|佛者|道者|武者|剑者|刀者|拳者|掌者|丹者|器者|阵者|符者|咒者|蛊者|毒者|医者|幻者|梦者|卜者|相者|命者|运者|师|匠|徒|者|士|兵|将|帅|侯|爵|公|卿|相|宰|臣|吏|民|奴|婢|侍|卫|护|守|监|察|判|断|裁|决|执|行|掌|管|控|御|统|领|率|带|引|导|指|挥|令|命|遣|派|差|使|役|雇|佣|租|借|贷|赊|买|卖|贸|易|商|贾|贩|货|物|品|器|具|材|料|资|源|产|业|财|富|钱|币|金|银|铜|铁|钢|锡|铅|汞|硫|硝|碳|硅|铝|钛|铬|镍|钴|锌|锰|镁|钙|钾|钠|磷|氯|氟|碘|溴|氦|氖|氩|氪|氙|氡|铀|钚|钍|镭|钋|锕|镤|镎|镅|锔|锫|锎|锿|镄|钔|锘|铹))[】\]]?/g;
-  var titles = [];
-  var tm;
-  while ((tm = titleRE.exec(allArchText)) !== null) {
-    var t = tm[1];
-    if (t.length >= 2 && titles.indexOf(t) === -1 && titles.length < 10) titles.push(t);
-  }
-  if (titles.length) materialLib.titles = titles;
-  
-  // 组装素材库
-  var matKeys = Object.keys(materialLib);
-  if (matKeys.length > 0) {
-    prompt += '【📦 素材库 · 从设定中提取的可复用元素（本章必须使用具体名称，禁止泛称）】\n';
-    if (materialLib.places) {
-      prompt += '  地名：' + materialLib.places.join('、') + '\n';
+  // ===== v52: 素材库 · 从 work.materialLib 读取（AI 提取的 12 类结构化素材） =====
+  if (work.materialLib && work.materialLib.categories) {
+    var cats = work.materialLib.categories;
+    var catNames = ['地名/地点', '势力/组织', '功法/技能', '道具/物品', '货币/资源', '修炼等级', '特殊称谓', '时间单位', '文化习俗', '种族/物种', '法则/规则', '其他'];
+    var catKeys = ['places', 'factions', 'skills', 'items', 'currency', 'levels', 'titles', 'timeUnits', 'customs', 'races', 'rules', 'other'];
+    var hasContent = false;
+    for (var cki = 0; cki < catKeys.length; cki++) {
+      if (cats[catKeys[cki]] && cats[catKeys[cki]].length > 0) { hasContent = true; break; }
     }
-    if (materialLib.factions) {
-      prompt += '  势力/组织：' + materialLib.factions.join('、') + '\n';
+    if (hasContent) {
+      prompt += '【📦 素材库 · 从设定中 AI 提取的可复用元素 · 本章必须使用具体名称，禁止泛称】\n';
+      for (var cki = 0; cki < catKeys.length; cki++) {
+        var items = cats[catKeys[cki]];
+        if (!items || !items.length) continue;
+        var names = [];
+        for (var ii = 0; ii < items.length; ii++) {
+          if (typeof items[ii] === 'string') {
+            names.push(items[ii]);
+          } else if (items[ii] && items[ii].name) {
+            names.push(items[ii].name + (items[ii].desc ? '（' + items[ii].desc + '）' : ''));
+          }
+        }
+        if (names.length > 0) {
+          prompt += '  ' + catNames[cki] + '：' + names.join('、') + '\n';
+        }
+      }
+      prompt += '【素材库使用规则】\n';
+      prompt += '1. 写作时角色名、地名、势力名、功法名必须从素材库中选取，禁止凭空编造新名称\n';
+      prompt += '2. 如果确实需要新元素（如新地点、新势力），必须在细纲中事先定义，不可以临时编造\n';
+      prompt += '3. 同一地名/势力名在前文出现过的，后文必须保持一致（包括全称/简称/别称）\n';
+      prompt += '4. 功法/技能的使用必须符合世界观设定的等级体系和代价规则\n\n';
     }
-    if (materialLib.skills) {
-      prompt += '  功法/技能/招式：' + materialLib.skills.join('、') + '\n';
+  } else {
+    // 降级：用正则从设定中提取（旧版兼容，素材库未提取时使用）
+    var materialLib = {};
+    var allArchText = (work.world || '') + '\n' + (work.chars || '') + '\n' + (work.outline || '');
+    var placeRE = /[【\[]?([^】\]\n]{2,8}(?:城|镇|村|谷|山|海|河|域|界|殿|宫|府|阁|楼|堂|院|塔|林|原|漠|岛|州|国|郡|都|堡|寨|关|崖|渊|洞|窟|峰|岭|湖|江|泽|墟))[】\]]?/g;
+    var places = [];
+    var pm;
+    while ((pm = placeRE.exec(allArchText)) !== null) {
+      var p = pm[1];
+      if (p.length >= 2 && places.indexOf(p) === -1 && places.length < 15) places.push(p);
     }
-    if (materialLib.items) {
-      prompt += '  道具/物品：' + materialLib.items.join('、') + '\n';
+    if (places.length) materialLib.places = places;
+    var factionRE = /[【\[]?([^】\]\n]{2,8}(?:宗|门|派|教|会|盟|帮|族|家|国|朝|军|团|队|组|殿|阁|楼|府|堂|院|塔|谷|山|岛|堡|城|坊|司|局|卫|营|旗|舵|坛|社|联|党|部|处|所|馆|斋|居|轩|苑|园|庄|店|铺|行|号|坊))[】\]]?/g;
+    var factions = [];
+    var fm;
+    while ((fm = factionRE.exec(allArchText)) !== null) {
+      var f = fm[1];
+      if (f.length >= 2 && factions.indexOf(f) === -1 && factions.length < 12) factions.push(f);
     }
-    if (materialLib.titles) {
-      prompt += '  称谓/身份：' + materialLib.titles.join('、') + '\n';
+    if (factions.length) materialLib.factions = factions;
+    var skillRE = /[【\[]?([^】\]\n]{2,10}(?:功|法|诀|术|技|式|剑|刀|拳|掌|指|腿|步|身法|心法|功法|秘籍|神通|秘术|禁术|奥义|绝学|传承|血脉|天赋|能力|异能|灵力|斗气|魔法|仙术|道法|佛法|巫术|诅咒|契约|炼金|符文|阵法|炼丹|炼器|御兽|召唤|附魔|铭文|图腾|灵根|武魂|魂环|魂骨|领域|法则|大道|天道|仙道|魔道|妖道|鬼道|神道|武道|剑道|刀道|拳道|掌道|指道|丹道|器道|阵道|符道|咒道|蛊道|毒道|医道|幻道|梦道|时道|空道|生道|死道|因果|轮回|命运|气运|功德|业力|灵力|真气|元气|仙气|魔气|妖气|鬼气|神气|龙气|凤气|灵气|斗气|霸气|杀气|剑气|刀气|拳意|掌意|指意|意境|奥义|领域|法则))[】\]]?/g;
+    var skills = [];
+    var skm;
+    while ((skm = skillRE.exec(allArchText)) !== null) {
+      var sk = skm[1];
+      if (sk.length >= 2 && skills.indexOf(sk) === -1 && skills.length < 15) skills.push(sk);
     }
-    prompt += '【素材库使用规则】\n';
-    prompt += '1. 写作时角色名、地名、势力名、功法名必须从素材库中选取，禁止凭空编造新名称\n';
-    prompt += '2. 如果确实需要新元素（如新地点、新势力），必须在细纲中事先定义，不可以临时编造\n';
-    prompt += '3. 同一地名/势力名在前文出现过的，后文必须保持一致（包括全称/简称/别称）\n';
-    prompt += '4. 功法/技能的使用必须符合世界观设定的等级体系和代价规则\n\n';
+    if (skills.length) materialLib.skills = skills;
+    var matKeys = Object.keys(materialLib);
+    if (matKeys.length > 0) {
+      prompt += '【📦 素材库（正则提取，建议在架构页使用 AI 提取获得更准确的素材库）】\n';
+      if (materialLib.places) prompt += '  地名：' + materialLib.places.join('、') + '\n';
+      if (materialLib.factions) prompt += '  势力/组织：' + materialLib.factions.join('、') + '\n';
+      if (materialLib.skills) prompt += '  功法/技能：' + materialLib.skills.join('、') + '\n';
+      prompt += '【素材库使用规则】\n';
+      prompt += '1. 写作时角色名、地名、势力名、功法名必须从素材库中选取，禁止凭空编造新名称\n';
+      prompt += '2. 如果确实需要新元素，必须在细纲中事先定义\n\n';
+    }
   }
   if (work.outline) {
     var volCtx = getCurrentVolumeContext(work, chapterIdx);
