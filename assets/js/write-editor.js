@@ -1850,6 +1850,59 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   }
   prompt += '\n';
 
+  // ===== v52: AI 情感走向预测 · 基于大纲/细纲/前文，预测本章情感轨迹 =====
+  prompt += '【⚠️ AI 情感走向预测 · 本章情感轨迹规划】\n';
+  
+  // 1. 从细纲/大纲中提取本章的情感关键词
+  var emotionKeywords = [];
+  var emoRE = /(紧张|刺激|热血|爽|燃|悲|虐|甜|暖|治愈|压抑|悬疑|恐惧|愤怒|感动|温馨|浪漫|搞笑|轻松|绝望|希望|仇恨|复仇|和解|离别|重逢|背叛|忠诚|牺牲|守护|成长|蜕变|觉醒|突破|压抑|释放|爆发|沉静|爆发|高潮|低谷|反转|震撼|震惊|意外|惊喜|温暖|冷酷|温柔|残忍|甜蜜|苦涩|心酸|感动|泪目|热血沸腾|毛骨悚然|不寒而栗|心惊肉跳|提心吊胆|如释重负|豁然开朗|柳暗花明)/g;
+  var sourcesForEmo = [];
+  if (work.detail) sourcesForEmo.push(work.detail);
+  if (work.outline) sourcesForEmo.push(work.outline);
+  for (var esi = 0; esi < sourcesForEmo.length; esi++) {
+    var em;
+    while ((em = emoRE.exec(sourcesForEmo[esi])) !== null) {
+      if (emotionKeywords.indexOf(em[1]) === -1) emotionKeywords.push(em[1]);
+    }
+  }
+  
+  // 2. 从上一章结尾检测情绪状态
+  var prevEmotion = '';
+  if (prevContent) {
+    var prevTail = prevContent.slice(-400);
+    if (/(怒|恨|杀|仇|血|碎|崩|裂|疯|狂|暴|戾|吼|咆哮|嘶吼)/.test(prevTail)) {
+      prevEmotion = '高烈度负面情绪（愤怒/仇恨/狂暴）';
+    } else if (/(哭|泪|泣|悲|伤|痛|绝望|失落|离别|死|亡|失去|离开|告别)/.test(prevTail)) {
+      prevEmotion = '中烈度负面情绪（悲伤/失落/绝望）';
+    } else if (/(笑|喜|乐|甜|暖|温馨|幸福|拥抱|和解|重逢|成功|突破|觉醒)/.test(prevTail)) {
+      prevEmotion = '正面情绪（喜悦/温暖/成就）';
+    } else if (/(疑|谜|暗|藏|隐|秘密|真相|揭露|发现|惊讶|意外|反转|突然|不对劲|奇怪|诡异)/.test(prevTail)) {
+      prevEmotion = '悬疑/好奇（疑惑/期待揭示）';
+    } else if (/(紧张|对峙|冲突|危险|危机|逼近|逼近|逼近|紧迫|千钧一发|一触即发)/.test(prevTail)) {
+      prevEmotion = '紧张对峙（压力/危机感）';
+    } else {
+      prevEmotion = '中性/过渡（平和/铺垫）';
+    }
+  }
+  
+  // 3. 构建预测
+  prompt += '上一章结尾情绪状态：' + (prevEmotion || '未知（首章或前文缺失）') + '\n';
+  if (emotionKeywords.length > 0) {
+    prompt += '大纲/细纲中检测到的情感关键词：' + emotionKeywords.slice(0, 8).join('、') + '\n';
+  }
+  prompt += '\n【情感轨迹预测 · 本章应走的情绪路径】\n';
+  prompt += '请根据以上信息，规划本章的情感轨迹。推荐结构：\n';
+  prompt += '  开篇（0-15%）：从前章情绪' + (prevEmotion ? '自然过渡' : '建立基调') + '，给读者一个"抓手"——明确本章即将面对什么情绪\n';
+  prompt += '  发展（15-70%）：情绪逐步升温或转向。如果本章是"压抑→爆发"型，则发展段是压抑的积累；如果本章是"紧张→释然"型，则发展段是紧张的升级\n';
+  prompt += '  高潮（70-85%）：本章情绪顶点。读者需要在此处感受到最强烈的情绪冲击\n';
+  prompt += '  收束（85-100%）：情绪回落但不归零，为下一章留下情绪钩子。读者合上本章时最强烈的感觉是什么？\n\n';
+  prompt += '【情感预测约束】\n';
+  prompt += '1. 情绪不能断崖式跳变：如果上一章是悲伤，本章不能突然变成搞笑，除非有明确的情节过渡\n';
+  prompt += '2. 每章至少有一个"情绪标志性瞬间"——读者读完本章后，会记住的那一个瞬间\n';
+  prompt += '3. 情绪来源要具体：不是"主角很愤怒"，而是"因为XX事件，主角愤怒"\n';
+  prompt += '4. 如果本章是"情感转折章"（如背叛/和解/觉醒），请把转折点放在70-85%的高潮位置\n';
+  prompt += '5. 结尾情绪必须与下一章的开头有承接关系，不能是"情绪孤岛"\n\n';
+
   // === 题材硬约束（防跑题） ===
   prompt += getWriteConstraint(genre, work) + '\n';
   prompt += buildGenreWritingEngineV45(genre, work) + '\n';
