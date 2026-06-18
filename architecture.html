@@ -935,7 +935,7 @@ function exportArch(){
     html+='<div class="section"><h2>'+sections[i].icon+' '+sections[i].title+'</h2>';
     html+='<div class="content">'+he(sections[i].content)+'</div></div>';
   }
-  html+='<script>var MD='+JSON.stringify(md).replace(/<\//g,'<\\/')+';function downloadMD(){var b=new Blob([MD],{type:"text/markdown"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="'+w.title.replace(/"/g,'')+'-架构设计.md";a.click()}function copyAll(){var t="";document.querySelectorAll(".content").forEach(function(e){t+=e.textContent+"\\n\\n"});navigator.clipboard.writeText(t).then(function(){alert("已复制")})}</'+'script>';
+  html+='<script>var MD='+JSON.stringify(md).replace(/<\//g,'<\\/')+';function downloadMD(){var b=new Blob([MD],{type:"text/markdown"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="'+w.title.replace(/"/g,'')+'-架构设计.md";a.click()}function copyAll(){var t="";document.querySelectorAll(".content").forEach(function(e){t+=e.textContent+"\\n\\n"});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){alert("已复制")}).catch(function(){fallbackCopy(t)})}else{fallbackCopy(t)}}function fallbackCopy(text){var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");alert("已复制")}catch(e){alert("复制失败，请手动复制")}document.body.removeChild(ta)}</'+'script>';
   html+='</body></html>';
   var blob=new Blob([html],{type:'text/html'});var url=URL.createObjectURL(blob);window.open(url,'_blank');hideRMenu();
 }

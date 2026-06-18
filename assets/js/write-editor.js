@@ -3114,7 +3114,9 @@ async function aiWriteChapter(){
   const config = DB.getApiConfig();
   
   // 构建章节prompt（已含流派expertise和longMemory上下文）
-  const prompt = buildChapterPrompt(work, chapterIdx, content);
+  // 读取用户指令框内容，确保用户的提示词在生成时生效
+  var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  const prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
   // 显示输入token估算
   var estTokens = Math.round(prompt.length * 1.5);
