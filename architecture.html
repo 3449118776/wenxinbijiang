@@ -2342,24 +2342,40 @@ function buildArchCardBatchesV48(module, work, idea){
       focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前9卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
     });
   } else if(module === 'detail'){
-    // 细纲：每 2 章为一批，共 8 张卡片，确保低输出模型也能完整生成不截断
-    var ranges = [
-      { start: 1, end: 2 },
-      { start: 3, end: 4 },
-      { start: 5, end: 6 },
-      { start: 7, end: 8 },
-      { start: 9, end: 10 },
-      { start: 11, end: 12 },
-      { start: 13, end: 14 },
-      { start: 15, end: 16 }
-    ];
-    for(var di = 0; di < ranges.length; di++){
-      var r = ranges[di];
+    // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
+    // 从大纲中提取分卷信息，确保细纲和大纲的卷结构完全对齐
+    var volumeCount = 9; // 默认9卷，与大纲一致
+    var chaptersPerVolume = 10; // 默认每卷10章
+    
+    // 尝试从大纲中解析实际分卷数
+    if(work && work.outline){
+      var volMatches = work.outline.match(/第[一二三四五六七八九十\d]+卷/g);
+      if(volMatches && volMatches.length > 0) volumeCount = volMatches.length;
+    }
+    
+    // 尝试从用户提示词中提取总章节数来反算每卷章数
+    if(idea && idea.trim()){
+      var chMatch = idea.match(/(\d+)\s*[章话回]/);
+      if(chMatch){
+        var totalCh = parseInt(chMatch[1]);
+        chaptersPerVolume = Math.max(5, Math.ceil(totalCh / volumeCount));
+      }
+    }
+    
+    // 每卷生成一张细纲卡片
+    for(var vi = 0; vi < volumeCount; vi++){
+      var volNum = vi + 1;
+      var chStart = (vi * chaptersPerVolume) + 1;
+      var chEnd = (vi + 1) * chaptersPerVolume;
+      var volPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束'];
+      var volPhase = volPhases2[vi] || '';
+      
       batches.push({
-        label: '第 ' + r.start + '-' + r.end + ' 章',
+        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
         targetChars: 3000,
-        focus: '细纲：第 ' + r.start + ' 到第 ' + r.end + ' 章（共 ' + (r.end - r.start + 1) + ' 章）。每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n章与章之间要有因果推进，每2章设计一个转折点并标注【转折】。每章至少包含1个信息推进点和1个情绪刺激点。',
-        chapterRange: r
+        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+        volume: volNum,
+        chapterRange: chStart + '-' + chEnd + '章'
       });
     }
   } else {
@@ -2464,8 +2480,9 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   prompt += '3. 段落清晰，用「■」标记关键子项\n';
   prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
   prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
-  if(module === 'detail' && card.chapterRange){
-    prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续从 ' + card.chapterRange.start + ' 到 ' + card.chapterRange.end + '\n';
+  if(module === 'detail' && card.volume){
+    prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
+    prompt += '7. 本卷细纲的章节编号从第 ' + card.chapterRange + ' 章开始\n';
   }
 
   prompt += '\n【开始生成本卡片】\n';
