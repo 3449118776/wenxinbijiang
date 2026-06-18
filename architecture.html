@@ -2519,18 +2519,55 @@ window.evaluateArchModule = async function(){
       if(!/(伏笔|钩子|悬念|转折|冲突|爆点|揭示)/.test(content)) issues.push('大纲缺少伏笔/钩子/转折等结构要素');
     }
 
-    // ============== AI 深度评价（如果可用）==============
+    // ============== AI 深度评价（按模块不同评价维度）==============
     var aiReport = '';
     if(typeof callRealAPIWithFallback === 'function' && len > 100){
       if(typeof showLoading === 'function') showLoading('评价分析中…');
       var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿，找出具体的可改进点。\n\n';
       evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
-      evalPrompt += '【你的输出格式】\n';
-      evalPrompt += '- 先给一个总体评分（1-10分）\n';
-      evalPrompt += '- 然后列出 3-6 条具体问题（不要泛泛而谈，要针对上文内容的具体问题）\n';
-      evalPrompt += '- 最后给出 2-3 条改进建议\n';
-      evalPrompt += '- 不要超过 300 字；用简短犀利的编辑口吻\n';
+      
+      // 按模块不同评价维度
+      evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
+      if(module === 'world'){
+        evalPrompt += '1. 设定完整度：世界观体系是否自洽、有层次\n';
+        evalPrompt += '2. 独特创新：是否有区别于传统套路的独特要素\n';
+        evalPrompt += '3. 冲突张力：规则/矛盾/冲突源设计是否有力\n';
+        evalPrompt += '4. 力量体系：规则是否清晰、有代价和限制\n';
+        evalPrompt += '5. 社会结构：势力/阶层/组织分布是否合理\n';
+        evalPrompt += '6. 叙事潜力：是否为故事提供了足够的戏剧空间\n';
+      } else if(module === 'chars'){
+        evalPrompt += '1. 人物立体度：是否有动机、弱点、弧光\n';
+        evalPrompt += '2. 关系网络：人物之间的关系/冲突是否清晰\n';
+        evalPrompt += '3. 反派/对抗力：对立面是否足够强大有趣\n';
+        evalPrompt += '4. 差异化：人物之间性格/背景是否足够区分\n';
+        evalPrompt += '5. 成长空间：人物是否有可追踪的成长弧线\n';
+        evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入\n';
+      } else if(module === 'outline'){
+        evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理\n';
+        evalPrompt += '2. 节奏把控：高潮点和休息点的安排是否得当\n';
+        evalPrompt += '3. 伏笔设计：是否有足够的伏笔和钩子\n';
+        evalPrompt += '4. 主线清晰：主线是否明确、支线不喧宾夺主\n';
+        evalPrompt += '5. 冲突递进：冲突是否逐级升级\n';
+        evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足\n';
+      } else if(module === 'detail'){
+        evalPrompt += '1. 章节连贯：章与章之间的衔接是否自然\n';
+        evalPrompt += '2. 钩子密度：每章结尾是否有让读者想点下一章的钩子\n';
+        evalPrompt += '3. 信息释放：信息是否有序释放、不堆砌\n';
+        evalPrompt += '4. 节奏控制：每章节奏是否得当、有无拖沓\n';
+        evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布\n';
+        evalPrompt += '6. 可执行性：每章目标是否明确、适合写正文\n';
+      } else {
+        evalPrompt += '1. 内容质量：整体水平\n';
+        evalPrompt += '2. 结构完整：结构是否合理\n';
+        evalPrompt += '3. 创新性：是否有独特之处\n';
+        evalPrompt += '4. 可执行性：是否适合后续写作\n';
+      }
+      evalPrompt += '\n【你的输出格式】\n';
+      evalPrompt += '- 每个维度：维度名 X分 — 具体评价\n';
+      evalPrompt += '- 列出 3-6 条具体问题（必须针对上文内容，不能泛泛而谈）\n';
+      evalPrompt += '- 给出 2-3 条针对性改进建议\n';
+      evalPrompt += '- 不要超过 400 字；用简短犀利的编辑口吻\n';
       evalPrompt += '- 不要用"好的""收到"等对话语';
       try{
         aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default');
