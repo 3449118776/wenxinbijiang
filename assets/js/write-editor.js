@@ -1778,44 +1778,52 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '【题材】' + genre + '\n';
   prompt += '【当前章节】' + chTitle + '（第' + (chapterIdx + 1) + '章）\n';
   prompt += '【写作身份】你不是在"生成文本"，你是在"经历故事"。写每个场景时，你就是那个角色，你在那个世界里，你看到、听到、感受到的是角色所感知的一切。你的笔触要让读者忘记自己在看小说。\n\n';
-  prompt += '【⚠️ 气息注入 · 让文字有呼吸、有温度、有人味】\n';
-  prompt += 'AI 写作最大的问题是"正确但无味"——情节推进了，设定遵守了，但读起来像说明书。以下8条气息法则，让文字活起来：\n\n';
-  prompt += '1. 【呼吸感 · 节奏不能一直绷着】\n';
-  prompt += '   紧张场景之后必须有1-2句"呼吸句"——角色喘口气、喝口水、看一眼窗外。让读者和角色一起喘气。\n';
-  prompt += '   连续高强度段落之后，插入一个"慢镜头"：一个无关紧要的细节慢慢展开，节奏自然回落。\n';
-  prompt += '   例：一场厮杀后，主角蹲在溪边洗手，水从指缝漏下去，他看着水里的倒影，发现自己脸上蹭了一道血痕。\n\n';
-  prompt += '2. 【温度 · 角色不是情节工具】\n';
-  prompt += '   每个角色都有一个"不经意的温柔瞬间"——反派给手下递杯热茶，冷面高手蹲下来系鞋带，路人老奶奶笑着说"年轻人别急"。\n';
-  prompt += '   主角不只是"要做某事"，他/她也有小习惯：紧张时转戒指、思考时咬笔头、高兴时哼歌。每章至少展示一次小习惯。\n';
-  prompt += '   禁止所有角色都是"面无表情"或"冷冷地说"——这是AI最上瘾的偷懒写法，一章里最多出现1次。\n\n';
-  prompt += '3. 【留白 · 不说满，读者自己补】\n';
-  prompt += '   禁止把角色的内心活动全部写出来。读者不是傻子，他们能从动作和对话中读懂。\n';
-  prompt += '   关键情绪留白：她什么都没说，只是把茶杯推到他面前。→ 比写"她心里五味杂陈"强一百倍。\n';
-  prompt += '   每章至少有一处"不解释"——读者知道发生了什么，但你就是不写角色的心理活动，让读者自己感受。\n\n';
-  prompt += '4. 【日常质感 · 大事件之间的小瞬间】\n';
-  prompt += '   每章至少有一个"无用的细节"——不推动剧情，但让世界变真实：\n';
-  prompt += '   窗台上落了灰，茶凉了，蜡烛烧到一半炸了个灯花，一条狗在巷子里追自己的尾巴。\n';
-  prompt += '   这些细节不是废话，是读者"在"那个世界的证据。没有日常质感的世界是塑料的。\n\n';
-  prompt += '5. 【对话的毛边 · 真实的人说话不完美】\n';
-  prompt += '   人会迟疑："我……我不知道该不该说。"\n';
-  prompt += '   人会打断对方："你先听我——""不，你先听我说！"\n';
-  prompt += '   人会说半句话："如果当初我……算了，不说了。"\n';
-  prompt += '   人会重复："你确定？你确定他真的这么说？"\n';
-  prompt += '   禁止AI式的"完美对话"——每个人说话都完整、有逻辑、有信息量。真实的人说话是有毛边的。\n\n';
-  prompt += '6. 【情绪的层次 · 没有纯粹的情绪】\n';
-  prompt += '   高兴里藏着不安："他终于赢了，但攥着奖杯的手在发抖，他不知道赢了之后还有什么。"\n';
-  prompt += "   愤怒里藏着委屈：\"她冲他吼完，突然蹲下来，把脸埋在膝盖里，声音闷闷的——'你为什么从来不站在我这边。'\"\n";
-  prompt += '   坚强里藏着脆弱："他笑着说我没事，转身的时候扶了一下墙。"\n';
-  prompt += '   每章至少有一个"情绪层次瞬间"——表面一种情绪，底下藏着另一种。\n\n';
-  prompt += '7. 【感官锚点 · 气味和温度比视觉更真实】\n';
-  prompt += '   视觉是AI最常用的（"他看到她走过来了"），但真正让人代入的是气味和触觉。\n';
-  prompt += '   每章至少激活3种非视觉感官：铁锈的腥味、雨后泥土的潮气、旧书页的霉味、热茶烫到指尖的刺痛、风吹过领口的凉意。\n';
-  prompt += '   温度是情绪的物理载体：手心出汗（紧张）、后背发凉（恐惧）、脸颊发烫（羞耻/暧昧）、指尖冰凉（悲伤/绝望）。\n\n';
-  prompt += '8. 【人情味 · 小人物的善意让世界有光】\n';
-  prompt += '   大战过后，路边卖馄饨的老头多给主角加了个蛋。\n';
-  prompt += '   主角在巷子里哭，一个不认识的小孩递过来一颗糖，然后跑掉了。\n';
-  prompt += '   反派杀人不眨眼，但每天会给流浪猫留一碗饭。\n';
-  prompt += '   人情味不是煽情，是让读者觉得"这个世界值得被拯救"。每章至少有一个这样的瞬间，哪怕只有一句话。\n\n';
+
+  // ===== v52: 角色代入 · 让AI成为角色，而非旁观者 =====
+  if (work.chars) {
+    // 提取主角核心信息
+    var protagonistName = '';
+    var protagonistProfile = '';
+    var charLines = work.chars.split('\n');
+    var inProt = false;
+    for (var cli = 0; cli < charLines.length; cli++) {
+      var line = charLines[cli];
+      if (line.indexOf('主角') >= 0 && (line.indexOf('【') >= 0 || line.indexOf('[') >= 0)) {
+        var nameMatch = line.match(/[【\[]([^】\]\n]{1,12})[】\]]/);
+        if (nameMatch) protagonistName = nameMatch[1].trim();
+        inProt = true;
+        continue;
+      }
+      if (inProt) {
+        if (line.indexOf('反派') >= 0 || line.indexOf('配角') >= 0 || line.indexOf('关系网') >= 0) break;
+        protagonistProfile += line + '\n';
+      }
+    }
+    if (!protagonistName && work.chars) {
+      // 降级：取第一个角色名
+      var firstMatch = work.chars.match(/[【\[]([^】\]\n]{1,12})[】\]]/);
+      if (firstMatch) protagonistName = firstMatch[1].trim();
+    }
+    
+    if (protagonistName) {
+      prompt += '【⚠️ 角色代入 · 最高优先级 · 你即' + protagonistName + '】\n';
+      prompt += '从现在开始，你不是在"写' + protagonistName + '的故事"，你就是' + protagonistName + '本人。\n\n';
+      prompt += '【代入法则】\n';
+      prompt += '1. 每一段叙述，都是' + protagonistName + '的眼睛在看、耳朵在听、皮肤在感受。你不是旁白，你是他的感官。\n';
+      prompt += '2. 每一句对话，都是' + protagonistName + '的嘴巴在说。想清楚：他此刻是什么心情？他这样说话的目的是什么？\n';
+      prompt += '3. 每一个动作，都是' + protagonistName + '的身体在做。想清楚：这个动作是他的习惯还是本能反应？\n';
+      prompt += '4. 禁止跳到其他角色的内心。你能写的只有' + protagonistName + '能看到、听到、猜到的东西。\n';
+      prompt += '5. ' + protagonistName + '不知道的事情，读者也不能从你的叙述中直接知道。只能通过线索暗示。\n\n';
+      if (protagonistProfile.length > 20) {
+        prompt += '【' + protagonistName + '的人设（请完全代入这些特质）】\n';
+        prompt += protagonistProfile.substring(0, 600) + '\n\n';
+      }
+      prompt += '【代入自检 · 每写一段前自问】\n';
+      prompt += '- ' + protagonistName + '现在是什么感觉？（不是"应该"什么感觉，是"真的"什么感觉）\n';
+      prompt += '- ' + protagonistName + '现在最想要什么？他怕什么？\n';
+      prompt += '- 如果我是' + protagonistName + '，我会怎么做？不是"主角应该怎么做"，是"我会怎么做"\n\n';
+    }
+  }
   
   // === v52: 注入上一章质量短板 + 用户编辑学习 + 自适应技法权重 ===
   if (typeof QualityEngine !== 'undefined') {
@@ -6070,180 +6078,4 @@ async function aiPolishByQuality(){
 }
 window.showQualityReport = showQualityReport;
 window.closeQualityReport = closeQualityReport;
-
-// ===== v52: 角色模拟面板 · AI扮演角色生成对话与情绪 =====
-
-// 打开角色模拟面板
-function openRolePlayPanel() {
-  var work = getCurrentWork();
-  if (!work) { showToast('请先打开作品'); return; }
-  
-  // 填充角色列表
-  var sel = document.getElementById('rp-char-select');
-  sel.innerHTML = '<option value="">-- 请选择角色 --</option>';
-  if (work.chars) {
-    var charRE = /[【\[]([^】\]\n]{1,12})[】\]]/g;
-    var cm;
-    var chars = [];
-    while ((cm = charRE.exec(work.chars)) !== null) {
-      var name = cm[1].trim();
-      if (name && name !== '关系网' && name !== '年龄' && name !== '外貌' && chars.indexOf(name) === -1) {
-        chars.push(name);
-      }
-    }
-    if (chars.length === 0) {
-      sel.innerHTML = '<option value="">-- 无人设数据，请先在架构页设置角色 --</option>';
-    } else {
-      for (var i = 0; i < chars.length; i++) {
-        sel.innerHTML += '<option value="' + chars[i] + '">' + chars[i] + '</option>';
-      }
-    }
-  }
-  
-  document.getElementById('rp-result').textContent = '';
-  document.getElementById('rp-result').classList.remove('has-content');
-  document.getElementById('rp-insert-btn').style.display = 'none';
-  document.getElementById('rp-copy-btn').style.display = 'none';
-  document.getElementById('rp-scenario').value = '';
-  
-  document.getElementById('rp-overlay').classList.add('open');
-  document.getElementById('rp-panel').classList.add('open');
-}
-
-// 关闭角色模拟面板
-function closeRolePlayPanel() {
-  document.getElementById('rp-overlay').classList.remove('open');
-  document.getElementById('rp-panel').classList.remove('open');
-}
-
-// 生成角色对话与情绪
-async function generateRolePlay() {
-  var work = getCurrentWork();
-  if (!work) { showToast('请先打开作品'); return; }
-  
-  var charName = document.getElementById('rp-char-select').value;
-  if (!charName) { showToast('请先选择角色'); return; }
-  
-  var scenario = document.getElementById('rp-scenario').value.trim();
-  if (!scenario) { showToast('请输入场景/情境描述'); return; }
-  
-  // 提取该角色的完整人设
-  var charProfile = '';
-  if (work.chars) {
-    var charRE = new RegExp('[【\\[]' + charName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[】\\]]\\s*[：:]?\\s*([\\s\\S]*?)(?=[【\\[]|$)', 'i');
-    var cm = charRE.exec(work.chars);
-    if (cm) {
-      charProfile = cm[1].substring(0, 800).trim();
-    }
-  }
-  if (!charProfile) {
-    // 降级：取人设中与该角色相关的所有内容
-    charProfile = '从人设中未找到该角色的详细设定，请以角色名' + charName + '为基准，根据该角色的出场身份和背景自由发挥。';
-  }
-  
-  // 获取当前编辑器中的上下文（前 500 字）
-  var editorContent = document.getElementById('editor').value || '';
-  var contextText = editorContent.slice(-500);
-  
-  // 构建 prompt
-  var prompt = '你是一位专业的角色模拟器。请扮演以下角色，完全沉浸在该角色的身份、性格和处境中。\n\n';
-  prompt += '【角色名】' + charName + '\n';
-  prompt += '【角色人设】\n' + charProfile + '\n\n';
-  prompt += '【作品世界观】\n' + (work.world ? work.world.substring(0, 500) : '未设定') + '\n\n';
-  if (contextText) {
-    prompt += '【当前上下文（文章末尾）】\n' + contextText + '\n\n';
-  }
-  prompt += '【当前场景/情境】\n' + scenario + '\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 以' + charName + '的第一人称视角，写出他/她在当前情境下的：\n';
-  prompt += '   a) 内心独白（他/她此刻在想什么？感受到什么情绪？）\n';
-  prompt += '   b) 对话回应（他/她会说什么？用什么语气？）\n';
-  prompt += '   c) 肢体动作（他/她会做什么？有什么微表情？）\n';
-  prompt += '2. 使用以下格式输出：\n';
-  prompt += '   【内心】...（50-100字）\n';
-  prompt += '   【对话】"..."（符合角色声纹的自然对话）\n';
-  prompt += '   【动作】...（1-2句具体的肢体动作/微表情描写）\n';
-  prompt += '   【情绪】...（1句概括当前角色的情绪状态）\n';
-  prompt += '3. 严格按照角色人设中的性格、说话风格、口头禅来写\n';
-  prompt += '4. 对话要自然，符合网文节奏，不要像舞台剧\n';
-  prompt += '5. 直接输出，不要加任何解释或前缀\n';
-  
-  // 显示 loading
-  document.getElementById('rp-loading').style.display = 'block';
-  document.getElementById('rp-result').classList.remove('has-content');
-  document.getElementById('rp-insert-btn').style.display = 'none';
-  document.getElementById('rp-copy-btn').style.display = 'none';
-  
-  try {
-    var result = await callRealAPIWithFallback(prompt, null, 'roleplay', 600);
-    if (result && result.length > 20) {
-      document.getElementById('rp-result').textContent = result;
-      document.getElementById('rp-result').classList.add('has-content');
-      document.getElementById('rp-insert-btn').style.display = 'inline-block';
-      document.getElementById('rp-copy-btn').style.display = 'inline-block';
-    } else {
-      document.getElementById('rp-result').textContent = '生成失败，请重试';
-      document.getElementById('rp-result').classList.add('has-content');
-    }
-  } catch (e) {
-    document.getElementById('rp-result').textContent = '生成出错：' + (e.message || '未知错误');
-    document.getElementById('rp-result').classList.add('has-content');
-  } finally {
-    document.getElementById('rp-loading').style.display = 'none';
-  }
-}
-
-// 插入角色模拟结果到编辑器
-function insertRolePlayResult() {
-  var result = document.getElementById('rp-result').textContent;
-  if (!result || result.indexOf('生成') === 0) return;
-  
-  var editor = document.getElementById('editor');
-  var cursorPos = editor.selectionStart || editor.value.length;
-  var before = editor.value.substring(0, cursorPos);
-  var after = editor.value.substring(cursorPos);
-  
-  // 在光标位置插入，前后加换行
-  var insertText = '\n\n' + result + '\n';
-  editor.value = before + insertText + after;
-  
-  // 保存到章节
-  var work = getCurrentWork();
-  if (work && work.chapters && work.chapters[currentChapterIdx]) {
-    work.chapters[currentChapterIdx].content = editor.value;
-    work.chapters[currentChapterIdx].wordCount = editor.value.length;
-    DB.saveWork(work);
-  }
-  
-  updateWordCount();
-  closeRolePlayPanel();
-  showToast('已插入角色模拟内容');
-}
-
-// 复制角色模拟结果
-function copyRolePlayResult() {
-  var result = document.getElementById('rp-result').textContent;
-  if (!result || result.indexOf('生成') === 0) return;
-  
-  try {
-    navigator.clipboard.writeText(result).then(function() {
-      showToast('已复制到剪贴板');
-    });
-  } catch (e) {
-    // 降级方案
-    var ta = document.createElement('textarea');
-    ta.value = result;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('已复制到剪贴板');
-  }
-}
-
-window.openRolePlayPanel = openRolePlayPanel;
-window.closeRolePlayPanel = closeRolePlayPanel;
-window.generateRolePlay = generateRolePlay;
-window.insertRolePlayResult = insertRolePlayResult;
-window.copyRolePlayResult = copyRolePlayResult;
 window.aiPolishByQuality = aiPolishByQuality;
