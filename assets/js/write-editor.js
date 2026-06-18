@@ -3116,7 +3116,56 @@ async function aiWriteChapter(){
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
-  const prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
+  let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
+
+  // ===== 骨架生成 + AI自检：先生成章纲骨架，确认符合用户指令后再继续 =====
+  var skeletonPassed = true;
+  if(userCmd){
+    statusBar.style.display = 'block';
+    statusBar.style.background = '#fef3c7';
+    statusBar.style.color = '#92400e';
+    statusBar.textContent = '🧠 先生成章纲骨架，检查是否符合你的指令…';
+    
+    var skeletonPrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
+    skeletonPrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
+    skeletonPrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
+    skeletonPrompt += '【作品题材】' + getWorkGenre(work) + '\n';
+    if(work.detail){
+      var detailChapters = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
+      var dIdx = chapterIdx + 1;
+      if(detailChapters.length > dIdx) skeletonPrompt += '【本章细纲】' + smartTruncate(detailChapters[dIdx], 400) + '\n';
+    }
+    skeletonPrompt += '\n请按以下格式输出：\n';
+    skeletonPrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
+    skeletonPrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
+    skeletonPrompt += '【结论】\n写"通过"或"不通过"。\n';
+    skeletonPrompt += '\n直接输出，不要加对话语前缀。';
+    
+    var skeletonResult = null;
+    try {
+      skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 300, true);
+    } catch(skErr) { console.warn('[章纲骨架] 失败:', skErr); }
+    
+    if(skeletonResult && skeletonResult.trim()){
+      var skText = skeletonResult.trim();
+      var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+      var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
+      
+      if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
+        skeletonPassed = false;
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '⚠️ 章纲骨架自检不通过，但仍会继续生成（骨架已注入提示）';
+        showToast('⚠️ 章纲骨架与指令不完全匹配，AI已被告知问题', {duration: 4000});
+      } else {
+        statusBar.style.background = '#dcfce7';
+        statusBar.style.color = '#166534';
+        statusBar.textContent = '✅ 章纲骨架通过自检，开始生成正文…';
+      }
+      // 将骨架注入 prompt 开头，作为生成指引
+      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skText + '\n\n' + prompt;
+    }
+  }
 
   // 显示输入token估算
   var estTokens = Math.round(prompt.length * 1.5);

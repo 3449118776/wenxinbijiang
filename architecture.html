@@ -2090,6 +2090,51 @@ window.generateArchModule = async function(opts){
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
 
+    // 2.7 骨架生成 + AI自检：先生成简要大纲，确认符合用户提示词后再继续
+    if(idea && idea.trim()){
+      if(typeof showLoading === 'function') showLoading('🧠 第2步：生成' + moduleName + '骨架，检查是否符合你的提示词…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(8, '🧠 生成骨架并自检…');
+      
+      var skeletonPrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
+      skeletonPrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
+      skeletonPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      if(work && work.world) skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, 500) + '\n\n';
+      if(work && work.chars) skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, 400) + '\n\n';
+      if(work && work.outline) skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, 500) + '\n\n';
+      skeletonPrompt += '\n请按以下格式输出：\n';
+      skeletonPrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
+      skeletonPrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
+      skeletonPrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
+      skeletonPrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
+      skeletonPrompt += '\n直接输出，不要加对话语前缀。';
+      
+      var skeletonResult = null;
+      try {
+        if(typeof callRealAPIWithFallback === 'function'){
+          skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 400, true);
+        }
+      } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
+      
+      if(skeletonResult && skeletonResult.trim()){
+        var skText = skeletonResult.trim();
+        var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+        var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
+        
+        if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
+          // 骨架不通过，显示警告但允许继续（用户可以选择修改提示词后重试）
+          var reason = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
+          if(typeof showToast === 'function') showToast('⚠️ 骨架自检不通过：' + smartTruncate(reason, 80) + ' — 可修改提示词后重试', {duration: 6000});
+          console.warn('[骨架自检] 不通过:', reason);
+          // 仍继续生成，但把骨架作为上下文注入，让AI知道问题所在
+          marketResearch = (marketResearch || '') + '\n\n【骨架自检报告（发现问题，请修正）】\n' + skText;
+        } else {
+          // 骨架通过，注入作为生成指引
+          if(typeof showToast === 'function') showToast('✅ 骨架自检通过，开始生成…', {duration: 1500});
+          marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
+        }
+      }
+    }
+
     // 3. v48: 卡片分批生成（替代自动续写，每批独立调用，天然不截断且一致性好）
     var taskType = 'default';
     if(module === 'world') taskType = 'world_rules';
