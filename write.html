@@ -176,6 +176,18 @@ body{background:#f6f7f9;color:#333;}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
 .toast.show{opacity:1;}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+/* 角色模拟面板 */
+.role-play-panel .char-select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;background:#fff;margin-bottom:12px;}
+.role-play-panel .rp-scenario{width:100%;min-height:80px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;resize:vertical;margin-bottom:12px;outline:none;}
+.role-play-panel .rp-scenario:focus,.role-play-panel .char-select:focus{border-color:#6366f1;}
+.role-play-panel .rp-result{width:100%;min-height:120px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#f9fafb;line-height:1.7;max-height:300px;overflow-y:auto;white-space:pre-wrap;margin-bottom:12px;display:none;}
+.role-play-panel .rp-result.has-content{display:block;}
+.role-play-panel .rp-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.role-play-panel .rp-actions button{flex:1;min-width:80px;padding:10px 14px;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600;}
+.role-play-panel .rp-actions .btn-generate{background:#6366f1;color:#fff;}
+.role-play-panel .rp-actions .btn-insert{background:#10b981;color:#fff;}
+.role-play-panel .rp-actions .btn-copy{background:#f3f4f6;color:#333;}
+.role-play-panel .rp-loading{text-align:center;padding:20px;color:#6366f1;font-size:14px;display:none;}
 </style>
 </head>
 <body>
@@ -276,6 +288,7 @@ body{background:#f6f7f9;color:#333;}
               <div class="toolbar-menu-item" onclick="extractTpl();closeToolbarMenus()">&#128203; 提取模板</div>
               <div class="toolbar-menu-item" onclick="insertPhrase();closeToolbarMenus()">&#128172; 词句库</div>
               <div class="toolbar-menu-item" onclick="showChapterHistory();closeToolbarMenus()">🕘 历史</div>
+              <div class="toolbar-menu-item" onclick="openRolePlayPanel();closeToolbarMenus()">🎭 角色模拟</div>
             </div>
           </div>
         </div>
@@ -364,6 +377,34 @@ body{background:#f6f7f9;color:#333;}
   <div class="ch-list-actions">
     <button onclick="saveChapterCard()" class="primary">💾 保存章节卡</button>
     <button onclick="closeChapterCard()">关闭</button>
+  </div>
+</div>
+
+<!-- 角色模拟面板 -->
+<div class="panel-overlay" id="rp-overlay" onclick="closeRolePlayPanel()"></div>
+<div class="panel role-play-panel" id="rp-panel">
+  <div class="panel-header">
+    <span class="title">🎭 角色模拟</span>
+    <button class="panel-close" onclick="closeRolePlayPanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-section">
+      <div class="label">选择角色</div>
+      <select class="char-select" id="rp-char-select">
+        <option value="">-- 请选择角色 --</option>
+      </select>
+    </div>
+    <div class="panel-section">
+      <div class="label">场景 / 情境描述</div>
+      <textarea class="rp-scenario" id="rp-scenario" placeholder="描述当前场景，如：主角被围困在悬崖边，对手逼他交出秘籍。他应该怎么回应？"></textarea>
+    </div>
+    <div class="rp-loading" id="rp-loading">🤖 AI 正在以角色身份思考...</div>
+    <div class="rp-result" id="rp-result"></div>
+    <div class="rp-actions">
+      <button class="btn-generate" onclick="generateRolePlay()">🎭 生成对话与情绪</button>
+      <button class="btn-insert" id="rp-insert-btn" onclick="insertRolePlayResult()" style="display:none;">📥 插入编辑器</button>
+      <button class="btn-copy" id="rp-copy-btn" onclick="copyRolePlayResult()" style="display:none;">📋 复制</button>
+    </div>
   </div>
 </div>
 

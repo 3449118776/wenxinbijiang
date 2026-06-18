@@ -6032,4 +6032,180 @@ async function aiPolishByQuality(){
 }
 window.showQualityReport = showQualityReport;
 window.closeQualityReport = closeQualityReport;
+
+// ===== v52: 角色模拟面板 · AI扮演角色生成对话与情绪 =====
+
+// 打开角色模拟面板
+function openRolePlayPanel() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品'); return; }
+  
+  // 填充角色列表
+  var sel = document.getElementById('rp-char-select');
+  sel.innerHTML = '<option value="">-- 请选择角色 --</option>';
+  if (work.chars) {
+    var charRE = /[【\[]([^】\]\n]{1,12})[】\]]/g;
+    var cm;
+    var chars = [];
+    while ((cm = charRE.exec(work.chars)) !== null) {
+      var name = cm[1].trim();
+      if (name && name !== '关系网' && name !== '年龄' && name !== '外貌' && chars.indexOf(name) === -1) {
+        chars.push(name);
+      }
+    }
+    if (chars.length === 0) {
+      sel.innerHTML = '<option value="">-- 无人设数据，请先在架构页设置角色 --</option>';
+    } else {
+      for (var i = 0; i < chars.length; i++) {
+        sel.innerHTML += '<option value="' + chars[i] + '">' + chars[i] + '</option>';
+      }
+    }
+  }
+  
+  document.getElementById('rp-result').textContent = '';
+  document.getElementById('rp-result').classList.remove('has-content');
+  document.getElementById('rp-insert-btn').style.display = 'none';
+  document.getElementById('rp-copy-btn').style.display = 'none';
+  document.getElementById('rp-scenario').value = '';
+  
+  document.getElementById('rp-overlay').classList.add('open');
+  document.getElementById('rp-panel').classList.add('open');
+}
+
+// 关闭角色模拟面板
+function closeRolePlayPanel() {
+  document.getElementById('rp-overlay').classList.remove('open');
+  document.getElementById('rp-panel').classList.remove('open');
+}
+
+// 生成角色对话与情绪
+async function generateRolePlay() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品'); return; }
+  
+  var charName = document.getElementById('rp-char-select').value;
+  if (!charName) { showToast('请先选择角色'); return; }
+  
+  var scenario = document.getElementById('rp-scenario').value.trim();
+  if (!scenario) { showToast('请输入场景/情境描述'); return; }
+  
+  // 提取该角色的完整人设
+  var charProfile = '';
+  if (work.chars) {
+    var charRE = new RegExp('[【\\[]' + charName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[】\\]]\\s*[：:]?\\s*([\\s\\S]*?)(?=[【\\[]|$)', 'i');
+    var cm = charRE.exec(work.chars);
+    if (cm) {
+      charProfile = cm[1].substring(0, 800).trim();
+    }
+  }
+  if (!charProfile) {
+    // 降级：取人设中与该角色相关的所有内容
+    charProfile = '从人设中未找到该角色的详细设定，请以角色名' + charName + '为基准，根据该角色的出场身份和背景自由发挥。';
+  }
+  
+  // 获取当前编辑器中的上下文（前 500 字）
+  var editorContent = document.getElementById('editor').value || '';
+  var contextText = editorContent.slice(-500);
+  
+  // 构建 prompt
+  var prompt = '你是一位专业的角色模拟器。请扮演以下角色，完全沉浸在该角色的身份、性格和处境中。\n\n';
+  prompt += '【角色名】' + charName + '\n';
+  prompt += '【角色人设】\n' + charProfile + '\n\n';
+  prompt += '【作品世界观】\n' + (work.world ? work.world.substring(0, 500) : '未设定') + '\n\n';
+  if (contextText) {
+    prompt += '【当前上下文（文章末尾）】\n' + contextText + '\n\n';
+  }
+  prompt += '【当前场景/情境】\n' + scenario + '\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 以' + charName + '的第一人称视角，写出他/她在当前情境下的：\n';
+  prompt += '   a) 内心独白（他/她此刻在想什么？感受到什么情绪？）\n';
+  prompt += '   b) 对话回应（他/她会说什么？用什么语气？）\n';
+  prompt += '   c) 肢体动作（他/她会做什么？有什么微表情？）\n';
+  prompt += '2. 使用以下格式输出：\n';
+  prompt += '   【内心】...（50-100字）\n';
+  prompt += '   【对话】"..."（符合角色声纹的自然对话）\n';
+  prompt += '   【动作】...（1-2句具体的肢体动作/微表情描写）\n';
+  prompt += '   【情绪】...（1句概括当前角色的情绪状态）\n';
+  prompt += '3. 严格按照角色人设中的性格、说话风格、口头禅来写\n';
+  prompt += '4. 对话要自然，符合网文节奏，不要像舞台剧\n';
+  prompt += '5. 直接输出，不要加任何解释或前缀\n';
+  
+  // 显示 loading
+  document.getElementById('rp-loading').style.display = 'block';
+  document.getElementById('rp-result').classList.remove('has-content');
+  document.getElementById('rp-insert-btn').style.display = 'none';
+  document.getElementById('rp-copy-btn').style.display = 'none';
+  
+  try {
+    var result = await callRealAPIWithFallback(prompt, null, 'roleplay', 600);
+    if (result && result.length > 20) {
+      document.getElementById('rp-result').textContent = result;
+      document.getElementById('rp-result').classList.add('has-content');
+      document.getElementById('rp-insert-btn').style.display = 'inline-block';
+      document.getElementById('rp-copy-btn').style.display = 'inline-block';
+    } else {
+      document.getElementById('rp-result').textContent = '生成失败，请重试';
+      document.getElementById('rp-result').classList.add('has-content');
+    }
+  } catch (e) {
+    document.getElementById('rp-result').textContent = '生成出错：' + (e.message || '未知错误');
+    document.getElementById('rp-result').classList.add('has-content');
+  } finally {
+    document.getElementById('rp-loading').style.display = 'none';
+  }
+}
+
+// 插入角色模拟结果到编辑器
+function insertRolePlayResult() {
+  var result = document.getElementById('rp-result').textContent;
+  if (!result || result.indexOf('生成') === 0) return;
+  
+  var editor = document.getElementById('editor');
+  var cursorPos = editor.selectionStart || editor.value.length;
+  var before = editor.value.substring(0, cursorPos);
+  var after = editor.value.substring(cursorPos);
+  
+  // 在光标位置插入，前后加换行
+  var insertText = '\n\n' + result + '\n';
+  editor.value = before + insertText + after;
+  
+  // 保存到章节
+  var work = getCurrentWork();
+  if (work && work.chapters && work.chapters[currentChapterIdx]) {
+    work.chapters[currentChapterIdx].content = editor.value;
+    work.chapters[currentChapterIdx].wordCount = editor.value.length;
+    DB.saveWork(work);
+  }
+  
+  updateWordCount();
+  closeRolePlayPanel();
+  showToast('已插入角色模拟内容');
+}
+
+// 复制角色模拟结果
+function copyRolePlayResult() {
+  var result = document.getElementById('rp-result').textContent;
+  if (!result || result.indexOf('生成') === 0) return;
+  
+  try {
+    navigator.clipboard.writeText(result).then(function() {
+      showToast('已复制到剪贴板');
+    });
+  } catch (e) {
+    // 降级方案
+    var ta = document.createElement('textarea');
+    ta.value = result;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制到剪贴板');
+  }
+}
+
+window.openRolePlayPanel = openRolePlayPanel;
+window.closeRolePlayPanel = closeRolePlayPanel;
+window.generateRolePlay = generateRolePlay;
+window.insertRolePlayResult = insertRolePlayResult;
+window.copyRolePlayResult = copyRolePlayResult;
 window.aiPolishByQuality = aiPolishByQuality;
