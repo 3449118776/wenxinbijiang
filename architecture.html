@@ -2451,17 +2451,21 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
-  // 前置架构上下文（给本卡片作为一致性锚点，增大引用量）
+  // 前置架构上下文（给本卡片作为一致性锚点，动态截断：大上下文模型完整传入，小模型按比例截断）
   if(module !== 'world'){
+    var largeCtx = isLargeContextModel();
     prompt += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力/地名】\n';
     if(work && work.world && work.world.trim()){
-      prompt += '■ 世界观（核心要点，全文摘要）：\n' + smartTruncate(work.world, 4000) + '\n';
+      var worldLimit = largeCtx ? work.world.length : 4000;
+      prompt += '■ 世界观（核心要点）：\n' + (largeCtx ? work.world : smartTruncate(work.world, worldLimit)) + '\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      prompt += '■ 人物人设（核心要点，全文摘要）：\n' + smartTruncate(work.chars, 4000) + '\n';
+      var charsLimit = largeCtx ? work.chars.length : 4000;
+      prompt += '■ 人物人设（核心要点）：\n' + (largeCtx ? work.chars : smartTruncate(work.chars, charsLimit)) + '\n';
     }
     if(module === 'detail' && work && work.outline && work.outline.trim()){
-      prompt += '■ 全书大纲（核心要点，全文摘要）：\n' + smartTruncate(work.outline, 4500) + '\n';
+      var outlineLimit = largeCtx ? work.outline.length : 5000;
+      prompt += '■ 全书大纲（核心要点）：\n' + (largeCtx ? work.outline : smartTruncate(work.outline, outlineLimit)) + '\n';
     }
     prompt += '\n';
   }
