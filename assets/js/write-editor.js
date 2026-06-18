@@ -1779,17 +1779,76 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '【当前章节】' + chTitle + '（第' + (chapterIdx + 1) + '章）\n';
   prompt += '【写作身份】你不是在"生成文本"，你是在"经历故事"。写每个场景时，你就是那个角色，你在那个世界里，你看到、听到、感受到的是角色所感知的一切。你的笔触要让读者忘记自己在看小说。\n\n';
   
-  // === v29: 注入上一章质量短板，本章针对性补强 ===
-  if (typeof QualityEngine !== 'undefined' && QualityEngine.lastHints) {
-    var qHints = QualityEngine.lastHints(work, chapterIdx);
-    if (qHints && qHints.length) {
-      prompt += '【上一章质量短板·本章必须补强】\n';
-      for (var qi = 0; qi < qHints.length; qi++) {
-        prompt += (qi + 1) + '. ' + qHints[qi] + '\n';
+  // === v52: 注入上一章质量短板 + 用户编辑学习 + 自适应技法权重 ===
+  if (typeof QualityEngine !== 'undefined') {
+    // 1. 质量短板提示
+    if (QualityEngine.lastHints) {
+      var qResult = QualityEngine.lastHints(work, chapterIdx - 1);
+      if (qResult && qResult.hints && qResult.hints.length) {
+        prompt += '【⚠️ 上一章质量短板 · 本章必须补强 · 来自经验学习】\n';
+        for (var qi = 0; qi < qResult.hints.length; qi++) {
+          prompt += (qi + 1) + '. ' + qResult.hints[qi] + '\n';
+        }
+        prompt += '\n';
       }
-      prompt += '\n';
+    }
+    
+    // 2. 用户编辑学习（如果用户修改了上一章，学习用户偏好）
+    if (QualityEngine.learnFromEdit && chapterIdx > 0 && work.chapters && work.chapters[chapterIdx - 1]) {
+      var prevCh = work.chapters[chapterIdx - 1];
+      if (prevCh._aiOriginal && prevCh.content && prevCh._aiOriginal !== prevCh.content) {
+        var editLearnings = QualityEngine.learnFromEdit(prevCh._aiOriginal, prevCh.content);
+        if (editLearnings && editLearnings.hasLearnings) {
+          prompt += '【📝 用户编辑学习 · 根据你的修改习惯，AI 已调整写作策略】\n';
+          if (editLearnings.userDeleted.length > 0) {
+            prompt += '用户删除了以下内容，请避免：\n';
+            for (var edi = 0; edi < editLearnings.userDeleted.length; edi++) {
+              prompt += '  - ' + editLearnings.userDeleted[edi] + '\n';
+            }
+          }
+          if (editLearnings.userAdded.length > 0) {
+            prompt += '用户偏好以下风格，请强化：\n';
+            for (var eai = 0; eai < editLearnings.userAdded.length; eai++) {
+              prompt += '  + ' + editLearnings.userAdded[eai] + '\n';
+            }
+          }
+          if (editLearnings.stylePrefs.moreDialog) prompt += '【偏好】用户喜欢更多对话，本章请增加人物互动和对话\n';
+          if (editLearnings.stylePrefs.shorterParagraphs) prompt += '【偏好】用户喜欢更短的段落，本章请控制段落长度\n';
+          if (editLearnings.stylePrefs.lessAdverbs) prompt += '【偏好】用户喜欢简洁描写，本章请减少副词使用\n';
+          prompt += '\n';
+        }
+      }
     }
   }
+
+  // === v52: 自适应技法权重 · 根据章节位置动态调整技法强调 ===
+  var totalEst = Math.max(chapterIdx + 20, (work.chapters && work.chapters.length) || 30);
+  var progressRatio = (chapterIdx + 1) / totalEst;
+  prompt += '【自适应技法权重 · 本章所处阶段决定了核心任务】\n';
+  if (progressRatio < 0.15) {
+    // 早期章节：建立基础
+    prompt += '【阶段：开篇铺设】本章核心任务：\n';
+    prompt += '  权重5★：世界观自然展示（通过行动而非旁白）、主角人设立住（让读者记住主角是谁）\n';
+    prompt += '  权重4★：悬念钩子设置（埋下让读者追读的钩子）、核心冲突引入（暗示主要矛盾方向）\n';
+    prompt += '  权重3★：配角引入（至少让1-2个重要配角出场并留下印象）、场景氛围营造\n';
+    prompt += '  警告：不要第一章就把所有设定倒出来，不要急于展示所有角色\n';
+  } else if (progressRatio < 0.7) {
+    // 中期章节：推进发展
+    prompt += '【阶段：冲突推进】本章核心任务：\n';
+    prompt += '  权重5★：冲突升级（至少推进一级冲突阶梯）、伏笔推进（至少推进1条已埋伏笔）\n';
+    prompt += '  权重4★：角色成长（主角或关键配角的能力/认知/关系有可见变化）、反转设计（如果适合本章）\n';
+    prompt += '  权重3★：信息密度（每500字至少1个信息点）、情感波动（情绪不能平铺直叙）\n';
+    prompt += '  警告：避免连续3章无实质推进，避免配角突然消失\n';
+  } else {
+    // 后期章节：收束高潮
+    prompt += '【阶段：高潮收束】本章核心任务：\n';
+    prompt += '  权重5★：伏笔回收（回收至少1条重要伏笔，让读者有"原来如此"的震撼）\n';
+    prompt += '  权重5★：冲突决战（至少有1条冲突线走向决战或收束）\n';
+    prompt += '  权重4★：角色弧光收束（主角的核心弱点/执念被直面或被解决）\n';
+    prompt += '  权重4★：情感收束（重要关系线走向结局或重大转变）\n';
+    prompt += '  警告：不能草草收尾，每条重要线索都需要交代结局或开放式留白\n';
+  }
+  prompt += '\n';
 
   // === 题材硬约束（防跑题） ===
   prompt += getWriteConstraint(genre, work) + '\n';
@@ -3623,6 +3682,8 @@ async function aiWriteChapter(){
     if (undoBtn) undoBtn.style.display = 'inline-block';
     // 保存到章节
     const ch = work.chapters[chapterIdx];
+    // v52: 保存AI原始输出，用于用户编辑学习
+    ch._aiOriginal = result;
     ch.content = result;
     ch.wordCount = result.length;
     // 同步章节标题到输入框
@@ -3644,6 +3705,8 @@ async function aiWriteChapter(){
           try {
             const fillResult = await callRealAPIWithFallback(fillPrompt, null, 'fill', 800);
             if (fillResult) {
+              // v52: 保存AI原始（含补写），用于用户编辑学习
+              ch._aiOriginal = result + '\n\n' + fillResult;
               ch.content = result + '\n\n' + fillResult;
               document.getElementById('editor').value = ch.content;
               updateWordCount();
