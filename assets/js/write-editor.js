@@ -1849,7 +1849,96 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
 
-  // ===== v48: 伏笔兑现清单 · 提取细纲/大纲中的【伏笔】标签，让AI主动推进 =====
+  // ===== v51: 角色声纹卡 · 从人设中提取所有角色说话风格，确保对话有区分度 =====
+  if (work.chars) {
+    // 提取所有角色信息：姓名、口头禅、性格关键词、说话风格
+    var voiceCards = [];
+    var charBlockRE = /[【\[]([^】\]\n]+)[】\]]\s*[：:]/g;
+    var cbMatch;
+    var charBlocks = [];
+    var lastIdx = 0;
+    while ((cbMatch = charBlockRE.exec(work.chars)) !== null) {
+      if (lastIdx > 0) charBlocks.push({ name: '', text: work.chars.substring(lastIdx, cbMatch.index) });
+      lastIdx = cbMatch.index;
+    }
+    if (lastIdx > 0) charBlocks.push({ name: '', text: work.chars.substring(lastIdx) });
+    
+    // 更稳健的提取：按【角色名】切分
+    var charSegRE = /[【\[]([^】\]\n]{1,12})[】\]]\s*[：:]?\s*/g;
+    var segMatch;
+    var segments = [];
+    var prevEnd = 0;
+    while ((segMatch = charSegRE.exec(work.chars)) !== null) {
+      if (segments.length > 0) {
+        segments[segments.length - 1].text = work.chars.substring(segments[segments.length - 1].start, segMatch.index);
+      }
+      segments.push({ name: segMatch[1].trim(), start: segMatch.index + segMatch[0].length });
+      prevEnd = segMatch.index + segMatch[0].length;
+    }
+    if (segments.length > 0) {
+      segments[segments.length - 1].text = work.chars.substring(segments[segments.length - 1].start);
+    }
+    
+    // 从每个角色片段中提取说话风格关键词
+    for (var si = 0; si < segments.length && voiceCards.length < 8; si++) {
+      var seg = segments[si];
+      if (!seg.name || seg.name === '关系网' || seg.name === '年龄' || seg.name === '外貌') continue;
+      var segText = seg.text || '';
+      if (segText.length < 10) continue;
+      
+      // 提取口头禅
+      var catchphrases = [];
+      var cpRE = /口头禅[：:]\s*([^。\n]{2,30})/g;
+      var cpMatch;
+      while ((cpMatch = cpRE.exec(segText)) !== null) {
+        var cp = cpMatch[1].trim();
+        if (cp && catchphrases.indexOf(cp) === -1) catchphrases.push(cp);
+      }
+      
+      // 提取性格关键词
+      var personalityKW = [];
+      var persRE = /性格[：:]\s*([^。\n]{2,60})/g;
+      var persMatch;
+      while ((persMatch = persRE.exec(segText)) !== null) {
+        personalityKW.push(persMatch[1].trim());
+      }
+      // 也提取"特征"标签
+      var traitRE = /(特征|标签|定位)[：:]\s*([^。\n]{2,60})/g;
+      var traitMatch;
+      while ((traitMatch = traitRE.exec(segText)) !== null) {
+        personalityKW.push(traitMatch[2].trim());
+      }
+      
+      // 提取说话风格
+      var speechStyle = '';
+      var styleRE = /(说话风格|语气|腔调|语言风格)[：:]\s*([^。\n]{2,60})/g;
+      var styleMatch = styleRE.exec(segText);
+      if (styleMatch) speechStyle = styleMatch[2].trim();
+      
+      // 构建角色声纹卡（精简版，每个角色 2-3 行）
+      var card = seg.name;
+      if (catchphrases.length) card += ' | 口头禅：' + catchphrases.slice(0, 2).join('、');
+      if (personalityKW.length) card += ' | ' + personalityKW.slice(0, 2).join('、');
+      if (speechStyle) card += ' | 说话风格：' + speechStyle;
+      
+      voiceCards.push(card);
+    }
+    
+    if (voiceCards.length > 0) {
+      prompt += '【⚠️ 角色声纹卡 · 对话差异化 · 每个角色必须用不同腔调说话】\n';
+      prompt += '以下是人设中提取的各角色说话风格。写作时，每个角色的对话必须符合其声纹：\n\n';
+      for (var vi = 0; vi < voiceCards.length; vi++) {
+        prompt += '  • ' + voiceCards[vi] + '\n';
+      }
+      prompt += '\n【声纹约束】\n';
+      prompt += '1. 每段对话写完后，自问：这句话换一个角色来说，会不会听起来一模一样？如果是，重写。\n';
+      prompt += '2. 将军说话短促有力，书生说话引经据典，武者说话粗犷直接，谋士说话迂回保留。\n';
+      prompt += '3. 主角的说话方式必须与其他人形成鲜明对比，让读者不看"XX说"也能分辨谁在说话。\n';
+      prompt += '4. 不同身份的角色用词档次不同：市井角色用俚语俗语，贵族角色用正式措辞，修行者用特定术语。\n\n';
+    }
+  }
+
+  // ===== v51: 伏笔闭环管理 · 三阶段追踪（埋→推进→回收）+ 自动提取前文章节中的伏笔 =====
   if (work.detail || work.outline) {
     var foreshadowingHints = [];
     var foreshadowRE = /【[^】]*伏笔[^】]*】/g;
@@ -1861,7 +1950,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       var omatches = work.outline.match(foreshadowRE);
       if (omatches) omatches.forEach(function (m) { if (foreshadowingHints.indexOf(m) === -1) foreshadowingHints.push(m); });
     }
-    // 也提取"伏笔"二字前后的关键句子
+    // 提取"伏笔"二字前后的关键句子
     var hintSentences = [];
     var sources = [work.detail, work.outline];
     for (var si = 0; si < sources.length; si++) {
@@ -1873,16 +1962,75 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
         if (s.length > 15 && hintSentences.indexOf(s) === -1 && hintSentences.length < 6) hintSentences.push(s);
       }
     }
-    if (foreshadowingHints.length > 0 || hintSentences.length > 0) {
-      prompt += '【⚠️ 伏笔与承诺兑现清单 · 主动搬运】\n';
-      if (foreshadowingHints.length > 0) prompt += '检测到的伏笔标记：' + foreshadowingHints.slice(0, 5).join(' / ') + '\n';
-      if (hintSentences.length > 0) {
-        prompt += '从细纲/大纲中提取的伏笔线索（请在本章中至少推进或提及 1-2 条）：\n';
-        for (var hi = 0; hi < hintSentences.length; hi++) {
-          prompt += (hi + 1) + '. ' + hintSentences[hi] + '\n';
+    // 提取"悬念/坑/暗示/揭秘"等伏笔相关线索
+    var broaderHints = [];
+    var broadRE = /[^。\n]{0,40}(悬念|揭秘|暗线|铺垫|暗示|隐藏|秘密|真相|不为人知|疑点|谜团|未解|坑)[^。\n]{0,80}[。\n]/g;
+    for (var bsi = 0; bsi < sources.length; bsi++) {
+      if (!sources[bsi]) continue;
+      var bm;
+      while ((bm = broadRE.exec(sources[bsi])) !== null) {
+        var bs = bm[0].trim();
+        if (bs.length > 15 && broaderHints.indexOf(bs) === -1 && broaderHints.length < 8) broaderHints.push(bs);
+      }
+    }
+    
+    // 从已写章节中提取未解决的伏笔（悬而未决的线索）
+    var unresolvedForeshadow = [];
+    if (work.chapters && chapterIdx > 0) {
+      for (var ci = 0; ci < chapterIdx && unresolvedForeshadow.length < 5; ci++) {
+        var chContent = (work.chapters[ci] || {}).content || '';
+        if (!chContent) continue;
+        var chTitlePrev = (work.chapters[ci] || {}).title || ('第' + (ci + 1) + '章');
+        var unfResRE = /[^。\n]{0,40}(伏笔|悬念|暗线|未解|隐藏|秘密|疑点|谜团|暗示|铺垫|留白|待续|未完|后文|揭露|真相|揭开|谜底|反转|惊人|秘密武器|隐藏实力|真正身份|背后|幕后|另有隐情|深藏|不为人知|暗中|潜伏|暗藏|潜在|隐患|未完成|未完待续|尚有|仍有|还未|尚未|有待|等待|将来|日后|早晚|迟早|终将|必定|当然|后话|暂且|暂且不提|暂且不表|话分两头|埋在|暗线|这条线|这条伏|这条暗|这条线|线头|尾巴|钩子|扣子|疑问|问题|谜|坑)[^。\n]{0,100}[。\n]/g;
+        var ufMatch;
+        while ((ufMatch = unfResRE.exec(chContent)) !== null) {
+          var uf = ufMatch[0].trim();
+          if (uf.length > 15 && unresolvedForeshadow.indexOf(uf) === -1 && unresolvedForeshadow.length < 5) {
+            unresolvedForeshadow.push({ text: uf, chapter: chTitlePrev });
+          }
         }
       }
-      prompt += '【指令】写本章时请自问：之前埋下的哪些伏笔可以在本章推进或回收？哪些承诺可以被打破/兑现？本章结束后可以为后续章节埋下什么新的伏笔？\n\n';
+    }
+    
+    if (foreshadowingHints.length > 0 || hintSentences.length > 0 || broaderHints.length > 0 || unresolvedForeshadow.length > 0) {
+      prompt += '【⚠️ 伏笔闭环管理 · 三阶段追踪（埋→推进→回收）】\n\n';
+      
+      // 阶段一：已埋伏笔（从大纲/细纲中提取）
+      var planted = foreshadowingHints.length > 0 ? foreshadowingHints.slice(0, 5) : 
+                    (hintSentences.length > 0 ? hintSentences.slice(0, 3) : broaderHints.slice(0, 3));
+      if (planted.length > 0) {
+        prompt += '【阶段一 · 已埋伏笔】（需要在后续章节中推进）\n';
+        for (var pi = 0; pi < planted.length; pi++) {
+          prompt += '  埋-' + (pi + 1) + '. ' + (typeof planted[pi] === 'string' ? planted[pi] : planted[pi].text || planted[pi]) + '\n';
+        }
+        prompt += '\n';
+      }
+      
+      // 阶段二：未解决伏笔（从前文章节中自动提取的悬而未决线索）
+      if (unresolvedForeshadow.length > 0) {
+        prompt += '【阶段二 · 推进中/待推进】（前文章节中悬而未决的线索，本章应推进或暗示）\n';
+        for (var ufi = 0; ufi < unresolvedForeshadow.length; ufi++) {
+          prompt += '  → 第' + unresolvedForeshadow[ufi].chapter + '遗留：' + unresolvedForeshadow[ufi].text + '\n';
+        }
+        prompt += '\n';
+      }
+      
+      // 阶段三：待回收伏笔（本章需要推进或回收的伏笔）
+      var toResolve = broaderHints.length > 0 ? broaderHints.slice(0, 4) : hintSentences.slice(0, 4);
+      if (toResolve.length > 0) {
+        prompt += '【阶段三 · 待回收/可推进】（本章可推进或回收的伏笔线索）\n';
+        for (var ri = 0; ri < toResolve.length; ri++) {
+          prompt += '  收-' + (ri + 1) + '. ' + (typeof toResolve[ri] === 'string' ? toResolve[ri] : toResolve[ri].text || toResolve[ri]) + '\n';
+        }
+        prompt += '\n';
+      }
+      
+      prompt += '【伏笔写作指令】\n';
+      prompt += '1. 本章必须至少推进 1 条"已埋伏笔"，让读者看到线索在慢慢展开（推进 = 给出新信息但不揭底）\n';
+      prompt += '2. 如果本章位置适合回收某条伏笔（如本卷结尾），则回收它并让读者产生"原来如此"的震撼感\n';
+      prompt += '3. 本章结束后必须埋下至少 1 条新伏笔（可以是新悬念、新谜团、新矛盾），为后续章节制造期待\n';
+      prompt += '4. 伏笔回收要有"延迟满足"：埋下后至少隔 3-5 章再回收，回收时必须有"原来如此"的爽感\n';
+      prompt += '5. 禁止在本章同时埋下并回收同一条伏笔——那是"假伏笔"，读者会感觉被耍\n\n';
     }
   }
 
@@ -1921,6 +2069,86 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   if (work.chars) {
     const charsText = (archLimits && work.chars.length > archLimits.chars) ? smartCompressArch(work.chars, archLimits.chars) : work.chars;
     prompt += '【人物人设】\n' + charsText + '\n\n';
+  }
+  
+  // ===== v51: 素材库 · 从世界观/人设中提取可复用元素（地名/势力/功法/道具/货币/称谓） =====
+  var materialLib = {};
+  var allArchText = (work.world || '') + '\n' + (work.chars || '') + '\n' + (work.outline || '');
+  
+  // 提取地名
+  var placeRE = /[【\[]?([^】\]\n]{2,8}(?:城|镇|村|谷|山|海|河|域|界|殿|宫|府|阁|楼|堂|院|塔|林|原|漠|岛|州|国|郡|都|堡|寨|关|崖|渊|洞|窟|峰|岭|湖|江|泽|墟))[】\]]?/g;
+  var places = [];
+  var pm;
+  while ((pm = placeRE.exec(allArchText)) !== null) {
+    var p = pm[1];
+    if (p.length >= 2 && places.indexOf(p) === -1 && places.length < 15) places.push(p);
+  }
+  if (places.length) materialLib.places = places;
+  
+  // 提取势力/组织名
+  var factionRE = /[【\[]?([^】\]\n]{2,8}(?:宗|门|派|教|会|盟|帮|族|家|国|朝|军|团|队|组|殿|阁|楼|府|堂|院|塔|谷|山|岛|堡|城|坊|司|局|卫|营|旗|舵|坛|社|联|党|部|处|所|馆|斋|居|轩|苑|园|庄|店|铺|行|号|坊))[】\]]?/g;
+  var factions = [];
+  var fm;
+  while ((fm = factionRE.exec(allArchText)) !== null) {
+    var f = fm[1];
+    if (f.length >= 2 && factions.indexOf(f) === -1 && factions.length < 12) factions.push(f);
+  }
+  if (factions.length) materialLib.factions = factions;
+  
+  // 提取功法/技能/招式名
+  var skillRE = /[【\[]?([^】\]\n]{2,10}(?:功|法|诀|术|技|式|剑|刀|拳|掌|指|腿|步|身法|心法|功法|秘籍|神通|秘术|禁术|奥义|绝学|传承|血脉|天赋|能力|异能|灵力|斗气|魔法|仙术|道法|佛法|巫术|诅咒|契约|炼金|符文|阵法|炼丹|炼器|御兽|召唤|附魔|铭文|图腾|灵根|武魂|魂环|魂骨|领域|法则|大道|天道|仙道|魔道|妖道|鬼道|神道|武道|剑道|刀道|拳道|掌道|指道|丹道|器道|阵道|符道|咒道|蛊道|毒道|医道|幻道|梦道|时道|空道|生道|死道|因果|轮回|命运|气运|功德|业力|灵力|真气|元气|仙气|魔气|妖气|鬼气|神气|龙气|凤气|灵气|斗气|霸气|杀气|剑气|刀气|拳意|掌意|指意|意境|奥义|领域|法则))[】\]]?/g;
+  var skills = [];
+  var skm;
+  while ((skm = skillRE.exec(allArchText)) !== null) {
+    var sk = skm[1];
+    if (sk.length >= 2 && skills.indexOf(sk) === -1 && skills.length < 15) skills.push(sk);
+  }
+  if (skills.length) materialLib.skills = skills;
+  
+  // 提取道具/物品名
+  var itemRE = /[【\[]?([^】\]\n]{2,8}(?:剑|刀|枪|戟|斧|锤|鞭|弓|弩|盾|甲|铠|袍|衣|冠|靴|戒|环|镯|链|珠|玉|符|印|鼎|炉|丹|药|草|石|晶|矿|木|果|花|液|水|火|雷|风|冰|光|暗|镜|图|卷|书|册|令|牌|钥|匙|锁|盒|囊|袋|瓶|罐|盘|杯|盏|针|线|索|绳|网|旗|幡|扇|伞|灯|烛|香|炉|琴|笛|箫|钟|鼓|砚|笔|墨|纸|棋|盘|石|碑|柱|门|桥|船|车|舟|翼|翅|羽|鳞|角|爪|牙|骨|血|肉|皮|筋|脉|髓|核|晶|魂|灵|魄|神|魔|妖|鬼|仙|佛|圣|帝|王|皇|尊|祖|宗|师|匠|徒|者|士|兵|将|帅|侯|爵|公|卿|相|宰|臣|吏|民|奴|婢|侍|卫|护|守|监|察|判|断|裁|决|执|行|掌|管|控|御|统|领|率|带|引|导|指|挥|令|命|遣|派|差|使|役|雇|佣|租|借|贷|赊|买|卖|贸|易|商|贾|贩|货|物|品|器|具|材|料|资|源|产|业|财|富|钱|币|金|银|铜|铁|钢|锡|铅|汞|硫|硝|碳|硅|铝|钛|铬|镍|钴|锌|锰|镁|钙|钾|钠|磷|氯|氟|碘|溴|氦|氖|氩|氪|氙|氡|铀|钚|钍|镭|钋|锕|镤|镎|镅|锔|锫|锎|锿|镄|钔|锘|铹))[】\]]?/g;
+  var items = [];
+  var im;
+  while ((im = itemRE.exec(allArchText)) !== null) {
+    var it = im[1];
+    if (it.length >= 2 && items.indexOf(it) === -1 && items.length < 15) items.push(it);
+  }
+  if (items.length) materialLib.items = items;
+  
+  // 提取特殊称谓/身份
+  var titleRE = /[【\[]?([^】\]\n]{2,8}(?:尊者|圣者|帝者|王者|皇者|仙者|神者|魔者|妖者|鬼者|佛者|道者|武者|剑者|刀者|拳者|掌者|丹者|器者|阵者|符者|咒者|蛊者|毒者|医者|幻者|梦者|卜者|相者|命者|运者|师|匠|徒|者|士|兵|将|帅|侯|爵|公|卿|相|宰|臣|吏|民|奴|婢|侍|卫|护|守|监|察|判|断|裁|决|执|行|掌|管|控|御|统|领|率|带|引|导|指|挥|令|命|遣|派|差|使|役|雇|佣|租|借|贷|赊|买|卖|贸|易|商|贾|贩|货|物|品|器|具|材|料|资|源|产|业|财|富|钱|币|金|银|铜|铁|钢|锡|铅|汞|硫|硝|碳|硅|铝|钛|铬|镍|钴|锌|锰|镁|钙|钾|钠|磷|氯|氟|碘|溴|氦|氖|氩|氪|氙|氡|铀|钚|钍|镭|钋|锕|镤|镎|镅|锔|锫|锎|锿|镄|钔|锘|铹))[】\]]?/g;
+  var titles = [];
+  var tm;
+  while ((tm = titleRE.exec(allArchText)) !== null) {
+    var t = tm[1];
+    if (t.length >= 2 && titles.indexOf(t) === -1 && titles.length < 10) titles.push(t);
+  }
+  if (titles.length) materialLib.titles = titles;
+  
+  // 组装素材库
+  var matKeys = Object.keys(materialLib);
+  if (matKeys.length > 0) {
+    prompt += '【📦 素材库 · 从设定中提取的可复用元素（本章必须使用具体名称，禁止泛称）】\n';
+    if (materialLib.places) {
+      prompt += '  地名：' + materialLib.places.join('、') + '\n';
+    }
+    if (materialLib.factions) {
+      prompt += '  势力/组织：' + materialLib.factions.join('、') + '\n';
+    }
+    if (materialLib.skills) {
+      prompt += '  功法/技能/招式：' + materialLib.skills.join('、') + '\n';
+    }
+    if (materialLib.items) {
+      prompt += '  道具/物品：' + materialLib.items.join('、') + '\n';
+    }
+    if (materialLib.titles) {
+      prompt += '  称谓/身份：' + materialLib.titles.join('、') + '\n';
+    }
+    prompt += '【素材库使用规则】\n';
+    prompt += '1. 写作时角色名、地名、势力名、功法名必须从素材库中选取，禁止凭空编造新名称\n';
+    prompt += '2. 如果确实需要新元素（如新地点、新势力），必须在细纲中事先定义，不可以临时编造\n';
+    prompt += '3. 同一地名/势力名在前文出现过的，后文必须保持一致（包括全称/简称/别称）\n';
+    prompt += '4. 功法/技能的使用必须符合世界观设定的等级体系和代价规则\n\n';
   }
   if (work.outline) {
     var volCtx = getCurrentVolumeContext(work, chapterIdx);
@@ -2071,6 +2299,61 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '   ④切换视角的段落不超过300字，或该段落有独立叙事价值（如反派独白、关键线索揭示）\n';
     prompt += '   不满足条件则严禁切换视角。禁止在同一段落内从A视角跳到B视角。\n\n';
   }
+
+  // ===== v51: 场景类型模板 · 战斗/情感/对话/信息四大场景写作结构 =====
+  prompt += '\n\n【⚠️ 场景类型模板 · 按场景类型选择写作结构】\n';
+  prompt += '根据本章剧情判断本章主要场景类型，选择对应模板（不是照抄，是理解结构后灵活运用）：\n\n';
+  
+  prompt += '【战斗场景 4 步结构】\n';
+  prompt += '  Step 1 对峙（30%）：写出双方立场/实力差距/心理博弈。读者要知道"为什么打"和"输了会怎样"\n';
+  prompt += '  Step 2 交锋（30%）：不是招式名堆砌，而是要害攻防+环境利用+策略博弈。每个回合有"攻击→应对→反击"的因果链\n';
+  prompt += '  Step 3 转折（15%）：战斗中突然出现新变量（第三方介入/环境变化/隐藏实力暴露/规则被打破），让读者产生"没想到"的兴奋\n';
+  prompt += '  Step 4 收束（25%）：分出胜负或暂时中断，但必须留下"战斗的代价"（伤势/消耗/暴露/心理创伤）。战斗不能白打，要么推动剧情，要么揭示角色\n\n';
+  
+  prompt += '【情感场景 4 步结构】\n';
+  prompt += '  Step 1 触发（20%）：一句台词/一个动作/一个物件/一个场景，触发了角色的情感按钮\n';
+  prompt += '  Step 2 挣扎（40%）：角色在"承认情感"和"压抑情感"之间反复摇摆。外化挣扎：想说的话说不出口，想做的事做不到，想走的路走不动\n';
+  prompt += '  Step 3 突破或退缩（20%）：角色最终选择表达还是继续压抑？这个选择必须符合人设，不能凭空变勇敢或变懦弱\n';
+  prompt += '  Step 4 余波（20%）：情感事件之后，角色和关系发生了什么变化？这个变化必须影响后续行为\n\n';
+  
+  prompt += '【对话场景 4 步结构】\n';
+  prompt += '  Step 1 建立（10%）：交代对话场景（地点/时间/在场人物/各自目的），简洁高效\n';
+  prompt += '  Step 2 交锋（50%）：不是问答，是博弈。每句话都在争取什么或隐藏什么。关键技巧：答非所问/转移话题/用沉默代替回答/用日常事物做掩护\n';
+  prompt += '  Step 3 升级（25%）：对话中信息差逐渐暴露，一方开始占据上风或局势逆转。至少出现一次"原来如此"的揭示\n';
+  prompt += '  Step 4 种子（15%）：对话结束时埋下新矛盾的种子。读者知道"这场对话改变了什么"但又"不知道会引发什么"\n\n';
+  
+  prompt += '【信息场景 4 步结构】（揭示世界观/交代背景/传递情报）\n';
+  prompt += '  Step 1 钩子（20%）：用一个问题或矛盾吸引读者——"为什么这个世界的规则是这样的？""这条信息意味着什么？"\n';
+  prompt += '  Step 2 分层揭示（40%）：信息不是一次性倒出来，而是像剥洋葱一样层层揭示。每层揭示都让读者产生"原来如此"的感觉\n';
+  prompt += '  Step 3 角色反应（25%）：重点不是信息本身，而是角色对信息的反应。不同角色对同一信息的不同反应是最有戏剧性的部分\n';
+  prompt += '  Step 4 后果暗示（15%）：暗示这条信息将如何改变角色的行动或选择。读者需要知道"知道了这个之后，角色会怎么做"\n\n';
+  
+  prompt += '【场景类型指令】\n';
+  prompt += '1. 本章开始前先判断：这一章主要是什么类型的场景？选择最接近的模板\n';
+  prompt += '2. 如果一章包含多个场景类型（如"对话→战斗→情感"），按顺序使用对应模板，场景切换时用空行分隔\n';
+  prompt += '3. 比例不是死板的，但"牺牲哪个Step"必须是有意为之，不能是因为忘了\n';
+  prompt += '4. 模板的核心是"步骤之间的因果链"——每一步必须导致下一步，不能跳跃\n\n';
+
+  // ===== v51: 情感波动曲线 · 章节情绪强度设计 =====
+  prompt += '【⚠️ 情感波动曲线 · 本章情绪强度设计】\n';
+  prompt += '网文不是平铺直叙，情绪必须有起伏。本章请按以下情绪曲线设计：\n\n';
+  prompt += '【情绪强度标尺】（1=平淡, 5=日常冲突, 7=重大转折, 9=高潮爆发, 10=终极对决）\n';
+  prompt += '  本章推荐情绪曲线：\n';
+  prompt += '  开篇（0-15%）→ 情绪强度 3-4：承接上章余韵，用简洁的过渡锚定读者\n';
+  prompt += '  发展（15-50%）→ 情绪强度 5-6：冲突升级，矛盾展开，读者开始紧张\n';
+  prompt += '  转折（50-70%）→ 情绪强度 7-8：本章核心事件发生，读者被"震"到\n';
+  prompt += '  收束（70-100%）→ 情绪强度 6→8：情绪不降反升，制造"欲罢不能"的结尾钩子\n\n';
+  prompt += '【情绪曲线设计原则】\n';
+  prompt += '1. 每章至少有一个"情绪高峰"（强度≥7），让读者有"这章没白看"的满足感\n';
+  prompt += '2. 高峰前后的情绪不能断崖式跳变，要有 2-3 步的爬升和回落过程\n';
+  prompt += '3. 连续两章不能都是"高强度"——如果上一章是高潮（8-9），本章可以适当降低到 5-7，给读者喘息空间\n';
+  prompt += '4. 连续三章不能都是"低强度"——超过 3 章无情绪刺激，读者开始流失\n';
+  prompt += '5. 情绪来源必须多样化：不能只靠"战斗"制造高潮，也要靠"揭秘/反转/关系突破/身份暴露"等\n';
+  prompt += '6. 不同情绪类型交替：紧张→释然→紧张→感动→紧张→愤怒→紧张→爽，避免单一情绪疲劳\n\n';
+  prompt += '【本章情绪检查清单】\n';
+  prompt += '- 本章的"情绪高峰"是什么事件？读者看完后最强烈的感受是什么？\n';
+  prompt += '- 高峰之前有没有足够的"委屈/压抑/期待"来铺垫？没有铺垫的高潮只是炫技\n';
+  prompt += '- 结尾的情绪向量是"向上"（期待/兴奋/好奇）还是"向下"（担忧/压抑/悬念）？向上让读者想追读，向下让读者想翻页\n\n';
 
   // 用户指令已移至 prompt 最前面，确保 AI 第一眼看到
 
