@@ -131,6 +131,9 @@ body{display:flex;flex-direction:column;}
 
 /* 数量选择 */
 .page-count-selector{display:flex;align-items:center;gap:8px;margin:0 12px 10px;font-size:13px;color:#666;}
+.page-count-selector input{width:56px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center;color:#333;}
+.page-count-selector input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.15);}
+.page-count-selector .count-hint{font-size:11px;color:#999;}
 
 /* 操作按钮 */
 .page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;}
@@ -454,7 +457,10 @@ body{display:flex;flex-direction:column;}
         <textarea id="idea-outline" placeholder="输入构思，AI补全大纲..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-outline')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
       </div>
-      <div class="page-count-selector" id="count-select-outline"></div>
+      <div class="page-count-selector" id="count-select-outline">
+        <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
+        <span class="count-hint">（3-20卷）</span>
+      </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
@@ -484,7 +490,11 @@ body{display:flex;flex-direction:column;}
         <textarea id="idea-detail" placeholder="输入构思，AI补全细纲..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-detail')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
       </div>
-      <div class="page-count-selector" id="count-select-detail"></div>
+      <div class="page-count-selector" id="count-select-detail">
+        <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数">卷
+        <span>约</span><input type="number" id="ch-count-detail" value="90" min="30" max="300" step="10" title="总章数">章
+        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">10</span>章）</span>
+      </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
@@ -2319,14 +2329,27 @@ function buildArchCardBatchesV48(module, work, idea){
       focus: '（1）恋爱对象/CP角色（如果有）：姓名、外貌、性格、与主角的相遇方式、感情线推进节奏（暧昧→确认→考验→结局）、两人关系中的核心矛盾（不是小三，而是价值观/立场/隐瞒的冲突）、如果BE/如果HE分别是什么结局。（2）导师/引路人（如果有）：姓名、身份、教给主角什么、对主角的期望、最终结局（牺牲/退隐/背叛？）。（3）家族/亲缘关系（如果有）：父母/兄弟姐妹/家族背景，这些关系如何影响主角的行为和选择。（4）完整人物关系网：画出所有主要角色间的张力线（至少10条），每条线标注：关系类型（爱情/亲情/师徒/敌对/合作/利用/暗恋）、当前状态（亲密/疏远/对立/暧昧）、冲突点（什么会让这条关系破裂或转变）、转折预期（这条关系最终走向何方）'
     });
   } else if(module === 'outline'){
-    // 大纲：11 张卡片，每卷独立一张 + 开篇专卡 + 终卷 + 支线总览
+    // 大纲：读取用户设置的卷数，动态生成卷卡片
+    var userVolCount = 9;
+    var volInputEl = document.getElementById('vol-count-outline');
+    if(volInputEl){
+      var v = parseInt(volInputEl.value);
+      if(v >= 3 && v <= 20) userVolCount = v;
+    }
+    
+    // 根据卷数动态生成阶段名称
+    var allPhases = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
+    var volPhases = [];
+    for(var pi = 0; pi < userVolCount; pi++){
+      volPhases.push(allPhases[Math.floor(pi * allPhases.length / userVolCount)] || '发展');
+    }
+    
     batches.push({
       label: '开篇设计（前3章）',
       targetChars: 3000,
       focus: '开篇3章精设计 — 第1章：开场画面（具体场景+感官细节）、主角出场方式（让读者3秒内记住他）、核心冲突引入（主角面临的第一个危机）、钩子设计（章末必须让读者想翻下一页）；第2章：世界观初窥（通过事件而非说明展示）、第一个爽点/虐点、新角色引入；第3章：第一个小高潮（主角的第一次胜利或第一次惨败）、主线任务明确（主角的目标是什么）、留下3个悬念。每章必须标注：情绪曲线（紧张→释放→更紧张）、读者预期管理（读者以为会怎样→实际怎样）'
     });
-    var volPhases = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束'];
-    for(var vi = 0; vi < 9; vi++){
+    for(var vi = 0; vi < userVolCount; vi++){
       var volNum = vi + 1;
       var phase = volPhases[vi] || '';
       batches.push({
@@ -2339,15 +2362,27 @@ function buildArchCardBatchesV48(module, work, idea){
     batches.push({
       label: '终卷·大结局 + 跨卷伏笔总览',
       targetChars: 3000,
-      focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前9卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
+      focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前' + userVolCount + '卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
     });
   } else if(module === 'detail'){
     // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
-    // 从大纲中提取分卷信息，确保细纲和大纲的卷结构完全对齐
-    var volumeCount = 9; // 默认9卷，与大纲一致
-    var chaptersPerVolume = 10; // 默认每卷10章
+    // 读取用户设置的卷数和总章数
+    var volumeCount = 9;
+    var chaptersPerVolume = 10;
     
-    // 尝试从大纲中解析实际分卷数
+    var volInputEl2 = document.getElementById('vol-count-detail');
+    if(volInputEl2){
+      var v2 = parseInt(volInputEl2.value);
+      if(v2 >= 3 && v2 <= 20) volumeCount = v2;
+    }
+    
+    var chInputEl = document.getElementById('ch-count-detail');
+    if(chInputEl){
+      var c = parseInt(chInputEl.value);
+      if(c >= 30 && c <= 300) chaptersPerVolume = Math.max(3, Math.round(c / volumeCount));
+    }
+    
+    // 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
     if(work && work.outline){
       var volMatches = work.outline.match(/第[一二三四五六七八九十\d]+卷/g);
       if(volMatches && volMatches.length > 0) volumeCount = volMatches.length;
@@ -2363,12 +2398,12 @@ function buildArchCardBatchesV48(module, work, idea){
     }
     
     // 每卷生成一张细纲卡片
+    var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
     for(var vi = 0; vi < volumeCount; vi++){
       var volNum = vi + 1;
       var chStart = (vi * chaptersPerVolume) + 1;
       var chEnd = (vi + 1) * chaptersPerVolume;
-      var volPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束'];
-      var volPhase = volPhases2[vi] || '';
+      var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
       
       batches.push({
         label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
@@ -3010,6 +3045,28 @@ window.addEventListener('DOMContentLoaded',function(){
   } catch(e){
     console.error('Init error:',e);
     goToLevel(1);
+  }
+  
+  // 细纲：卷数和章数联动，更新"每卷约X章"提示
+  var volInput = document.getElementById('vol-count-detail');
+  var chInput = document.getElementById('ch-count-detail');
+  var hintEl = document.getElementById('ch-per-vol-hint');
+  if(volInput && chInput && hintEl){
+    var updateHint = function(){
+      var v = parseInt(volInput.value) || 9;
+      var c = parseInt(chInput.value) || 90;
+      hintEl.textContent = Math.max(1, Math.round(c / v));
+    };
+    volInput.addEventListener('input', updateHint);
+    chInput.addEventListener('input', updateHint);
+  }
+  
+  // 大纲和细纲的卷数双向同步
+  var volOutline = document.getElementById('vol-count-outline');
+  var volDetail = document.getElementById('vol-count-detail');
+  if(volOutline && volDetail){
+    volOutline.addEventListener('input', function(){ volDetail.value = volOutline.value; });
+    volDetail.addEventListener('input', function(){ volOutline.value = volDetail.value; });
   }
 });
 
