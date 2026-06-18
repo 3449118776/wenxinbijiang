@@ -2783,29 +2783,106 @@ function smartCompressArch(text, maxLen) {
     }
   } catch (e) {}
 
-  // ===== 引擎 2: 作者风格签名（如果作品中保存了 styleSample 则注入，以保持写作风格一致）
+  // ===== v52: 风格加强 · 风格签名 + 用户编辑风格学习 =====
   try {
+    var styleSig = null;
     if (typeof StyleEngine !== 'undefined' && work && work.styleSample && work.styleSample.length >= 500) {
-      var sig = StyleEngine.extractSignature(work.styleSample, work.title || '作者风格');
-      if (sig && sig.signatureText) {
-        prompt += '\n\n【⚠️ 作者风格签名 · 以下风格签名是从用户提供的样本作品中自动提取的，请在本章写作中严格保持一致：\n';
-        prompt += sig.signatureText + '\n';
-      }
+      styleSig = StyleEngine.extractSignature(work.styleSample, work.title || '作者风格');
     } else if (typeof StyleEngine !== 'undefined' && work && work.chapters && work.chapters.length >= 3) {
-      // 没有显式 styleSample 的情况下：用最近 3 章的风格作为参考
       var merged = '';
-      for (var cx = Math.max(0, work.chapters.length - 3); cx < work.chapters.length; cx++) {
+      for (var cx = Math.max(0, work.chapters.length - 5); cx < work.chapters.length; cx++) {
         if (work.chapters[cx] && work.chapters[cx].content) merged += work.chapters[cx].content;
       }
       if (merged.length >= 2000) {
-        var sig2 = StyleEngine.extractSignature(merged, '最近章节风格');
-        if (sig2 && sig2.signatureText) {
-          prompt += '\n\n【⚠️ 作者风格签名（基于最近 3 章自动提取）：\n';
-          prompt += sig2.signatureText + '\n';
+        styleSig = StyleEngine.extractSignature(merged, '最近5章风格');
+      }
+    }
+    if (styleSig && styleSig.signatureText) {
+      prompt += '\n\n【⚠️ 风格签名 · 本章必须严格匹配以下风格指纹 · 这是你的文笔DNA】\n';
+      prompt += styleSig.signatureText + '\n';
+      prompt += '【风格硬约束】\n';
+      prompt += '1. 本章平均句长必须对齐风格签名中的数值（允许±5字浮动）\n';
+      prompt += '2. 对话占比必须对齐（允许±10%浮动）\n';
+      prompt += '3. 情感基调必须对齐（正/负/中性比例保持一致）\n';
+      prompt += '4. 感官描写分布必须对齐（视觉/听觉/触觉比例保持一致）\n';
+      prompt += '5. 如果风格偏向"短促有力"，禁止突然写长句铺陈；如果风格偏向"细腻铺陈"，禁止突然写短句快节奏\n';
+      prompt += '6. 风格一致性 > 技巧炫技。宁可少用一个技巧，也不能破坏风格一致性\n\n';
+    }
+    
+    // 从用户编辑中学习风格偏好
+    var editStyleNotes = [];
+    if (work && work.chapters && chapterIdx > 0) {
+      for (var ei = 0; ei < Math.min(chapterIdx, 5); ei++) {
+        var ech = work.chapters[ei];
+        if (ech && ech._aiOriginal && ech.content && ech._aiOriginal !== ech.content) {
+          // 用户编辑过这一章，分析风格差异
+          var orig = ech._aiOriginal;
+          var edited = ech.content;
+          // 检测用户是否删除了长句
+          var origAvgLen = Math.round(orig.length / Math.max(1, (orig.match(/[。！？!?]/g) || []).length));
+          var editedAvgLen = Math.round(edited.length / Math.max(1, (edited.match(/[。！？!?]/g) || []).length));
+          if (editedAvgLen < origAvgLen * 0.7) editStyleNotes.push('用户偏好更短的句子（用户编辑后句长缩短了约' + Math.round((1 - editedAvgLen/origAvgLen) * 100) + '%）');
+          // 检测用户是否增加了对话
+          var origDialog = (orig.match(/["""]/g) || []).length;
+          var editedDialog = (edited.match(/["""]/g) || []).length;
+          if (editedDialog > origDialog * 1.3) editStyleNotes.push('用户偏好更多对话');
+          // 检测用户是否删除了AI腔
+          var aiTells = ['心中暗道', '心头一颤', '瞳孔一缩', '嘴角勾起', '目光如炬', '众人震惊', '空气凝固'];
+          var deletedTells = [];
+          for (var ati = 0; ati < aiTells.length; ati++) {
+            if (orig.indexOf(aiTells[ati]) >= 0 && edited.indexOf(aiTells[ati]) === -1) deletedTells.push(aiTells[ati]);
+          }
+          if (deletedTells.length > 0) editStyleNotes.push('用户删除了AI腔：' + deletedTells.join('、') + ' —— 请避免这些表达');
+          break; // 只分析最近一次编辑
         }
       }
     }
+    if (editStyleNotes.length > 0) {
+      prompt += '【📝 用户编辑风格偏好 · 基于你的修改习惯】\n';
+      for (var esi = 0; esi < editStyleNotes.length; esi++) {
+        prompt += '  · ' + editStyleNotes[esi] + '\n';
+      }
+      prompt += '\n';
+    }
   } catch (e) {}
+
+  // ===== v52: 原创设计 · 套路翻转 + 创意约束 + 题材差异化 =====
+  prompt += '【⚠️ 原创设计 · 打破套路 · 让读者猜不到下一页】\n';
+  prompt += '网文最大的敌人不是文笔差，是读者看了开头就知道结尾。以下方法强制你的写作跳出套路：\n\n';
+  
+  prompt += '【套路翻转 · 每章至少翻转一个常见套路】\n';
+  prompt += '套路1：\"英雄救美\" → 翻转：美女救英雄，或者英雄赶到时发现美女已经自己解决了\n';
+  prompt += '套路2：\"废柴逆袭\" → 翻转：废柴其实是装的，他一直在隐藏实力，逆袭不是突然变强而是揭开伪装\n';
+  prompt += '套路3：\"退婚打脸\" → 翻转：被退婚的一方其实求之不得，退婚是他/她暗中推动的结果\n';
+  prompt += '套路4：\"反派死于话多\" → 翻转：反派话多是因为在拖延时间等援军，主角差点中计\n';
+  prompt += '套路5：\"临阵突破\" → 翻转：突破不是靠运气，是靠之前埋下的伏笔（某个道具/某句话/某次失败的经验）\n';
+  prompt += '套路6：\"误会\" → 翻转：不是误会，是真的有人故意制造假象，揭开后不是\"原来如此\"而是\"竟然如此\"\n';
+  prompt += '套路7：\"天命之子\" → 翻转：不是天命选择了主角，是主角主动选择了天命，代价是放弃了原本想要的生活\n\n';
+  
+  prompt += '【创意约束 · 3条铁律强制原创】\n';
+  prompt += '1. 禁止本章出现任何\"读者在第3页就能猜到第30页结局\"的情节。如果连你自己都能猜到，读者早就猜到了。\n';
+  prompt += '2. 每个重要情节至少给出1个\"读者没想到的可能性\"——不是为反转而反转，而是让读者在事情发生后说\"原来如此，但我之前没想到\"\n';
+  prompt += '3. 禁止使用\"所有人都知道但没人说破\"这种推动剧情的方式——如果所有人都知道，就安排一个人说破，然后剧情从\"说破之后\"开始\n\n';
+  
+  // 题材差异化建议
+  prompt += '【题材差异化 · 打破' + genre + '的常见套路】\n';
+  if (genre.indexOf('玄幻') >= 0 || genre.indexOf('仙侠') >= 0) {
+    prompt += '- 玄幻/仙侠常见套路：修炼→突破→打脸→奇遇→再突破\n';
+    prompt += '- 差异化建议：本章至少让一个\"本该是奇遇\"的场景变成\"代价\"——得到力量的同时失去某个重要的东西\n';
+    prompt += '- 差异化建议：让一个\"反派\"展现出完全合理的动机，让读者产生\"他其实也没错\"的感觉\n';
+    prompt += '- 差异化建议：修炼体系不是\"谁等级高谁赢\"，而是\"相生相克\"，本章让一个低等级角色用克制关系赢一次\n';
+  } else if (genre.indexOf('都市') >= 0) {
+    prompt += '- 都市常见套路：隐藏身份→被挑衅→亮出身份→打脸\n';
+    prompt += '- 差异化建议：被挑衅后不亮身份，而是用\"不暴露身份\"的方式解决问题，反而更让人敬畏\n';
+    prompt += '- 差异化建议：让\"钱和权\"不是万能的——某个问题钱解决不了，需要主角展现真正的智慧\n';
+  } else if (genre.indexOf('科幻') >= 0) {
+    prompt += '- 科幻常见套路：高科技→碾压→科技伦理→反思\n';
+    prompt += '- 差异化建议：让科技有\"意想不到的副作用\"——不是常见的\"失控\"，而是\"太成功了，成功到改变了人本身\"\n';
+  } else {
+    prompt += '- 差异化建议：找出本章最\"理所当然\"的情节，问自己\"如果相反会怎样\"，然后考虑是否更精彩\n';
+    prompt += '- 差异化建议：让一个\"配角\"的观点在本章中比主角的观点更有说服力\n';
+  }
+  prompt += '\n';
 
   // === 一致性自检指令 ===
   prompt += '\n\n【⚠️ 输出前自检 — 必须逐条确认】\n';
