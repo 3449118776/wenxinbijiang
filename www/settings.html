@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>文心笔匠 - 设置 v2</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;overflow:auto!important;-webkit-user-select:auto;user-select:auto;}
+
+/* 顶部导航 */
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
+.page-title{flex:1;font-size:17px;font-weight:600;text-align:center;}
+
+.settings-section{background:#fff;border-radius:12px;margin:12px 16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+.settings-section-header{padding:12px 16px;background:#f8f9fa;font-weight:600;color:#333;border-bottom:1px solid #eee;font-size:15px;}
+.settings-item{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0f0;}
+.settings-item:last-child{border-bottom:none;}
+.settings-item .label{color:#333;font-size:14px;}
+.settings-item .value{color:#999;font-size:13px;}
+.settings-item input[type="range"]{width:120px;}
+.switch{width:48px;height:26px;background:#ccc;border-radius:13px;position:relative;cursor:pointer;transition:background 0.2s;}
+.switch.active{background:#6366f1;}
+.switch::after{content:'';position:absolute;width:22px;height:22px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.15);}
+.switch.active::after{left:24px;}
+.api-config{padding:16px;}
+.api-config label{display:block;margin-bottom:6px;color:#666;font-size:13px;}
+.api-config select{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:14px;margin-bottom:12px;box-sizing:border-box;}
+.api-config input[type="text"]{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9f9f9;color:#999;font-size:13px;margin-bottom:12px;box-sizing:border-box;}
+.api-config button{width:100%;padding:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;}
+.api-config button:active{opacity:0.9;}
+.key-manager{padding:16px;border-top:1px solid #f0f0f0;}
+.key-manager .key-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.key-manager .key-header h4{font-size:14px;color:#333;}
+.key-manager .key-count{font-size:12px;color:#999;background:#f0f2ff;padding:2px 8px;border-radius:10px;}
+.key-list{margin-bottom:12px;}
+.key-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f9f9fb;border-radius:8px;margin-bottom:6px;border:1px solid #eee;}
+.key-item .key-text{flex:1;font-size:13px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;}
+.key-item .key-active{font-size:11px;color:#10b981;background:#ecfdf5;padding:2px 6px;border-radius:4px;white-space:nowrap;}
+.key-item .key-del{background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;}
+.key-item .key-del:active{background:#fef2f2;}
+.add-key-row{display:flex;gap:8px;margin-bottom:12px;}
+.add-key-row input,.add-key-row textarea{flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:13px;font-family:monospace;resize:vertical;line-height:1.5;}
+.add-key-row input:focus,.add-key-row textarea:focus{border-color:#6366f1;outline:none;}
+.add-key-row button{padding:10px 16px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;white-space:nowrap;}
+.add-key-row button:active{opacity:0.8;}
+.key-empty{text-align:center;padding:20px;color:#999;font-size:13px;}
+.key-empty .icon{font-size:32px;margin-bottom:8px;}
+.theme-colors{display:flex;gap:12px;flex-wrap:wrap;}
+.theme-color{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all 0.2s;}
+.theme-color.active{border-color:#333;transform:scale(1.1);}
+.data-btn{width:100%;padding:12px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:14px;cursor:pointer;text-align:center;}
+.data-btn:last-child{margin-bottom:0;}
+.data-btn.primary{background:#6366f1;color:#fff;border-color:#6366f1;}
+.data-btn.danger{color:#ef4444;border-color:#ef4444;}
+.data-btn:active{opacity:0.9;}
+.version-info{text-align:center;padding:20px;color:#999;font-size:13px;}
+.version-info .version{font-size:16px;color:#666;margin-bottom:8px;}
+
+/* 底部导航 */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
+.tab-item.active{color:#6366f1;}
+.tab-icon{font-size:22px;line-height:1;}
+
+/* Toast */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="page-header">
+  <div class="back-btn" onclick="location.href='index.html'">&#8249;</div>
+  <div class="page-title">设置</div><span style="background:#ef4444;color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;">v21</span>
+  <div style="width:24px;"></div>
+</div>
+
+<div id="app">
+  <div class="page-content">
+    <div class="settings-section">
+      <div class="settings-section-header">&#127912; 外观设置</div>
+      <div class="settings-item">
+        <span class="label">深色模式</span>
+        <div class="switch" id="dark-mode-switch" onclick="toggleDarkMode()"></div>
+      </div>
+      <div class="settings-item">
+        <span class="label">字体大小</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="range" id="font-size-range" min="12" max="20" value="15" onchange="changeFontSize()">
+          <span id="font-size-value" style="font-size:13px;color:#666;min-width:36px;">15px</span>
+        </div>
+      </div>
+      <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:12px;">
+        <span class="label">主题色</span>
+        <div class="theme-colors">
+          <div class="theme-color active" style="background:#3b82f6" data-color="blue" onclick="setThemeColor('blue')"></div>
+          <div class="theme-color" style="background:#10b981" data-color="green" onclick="setThemeColor('green')"></div>
+          <div class="theme-color" style="background:#f59e0b" data-color="orange" onclick="setThemeColor('orange')"></div>
+          <div class="theme-color" style="background:#ef4444" data-color="red" onclick="setThemeColor('red')"></div>
+          <div class="theme-color" style="background:#8b5cf6" data-color="purple" onclick="setThemeColor('purple')"></div>
+          <div class="theme-color" style="background:#ec4899" data-color="pink" onclick="setThemeColor('pink')"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">&#129302; AI API 配置</div>
+      <div class="api-config">
+        <label>服务商</label>
+        <select id="api-provider" onchange="onProviderChange()">
+          <option value="dashscope">通义千问 (DashScope)</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="moonshot">Kimi (Moonshot)</option>
+          <option value="zhipu">智谱AI</option>
+          <option value="volcano">火山引擎</option>
+          <option value="openai">OpenAI</option>
+          <option value="baidu">百度文心</option>
+          <option value="spark">讯飞星火</option>
+          <option value="minimax">MiniMax</option>
+          <option value="siliconflow">硅基流动</option>
+          <option value="yi">零一万物</option>
+          <option value="baichuan">百川智能</option>
+          <option value="groq">Groq</option>
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="xai">xAI (Grok)</option>
+          <option value="mistral">Mistral</option>
+          <option value="cohere">Cohere</option>
+          <option value="together">Together AI</option>
+          <option value="stepfun">阶跃星辰 (StepFun)</option>
+          <option value="qwenlm">QwenLM</option>
+          <option value="openrouter">OpenRouter (聚合，含免费模型)</option>
+          <option value="free">🆓 免费模式（内置社区端点，无需密钥）</option>
+          <option value="custom">自定义 (填入任何 OpenAI 兼容地址)</option>
+        </select>
+
+        <label>API 地址（可手动修改，选自定义时请填入完整地址）</label>
+        <input type="text" id="api-url">
+
+        <label>模型</label>
+        <select id="api-model">
+          <option value="qwen-max">qwen-max (推荐)</option>
+          <option value="qwen-plus">qwen-plus</option>
+          <option value="qwen-turbo">qwen-turbo (快速)</option>
+        </select>
+
+        <div id="custom-model-row" style="display:none;">
+          <label>自定义模型名（选 custom 服务商时必填）</label>
+          <input type="text" id="custom-model-input" placeholder="例如：gpt-4o-mini 或 qwen/qwen2.5-7b-instruct">
+        </div>
+
+        <button onclick="saveApiProviderConfig()">保存服务商配置</button>
+      </div>
+
+      <div class="key-manager">
+        <div class="key-header">
+          <h4>&#128273; API 密钥管理</h4>
+          <span class="key-count" id="key-count">0 个密钥</span>
+        </div>
+        <div class="key-list" id="key-list"></div>
+        <div class="add-key-row">
+          <textarea id="new-key-input" rows="4" placeholder="💡 支持批量粘贴：一行一个密钥，或用逗号/空格分隔&#10;系统会自动识别属于哪个服务商并分别添加&#10;例如：&#10;sk-1234...&#10;sk-5678..."></textarea>
+        </div>
+        <div class="add-key-row" style="gap:8px;">
+          <button onclick="addNewKeys()" style="flex:1;background:#6366f1;color:white;font-weight:600;">⚡ 一键智能添加</button>
+          <button onclick="addNewKey()" style="flex:1;">+ 添加当前服务商</button>
+        </div>
+        <div style="font-size:12px;color:#999;margin-top:-4px;">密钥仅保存在本地浏览器，不会上传到任何服务器。可添加多个密钥，调用失败时自动切换；也可配置多个服务商，额度不足时自动跨服务商接力。</div>
+      </div>
+
+      <!-- v46: 多AI协作开关 -->
+      <div style="background:#f0f4ff;border-radius:12px;padding:14px 16px;margin:10px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:600;">🤖 多AI协作模式</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+              开启后，写作时同时向多个AI请求，谁先返回高质量结果就用谁的，成功率更高。
+              <br>额度不足时会自动切换到其他AI，并有明确提示。
+            </div>
+          </div>
+          <label style="position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;">
+            <input type="checkbox" id="multi-ai-toggle" onchange="toggleMultiAI(this.checked)" style="opacity:0;width:0;height:0;">
+            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#d1d5db;border-radius:26px;transition:.3s;">
+              <span id="multi-ai-slider" style="position:absolute;content:'';height:20px;width:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;"></span>
+            </span>
+          </label>
+        </div>
+        <div id="quota-status" style="font-size:11px;color:#999;margin-top:6px;display:none;"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">&#128190; 数据管理</div>
+      <div style="padding:16px;">
+        <button class="data-btn primary" onclick="exportAllData()">&#128228; 导出所有数据</button>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:13px;color:#666;margin-bottom:6px;">选择JSON备份文件导入：</div>
+          <input type="file" id="import-file" accept=".json" style="width:100%;padding:12px;border:2px dashed #6366f1;border-radius:8px;font-size:14px;color:#6366f1;background:#f0f2ff;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="background:#fff;border-radius:12px;padding:14px 16px;margin:10px 0;">
+            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">AI 请求超时</div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:10px;">大模型生成长文本时建议 60–120 秒</div>
+            <input type="range" id="api-timeout-range" min="15" max="300" step="5" oninput="setApiTimeoutSec(this.value)" style="width:100%;">
+            <div style="text-align:right;font-size:13px;color:#374151;margin-top:4px;">当前：<span id="api-timeout-label">90 秒</span></div>
+          </div>
+        </div>
+        <button class="data-btn" onclick="importFromServer()">&#128229; 加载内置测试数据</button>
+        <button class="data-btn danger" onclick="clearAllData()">&#128465; 清除所有数据</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">🧭 创作中枢</div>
+      <div style="padding:16px;">
+        <div style="font-size:13px;color:#666;line-height:1.6;margin-bottom:10px;">
+          App级记忆、自动备份、全书体检、搜索、导出、正文瘦身和长篇看板已集中到一级页面。
+        </div>
+        <button class="data-btn primary" onclick="location.href='center.html'">🧭 进入创作中枢</button>
+        <div id="app-memory-report" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">&#8505;&#65039; 关于</div>
+      <div class="version-info">
+        <div class="version">文心笔匠 v4.0</div>
+        <div>递进构建融合版</div>
+        <div style="margin-top:8px;">专为网文作者打造的AI写作助手</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">&#127968;</div><div>首页</div></div>
+  <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">&#128295;</div><div>工具</div></div>
+  <div class="tab-item active"><div class="tab-icon">&#9881;&#65039;</div><div>设置</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<link rel="stylesheet" href="assets/css/common.css?v=20250615">
+<script src="assets/js/db.js?v=20250615"></script>
+<script src="assets/js/ui.js?v=20250615"></script>
+<script src="assets/js/nav-helper.js?v=20250615"></script>
+<script src="assets/js/api.js?v=20250615"></script>
+<script src="assets/js/cloud-sync.js?v=20250615"></script>
+<script src="assets/js/center-tools.js?v=20250615"></script>
+<script>
+function initSettings(){
+  const settings=DB.getSettings();
+  const apiConfig=DB.getApiConfig();
+
+  const darkSwitch=document.getElementById('dark-mode-switch');
+  if(darkSwitch){
+    if(settings.dark){darkSwitch.classList.add('active');document.body.classList.add('dark');}
+  }
+
+  var fsRange=document.getElementById('font-size-range');
+  var fsValue=document.getElementById('font-size-value');
+  if(fsRange){fsRange.value=settings.fontSize||15;}
+  if(fsValue){fsValue.textContent=(settings.fontSize||15)+'px';}
+  document.body.style.fontSize=(settings.fontSize||15)+'px';
+
+  const themeColor=settings.theme||'blue';
+  document.querySelectorAll('.theme-color').forEach(el=>{
+    el.classList.toggle('active',el.dataset.color===themeColor);
+  });
+  applyThemeColor(themeColor);
+
+  var providerEl=document.getElementById('api-provider');
+  if(providerEl){
+    providerEl.value=apiConfig.provider||'dashscope';
+    onProviderChange();
+  }
+  var modelEl=document.getElementById('api-model');
+  if(modelEl){modelEl.value=apiConfig.model||'qwen-max';}
+
+  renderKeyList();
+}
+
+function toggleDarkMode(){
+  const darkSwitch=document.getElementById('dark-mode-switch');
+  const isDark=darkSwitch.classList.toggle('active');
+  document.body.classList.toggle('dark',isDark);
+  const settings=DB.getSettings();settings.dark=isDark;DB.saveSettings(settings);
+}
+
+function changeFontSize(){
+  const size=document.getElementById('font-size-range').value;
+  document.getElementById('font-size-value').textContent=size+'px';
+  document.body.style.fontSize=size+'px';
+  const settings=DB.getSettings();settings.fontSize=parseInt(size);DB.saveSettings(settings);
+}
+
+function setThemeColor(color){
+  document.querySelectorAll('.theme-color').forEach(el=>{
+    el.classList.toggle('active',el.dataset.color===color);
+  });
+  applyThemeColor(color);
+  const settings=DB.getSettings();settings.theme=color;DB.saveSettings(settings);
+}
+
+function applyThemeColor(color){
+  const colors={blue:'#3b82f6',green:'#10b981',orange:'#f59e0b',red:'#ef4444',purple:'#8b5cf6',pink:'#ec4899'};
+  document.documentElement.style.setProperty('--primary',colors[color]);
+}
+
+function onProviderChange(){
+  const provider=document.getElementById('api-provider').value;
+  const prov=API_PROVIDERS[provider];
+  const urlInput=document.getElementById('api-url');
+  const customRow=document.getElementById('custom-model-row');
+  // custom 模式：不自动填充 URL，让用户自己填；显示自定义模型输入框
+  if(provider==='custom'){
+    const cfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+    urlInput.value=cfg.customUrl||'';
+    urlInput.placeholder='请输入完整的 API 地址，例如 https://api.example.com/v1/chat/completions';
+    urlInput.readOnly=false;
+    if(customRow)customRow.style.display='block';
+  // free 模式：无 URL 配置，禁用输入框
+  }else if(provider==='free'){
+    urlInput.value='';
+    urlInput.placeholder='免费模式使用内置端点，无需配置 URL';
+    urlInput.readOnly=true;
+    if(customRow)customRow.style.display='none';
+  // 普通服务商：自动填充 URL，隐藏自定义模型输入框
+  }else if(prov){
+    urlInput.value=prov.url;
+    urlInput.placeholder='';
+    urlInput.readOnly=false;
+    if(customRow)customRow.style.display='none';
+  }
+  updateModelOptions(provider);
+  // 若为 custom 模式，从 DB 读取之前保存的自定义模型名
+  if(provider==='custom'){
+    const cfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+    const cmInput=document.getElementById('custom-model-input');
+    if(cmInput&&cfg.customModel)cmInput.value=cfg.customModel;
+  }
+  var config={provider:provider,model:document.getElementById('api-model').value};
+  // 切换服务商时保留已保存的 customUrl/customModel
+  const oldCfg=(DB.getApiConfig&&DB.getApiConfig())||{};
+  if(oldCfg.customUrl)config.customUrl=oldCfg.customUrl;
+  if(oldCfg.customModel)config.customModel=oldCfg.customModel;
+  DB.saveApiConfig(config);
+  renderKeyList();
+}
+
+function updateModelOptions(provider){
+  const modelSelect=document.getElementById('api-model');
+  if(!modelSelect)return;
+  const models=MODEL_CONFIGS[provider]||[];
+  modelSelect.innerHTML='';
+  // custom 和 free 模式隐藏模型下拉（改用自定义输入或不配置）
+  if(provider==='custom'||provider==='free'){
+    modelSelect.style.display='none';
+    return;
+  }
+  modelSelect.style.display='';
+  models.forEach(function(m){
+    var opt=document.createElement('option');
+    opt.value=m.value;opt.textContent=m.label;
+    modelSelect.appendChild(opt);
+  });
+}
+
+function saveApiProviderConfig(){
+  const provider=document.getElementById('api-provider').value;
+  const model=document.getElementById('api-model').value;
+  var config={provider:provider,model:model};
+  // custom 模式：额外保存 URL 和模型名
+  if(provider==='custom'){
+    const urlInput=document.getElementById('api-url');
+    const cmInput=document.getElementById('custom-model-input');
+    config.customUrl=urlInput?urlInput.value.trim():'';
+    config.customModel=cmInput?cmInput.value.trim():'';
+    if(!config.customUrl){showToast('请填写自定义 API 地址');return;}
+    if(!config.customModel){showToast('请填写自定义模型名');return;}
+  }
+  DB.saveApiConfig(config);
+  renderKeyList();showToast('配置已保存');
+}
+
+function renderKeyList(){
+  const provider=document.getElementById('api-provider').value;
+  const keys=DB.getApiKeys(provider);
+  const listEl=document.getElementById('key-list');
+  const countEl=document.getElementById('key-count');
+  countEl.textContent=keys.length+' 个密钥';
+
+  // ===== 顶部：全部服务商密钥概览 =====
+  let overview='<div style="background:#f0f4ff;border-radius:10px;padding:10px 12px;margin-bottom:12px;">';
+  overview+='<div style="font-size:12px;color:#6366f1;font-weight:600;margin-bottom:6px;">📊 全部服务商密钥分布</div>';
+  overview+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  const allProviders=Object.keys(API_PROVIDERS);
+  let totalKeys=0;
+  allProviders.forEach(p=>{
+    const ks=DB.getApiKeys(p);
+    totalKeys+=ks.length;
+    const name=API_PROVIDERS[p].name;
+    const cls=ks.length>0?(p===provider?'background:#6366f1;color:white;font-weight:600;':'background:#dcfce7;color:#166534;'):'background:#f3f4f6;color:#9ca3af;';
+    overview+='<span onclick="document.getElementById(\'api-provider\').value=\''+p+'\';onProviderChange();" style="cursor:pointer;padding:4px 10px;border-radius:20px;font-size:11px;'+cls+'">'+name+': '+ks.length+'</span>';
+  });
+  overview+='</div><div style="font-size:11px;color:#999;margin-top:6px;">共 '+totalKeys+' 个密钥，已配置 '+Object.keys(DB.apiKeys||{}).length+' 个服务商 · 点击标签切换查看</div></div>';
+
+  // ===== 当前服务商密钥列表 =====
+  if(keys.length===0){
+    listEl.innerHTML=overview+'<div class="key-empty"><div class="icon">&#128274;</div><div>当前服务商暂无密钥，请粘贴添加</div></div>';
+    return;
+  }
+  listEl.innerHTML=overview+keys.map((key,idx)=>{
+    const masked=key.substring(0,6)+'****'+key.substring(key.length-4);
+    const isActive=idx===0?'<span class="key-active">当前使用</span>':'<button class="key-active" onclick="setActiveKey('+idx+')" style="background:#f0f2ff;color:#6366f1;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">切换使用</button>';
+    return '<div class="key-item"><span class="key-text">'+masked+'</span>'+isActive+'<button class="key-del" onclick="removeKey('+idx+')">&#10005;</button></div>';
+  }).join('');
+}
+
+// 添加单个密钥：支持「密钥」或「密钥 服务商名」格式
+// v48: 测试后才添加，失败保留输入内容
+async function addNewKey(){
+  const input=document.getElementById('new-key-input');
+  const raw=input.value.trim();
+  if(!raw){showToast('请输入密钥');return;}
+
+  // v48: 用 _parseKeyLine 解析（支持 sk-xxx deepseek 这种格式）
+  const parsed=_parseKeyLine(raw);
+  if(!parsed || !parsed.key){showToast('未识别到有效密钥');return;}
+  const key=parsed.key;
+
+  // v48: 优先级: 行内注释 > 密钥特征识别 > 当前选择的服务商
+  const selector=document.getElementById('api-provider');
+  const hintProvider=parsed.hintProvider;
+  const featureProvider=detectKeyProvider(key);
+  const provider=hintProvider || featureProvider || selector.value;
+  const providerName=(API_PROVIDERS[provider]&&API_PROVIDERS[provider].name)||provider;
+  const detectedBy=hintProvider?'注释提示':(featureProvider?'自动识别':'当前选择');
+
+  // 切换到目标服务商 UI
+  if(provider !== selector.value){
+    selector.value=provider;
+    onProviderChange();
+    DB.saveApiConfig({provider:provider,model:document.getElementById('api-model').value||''});
+  }
+
+  // 先测试密钥有效性
+  showToast('🔍 正在测试 '+providerName+' 密钥（'+detectedBy+'）…',{duration:0});
+  try{
+    const testResult=await testApiKey(provider,key);
+    if(testResult.success){
+      // 测试通过 → 添加
+      const wasAdded=DB.addApiKey(provider,key);
+      if(wasAdded){
+        input.value='';
+        renderKeyList();
+        showToast('✅ 密钥有效！已添加到 '+providerName,{type:'success'});
+      }else{
+        input.value='';
+        showToast('ℹ️ 该密钥已存在，跳过',{type:'info'});
+      }
+    }else{
+      // 测试失败 → 保留输入内容
+      var hint='';
+      if(testResult.kind==='invalid')hint='密钥无效';
+      else if(testResult.kind==='quota')hint='额度已用尽';
+      else if(testResult.kind==='rate')hint='频率超限';
+      else if(testResult.kind==='timeout')hint='请求超时';
+      else if(testResult.kind==='network')hint='网络错误';
+      else if(testResult.kind==='model')hint='模型不存在（密钥可能有效）';
+      else hint='失败';
+      showToast('❌ '+hint+'：'+(testResult.message||'未知错误'),{type:'error'});
+      // 不清空输入框
+    }
+  }catch(err){
+    showToast('❌ 测试时发生异常：'+(err&&err.message?err.message:'unknown'),{type:'error'});
+    // 不清空输入
+  }
+}
+
+// ⚡ 一键智能添加：批量粘贴多个密钥，按行解析
+// v48: 支持「密钥 注释」格式；逐个测试；失败保留原始密钥在输入框
+async function addNewKeys(){
+  const input=document.getElementById('new-key-input');
+  const raw=input.value.trim();
+  if(!raw){showToast('请输入密钥');return;}
+
+  // 备份原始输入（失败时原样恢复）
+  const originalRaw = raw;
+
+  // 按行拆分（而不是按空格），每行独立解析
+  const rawLines=raw.split(/[\n;]+/).map(function(l){return l.trim();}).filter(function(l){return l && l.length>0;});
+  const parsedList=[];
+  for(let li=0;li<rawLines.length;li++){
+    const p=_parseKeyLine(rawLines[li]);
+    if(p && p.key && p.key.length>=8){
+      parsedList.push(p);
+    }
+  }
+  if(parsedList.length===0){showToast('未找到有效密钥');return;}
+
+  const results={added:0,skipped:0,duplicated:0,failed:0,detail:{}};
+  const failedRawLines=[]; // 失败时保留「原始行」而不是改写后的格式
+  const selector=document.getElementById('api-provider');
+  const currentProvider=selector.value;
+
+  // 逐个测试
+  for(let i=0;i<parsedList.length;i++){
+    const p=parsedList[i];
+    const key=p.key;
+    const rawLine=rawLines[i]; // 原始输入行（包含注释）
+    const hintProvider=p.hintProvider;
+    const featureProvider=detectKeyProvider(key);
+    const target=hintProvider || featureProvider || currentProvider;
+    const targetName=(API_PROVIDERS[target]&&API_PROVIDERS[target].name)||target;
+
+    // 先检查是否已存在
+    const existingKeys=DB.getApiKeys(target)||[];
+    if(existingKeys.indexOf(key)>=0){
+      results.duplicated++;
+      showToast('⏭ 第 '+(i+1)+'/'+parsedList.length+' 已存在，跳过',{duration:1500});
+      continue;
+    }
+
+    showToast('🔍 正在测试第 '+(i+1)+'/'+parsedList.length+'（'+targetName+'）…',{duration:0});
+    try{
+      const testResult=await testApiKey(target,key);
+      if(testResult.success){
+        const wasAdded=DB.addApiKey(target,key);
+        if(wasAdded){
+          results.detail[target]=(results.detail[target]||0)+1;
+          results.added++;
+          showToast('✅ '+targetName+' 密钥有效',{type:'success',duration:1500});
+        }else{
+          results.duplicated++;
+        }
+      }else{
+        results.failed++;
+        // 保留原始行（原样返回用户看到的内容）
+        failedRawLines.push(rawLine);
+      }
+    }catch(e){
+      results.failed++;
+      failedRawLines.push(rawLine);
+    }
+  }
+
+  // 失败的保留原始输入，成功的清空
+  if(failedRawLines.length>0){
+    input.value=failedRawLines.join('\n');
+    showToast('⚠️ '+results.failed+' 个密钥测试失败（已保留原始内容，可修改后重试）',{type:'warn',duration:5000});
+  }else{
+    input.value='';
+  }
+
+  // 自动切换到第一个有新增的服务商
+  const addedProviders=Object.keys(results.detail);
+  if(addedProviders.length>0){
+    selector.value=addedProviders[0];
+    onProviderChange();
+  }
+  renderKeyList();
+
+  // 总结
+  let msg='✅ 处理 '+parsedList.length+' 项，新增 '+results.added+' 个';
+  const detail=Object.keys(results.detail).map(function(p){
+    return (API_PROVIDERS[p]?API_PROVIDERS[p].name:p)+':'+results.detail[p];
+  }).join('，');
+  if(detail)msg+='（'+detail+'）';
+  if(results.duplicated>0)msg+='，已存在 '+results.duplicated+' 个';
+  if(results.failed>0)msg+='，失败 '+results.failed+' 个';
+  showToast(msg,{type:results.failed>0?'warn':'success',duration:5000});
+}
+
+// 判断一个 token "看起来像密钥"（用于批量拆分时过滤掉注释）
+function _looksLikeKey(s){
+  if(!s)return false;
+  var t=s.trim();
+  if(t.length<8)return false;
+  // 至少包含一些字母数字，且不是纯中文/纯英文单词
+  if(/[\u4e00-\u9fa5]/.test(t))return false; // 含中文 → 不是密钥
+  if(/^(密钥|key|api|sk|deepseek|moonshot|kimi|火山|智谱|阿里|通义|百度|讯飞|百川|零一|硅基|火山引擎|dashscope|volcano|zhipu|baidu|spark|baichuan|yi|siliconflow|anthropic|claude|groq|openai|xai|mistral|cohere|together|stepfun|qwenlm|minimax)$/i.test(t))return false;
+  return true;
+}
+
+// 从一行文字中识别服务商（用于"密钥 注释"格式）
+// 如: "sk-xxx deepseek"、"ark-yyy 火山引擎"、"zzz kimi"
+function _detectProviderFromHint(text){
+  if(!text)return null;
+  var t=text.toLowerCase();
+  var map=[
+    {kw:/deepseek|ds\b|深度|deep\s*seek/i, provider:'deepseek'},
+    {kw:/moonshot|kimi|月之|moon\s*shot/i, provider:'moonshot'},
+    {kw:/ark\b|volcano|火山|豆包|doubao|volc/i, provider:'volcano'},
+    {kw:/dashscope|qwen|通义|千问|aliyun|阿里|alibaba/i, provider:'dashscope'},
+    {kw:/zhipu|智谱|bigmodel|chatglm|glm/i, provider:'zhipu'},
+    {kw:/openai|gpt|chatgpt|sk-proj|open\s*ai/i, provider:'openai'},
+    {kw:/claude|anthropic|sk-ant|claude/i, provider:'claude'},
+    {kw:/baichuan|百川|bc-/i, provider:'baichuan'},
+    {kw:/lingyi|yi-|零一|lingyi/i, provider:'yi'},
+    {kw:/spark|讯飞|xfyun|星火/i, provider:'spark'},
+    {kw:/baidu|文心|bce-v|ernie/i, provider:'baidu'},
+    {kw:/siliconflow|硅基|silicon/i, provider:'siliconflow'},
+    {kw:/groq/i, provider:'groq'},
+    {kw:/xai|grok-/i, provider:'xai'},
+    {kw:/mistral/i, provider:'mistral'},
+    {kw:/cohere/i, provider:'cohere'},
+    {kw:/together/i, provider:'together'},
+    {kw:/stepfun|step-|阶跃/i, provider:'stepfun'},
+    {kw:/qwenlm/i, provider:'qwenlm'},
+    {kw:/minimax/i, provider:'minimax'},
+  ];
+  for(var i=0;i<map.length;i++){
+    if(map[i].kw.test(t))return map[i].provider;
+  }
+  return null;
+}
+
+// 解析单行文本：提取可能的密钥 + 服务商提示
+// 返回 { key: string, hintProvider: string|null }
+function _parseKeyLine(line){
+  if(!line)return null;
+  var raw=line.trim();
+  if(!raw)return null;
+
+  // 先尝试: 整行就是一个密钥（无空格）
+  if(!/\s/.test(raw)){
+    var clean=raw.replace(/^[\"'`\(\)\[\]]+/,'').replace(/[\"'`\(\)\[\]]+$/,'').trim();
+    if(_looksLikeKey(clean)){
+      return {key:clean, hintProvider:null};
+    }
+    return null;
+  }
+
+  // 有空格: 按空白切分 tokens，第一个"像密钥"的当 key，其余当注释
+  var tokens=raw.split(/[\s\t]+/).filter(function(t){return t && t.length>0;});
+  var keyToken=null;
+  var restText='';
+  for(var i=0;i<tokens.length;i++){
+    var clean=tokens[i].replace(/^[\"'`\(\)\[\]]+/,'').replace(/[\"'`\(\)\[\]]+$/,'').trim();
+    if(!keyToken && _looksLikeKey(clean)){
+      keyToken=clean;
+    }else if(keyToken){
+      restText+=(restText?' ':'')+tokens[i];
+    }
+  }
+
+  if(!keyToken){
+    // 没找到像密钥的 token → 用第一个 token 兜底
+    var first=tokens[0].replace(/^[\"'`\(\)\[\]]+/,'').replace(/[\"'`\(\)\[\]]+$/,'').trim();
+    restText=tokens.slice(1).join(' ');
+    keyToken=first;
+  }
+
+  // 从剩余文本中识别服务商
+  var hint=_detectProviderFromHint(restText);
+  return {key:keyToken, hintProvider:hint};
+}
+
+function detectKeyProvider(key){
+  if(!key)return null;
+  // 先清理: 去掉引号、首尾空白、首尾的逗号/分号/反引号/括号
+  var k=key.trim().replace(/^[\"'`\(\)\[\]]+/,'').replace(/[\"'`\(\)\[\]]+$/,'').trim();
+  if(k.length<5)return null;
+
+  // ========== 阶段1: 唯一前缀（100% 可靠）==========
+  if(/^sk-ant-/i.test(k))return 'claude';       // Claude / Anthropic
+  if(/^sk-proj-/i.test(k))return 'openai';      // OpenAI
+  if(/^gsk_/i.test(k))return 'groq';            // Groq
+  if(/^(ark|vk)-/i.test(k))return 'volcano';    // 火山引擎
+  if(/^(bce-v3|bce-v4|24\.[a-f0-9])/i.test(k))return 'baidu';  // 百度文心
+  if(/^xfyun-/i.test(k))return 'spark';         // 讯飞星火
+  if(/^(mm|MiniMax-)/i.test(k))return 'minimax'; // MiniMax（避免误匹配含 "mm" 的通用词）
+  if(/^(yi-|lingyi-)/i.test(k))return 'yi';      // 零一万物
+  if(/^(bc-|baichuan-)/i.test(k))return 'baichuan'; // 百川智能
+  if(/^(xai-)/i.test(k))return 'xai';            // xAI Grok
+  if(/^mistral-/i.test(k))return 'mistral';     // Mistral
+  if(/^cohere-/i.test(k))return 'cohere';       // Cohere
+  if(/^(together-|tg-|tf-)/i.test(k))return 'together'; // Together
+  if(/^(step-|stepfun-|sk-step-)/i.test(k))return 'stepfun'; // 阶跃星辰
+  if(/^(qwen-|qwenlm-)/i.test(k))return 'qwenlm';// QwenLM
+  // 讯飞星火特殊格式: APIKey:SecretKey
+  if(/^[a-f0-9]{32,}:[a-f0-9]{10,}$/i.test(k))return 'spark';
+  // 智谱AI特殊格式: 32位hex.混合字母数字（如 57b37c818d5e446198422d27a8053f93.01aLadOVMQNxKOLp）
+  if(/^[a-f0-9]{16,64}\.[A-Za-z0-9]{10,}$/.test(k))return 'zhipu';
+
+  // ========== 阶段2: sk- 前缀通用 key（按特征判断）==========
+  if(!/^sk-/i.test(k))return null;  // 不是 sk- 开头，无法判断
+
+  var body = k.substring(3);  // 去掉 sk- 前缀
+  var bodyLen = body.length;
+  var hasUpper = /[A-Z]/.test(body);
+  var hasLower = /[a-z]/.test(body);
+  var hasUnderscore = /_/.test(body);
+  var hasDash = /-/.test(body);
+  var isPureHex = /^[a-f0-9]+$/i.test(body);  // 纯十六进制
+
+  // SiliconFlow: sk- + 含下划线的长 key（优先级高于纯 hex）
+  if(hasUnderscore && bodyLen >= 30)return 'siliconflow';
+
+  // DeepSeek / 通义千问 等: sk- + 纯十六进制（无法精确区分 → 不强制切换）
+  // 返回 null 让调用方使用当前选择的服务商，避免把通义千问 key 误加到 deepseek
+  if(isPureHex && bodyLen >= 20)return null;
+
+  // OpenAI (旧版): sk- + 很长的 base62 字符 (48+ 位且含大小写)
+  if(hasUpper && hasLower && bodyLen >= 48)return 'openai';
+
+  // 智谱AI: sk- + 40+ 位含大小写字母数字
+  if(hasUpper && hasLower && bodyLen >= 40)return 'zhipu';
+
+  // 通义千问: sk- + 20-40 位含大写字母 (阿里云风格)
+  if(hasUpper && bodyLen >= 20 && bodyLen <= 40)return 'dashscope';
+
+  // Moonshot Kimi: sk- + 16-24 位纯字母/数字
+  if(!hasUnderscore && !hasDash && bodyLen >= 16 && bodyLen <= 24)return 'moonshot';
+
+  // 兜底: sk- + 其他 → 不强制识别（用当前选择的服务商）
+  return null;
+}
+
+function removeKey(index){
+  if(!confirm('确定删除此密钥？'))return;
+  const provider=document.getElementById('api-provider').value;
+  DB.removeApiKey(provider,index);renderKeyList();showToast('密钥已删除');
+}
+
+function setActiveKey(index){
+  const providerEl=document.getElementById('api-provider');
+  if(!providerEl)return;
+  const provider=providerEl.value;
+  const keys=DB.getApiKeys(provider);
+  if(!keys||index<0||index>=keys.length)return;
+  const selected=keys.splice(index,1)[0];
+  keys.unshift(selected);
+  DB.flush();
+  if(window.currentKeyIndex) window.currentKeyIndex[provider]=0;
+  renderKeyList();
+  showToast('已切换为指定密钥');
+}
+
+function exportAllData(){
+  DB.exportAll();
+}
+
+function handleImport(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      if(confirm('导入模式：\n• 确定 → 合并导入（保留已有作品）\n• 取消 → 覆盖导入（替换全部数据）')){
+        var result = DB.importFromJSON(e.target.result);
+        if (result.error) { showToast('❌ ' + result.error); return; }
+        showToast('✅ 合并导入' + result.imported + '部作品' + (result.skipped > 0 ? '（跳过' + result.skipped + '部）' : ''));
+        setTimeout(function(){ location.reload(); }, 800);
+      } else {
+        var data = JSON.parse(e.target.result);
+        if(data.works){
+          if(confirm('覆盖导入将替换全部' + data.works.length + '部作品，现有数据将丢失。确认？')){
+            DB.works = data.works;
+            if(data.apiConfig) DB.apiConfig = data.apiConfig;
+            if(data.apiKeys) DB.apiKeys = data.apiKeys;
+            if(data.settings) DB.settings = data.settings;
+            DB.save();
+            showToast('✅ 覆盖导入' + data.works.length + '部作品');
+            setTimeout(function(){ location.reload(); }, 800);
+          }
+        }
+      }
+    }catch(err){
+      showToast('文件格式错误：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function importFromServer(){
+  if(!confirm('将从服务器加载内置测试数据，是否继续？\n注意：这将覆盖现有数据。'))return;
+  showToast('正在加载...');
+  fetch('test_import.json')
+    .then(function(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){throw new Error('服务器返回非 JSON（文件可能不存在）');}});})
+    .then(function(data){
+      if(data.works){
+        DB.works=data.works;
+        if(data.apiConfig)DB.apiConfig=data.apiConfig;
+        if(data.apiKeys)DB.apiKeys=data.apiKeys;
+        if(data.settings)DB.settings=data.settings;
+        DB.save();showToast('测试数据加载成功！共导入 '+data.works.length+' 部作品');
+        setTimeout(function(){location.reload();},500);
+      }else{showToast('无效的数据文件');}
+    })
+    .catch(function(e){showToast('加载失败：'+e.message);});
+}
+
+function getApiTimeoutSec(){
+  var s = (DB.getSettings && DB.getSettings()) || {};
+  return s.apiTimeoutSec || 90;
+}
+function setApiTimeoutSec(v){
+  var n = parseInt(v, 10);
+  if (isNaN(n) || n < 15) n = 15;
+  if (n > 300) n = 300;
+  var s = (DB.getSettings && DB.getSettings()) || {};
+  s.apiTimeoutSec = n;
+  DB.saveSettings(s);
+  var label = document.getElementById('api-timeout-label');
+  if (label) label.textContent = n + ' 秒';
+}
+
+function clearAllData(){
+  if(confirm('确定要清除所有数据吗？此操作不可恢复！')){
+    if(confirm('再次确认：这将删除所有作品和设置！')){
+      localStorage.removeItem('wxbj_data_v4');
+      DB.works=[];DB.apiConfig={provider:'dashscope',model:'qwen-max'};DB.apiKeys={};
+      DB.settings={dark:false,fontSize:15,theme:'blue'};
+      showToast('数据已清除');setTimeout(()=>location.reload(),500);
+    }
+  }
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; }
+  initSettings();
+  var fi=document.getElementById('import-file');
+  if(fi){fi.addEventListener('change',handleImport);}
+  var rng = document.getElementById('api-timeout-range');
+  if (rng) {
+    var cur = getApiTimeoutSec();
+    rng.value = cur;
+    var lbl = document.getElementById('api-timeout-label');
+    if (lbl) lbl.textContent = cur + ' 秒';
+  }
+});
+</script>
+</body>
+</html>

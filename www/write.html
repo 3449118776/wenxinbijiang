@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>文心笔匠 - AI写作 v2</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+body{background:#f6f7f9;color:#333;}
+
+/* 顶部导航 */
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
+.page-title{flex:1;font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ref-btn{color:#6366f1;font-size:14px;cursor:pointer;white-space:nowrap;}
+
+/* 面包屑 */
+.breadcrumb{padding:6px 16px;font-size:12px;color:#999;background:#fff;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:4px;}
+.breadcrumb .bc-item{cursor:pointer;color:#6366f1;}
+.breadcrumb .bc-sep{color:#ccc;}
+.breadcrumb .bc-current{color:#333;font-weight:500;}
+
+/* ===== 三级视图 ===== */
+.level-view{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.level-view.active{display:flex;}
+
+/* Level 1: 入口 */
+.l1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
+.l1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
+.l1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
+.l1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
+.l1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
+.l1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
+
+/* Level 2: 作品选择 */
+.l2-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
+.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
+.work-card .wc-info{flex:1;min-width:0;}
+.work-card .wc-title{font-size:15px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
+.work-card .wc-meta{font-size:12px;color:#9ca3af;}
+.work-card .wc-arrow{color:#d1d5db;font-size:16px;}
+.work-card .wc-progress{display:flex;gap:4px;margin-top:4px;}
+.work-card .wc-progress .prog-dot{width:8px;height:8px;border-radius:50%;background:#e5e7eb;}
+.work-card .wc-progress .prog-dot.done{background:#10b981;}
+.work-card .wc-progress .prog-dot.current{background:#6366f1;}
+.l2-empty{text-align:center;padding:60px 20px;color:#9ca3af;}
+.l2-empty .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.l2-empty .empty-text{font-size:14px;line-height:1.6;margin-bottom:16px;}
+.l2-empty .empty-btn{display:inline-block;padding:10px 24px;border-radius:10px;background:#6366f1;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;}
+
+/* Level 3: 写作界面 */
+.write-layout{flex:1;display:flex;overflow:hidden;}
+.ch-sidebar{width:0;overflow:hidden;background:#fafbfc;border-right:1px solid #eee;transition:width 0.25s;display:flex;flex-direction:column;}
+.ch-sidebar.open{width:220px;}
+.ch-sidebar-header{padding:12px 14px;font-size:14px;font-weight:600;color:#1a1a2e;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;}
+.ch-sidebar-body{flex:1;overflow-y:auto;}
+.ch-sidebar-item{padding:10px 14px;font-size:13px;color:#555;cursor:pointer;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:8px;}
+.ch-sidebar-item:active{background:#f0f2ff;}
+.ch-sidebar-item.active{background:#f0f2ff;color:#6366f1;font-weight:600;border-left:3px solid #6366f1;}
+.ch-sidebar-item .csi-num{width:22px;height:22px;border-radius:50%;background:#f0f2ff;color:#6366f1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;}
+.ch-sidebar-item.active .csi-num{background:#6366f1;color:#fff;}
+.ch-sidebar-item .csi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ch-sidebar-item .csi-badge{font-size:9px;padding:1px 5px;border-radius:3px;flex-shrink:0;}
+.csi-badge.done{background:#ecfdf5;color:#10b981;}
+.csi-badge.draft{background:#fef2f2;color:#ef4444;}
+.ch-sidebar-actions{padding:8px;border-top:1px solid #eee;display:flex;gap:6px;}
+.ch-sidebar-actions button{flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;}
+.ch-sidebar-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;}
+
+.editor-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.editor-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fff;border-bottom:1px solid #eee;}
+.ch-nav{background:none;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;color:#666;}
+.ch-nav:active{background:#f5f5f5;}
+.ch-title{flex:1;padding:6px 10px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;text-align:center;background:transparent;color:#333;outline:none;}
+.ch-title:focus{border-color:#6366f1;}
+.word-count{font-size:11px;color:#999;white-space:nowrap;text-align:center;line-height:1.3;}
+.word-count .wc-num{font-size:13px;font-weight:600;color:#555;}
+.word-count .wc-sub{font-size:10px;color:#bbb;}
+.editor-content{flex:1;overflow-y:auto;padding:16px;background:#fff;}
+.editor-content textarea{width:100%;min-height:100%;border:none;outline:none;font-size:15px;line-height:1.8;color:#333;background:transparent;resize:none;}
+.write-toolbar{display:flex;gap:6px;padding:8px 16px;background:#fff;border-top:1px solid #eee;overflow-x:auto;align-items:flex-start;}
+.write-tool{display:flex;align-items:center;gap:5px;padding:8px 14px;background:#f5f5f5;border:1px solid #eee;border-radius:10px;font-size:13px;color:#333;cursor:pointer;white-space:nowrap;}
+.write-tool:active{background:#f0f2ff;border-color:#6366f1;}
+.write-tool.accent{background:#6366f1;color:#fff;border-color:#6366f1;}
+.toolbar-group{position:relative;}
+.toolbar-dropdown{display:none;position:absolute;bottom:100%;left:0;margin-bottom:4px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:130px;z-index:200;overflow:hidden;}
+.toolbar-dropdown.open{display:block;}
+.toolbar-menu-item{padding:10px 14px;font-size:13px;color:#333;cursor:pointer;white-space:nowrap;border-bottom:1px solid #f5f5f5;}
+.toolbar-menu-item:last-child{border-bottom:none;}
+.toolbar-menu-item:active{background:#f0f2ff;}
+.ai-bar{display:flex;gap:8px;padding:10px 16px;background:#fff;border-top:1px solid #eee;align-items:center;margin-bottom:60px;}
+.ai-bar textarea{flex:1;padding:10px 14px;border:1px solid #e5e7eb;border-radius:20px;font-size:14px;background:#f9f9f9;outline:none;resize:none;max-height:80px;line-height:1.4;}
+.ai-bar textarea:focus{border-color:#6366f1;}
+.send-btn{width:38px;height:38px;border-radius:50%;background:#6366f1;color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.send-btn:active{opacity:0.9;}
+.speech-btn-sm{width:38px;height:38px;border-radius:50%;background:#6366f1;color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.speech-btn-sm.recording{background:#ef4444;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* 架构状态条 */
+.arch-status{background:#f0f2ff;border:1px solid #d4d8f8;border-radius:10px;padding:10px 14px;margin:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;color:#6366f1;}
+.arch-status .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.arch-status .dot.done{background:#10b981;}
+.arch-status .dot.pending{background:#f59e0b;}
+.arch-status .dot.locked{background:#ccc;}
+
+/* ===== 卡片表单样式（章节卡） ===== */
+.card-form{padding:0;}
+.card-form h3{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f0f0f0;}
+.cf-section{margin-bottom:12px;background:#f9f9fb;border-radius:10px;padding:10px;border:1px solid #eef0f5;}
+.cf-label{font-size:12px;font-weight:600;color:#6366f1;margin-bottom:6px;}
+.cf-row{margin-bottom:6px;}
+.cf-row label{display:block;font-size:11px;color:#888;margin-bottom:2px;}
+.cf-row-inline{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.cf-row-inline label{font-size:11px;color:#888;white-space:nowrap;}
+.cf-input{width:100%;padding:7px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;background:#fff;}
+.cf-input:focus{border-color:#6366f1;}
+.cf-input-sm{flex:1;min-width:50px;padding:5px 7px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;outline:none;background:#fff;}
+.cf-input-sm:focus{border-color:#6366f1;}
+.cf-textarea{width:100%;min-height:50px;padding:7px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;resize:vertical;background:#fff;line-height:1.4;}
+.cf-textarea:focus{border-color:#6366f1;}
+.cf-select{padding:5px 7px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;outline:none;background:#fff;}
+.cf-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.cf-chip{padding:4px 10px;background:#f0f2ff;color:#6366f1;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid transparent;user-select:none;}
+.cf-chip.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+.cf-add-btn{padding:4px 12px;background:#6366f1;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;}
+.cf-add-btn:active{opacity:.9;}
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:none;}
+.panel-overlay.open{display:block;}
+.panel{position:fixed;right:0;top:0;bottom:0;width:85%;max-width:360px;background:#fff;z-index:201;display:none;flex-direction:column;box-shadow:-2px 0 12px rgba(0,0,0,0.1);}
+.panel.open{display:flex;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eee;}
+.panel-header .title{font-size:16px;font-weight:600;}
+.panel-close{background:none;border:none;font-size:18px;color:#999;cursor:pointer;padding:4px 8px;}
+.panel-body{flex:1;overflow-y:auto;padding:16px;}
+
+/* 章节列表面板（旧侧滑，保留兼容） */
+.ch-list-panel{position:fixed;left:0;top:0;bottom:0;width:82%;max-width:340px;background:#fff;z-index:201;display:none;flex-direction:column;box-shadow:2px 0 12px rgba(0,0,0,0.1);}
+.ch-list-panel.open{display:flex;}
+.ch-list-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eee;}
+.ch-list-header .title{font-size:16px;font-weight:600;}
+.ch-list-body{flex:1;overflow-y:auto;}
+.ch-item{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f5f5f5;cursor:pointer;}
+.ch-item:active{background:#f0f2ff;}
+.ch-item.active{background:#f0f2ff;border-left:3px solid #6366f1;}
+.ch-item .ch-num{width:28px;height:28px;border-radius:50%;background:#f0f2ff;color:#6366f1;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;}
+.ch-item.active .ch-num{background:#6366f1;color:#fff;}
+.ch-item .ch-info{flex:1;min-width:0;}
+.ch-item .ch-name{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ch-item .ch-meta{font-size:11px;color:#999;margin-top:2px;}
+.ch-item .ch-badge{font-size:10px;padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.ch-badge.done{background:#ecfdf5;color:#10b981;}
+.ch-badge.draft{background:#fef2f2;color:#ef4444;}
+.ch-list-actions{display:flex;gap:6px;padding:10px 16px;border-top:1px solid #eee;}
+.ch-list-actions button{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;}
+.ch-list-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;}
+.panel-section{margin-bottom:16px;}
+.panel-section .label{font-size:13px;font-weight:600;color:#6366f1;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.panel-section .status{font-size:11px;padding:2px 6px;border-radius:4px;margin-left:6px;}
+.panel-section .status.done{background:#ecfdf5;color:#10b981;}
+.panel-section .status.empty{background:#fef2f2;color:#ef4444;}
+.panel-section textarea{width:100%;min-height:100px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;line-height:1.5;background:#f9f9f9;color:#333;resize:vertical;outline:none;}
+
+/* 底部导航 */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
+.tab-item.active{color:#6366f1;}
+.tab-icon{font-size:22px;line-height:1;}
+
+/* Toast */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="page-header">
+    <div class="back-btn" id="global-back-btn" onclick="handleWriteBack()">&#8249;</div>
+    <div class="page-title" id="work-title">AI写作</div>
+    <div class="ref-btn" id="ref-btn-header" onclick="openPanel()" style="display:none;">&#128214; 资料</div>
+  </div>
+
+  <!-- 面包屑 -->
+  <div class="breadcrumb" id="write-breadcrumb">
+    <span class="bc-item" onclick="goToWriteLevel(1)">AI写作</span>
+  </div>
+
+  <!-- ===== Level 1: AI写作入口 ===== -->
+  <div class="level-view active" id="write-level1">
+    <div class="l1-body">
+      <div class="l1-icon">&#9999;&#65039;</div>
+      <div class="l1-title">AI写作</div>
+      <div class="l1-desc">选择作品，AI辅助创作章节。从世界观到正文，一站式完成。</div>
+      <button class="l1-start" onclick="goToWriteLevel(2)">选择作品</button>
+    </div>
+  </div>
+
+  <!-- ===== Level 2: 作品选择 ===== -->
+  <div class="level-view" id="write-level2">
+    <div class="l2-body" id="write-l2-body">
+      <!-- 动态渲染作品卡片 -->
+    </div>
+  </div>
+
+  <!-- ===== Level 3: 写作界面 ===== -->
+  <div class="level-view" id="write-level3">
+    <!-- API状态栏 -->
+    <div id="api-status-bar" style="display:none;padding:8px 16px;font-size:12px;text-align:center;border-bottom:1px solid #e5e7eb;"></div>
+
+    <div class="arch-status" id="arch-status">
+      <div class="dot done"></div><span>世界观</span>
+      <div class="dot done"></div><span>人设</span>
+      <div class="dot pending"></div><span>大纲</span>
+      <div class="dot locked"></div><span>细纲</span>
+    </div>
+
+    <div class="write-layout">
+      <!-- 章节列表侧栏 -->
+      <div class="ch-sidebar" id="ch-sidebar">
+        <div class="ch-sidebar-header">
+          <span>章节列表</span>
+          <span style="cursor:pointer;font-size:16px;color:#999;" onclick="toggleChSidebar()">&#10005;</span>
+        </div>
+        <div class="ch-sidebar-body" id="ch-sidebar-body">
+          <!-- 动态渲染 -->
+        </div>
+        <div class="ch-sidebar-actions">
+          <button onclick="addNewChapter()" class="primary">+ 新章节</button>
+          <button onclick="deleteCurrentChapter()">🗑 删除</button>
+        </div>
+      </div>
+
+      <!-- 编辑区 -->
+      <div class="editor-area">
+        <div class="editor-header">
+          <button class="ch-nav" onclick="toggleChSidebar()" title="章节列表">&#9776;</button>
+          <button class="ch-nav" onclick="prevChapter()">&#9664;</button>
+          <input class="ch-title" id="ch-title" placeholder="章节标题">
+          <div class="word-count" id="word-count"><span class="wc-num">0</span><span class="wc-sub">字</span></div>
+          <button class="ch-nav" onclick="nextChapter()">&#9654;</button>
+        </div>
+
+        <div class="editor-content">
+          <textarea id="editor" placeholder="开始写作..."></textarea>
+        </div>
+
+        <div class="write-toolbar">
+          <button class="write-tool accent" onclick="aiWriteChapter()">&#129302; AI写本章</button>
+          <button class="write-tool accent" onclick="startChapterPipeline()">🏭 流水线</button>
+          <button class="write-tool" id="pipeline-stop-btn" onclick="stopChapterPipeline()" style="display:none;background:#fee2e2;color:#991b1b;">⏹ 停止</button>
+          <button class="write-tool" onclick="saveChapter()">&#128190; 保存</button>
+          <button class="write-tool confirm" onclick="confirmChapter()" id="confirm-btn" style="background:#10b981;color:#fff;">&#9989; 确认</button>
+          <button class="write-tool undo" onclick="undoAiGeneration()" id="undo-btn" style="display:none;background:#fef3c7;color:#92400e;">↩ 撤销</button>
+          <!-- AI工具组 -->
+          <div class="toolbar-group">
+            <button class="write-tool" onclick="toggleToolbarMenu('ai-tools-menu')">&#10024; AI工具 ▾</button>
+            <div class="toolbar-dropdown" id="ai-tools-menu">
+              <div class="toolbar-menu-item" onclick="aiPolish();closeToolbarMenus()">&#10024; 润色</div>
+              <div class="toolbar-menu-item" onclick="aiEvaluate();closeToolbarMenus()">&#128202; 评价</div>
+              <div class="toolbar-menu-item" onclick="autoFixChapter();closeToolbarMenus()">&#128295; 自动修复</div>
+              <div class="toolbar-menu-item" onclick="checkText();closeToolbarMenus()">&#9989; 检测</div>
+            </div>
+          </div>
+          <!-- 更多工具组 -->
+          <div class="toolbar-group">
+            <button class="write-tool" onclick="toggleToolbarMenu('more-tools-menu')">&#8943; 更多 ▾</button>
+            <div class="toolbar-dropdown" id="more-tools-menu">
+              <div class="toolbar-menu-item" onclick="openChapterCard();closeToolbarMenus()">📖 章节卡</div>
+              <div class="toolbar-menu-item" onclick="extractTpl();closeToolbarMenus()">&#128203; 提取模板</div>
+              <div class="toolbar-menu-item" onclick="insertPhrase();closeToolbarMenus()">&#128172; 词句库</div>
+              <div class="toolbar-menu-item" onclick="showChapterHistory();closeToolbarMenus()">🕘 历史</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="polish-recommend" style="display:none;padding:8px 16px;background:#fff;border-top:1px solid #eee;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#6366f1;">润色推荐</div>
+      <div id="polish-rec-list"></div>
+    </div>
+
+    <div class="ai-bar">
+      <textarea id="ai-input" placeholder="输入指令，如：本章加入一场战斗戏"></textarea>
+      <button class="speech-btn-sm" id="speech-btn" onclick="toggleSpeechInput('ai-input')">&#127908;</button>
+      <button class="send-btn" onclick="sendAiCommand()">&#9654;</button>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">&#127968;</div><div>首页</div></div>
+    <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">&#128295;</div><div>工具</div></div>
+    <div class="tab-item active"><div class="tab-icon">&#9999;&#65039;</div><div>写作</div></div>
+  </div>
+</div>
+
+<!-- 章节列表侧滑面板（移动端兼容） -->
+<div class="panel-overlay" id="ch-list-overlay" onclick="closeChapterList()"></div>
+<div class="ch-list-panel" id="ch-list-panel">
+  <div class="ch-list-header">
+    <div class="title">章节列表</div>
+    <button class="panel-close" onclick="closeChapterList()">&times;</button>
+  </div>
+  <div class="ch-list-body" id="ch-list-body">
+    <!-- 章节列表渲染 -->
+  </div>
+  <div class="ch-list-actions">
+    <button onclick="addNewChapter()" class="primary">+ 添加新章节</button>
+    <button onclick="deleteCurrentChapter()">🗑 删除当前</button>
+  </div>
+</div>
+
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="panel" id="ref-panel">
+  <div class="panel-header">
+    <span class="title">&#128218; 全套递进架构参考</span>
+    <button class="panel-close" onclick="closePanel()">&#10005;</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-section">
+      <div class="label">&#127757; 世界观 <span class="status" id="st-world">--</span></div>
+      <textarea id="ref-world" readonly placeholder="未设置"></textarea>
+    </div>
+    <div class="panel-section">
+      <div class="label">&#128100; 人物人设 <span class="status" id="st-chars">--</span></div>
+      <textarea id="ref-chars" readonly placeholder="未设置"></textarea>
+    </div>
+    <div class="panel-section">
+      <div class="label">&#128203; 全书大纲 <span class="status" id="st-outline">--</span></div>
+      <textarea id="ref-outline" readonly placeholder="未设置"></textarea>
+    </div>
+    <div class="panel-section">
+      <div class="label">📝 章节细纲 <span class="status" id="st-detail">--</span></div>
+      <textarea id="ref-detail" readonly placeholder="未设置"></textarea>
+    </div>
+    <div class="panel-section">
+      <div class="label">🧠 故事记忆 <span class="status" id="st-memory" style="cursor:pointer;" onclick="refreshMemory()">🔄</span></div>
+      <div id="memory-list" style="max-height:200px;overflow-y:auto;font-size:12px;color:#666;line-height:1.6;padding:4px 0;">
+        暂无记忆
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 章节卡侧滑面板 -->
+<div class="panel-overlay" id="cp-overlay" onclick="closeChapterCard()"></div>
+<div class="ch-list-panel" id="cp-panel">
+  <div class="ch-list-header">
+    <div class="title">📖 章节卡</div>
+    <button class="panel-close" onclick="closeChapterCard()">&times;</button>
+  </div>
+  <div class="ch-list-body" id="cp-card-body" style="padding:12px;">
+    <!-- 章节卡渲染 -->
+  </div>
+  <div class="ch-list-actions">
+    <button onclick="saveChapterCard()" class="primary">💾 保存章节卡</button>
+    <button onclick="closeChapterCard()">关闭</button>
+  </div>
+</div>
+
+<!-- 隐藏的 work-select 供 JS 兼容 -->
+<select id="work-select" style="display:none;"></select>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/nav-helper.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/architecture.js"></script>
+<script src="assets/js/ai-local.js"></script>
+<script src="assets/js/speech.js"></script>
+<script src="assets/js/cards.js"></script>
+<script src="assets/js/quality.js"></script>
+<script src="assets/js/engines-rag.js"></script>
+<script src="assets/js/engines-style.js"></script>
+<script src="assets/js/engines-hook-foreshadow.js"></script>
+<script src="assets/js/engines-anti-cliche-char.js"></script>
+<script src="assets/js/engines-foreshadow-network.js"></script>
+<script src="assets/js/engines-concept-expand.js"></script>
+<script src="assets/js/engines-world-logic.js"></script>
+<script src="assets/js/engines-rhythm.js"></script>
+<script src="assets/js/engines-causality.js"></script>
+<script src="assets/js/write-editor.js"></script>
+<div id="quality-fab" onclick="showQualityReport()" style="position:fixed;right:14px;bottom:78px;z-index:90;background:#3b82f6;color:#fff;border-radius:50%;width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(0,0,0,0.18);cursor:pointer;">📊</div>
+</body>
+</html>

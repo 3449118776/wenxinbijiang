@@ -1,0 +1,3549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>架构设计 - 四级导航版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+html,body{width:100%;height:100dvh;overflow:hidden;background:#f6f7f9;color:#333;}
+body{display:flex;flex-direction:column;}
+
+/* ===== 固定顶部区域 ===== */
+.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+
+.page-header{height:42px;display:flex;align-items:center;padding:0 16px;gap:10px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;}
+.page-title{font-size:16px;font-weight:600;flex:1;}
+.more-btn{color:#6366f1;font-size:16px;cursor:pointer;}
+
+.select-wrap{display:flex;align-items:center;padding:6px 16px 8px;gap:8px;}
+.select-wrap .select-label{font-size:13px;color:#666;white-space:nowrap;}
+.select-wrap select{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px;min-width:120px;background:#fff;outline:none;}
+
+.btn-pipeline{padding:6px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;}
+.btn-pipeline:hover{transform:scale(1.03);box-shadow:0 4px 16px rgba(99,102,241,0.4);}
+.btn-pipeline:active{transform:scale(0.97);}
+
+/* 架构标签 — 固定于顶部 */
+.arch-tab{display:flex;margin:0;border-top:1px solid #f0f0f0;}
+.arch-tab-item{flex:1;text-align:center;padding:10px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;}
+.arch-tab-item:last-child{border-right:none;}
+.arch-tab-item.active{background:#6366f1;color:#fff;}
+.arch-tab-item.finish{background:#f0fdf4;}
+.arch-tab-item.finish::after{content:"✓";position:absolute;top:2px;right:3px;font-size:9px;color:#10b981;}
+.arch-tab-item.lock{background:#f3f4f6;color:#aaa;cursor:not-allowed;}
+.arch-tab-item.lock::before{content:"🔒";font-size:10px;}
+
+/* ===== 中间滚动区（App页面主体） ===== */
+.app-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0 76px;}
+
+/* 每个模块是一个"页面" */
+.module-page{display:none;min-height:100%;}
+.module-page.current{display:block;}
+
+/* 阅读预览模式 */
+.reader-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f5f5f0;
+  z-index: 9999;
+  overflow: hidden;
+}
+.reader-overlay.active {
+  display: flex;
+  flex-direction: column;
+}
+.reader-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.reader-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.reader-close-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+.reader-close-btn:active {
+  background: #e5e7eb;
+}
+.reader-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px 40px;
+  -webkit-overflow-scrolling: touch;
+}
+.reader-text {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 16px;
+  line-height: 1.9;
+  color: #333;
+  font-family: "PingFang SC", "Microsoft YaHei", serif;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.reader-text .card-header {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #6366f1;
+}
+.reader-text .card-header:first-child {
+  margin-top: 0;
+}
+
+/* 构思输入区 */
+.idea-bar{background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;margin:0 12px 10px;padding:10px 12px;display:flex;align-items:center;gap:8px;}
+.idea-bar textarea{flex:1;border:none;outline:none;background:transparent;font-size:13px;line-height:1.5;resize:none;min-height:36px;max-height:72px;color:#333;}
+.idea-bar textarea::placeholder{color:#d4a574;}
+.idea-bar .speech-btn{padding:6px 10px;border-radius:8px;background:#6366f1;color:#fff;border:none;font-size:13px;cursor:pointer;flex-shrink:0;}
+.idea-bar .speech-btn.recording{background:#ef4444;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* 平台选择 */
+.page-pf-selector{display:flex;gap:6px;margin:0 12px 10px;font-size:12px;align-items:center;}
+.page-pf-selector .pf-item{flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid #eee;background:#fff;color:#666;}
+.page-pf-selector .pf-item.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+
+/* 数量选择 */
+.page-count-selector{display:flex;align-items:center;gap:8px;margin:0 12px 10px;font-size:13px;color:#666;}
+.page-count-selector input{width:56px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center;color:#333;}
+.page-count-selector input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.15);}
+.page-count-selector .count-hint{font-size:11px;color:#999;}
+
+/* 操作按钮 */
+.page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;}
+.page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;}
+.page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
+
+/* 进度条 */
+.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
+.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.page-progress .prog-title{font-size:12px;color:#6366f1;font-weight:600;}
+.page-progress .prog-cancel{padding:2px 10px;border:1px solid #ef4444;border-radius:5px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;}
+.page-progress .prog-bg-btn{padding:2px 10px;border:1px solid #6366f1;border-radius:5px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;}
+#bg-gen-indicator{transition:all 0.3s;}
+.page-progress .prog-bar-wrap{background:#eee;border-radius:8px;height:6px;overflow:hidden;}
+.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s ease;}
+.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.page-progress .prog-bar.working{background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
+.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#999;}
+
+/* 前置预览条 */
+.preview-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;margin:0 12px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;cursor:pointer;font-size:12px;color:#b45309;}
+.preview-body{display:none;margin:0 12px 10px;padding:8px 12px;background:#fff;border:1px solid #f0f0f0;border-radius:8px;font-size:12px;line-height:1.6;color:#555;max-height:180px;overflow-y:auto;white-space:pre-wrap;}
+
+/* 内容区 — 填满剩余空间，可滚动 */
+.module-content{background:#fff;border-radius:10px;margin:0 12px 20px;border:1px solid #f0f0f0;overflow:hidden;}
+.module-content .raw-area{padding:10px 12px;}
+.module-content .raw-area textarea{width:100%;min-height:360px;border:none;outline:none;font-size:13px;line-height:1.6;resize:vertical;background:transparent;color:#333;overflow-y:auto;}
+.detail-pager,.arch-display-pager{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px 10px;background:#fafbff;border-top:1px solid #eee;flex-wrap:wrap;}
+.detail-pager .pager-btn,.arch-display-pager .pager-btn{padding:4px 12px;border:1px solid #6366f1;border-radius:6px;background:#fff;color:#6366f1;font-size:12px;cursor:pointer;}
+.detail-pager .pager-btn:disabled,.arch-display-pager .pager-btn:disabled{opacity:0.35;cursor:default;}
+.detail-pager .pager-info,.arch-display-pager .pager-info{font-size:11px;color:#999;min-width:120px;text-align:center;}
+.arch-display-pager .pager-btn.strong{background:#6366f1;color:#fff;}
+
+/* 卷选卡片 */
+.vol-cards{margin:0 12px 10px;}
+.vol-card{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;background:#fff;margin-bottom:5px;transition:all 0.15s;}
+.vol-card.checked{border-color:#6366f1;background:#f0f2ff;}
+.vol-card input{accent-color:#6366f1;width:16px;height:16px;flex-shrink:0;margin:0;}
+.vol-card .vc-info{flex:1;min-width:0;}
+.vol-card .vc-name{font-size:13px;font-weight:600;color:#1a1a2e;}
+.vol-card .vc-desc{font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vol-card .vc-ch{font-size:11px;font-weight:700;color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:6px;flex-shrink:0;}
+.vol-override{font-size:11px;color:#999;margin:0 12px 8px;}
+
+/* 导入区 */
+.import-area{margin:0 12px 10px;background:#fff;border-radius:10px;padding:12px;border:1px solid #e5e7eb;}
+.import-area .label{font-size:13px;font-weight:600;color:#333;margin-bottom:6px;}
+.import-area textarea{width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;min-height:60px;resize:vertical;background:#f9f9f9;outline:none;line-height:1.5;}
+.import-area textarea:focus{border-color:#6366f1;}
+.import-btns{display:flex;gap:6px;margin-top:6px;}
+.import-btns button{flex:1;padding:6px;border-radius:6px;border:none;font-size:12px;cursor:pointer;}
+.import-btns .btn-primary{background:#6366f1;color:#fff;}
+.import-btns .btn-secondary{background:#f1f5f9;color:#666;}
+
+/* API 警告 */
+.api-warn{display:none;margin:0 12px 8px;padding:8px 12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;font-size:12px;color:#92400e;}
+
+/* ===== 底部导航 ===== */
+.tab-bar{flex-shrink:0;position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:#999;cursor:pointer;flex:1;padding:4px 0;}
+.tab-item.active{color:#6366f1;}
+.tab-item .tab-icon{font-size:20px;line-height:1;}
+
+/* Toast */
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+
+/* loading */
+.loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.8);z-index:99999;}
+
+/* 右键菜单 */
+.rmenu{position:fixed;top:70px;right:0;background:#fff;border-radius:0 0 0 12px;box-shadow:0 2px 12px rgba(0,0,0,0.15);z-index:200;display:none;min-width:140px;}
+.rmenu.show{display:block;}
+.ritem{display:block;width:100%;padding:12px 14px;border:none;background:none;font-size:13px;color:#333;text-align:left;cursor:pointer;border-bottom:1px solid #f0f0f0;}
+.ritem:last-child{border-bottom:none;}
+
+/* 保存确认弹窗 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;}
+.modal-overlay .modal-card{background:#fff;border-radius:16px;padding:20px;width:85%;max-width:300px;text-align:center;}
+.modal-overlay .modal-title{font-size:16px;font-weight:600;margin-bottom:6px;}
+.modal-overlay .modal-desc{font-size:13px;color:#666;margin-bottom:14px;}
+.modal-overlay .modal-btns{display:flex;gap:8px;}
+.modal-overlay .modal-btns button{flex:1;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;}
+.modal-overlay .modal-btns .btn-cancel{border:1px solid #e5e7eb;background:#fff;}
+.modal-overlay .modal-btns .btn-confirm{border:none;background:#6366f1;color:#fff;}
+
+/* 卡片表单复用 */
+.card-form h3{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f0f0f0;}
+.cf-section{margin-bottom:10px;background:#f9f9fb;border-radius:8px;padding:8px;border:1px solid #eef0f5;}
+.cf-label{font-size:12px;font-weight:600;color:#6366f1;margin-bottom:6px;}
+.cf-row{margin-bottom:6px;}
+.cf-row label{display:block;font-size:11px;color:#888;margin-bottom:2px;}
+.cf-row-inline{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.cf-row-inline label{font-size:11px;color:#888;white-space:nowrap;}
+.cf-input{width:100%;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;background:#fff;}
+.cf-input:focus{border-color:#6366f1;}
+.cf-input-sm{flex:1;min-width:50px;padding:5px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;outline:none;background:#fff;}
+.cf-input-sm:focus{border-color:#6366f1;}
+.cf-textarea{width:100%;min-height:50px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;outline:none;resize:vertical;background:#fff;line-height:1.5;}
+.cf-textarea:focus{border-color:#6366f1;}
+.cf-select{padding:4px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:11px;outline:none;background:#fff;}
+.cf-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.cf-chip{padding:3px 10px;background:#f0f2ff;color:#6366f1;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid transparent;user-select:none;}
+.cf-chip.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+.cf-add-btn{padding:4px 10px;background:#6366f1;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer;}
+
+/* ===== 四级导航样式 ===== */
+.level-view{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.level-view.active{display:flex;}
+
+/* 面包屑导航 */
+.breadcrumb{display:flex;align-items:center;padding:8px 16px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;gap:4px;font-size:12px;color:#999;overflow-x:auto;white-space:nowrap;}
+.breadcrumb .bc-item{cursor:pointer;color:#6366f1;transition:color .2s;}
+.breadcrumb .bc-item:hover{color:#4f46e5;}
+.breadcrumb .bc-sep{color:#d1d5db;margin:0 2px;}
+.breadcrumb .bc-current{color:#333;font-weight:600;cursor:default;}
+
+/* 一级：架构设计入口 */
+.level1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
+.level1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
+.level1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
+.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
+.level1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
+.level1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
+
+/* 二级：选择作品 */
+.level2-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
+.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
+.work-card .wc-info{flex:1;min-width:0;}
+.work-card .wc-title{font-size:15px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
+.work-card .wc-meta{font-size:12px;color:#9ca3af;}
+.work-card .wc-arrow{color:#d1d5db;font-size:16px;}
+.work-card .wc-progress{display:flex;gap:4px;margin-top:4px;}
+.work-card .wc-progress .prog-dot{width:8px;height:8px;border-radius:50%;background:#e5e7eb;}
+.work-card .wc-progress .prog-dot.done{background:#10b981;}
+.work-card .wc-progress .prog-dot.current{background:#6366f1;}
+.level2-empty{text-align:center;padding:60px 20px;color:#9ca3af;}
+.level2-empty .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.level2-empty .empty-text{font-size:14px;line-height:1.6;margin-bottom:16px;}
+.level2-empty .empty-btn{display:inline-block;padding:10px 24px;border-radius:10px;background:#6366f1;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;}
+
+/* 三级：模块选择 */
+.level3-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
+.level3-work-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f2ff;border-radius:10px;margin-bottom:12px;font-size:13px;color:#6366f1;font-weight:500;}
+.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.module-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
+.module-card .mc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.module-card .mc-icon.world-icon{background:#eff6ff;color:#2563eb;}
+.module-card .mc-icon.chars-icon{background:#fdf4ff;color:#9333ea;}
+.module-card .mc-icon.outline-icon{background:#ecfdf5;color:#059669;}
+.module-card .mc-icon.detail-icon{background:#fffbeb;color:#d97706;}
+.module-card .mc-info{flex:1;min-width:0;}
+.module-card .mc-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:2px;}
+.module-card .mc-desc{font-size:12px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.module-card .mc-status{font-size:11px;padding:3px 8px;border-radius:10px;flex-shrink:0;font-weight:500;}
+.module-card .mc-status.pending{background:#f3f4f6;color:#9ca3af;}
+.module-card .mc-status.done{background:#ecfdf5;color:#10b981;}
+.module-card .mc-status.locked{background:#fef3c7;color:#d97706;}
+.module-card .mc-arrow{color:#d1d5db;font-size:16px;}
+
+/* 四级：AI生成页 */
+.level4-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;}
+.level4-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0;}
+.level4-header .l4-back{background:none;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;color:#666;font-family:inherit;}
+.level4-header .l4-back:active{background:#f3f4f6;}
+.level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
+.level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
+</style>
+</head>
+<body>
+
+<!-- ===== 固定顶部 ===== -->
+<div class="top-shell">
+  <div class="page-header">
+    <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">‹</div>
+    <div class="page-title" id="global-page-title">架构设计</div>
+    <span style="font-size:10px;color:#ccc;margin-right:4px;">v66</span>
+    <button class="btn-pipeline" style="padding:3px 10px;font-size:11px;margin-right:6px;" onclick="openMaterialLib()">📦 素材库</button>
+    <div class="more-btn" onclick="showRMenu()">⋯</div>
+  </div>
+  <!-- 面包屑导航 -->
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="bc-item" onclick="goToLevel(1)">架构设计</span>
+  </div>
+  <!-- 全局进度条（四级可见） -->
+  <div class="page-progress" id="detail-progress">
+    <div class="prog-header"><span class="prog-title" id="prog-title">正在生成...</span><div style="display:flex;gap:6px;"><button class="prog-bg-btn" id="prog-bg-btn" onclick="switchToBackgroundGen()">🔽 后台</button><button class="prog-cancel" id="prog-cancel" onclick="cancelGeneration()">✕ 取消</button></div></div>
+    <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-info"><span id="prog-detail"></span><span id="prog-pct">0%</span></div>
+  </div>
+  <!-- 后台生成浮动指示器 -->
+  <div id="bg-gen-indicator" style="display:none;position:fixed;bottom:20px;left:20px;background:#fff;border-radius:14px;padding:12px 16px;box-shadow:0 4px 24px rgba(99,102,241,0.25);z-index:9998;min-width:240px;cursor:pointer;transition:all 0.3s;border:1px solid #e0e0ff;" onclick="switchToFrontGen()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="width:20px;height:20px;border:2px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:bg-spin 0.8s linear infinite;"></div>
+      <span style="font-size:13px;font-weight:600;color:#333;" id="bg-gen-title">AI 后台生成中</span>
+    </div>
+    <div style="background:#f0f0ff;border-radius:4px;height:6px;overflow:hidden;">
+      <div id="bg-gen-bar" style="height:100%;background:#6366f1;border-radius:4px;width:0%;transition:width 0.5s;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+      <span style="font-size:11px;color:#888;" id="bg-gen-task">准备中...</span>
+      <span style="font-size:11px;color:#6366f1;font-weight:600;" id="bg-gen-pct">0%</span>
+    </div>
+  </div>
+  <style>@keyframes bg-spin{100%{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- ===== 一级：架构设计入口 ===== -->
+<div class="level-view active" id="level1">
+  <div class="level1-body">
+    <div class="l1-icon">🏗️</div>
+    <div class="l1-title">架构设计</div>
+    <div class="l1-desc">从世界观到章节细纲，递进构建你的故事骨架。选择作品，逐步完善架构。</div>
+    <button class="l1-start" onclick="goToLevel(2)">选择作品</button>
+  </div>
+</div>
+
+<!-- ===== 二级：选择作品 ===== -->
+<div class="level-view" id="level2">
+  <div class="level2-body" id="level2-body">
+    <!-- 动态渲染作品列表 -->
+  </div>
+</div>
+
+<!-- ===== 三级：模块选择 ===== -->
+<div class="level-view" id="level3">
+  <div class="level3-body" id="level3-body">
+    <div class="level3-work-info" id="level3-work-info">📖 当前作品</div>
+    <div id="level3-modules">
+      <!-- 动态渲染模块卡片 -->
+    </div>
+  </div>
+</div>
+
+<!-- ===== 四级：AI生成页 ===== -->
+<div class="level-view" id="level4">
+  <div class="level4-header">
+    <button class="l4-back" onclick="goToLevel(3)">← 返回</button>
+    <div class="l4-title" id="level4-title">世界观</div>
+    <span class="l4-action" id="level4-action" onclick="showRMenu()">⋯</span>
+  </div>
+  <div class="level4-body" id="level4-body">
+
+    <!-- 阅读预览全屏overlay -->
+    <div class="reader-overlay" id="reader-overlay">
+      <div class="reader-header">
+        <span class="reader-title" id="reader-title">阅读模式</span>
+        <button class="reader-close-btn" onclick="closeReader()">← 退出阅读</button>
+      </div>
+      <div class="reader-content">
+        <div class="reader-text" id="reader-text"></div>
+      </div>
+    </div>
+
+    <!-- 世界观页 -->
+    <div class="module-page current" id="page-world">
+      <div class="api-warn" id="api-warn"></div>
+      <div class="idea-bar">
+        <textarea id="idea-world" placeholder="输入构思，AI补全世界观..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-world')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+        <button class="sec-btn" onclick="openReader('world')">📖 阅读</button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-world" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-world" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-world">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 人物人设页 -->
+    <div class="module-page" id="page-chars">
+      <div class="preview-bar" id="prev-chars-bar" onclick="toggleMiniPreview('chars')"><span>💡 世界观预览</span><span id="prev-chars-icon">▶</span></div>
+      <div class="preview-body" id="prev-chars-body"></div>
+      <div class="idea-bar">
+        <textarea id="idea-chars" placeholder="输入构思，AI补全人物人设..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-chars')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" onclick="showRelationGraph()">👥 关系图</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+        <button class="sec-btn" onclick="openReader('chars')">📖 阅读</button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-chars" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-chars" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-chars">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全书大纲页 -->
+    <div class="module-page" id="page-outline">
+      <div class="preview-bar" id="prev-outline-bar" onclick="toggleMiniPreview('outline')"><span>💡 前置架构预览</span><span id="prev-outline-icon">▶</span></div>
+      <div class="preview-body" id="prev-outline-body"></div>
+      <div class="page-pf-selector" id="pf-select-outline"></div>
+      <div class="idea-bar">
+        <textarea id="idea-outline" placeholder="输入构思，AI补全大纲..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-outline')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-count-selector" id="count-select-outline">
+        <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
+        <span class="count-hint">（3-20卷）</span>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+        <button class="sec-btn" onclick="openReader('outline')">📖 阅读</button>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-outline" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
+        <div class="arch-display-pager" id="arch-display-pager-outline" style="display:none;">
+          <button class="pager-btn" onclick="archDisplayPrevPageV52()">← 上一页</button>
+          <span class="pager-info" id="arch-display-info-outline">第1/1页</span>
+          <button class="pager-btn" onclick="archDisplayNextPageV52()">下一页 →</button>
+          <button class="pager-btn strong" onclick="archDisplayShowAllV52()">显示全文</button>
+          <button class="pager-btn" onclick="archDisplayBackToPagedV52()">分页显示</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 章节细纲页 -->
+    <div class="module-page" id="page-detail">
+      <div class="preview-bar" id="prev-detail-bar" onclick="toggleMiniPreview('detail')"><span>💡 前置架构预览</span><span id="prev-detail-icon">▶</span></div>
+      <div class="preview-body" id="prev-detail-body"></div>
+      <div class="idea-bar">
+        <textarea id="idea-detail" placeholder="输入构思，AI补全细纲..."></textarea>
+        <button class="speech-btn" onclick="toggleSpeechInput('idea-detail')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="page-count-selector" id="count-select-detail">
+        <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数">卷
+        <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
+        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
+      </div>
+      <div class="page-actions">
+        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
+        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
+        <button class="sec-btn" onclick="strengthenDetailOutlineV46()">🔥 细纲补强</button>
+        <button class="sec-btn" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
+        <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
+        <button class="sec-btn" onclick="openReader('detail')">📖 阅读</button>
+      </div>
+      <div class="import-area" id="detail-import-area" style="display:none;">
+        <div class="label">📥 导入已有细纲</div>
+        <textarea id="detail-import-text" placeholder="粘贴已有细纲文本（每章一行：第X章 《标题》 | 场景：XX | 人物：XX | 剧情：XX | 爆点：XX）"></textarea>
+        <div class="import-btns">
+          <button class="btn-secondary" onclick="hideImportArea()">取消</button>
+          <button class="btn-primary" onclick="importDetailText()">解析导入</button>
+        </div>
+      </div>
+      <div class="module-content">
+        <div class="raw-area"><textarea id="raw-detail" placeholder="AI生成内容将显示在这里..." style="min-height:200px;"></textarea></div>
+        <div class="detail-pager" id="detail-pager" style="display:none;">
+          <button class="pager-btn" id="detail-pager-prev" onclick="detailPrevPage()">← 上一批</button>
+          <span class="pager-info" id="detail-pager-info">第1/1页</span>
+          <button class="pager-btn" id="detail-pager-next" onclick="detailNextPage()">下一批 →</button>
+          <button class="pager-btn strong" onclick="detailShowAll()">显示全文</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== 底部导航 ===== -->
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+
+<!-- 素材库面板 -->
+<div class="modal-overlay" id="matlib-overlay" onclick="closeMaterialLib()"></div>
+<div class="modal-card" id="matlib-panel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:92vw;max-width:560px;max-height:80vh;overflow-y:auto;z-index:10000;background:#fff;border-radius:12px;padding:0;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+  <div style="position:sticky;top:0;background:#fff;padding:16px 20px 12px;border-bottom:1px solid #eee;z-index:1;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:16px;font-weight:700;">📦 素材库</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-pipeline" style="padding:4px 12px;font-size:11px;" onclick="aiExtractMaterialLib()">🤖 AI 提取</button>
+        <button style="background:none;border:none;font-size:18px;cursor:pointer;color:#999;" onclick="closeMaterialLib()">✕</button>
+      </div>
+    </div>
+    <div id="matlib-status" style="font-size:11px;color:#999;margin-top:4px;"></div>
+  </div>
+  <div id="matlib-content" style="padding:16px 20px;font-size:13px;line-height:1.8;color:#555;">
+    <div style="text-align:center;padding:40px;color:#ccc;">尚未提取素材库<br>点击「🤖 AI 提取」自动从设定中提取</div>
+  </div>
+  <div style="padding:12px 20px;border-top:1px solid #eee;display:flex;gap:8px;">
+    <button class="btn-cancel" onclick="closeMaterialLib()">关闭</button>
+    <button class="btn-confirm" onclick="saveMaterialLib()">💾 保存素材库</button>
+  </div>
+</div>
+
+<!-- 右键菜单 -->
+<div class="rmenu" id="rmenu">
+  <button class="ritem" onclick="location.href='new-book.html';hideRMenu()">✨ 新建作品</button>
+  <button class="ritem" onclick="exportArch()">📤 导出架构</button>
+  <button class="ritem" onclick="hideRMenu()">✕ 关闭</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 保存确认弹窗 -->
+<div class="modal-overlay" id="save-confirm-modal">
+  <div class="modal-card">
+    <div class="modal-title">💾 确认保存</div>
+    <div class="modal-desc">保存后将覆盖当前模块并解锁下一模块</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cancelSave()">取消</button>
+      <button class="btn-confirm" onclick="confirmSave()">确认保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/nav-helper.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ai-local.js"></script>
+<script src="assets/js/speech.js"></script>
+<script src="assets/js/cards.js"></script>
+<script src="assets/js/architecture.js"></script>
+<script src="assets/js/engines-rag.js"></script>
+<script src="assets/js/engines-style.js"></script>
+<script src="assets/js/engines-world-logic.js"></script>
+<script src="assets/js/engines-anti-cliche-char.js"></script>
+<script src="assets/js/engines-hook-foreshadow.js"></script>
+<script src="assets/js/engines-foreshadow-network.js"></script>
+<script src="assets/js/engines-concept-expand.js"></script>
+<script>
+// ===== 四级导航核心逻辑 =====
+var _currentLevel = 1;
+var _selectedWorkId = '';
+var _selectedModule = 'world';
+
+var MODULE_INFO = {
+  world:   { name: '世界观', icon: '🌍', iconClass: 'world-icon', desc: '时代背景、地理、势力、力量体系' },
+  chars:   { name: '人物人设', icon: '👤', iconClass: 'chars-icon', desc: '主角、配角、反派、人物关系' },
+  outline: { name: '全书大纲', icon: '📋', iconClass: 'outline-icon', desc: '主线结构、卷章划分、转折点' },
+  detail:  { name: '章节细纲', icon: '📑', iconClass: 'detail-icon', desc: '逐章场景、剧情节点、爆点设计' }
+};
+
+// 导航到指定级别
+function goToLevel(level, opts) {
+  opts = opts || {};
+  _currentLevel = level;
+
+  // 隐藏所有级别
+  for (var i = 1; i <= 4; i++) {
+    var el = document.getElementById('level' + i);
+    if (el) el.classList.toggle('active', i === level);
+  }
+
+  // 更新面包屑
+  updateBreadcrumb();
+
+  // 更新顶部标题和返回按钮
+  var backBtn = document.getElementById('global-back-btn');
+  var pageTitle = document.getElementById('global-page-title');
+
+  if (level === 1) {
+    backBtn.onclick = function(){ location.href = 'index.html'; };
+    pageTitle.textContent = '架构设计';
+  } else {
+    backBtn.onclick = handleGlobalBack;
+    if (level === 2) pageTitle.textContent = '选择作品';
+    else if (level === 3) {
+      var w = getWorkById(_selectedWorkId);
+      pageTitle.textContent = w ? w.title : '模块选择';
+    }
+    else if (level === 4) {
+      var mi = MODULE_INFO[_selectedModule];
+      pageTitle.textContent = mi ? mi.name : 'AI生成';
+    }
+  }
+
+  // 渲染各级内容
+  if (level === 1) renderLevel1();
+  if (level === 2) renderLevel2();
+  if (level === 3) renderLevel3();
+  if (level === 4) renderLevel4();
+}
+
+// 全局返回
+function handleGlobalBack() {
+  if (_currentLevel > 1) goToLevel(_currentLevel - 1);
+  else location.href = 'index.html';
+}
+
+// 更新面包屑
+function updateBreadcrumb() {
+  var bc = document.getElementById('breadcrumb');
+  var html = '<span class="bc-item" onclick="goToLevel(1)">架构设计</span>';
+
+  if (_currentLevel >= 2) {
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(2)">选择作品</span>';
+  }
+  if (_currentLevel >= 3) {
+    var w = getWorkById(_selectedWorkId);
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-item" onclick="goToLevel(3)">' + he(w ? w.title : '模块选择') + '</span>';
+  }
+  if (_currentLevel >= 4) {
+    var mi = MODULE_INFO[_selectedModule];
+    html += '<span class="bc-sep">›</span>';
+    html += '<span class="bc-current">' + (mi ? mi.name : 'AI生成') + '</span>';
+  }
+
+  bc.innerHTML = html;
+}
+
+// 获取作品
+function getWorkById(id) {
+  if (!id) return null;
+  return (DB.works || []).find(function(w){ return w.id === id; });
+}
+
+// ===== 一级：架构设计入口 =====
+function renderLevel1() {
+}
+
+// ===== 二级：选择作品 =====
+function renderLevel2() {
+  var works = DB.works || [];
+  var body = document.getElementById('level2-body');
+
+  if (works.length === 0) {
+    body.innerHTML = '<div class="level2-empty">' +
+      '<div class="empty-icon">📝</div>' +
+      '<div class="empty-text">还没有作品<br>先去创建一部吧</div>' +
+      '<a class="empty-btn" href="new-book.html">新建作品</a>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  works.forEach(function(w) {
+    var wc = 0, chCount = 0;
+    (w.chapters || []).forEach(function(ch){ chCount++; wc += (ch.content || '').length; });
+    // 计算架构完成度
+    var archStatus = w.archStatus || {};
+    var doneCount = 0;
+    if (w.world) doneCount++;
+    if (w.chars) doneCount++;
+    if (w.outline) doneCount++;
+    if (w.detail) doneCount++;
+
+    html += '<div class="work-card" onclick="selectWork(\'' + he(w.id) + '\')">';
+    html += '<div class="wc-icon">📖</div>';
+    html += '<div class="wc-info">';
+    html += '<div class="wc-title">' + he(w.title || '未命名') + '</div>';
+    html += '<div class="wc-meta">' + chCount + '章 · 约' + wc + '字</div>';
+    html += '<div class="wc-progress">';
+    html += '<div class="prog-dot' + (w.world ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.chars ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.outline ? ' done' : '') + '"></div>';
+    html += '<div class="prog-dot' + (w.detail ? ' done' : '') + '"></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="wc-arrow">›</div>';
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+}
+
+function selectWork(workId) {
+  _selectedWorkId = workId;
+  localStorage.setItem('last_edit_work', workId);
+  goToLevel(3);
+}
+
+// ===== 三级：模块选择 =====
+function renderLevel3() {
+  var w = getWorkById(_selectedWorkId);
+  if (!w) { goToLevel(2); return; }
+
+  // 更新作品信息
+  var infoEl = document.getElementById('level3-work-info');
+  if (infoEl) infoEl.innerHTML = '📖 当前作品：' + he(w.title || '未命名');
+
+  var modulesEl = document.getElementById('level3-modules');
+  var html = '';
+
+  // 一键全部生成按钮
+  html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;" onclick="generateAllPipeline()" title="4位AI专家协作：世界观→人设→大纲→细纲 全自动生成">🚀 一键全部生成</button>';
+
+  var moduleKeys = ['world', 'chars', 'outline', 'detail'];
+  moduleKeys.forEach(function(key) {
+    var mi = MODULE_INFO[key];
+    var hasContent = !!(w[key]);
+    var statusClass = hasContent ? 'done' : 'pending';
+    var statusText = hasContent ? '已完成' : '未生成';
+
+    html += '<div class="module-card" onclick="selectModule(\'' + key + '\')">';
+    html += '<div class="mc-icon ' + mi.iconClass + '">' + mi.icon + '</div>';
+    html += '<div class="mc-info">';
+    html += '<div class="mc-title">' + mi.name + '</div>';
+    html += '<div class="mc-desc">' + mi.desc + '</div>';
+    html += '</div>';
+    html += '<span class="mc-status ' + statusClass + '">' + statusText + '</span>';
+    html += '<div class="mc-arrow">›</div>';
+    html += '</div>';
+  });
+
+  modulesEl.innerHTML = html;
+}
+
+function selectModule(module) {
+  _selectedModule = module;
+  goToLevel(4);
+}
+
+// ===== 四级：AI生成页 =====
+function renderLevel4() {
+  var mi = MODULE_INFO[_selectedModule];
+  var titleEl = document.getElementById('level4-title');
+  if (titleEl && mi) titleEl.textContent = mi.name;
+
+  // 切换到对应的 module-page
+  switchArchModule(_selectedModule);
+}
+
+// ===== 兼容原有 switchArchModule =====
+var _origSwitchArchModule = window.switchArchModule;
+window.switchArchModule = function(mod) {
+  _selectedModule = mod;
+  // 隐藏所有 module-page，显示目标
+  var pages = document.querySelectorAll('.module-page');
+  pages.forEach(function(p){ p.classList.remove('current'); });
+  var target = document.getElementById('page-' + mod);
+  if (target) target.classList.add('current');
+
+  // 如果在四级视图中，确保在level4
+  if (_currentLevel !== 4) {
+    goToLevel(4);
+  }
+
+  // 调用原始初始化逻辑
+  if (typeof initArchPage === 'function') {
+    // 确保当前作品已设置
+    if (_selectedWorkId) localStorage.setItem('last_edit_work', _selectedWorkId);
+    initArchPage();
+  }
+};
+
+// ===== 兼容原有 onWorkChange =====
+function onWorkChange(id) {
+  _selectedWorkId = id;
+  localStorage.setItem('last_edit_work', id);
+  try {
+    window._moduleDirty = {};
+    window._genCheckpoint = null;
+    window._lastArchFix = null;
+    window._detailPage = {idx:0, size:100};
+  } catch(e) {}
+  if (typeof initArchPage === 'function') initArchPage();
+}
+
+// ===== 其他原有功能 =====
+document.addEventListener('input', function(e){
+  if (e.target && /^raw-/.test(e.target.id || '')) {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.max(360, Math.min(e.target.scrollHeight + 24, 1800)) + 'px';
+  }
+});
+
+function he(s){return s?s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';}
+function showRMenu(){document.getElementById('rmenu').classList.add('show');}
+function hideRMenu(){document.getElementById('rmenu').classList.remove('show');}
+
+function clearCurrentIdea(){
+  var el = document.getElementById('idea-' + (_selectedModule || 'world')) || document.querySelector('.module-page.current textarea[id^="idea-"]');
+  if (!el) return;
+  if (!confirm('确定清空当前模块构思？清空后会从作品草稿里删除。')) return;
+  el.value = '';
+  var module = (el.id || '').replace('idea-', '') || (_selectedModule || 'world');
+  if (window.saveModuleIdea) window.saveModuleIdea(module, '');
+}
+
+// v48: 人物关系图（简易版本）
+window.showRelationGraph = function(){
+  var work = getCurrentWork();
+  if(!work){ showToast('请先选择作品',{error:true}); return; }
+  var chars = work.chars || '';
+  if(!chars.trim()){ showToast('请先生成人设',{error:true}); return; }
+  // 提取角色名和关系
+  var names = [];
+  var nameRE = /[\u4e00-\u9fa5]{2,4}(?=(：|，|。|、|\n|（|「|是|为|与|和|跟|的|，|男|女|，|。))/g;
+  var rm;
+  while((rm = nameRE.exec(chars)) !== null && names.length < 20){
+    var n = rm[0];
+    if(names.indexOf(n) === -1) names.push(n);
+  }
+  if(names.length < 2){ showToast('未能从人设中提取角色关系，请确保人设内容完整',{error:true}); return; }
+  var html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;padding:20px;overflow:auto;" id="relation-modal"><div style="background:#fff;border-radius:14px;max-width:600px;margin:20px auto;padding:20px;"><h3 style="margin:0 0 12px;">👥 人物关系图</h3>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+  for(var i = 0; i < names.length; i++){
+    html += '<div style="border:2px solid #6366f1;border-radius:10px;padding:8px 14px;background:#f0f2ff;font-weight:600;">' + names[i] + '</div>';
+  }
+  html += '</div><p style="font-size:12px;color:#999;margin-top:12px;">共提取 ' + names.length + ' 个角色</p>';
+  html += '<button onclick="var m=document.getElementById(\'relation-modal\');if(m)m.remove();" style="width:100%;padding:10px;border:none;border-radius:8px;background:#f3f4f6;margin-top:10px;">关闭</button></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+function toggleMiniPreview(module){
+  var body = document.getElementById('prev-'+module+'-body');
+  var icon = document.getElementById('prev-'+module+'-icon');
+  if(!body) return;
+  if(body.style.display==='block'){
+    body.style.display='none';
+    if(icon) icon.textContent='▶';
+  } else {
+    // 展开前填充前置架构内容
+    var work = getCurrentWork();
+    var html = '';
+    var largeModel = isLargeContextModel();
+    var previewLimit = largeModel ? 2000 : 800;
+    if(work){
+      if(module === 'chars'){
+        // 人设页：显示世界观预览
+        if(work.world && work.world.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
+          var limit = largeModel ? 2000 : 800;
+          html += '<div>' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
+        } else {
+          html += '<div style="color:#999;">世界观尚未生成</div>';
+        }
+      } else if(module === 'outline'){
+        // 大纲页：显示世界观+人设预览
+        if(work.world && work.world.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
+          var limit = largeModel ? 1500 : 600;
+          html += '<div style="margin-bottom:8px;">' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
+        }
+        if(work.chars && work.chars.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">👤 人物人设</div>';
+          var limit = largeModel ? 1500 : 600;
+          html += '<div>' + he(work.chars.substring(0, limit)) + (work.chars.length > limit ? '...' : '') + '</div>';
+        }
+        if(!html) html = '<div style="color:#999;">世界观和人设尚未生成</div>';
+      } else if(module === 'detail'){
+        // 细纲页：显示世界观+人设+大纲预览
+        if(work.world && work.world.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
+          var limit = largeModel ? 1200 : 400;
+          html += '<div style="margin-bottom:8px;">' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
+        }
+        if(work.chars && work.chars.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">👤 人物人设</div>';
+          var limit = largeModel ? 1200 : 400;
+          html += '<div style="margin-bottom:8px;">' + he(work.chars.substring(0, limit)) + (work.chars.length > limit ? '...' : '') + '</div>';
+        }
+        if(work.outline && work.outline.trim()){
+          html += '<div style="font-weight:600;margin-bottom:4px;">📋 全书大纲</div>';
+          var limit = largeModel ? 1200 : 500;
+          html += '<div>' + he(work.outline.substring(0, limit)) + (work.outline.length > limit ? '...' : '') + '</div>';
+        }
+        if(!html) html = '<div style="color:#999;">前置架构尚未生成</div>';
+      }
+    } else {
+      html = '<div style="color:#999;">无作品数据</div>';
+    }
+    body.innerHTML = html;
+    body.style.display='block';
+    if(icon) icon.textContent='▼';
+  }
+}
+
+function exportArch(){
+  var w=getCurrentWork();if(!w){showToast('无作品');return;}
+  // Markdown 格式文本
+  var md='# 《'+w.title+'》架构设计\n\n';
+  md+='## 世界观\n\n'+(w.world||'未填写')+'\n\n';
+  md+='## 人物人设\n\n'+(w.chars||'未填写')+'\n\n';
+  md+='## 全书大纲\n\n'+(w.outline||'未填写')+'\n\n';
+  md+='## 章节细纲\n\n'+(w.detail||'未填写')+'\n\n';
+  
+  // HTML 格式化导出
+  var sections = [
+    {title:'世界观', content:w.world||'未填写', icon:'🌍'},
+    {title:'人物人设', content:w.chars||'未填写', icon:'👤'},
+    {title:'全书大纲', content:w.outline||'未填写', icon:'📋'},
+    {title:'章节细纲', content:w.detail||'未填写', icon:'📝'}
+  ];
+  var html='<html><head><meta charset="UTF-8"><title>'+he(w.title)+'</title>';
+  html+='<style>*{margin:0;padding:0;box-sizing:border-box}';
+  html+='body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f0f2f5;color:#333;padding:30px;max-width:900px;margin:0 auto}';
+  html+='h1{text-align:center;font-size:24px;margin-bottom:30px;color:#1a1a2e;border-bottom:2px solid #e94560;padding-bottom:15px}';
+  html+='.section{margin-bottom:25px;background:#fff;border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}';
+  html+='.section h2{font-size:18px;color:#16213e;margin-bottom:12px;display:flex;align-items:center;gap:8px}';
+  html+='.section .content{font-size:15px;line-height:1.8;white-space:pre-wrap;color:#444}';
+  html+='.toolbar{position:fixed;top:15px;right:15px;display:flex;gap:8px}';
+  html+='.toolbar button{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}';
+  html+='.btn-md{background:#16213e;color:#fff}.btn-copy{background:#e94560;color:#fff}';
+  html+='</style></head><body>';
+  html+='<div class="toolbar"><button class="btn-md" onclick="downloadMD()">📥 下载 Markdown</button><button class="btn-copy" onclick="copyAll()">📋 复制全文</button></div>';
+  html+='<h1>《'+he(w.title)+'》架构设计</h1>';
+  for(var i=0;i<sections.length;i++){
+    html+='<div class="section"><h2>'+sections[i].icon+' '+sections[i].title+'</h2>';
+    html+='<div class="content">'+he(sections[i].content)+'</div></div>';
+  }
+  html+='<script>var MD='+JSON.stringify(md).replace(/<\//g,'<\\/')+';function downloadMD(){var b=new Blob([MD],{type:"text/markdown"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="'+w.title.replace(/"/g,'')+'-架构设计.md";a.click()}function copyAll(){var t="";document.querySelectorAll(".content").forEach(function(e){t+=e.textContent+"\\n\\n"});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){alert("已复制")}).catch(function(){fallbackCopy(t)})}else{fallbackCopy(t)}}function fallbackCopy(text){var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");alert("已复制")}catch(e){alert("复制失败，请手动复制")}document.body.removeChild(ta)}</'+'script>';
+  html+='</body></html>';
+  var blob=new Blob([html],{type:'text/html'});var url=URL.createObjectURL(blob);window.open(url,'_blank');hideRMenu();
+}
+
+var MODULE_MAP = {world:1, chars:2, outline:3, detail:4};
+
+// ========== 阅读预览全屏模式 ==========
+var MODULE_NAMES = {world:'世界观', chars:'人物人设', outline:'全书大纲', detail:'章节细纲'};
+
+window.openReader = function(module) {
+  var moduleName = MODULE_NAMES[module] || module;
+  // 优先用全文缓存（分页模式下 textarea 只有当前页），其次用 textarea 值
+  var content = '';
+  if (typeof getArchRawContent === 'function') {
+    content = getArchRawContent(module);
+  }
+  if (!content) {
+    var rawId = 'raw-' + module;
+    var textarea = document.getElementById(rawId);
+    content = textarea ? textarea.value.trim() : '';
+  }
+
+  if (!content) {
+    if (typeof showToast === 'function') showToast('内容为空，请先生成内容');
+    return;
+  }
+
+  // 格式化内容：按卡片/章节标题分段显示
+  var formatted = formatReaderContent(content, module);
+
+  var overlay = document.getElementById('reader-overlay');
+  var title = document.getElementById('reader-title');
+  var text = document.getElementById('reader-text');
+
+  title.textContent = moduleName + ' · 阅读模式';
+  text.innerHTML = formatted;
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeReader = function() {
+  var overlay = document.getElementById('reader-overlay');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+};
+
+// 按 Escape 键退出预览
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var overlay = document.getElementById('reader-overlay');
+    if (overlay && overlay.classList.contains('active')) {
+      closeReader();
+    }
+  }
+});
+
+// 格式化阅读内容：识别卡片/章节标题，加粗显示
+function formatReaderContent(content, module) {
+  if (!content) return '<p style="color:#999;text-align:center;padding:40px;">暂无内容</p>';
+
+  // 移除首尾空白
+  content = content.replace(/^\s+|\s+$/g, '');
+
+  // 按换行分割，处理每个卡片/章节区块
+  var lines = content.split('\n');
+  var html = '';
+  var inCard = false;
+  var cardTitle = '';
+  var cardBody = [];
+  var currentSection = '';
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+
+    // 跳过空行但保留段落分隔
+    if (!trimmed) {
+      cardBody.push('');
+      continue;
+    }
+
+    // 检测卡片/章节标题（各种可能的格式）
+    var isTitle = false;
+    var titleText = '';
+
+    // 格式1: ## 标题 或 # 标题
+    var hashMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
+    if (hashMatch) {
+      isTitle = true;
+      titleText = hashMatch[2];
+    }
+    // 格式2: 【标题】或【标题】（无空格也行）
+    if (!isTitle) {
+      var bracketMatch = trimmed.match(/^[\[【]\s*(.+?)\s*[\]】]$/);
+      if (bracketMatch && bracketMatch[1].length > 2 && bracketMatch[1].length < 60) {
+        isTitle = true;
+        titleText = bracketMatch[1];
+      }
+    }
+    // 格式3: 第X章 《标题》或 第X卷
+    if (!isTitle) {
+      var chapterMatch = trimmed.match(/^(第[一二三四五六七八九十百千万\d]+[章节卷部篇]|卷\s*\d+|Chapter\s*\d+)\s*[《"<]?(.+?)[》">]?$/i);
+      if (chapterMatch) {
+        isTitle = true;
+        titleText = chapterMatch[0];
+      }
+    }
+    // 格式4: 以特殊符号开头的行（如 ----、====、●●、■、►）
+    if (!isTitle) {
+      var symbolMatch = trimmed.match(/^([=─—━▪●■►▼△▽★☆◆◇○●◆■▲■►▸▔▼▄▀▬─_]{2,})\s*(.*)/);
+      if (symbolMatch) {
+        isTitle = symbolMatch[2].trim().length > 0;
+        titleText = symbolMatch[2].trim();
+      }
+    }
+    // 格式5: 全部大写或以特定关键词开头的行
+    if (!isTitle && (trimmed === trimmed.toUpperCase()) && trimmed.length < 40 && trimmed.length > 2) {
+      // 全大写且短，可能是标题
+      if (/[\u4e00-\u9fa5]/.test(trimmed)) {
+        isTitle = true;
+        titleText = trimmed;
+      }
+    }
+
+    if (isTitle && titleText) {
+      // 输出之前的卡片内容
+      if (cardBody.length > 0) {
+        html += '<div class="card-block">' + cardBody.join('<br>').replace(/<br><br><br>/g, '<br><br>') + '</div>';
+        cardBody = [];
+      }
+      // 输出新卡片标题
+      html += '<div class="card-header">' + escapeHtml(titleText) + '</div>';
+    } else {
+      cardBody.push(escapeHtml(trimmed));
+    }
+  }
+
+  // 输出最后一张卡片
+  if (cardBody.length > 0) {
+    html += '<div class="card-block">' + cardBody.join('<br>').replace(/<br><br><br>/g, '<br><br>') + '</div>';
+  }
+
+  // 如果没有格式化出标题（纯文本），直接显示
+  if (!html || html.indexOf('card-header') === -1) {
+    html = '<div class="card-block">' + escapeHtml(content).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>') + '</div>';
+  }
+
+  return html;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+}
+
+// ========== 基础工具函数 ==========
+function getCurrentWork(){
+  try{
+    var works = (typeof DB !== 'undefined' && DB.works) ? DB.works : [];
+    if(_selectedWorkId){
+      var w = works.find(function(x){ return x.id === _selectedWorkId; });
+      if(w) return w;
+    }
+    var lastId = localStorage.getItem('last_edit_work');
+    if(lastId){
+      var w2 = works.find(function(x){ return x.id === lastId; });
+      if(w2) return w2;
+    }
+    return works.length ? works[works.length-1] : null;
+  }catch(e){ return null; }
+}
+
+function saveModuleIdea(module, text){
+  try{
+    var work = getCurrentWork();
+    if(!work) return;
+    work._moduleIdeas = work._moduleIdeas || {};
+    work._moduleIdeas[module] = text;
+    if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+  }catch(e){}
+}
+
+function updateArchStatus(work){
+  try{
+    var modules = ['world','chars','outline','detail'];
+    for(var i=0;i<modules.length;i++){
+      var el = document.getElementById('raw-'+modules[i]);
+      if(!el) continue;
+      var val = work[modules[i]] || '';
+      if(val && val.trim() && !el.value.trim()) el.value = val;
+    }
+  }catch(e){}
+}
+
+// ========== 2026 年题材趋势参考（用于增强生成）==========
+// 用户提示词（idea）权重最高；2026 趋势作为风格/灵感参考
+var TREND_2026 = {
+  '玄幻': '2026 读者偏好：反套路修炼（拒绝无脑升级）、凡人流修仙、底层视角、资源争夺的现实感、女频玄幻的情感与独立。',
+  '仙侠': '2026 读者偏好：轻权谋重叙事、修仙代价清晰、因果循环、日常修仙、传统神话现代化重构、古风情书。',
+  '都市': '2026 读者偏好：职业文（医生/律师/教师/警察/工程师）、职业硬核度、信息安全、职场现实感、家庭伦理、反爽文爽点。',
+  '历史': '2026 读者偏好：考据派种田文、底层视角、科技树渐进、社会阶层矛盾、朝堂权谋、古代战争的真实感。',
+  '科幻': '2026 读者偏好：近未来硬科幻、AI 与人类关系、生物科技伦理、数字意识、太空移民现实派、赛博朋克复兴。',
+  '末世': '2026 读者偏好：资源稀缺下的社会组织、幸存者社群、阴谋论叙事、后启示录的重建与希望、末世种田。',
+  '悬疑': '2026 读者偏好：社会派推理、刑侦职业文、精神心理悬念、第一人称叙事、信息差叙事。',
+  '言情': '2026 读者偏好：双强 CP、先婚后爱现实版、姐弟恋叙事、家庭线与职业线结合、情感张力不靠误会。',
+  '系统流': '2026 读者偏好：系统规则的可利用性、系统隐藏目的、反系统叙事、任务推动剧情而非奖励驱动。',
+  '武侠': '2026 读者偏好：江湖世故、人情大于武、侠义精神的挣扎、庙堂与江湖的张力。',
+  '竞技': '2026 读者偏好：职业选手训练日常、心理压力描写、团队竞技的战术、个人与集体的张力。',
+  '规则怪谈': '2026 读者偏好：规则的可利用性、日常场景的未知、恐惧来自未知和惩罚的张力。',
+  'default': '2026 读者偏好：叙事流畅、章节爆点密度高、反套路、人物动机清晰、伏笔回收明确、拒绝 AI 腔和模板化表达。'
+};
+
+// ========== 白金作家创作法则（2026 年最新整理）==========
+// 来源：天蚕土豆、猫腻、爱潜水的乌贼、唐家三少、辰东等白金作家访谈与创作经验
+// 2026 年新增：工业化写作流程、节奏本质定义、开篇人际情绪法、文笔技法
+var PLATINUM_RULES = {
+  // ===== 句式结构与段落节奏 =====
+  'sentence_rhythm': '【2026·长短句交替】长句铺陈信息/描写细节/营造氛围；短句制造紧张/强调重点/推进动作。禁忌：不要连续用三个以上相同长度的句子。',
+  'sentence_limit': '【2026·句式硬规则】单句字数不超25字，长句立刻拆分。一句话最好不超过50字。永远遵循"动作先行，情感落点"原则。',
+  'punctuation_rhythm': '【2026·标点节奏】句号是停顿/重置/喘息；逗号是"别停，后面还有"；省略号是悬置/未尽之言；破折号是转折/急转弯。爆文最常用：用句号代替逗号，三个短句三下心跳。',
+  'breath_break': '【2026·气口断句】按"气口"断句，不按"语法"断句。读者呼吸的地方就是句号该放的地方。断句按动作变化、视线变化、情绪变化来停。',
+  'paragraph_visual': '【2026·段落视觉】段落要有视觉分布感。长短句交替制造"铺垫—爆发—余震"的完整节奏弧线。先动作，再状态，再动作，层次清晰。',
+  // ===== 比喻修辞与文风 =====
+  'metaphor_skill': '【2026·比喻修辞】用比喻、拟人、通感增强表现力。将"时间流逝"比作"沙漏倒沙"，将抽象概念具象化。排比增强气势，对偶增强节奏感和韵律美。',
+  'show_not_tell': '【2026·描写法则】别说"他害怕"，写"冷汗直流，心脏砰砰狂跳"。能用动作表现就少用空泛说明。让读者从人物动作里看出情绪。',
+  'abstract_to_detail': '【2026·抽象转具体】直接写"很破""很冷""很穷"读者无法想象。把形容词拆开换成能感知的具体细节：墙皮往下掉、窗框发黑、桌角缺口、飘着霉味。',
+  'dialogue_style': '【2026·对话风格】每个角色要有不同的说话风格。语速、用词、口头禅都可以成为人物标签。盖住角色名，仅凭对话能分辨是谁说话。',
+  'concise_style': '【2026·精炼文风】网文语言必须极度精炼，多用短句。删除无用的副词（"慢慢地""小心翼翼地"）。避免冗长描写，把拥挤的长句拆成清晰的短句。',
+  // ===== 情绪起伏与延迟释放 =====
+  'emotion_delay': '【2026·延迟释放】情绪产生后先压住，压到读者替人物难受了再释放。释放时一层一层剥开，不是一泻千里。情绪没有经过"发酵"读者看完就忘。',
+  'emotion_wave': '【2026·情绪波浪】重复与变化制造情绪波浪。关键词重复：他不信命。从小就不信。他不信。他不信。现在他开始有点信了。重复中产生递进。',
+  'emotion_control': '【2026·情绪调动】情绪是网文灵魂。读者追更追的不是情节，是情绪。爽点制造升级、虐点铺垫爆发、甜点细腻真实、共情点设计触达。',
+  'subtext_density': '【2026·潜台词密度】对话每句话至少两层意思：表面说的 + 心里想的。好的对话需要演员来"演"，因为话里藏了话。信息差制造张力。',
+  // ===== 天蚕土豆 2026：目标感法则 + 三多法则 =====
+  'target_sense': '【天蚕土豆·目标感法则】角色必须有明确目标驱动情节。如萧炎"三年之约"、林动"为父讨公道"。目标缺失则中后期必散架。',
+  'three_more': '【天蚕土豆·三多法则】多读（涉猎广：网文/传统/动漫/影视/游戏）、多想（找方法论）、多写（试错实践）。打开自己的小世界。',
+  'emotion_resonance': '【天蚕土豆·情感共鸣】亲情、爱情、友情三种情感埋设与讲述。角色守护亲情、捍卫爱情、缔结友情。从现实提取素材。',
+  // ===== 猫腻：节奏公式 + 爽文公式 =====
+  'rhythm': '【猫腻·节奏公式】小高潮→平复期→余韵。高潮越小平复越短；几个小高潮后必有大高潮。章末留悬念钩子。',
+  '爽文公式': '【猫腻·爽文公式】70分文笔 + 套路文 + 节奏 = 大红书。节奏是关键。',
+  'rhythm_essence': '【2026·节奏本质】节奏不是字数，是「主角处境的不可逆改变」。情节事件（删了影响主线）vs 状态事件（删了不影响）。健康节奏：状态→情节→状态→情节。',
+  // ===== 人物塑造 =====
+  'character_growth': '【乌贼·人物成长法】先贴标签（个性/外貌），再给故事，伴随成长后丰富内涵，角色不再是标签。',
+  'character_3d': '【丛月·人物三维】主角功能性>完美性（不完美引出故事）；配角记忆点>完整性（一个独特标签）；反派破坏力>邪恶值（实际压力）。',
+  'character_card': '【2026·人设卡三要素】目标（明确具体：复仇/变强/活下去，忌"追求强大"）+ 缺陷（冲动/心软/贪财，完美主角无成长空间）+ 金手指（必须有限制：能量耗尽/冷却时间）。',
+  'detail_shaping': '【2026·细节塑造】用身体的反应代替直白心理描写。写害羞不写"尴尬死了"，写"一抹红色爬上耳尖，眼珠四处乱飘，红色蔓延到脖颈"。中国文学的留白美。',
+  // ===== 冲突与开篇 =====
+  'conflict': '【冲突公式】目标 + 障碍 + 代价 = 冲突。代价必须真实可见。',
+  'opening_emotion': '【2026·开篇人际情绪】用「反常、颠覆、不公的人际关系」造情绪，而非单纯冲突动作。写熟悉关系（仇人/夫妻/母子），陌生关系难拉情绪。',
+  'first3': '【2026·黄金三章】第一章300字内"扔炸弹"，1000字内"亮金手指"。开篇不写景、不介绍世界观，立刻让主角陷入困境。建立人物+抛出危机+确立目标。',
+  'death_three_sec': '【2026·死亡三秒】读者点进来的前三秒决定是否继续看。第一句话就要制造期待。三句话交代悬念、信息密度、人物处境。',
+  // ===== 章节结构 =====
+  'hook': '【章末钩子】每章结尾留悬念或转折，让读者忍不住点下一章。三种经典钩子：中断在动作即将发生瞬间、揭露信息同时制造更大疑问、情绪悬而未决。',
+  'chapter_formula': '【2026·正文公式】抛矛盾（前300字）→ 拉仇恨（中800字）→ 主角出手（中800字）→ 全场震惊（后300字）→ 留钩子（最后100字）。无钩子，不爆款。',
+  '爽点_density': '【2026·爽点密度】3章一小爽（小打脸/小突破/小装逼）；10章一大爽（越级杀敌/身份曝光/收获至宝）。禁忌：连续10章平淡，或连续3章虐主不给希望。',
+  'expectation': '【期待感管理】每章既满足一部分期待，又埋下新期待。每500字一个钩子。',
+  // ===== 体系与反派 =====
+  'power_system': '【力量体系】等级清晰（斗者→斗宗→斗圣），读者有明确期待感。升级必须有代价和门槛。宁可换地图，也不要随意拔高原有地图战力。',
+  'underdog': '【废柴流精髓】开局惨，为逆袭提供巨大情绪空间。可以弱但不能怂。',
+  'villain': '【2026·反派设计】"坏得有逻辑"比"单纯坏"更带感。动机：为权力（怕主角威胁地位）、为信仰（宗门认为主角违背天道）、有隐藏目的。',
+  'foreshadow': '【伏笔法则】前期不经意提及物品/话语/习惯，后期成为解谜关键。每卷至少1-2个伏笔。建立"伏笔追踪表"。',
+  // ===== 冰山对话法则（2026核心）=====
+  'iceberg_dialogue': '【2026·冰山对话】文字只写水面1/8的表层内容，剩下7/8的情绪/矛盾/隐忍全部藏在细节里，让读者自行体会。拒绝"他很生气""她很委屈"这类直白描写。成年人的情绪不会外露：愤怒不大喊大叫，心虚不主动辩解，暗恋不直白告白。',
+  'iceberg_micro_action': '【2026·微动作冰山】用细节动作烘托情绪，取代一切直白情绪词。愤怒→指尖紧绷/嘴角僵硬上扬；心虚→眼神躲闪/喉结滚动；暧昧→指腹蹭过皮肤/耳尖泛红。越克制，越有力。禁忌：动作和情绪词同时出现。',
+  'iceberg_answer_nonanswer': '【2026·答非所问】被质问/被试探/被拆穿时，绝对不要顺着话题正面解释。转移话题、纠结细微细节、顾左右而言他。答非所问是顶级潜台词，藏尽角色的小心思和隐秘情绪。',
+  'iceberg_daily_cover': '【2026·日常事物掩护】把尖锐矛盾和隐忍情绪，藏在日常物件里（香水/晚风/茶水/衣物/烟火气）。看似在聊琐事，实则暗藏纠葛，张力拉满。',
+  'no_mind_reading': '【2026·禁读心法则】角色之间绝对不能"知道对方在想什么"。除非有明确的超能力设定（读心术、他心通、精神链接）并在人设中标注，否则严禁写"A知道B在想……"。只能通过"动作/表情/语气/沉默"推测，不能直接"读"到。',
+  'perspective_locked': '【2026·视角锁定】全程只能用一种主要叙述视角。默认：第三人称有限视角（只能写主角能看到/听到/感受到的），不能跳到配角的内心活动。第一人称"我"必须是主角本人。',
+  'perspective_switch': '【2026·视角切换规则】切换视角必须同时满足：①该角色前文已出现过 ②有不可替代的剧情需求（主角不在场的关键场景） ③切换有明确章节/段落分隔 ④300字内切回主视角或该段落有独立叙事价值（反派独白、关键线索揭露）。不满足条件严禁切换。',
+  // ===== 暧昧与关键时刻打断 =====
+  'ambiguous_writing': '【2026·暧昧写法】用微动作代替直接描写：写"他指腹蹭过她手腕"比"他深情握住她的手"张力强万倍。用环境烘托放大情绪：桂花香/烛火摇曳/影子交叠。在最高点突然打断：紧急军情/敲门声/雷声，读者追更追的就是"还没发生就断了"的感觉。',
+  'key_moment_interrupt': '【2026·关键时刻打断】在情绪/暧昧/冲突的最高点突然中断，制造意犹未尽。打断事件：紧急军情、下属汇报、突然的雷声、孩子哭声。禁忌：打断后不要立刻接新事件，让读者心里像猫抓一样。',
+  // ===== 地文与对话分工 =====
+  'ground_dialogue_cycle': '【2026·地文对话循环】地文负责走路（事实：背景/动作/描写），对话负责奔跑（意志：角色想要什么）。黄金循环：地文(setup)→对话(rally)→变化(reset)。对话之间夹地文，避免连续对话"@"堆砌。',
+  'ground_fact_dialogue_will': '【2026·事实与意志分离】地文告诉读者"发生了什么"；对话告诉读者"角色想做什么"。不要说"我很担心"，而是通过对话和动作让读者自己感受到担心。',
+  // ===== 2025-2026 创作范式迁移 =====
+  'emotion_value_era': '【2025-2026·范式迁移】从"讲好一个故事"到"制造一种好感觉"。读者追更追的不是情节，是情绪爽点/虐点/甜点/共情点。情节是载体，情绪是灵魂。AI永远写不出"指腹蹭过皮肤"的细腻和"克制又汹涌"的深情。',
+  'restraint_aesthetic': '【2026·冷峻克制留白】乌贼文学语感：精准留白，绝不多余解释。用"灰雾之上""机械臂开罐头"等意象替代直白陈述。读者看完会自己品味，比写出来强十倍。',
+  // ===== 动作留白与感官连琐 =====
+  'action_frame': '【2026·动作留白术】只保留决定性动作帧，不写全过程。错误："他拿起刀，走过去，把刀插进墙壁"；正确："刀插进墙壁时，他的手还在抖"。动作留白让读者参与构建。',
+  'sense_chain': '【2026·感官连琐】从视觉引出另一感官：看到"旧扉"→"锈迹斑斑的铰链发出悲鸣"（视觉→触觉→听觉）。只用视觉，其他感官混一行。细节越具体越能触发感官想象。',
+  // ===== 综合技能 =====
+  'four_skills': '【2026·四大技能】①开篇能力（第一段制造悬念、一千字记住主角）；②节奏控制（章节张弛、情节起承转合）；③人物塑造（快速记住的出场、性格标签系统）；④情绪调动（爽/虐/甜/共情点设计）。',
+  'one_line_pitch': '【2026·一句话卖点】谁（主角）+ 陷入什么死局 + 靠什么翻盘 + 最后爽到什么程度。'
+};
+
+// 获取白金作家创作法则提示（随机选取9-11条注入）
+function getPlatinumRulesHint(){
+  var keys = Object.keys(PLATINUM_RULES);
+  var selected = [];
+  // 必选：冰山对话3条 + 禁读心 + 视角锁 + 句式节奏 + 标点节奏 + 延迟释放 + 目标感 + 章末钩子 + 正文公式 + 地文对话循环（2026核心12条）
+  var mustSelect = ['iceberg_dialogue', 'iceberg_micro_action', 'iceberg_answer_nonanswer', 'no_mind_reading', 'perspective_locked', 'perspective_switch', 'sentence_rhythm', 'punctuation_rhythm', 'emotion_delay', 'target_sense', 'hook', 'chapter_formula', 'ground_dialogue_cycle'];
+  for(var i = 0; i < mustSelect.length; i++){
+    if(PLATINUM_RULES[mustSelect[i]]) selected.push(PLATINUM_RULES[mustSelect[i]]);
+  }
+  // 随机选3-4条补充
+  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; });
+  var addCount = 3 + Math.floor(Math.random() * 2);
+  for(var j = 0; j < addCount && remaining.length > 0; j++){
+    var idx = Math.floor(Math.random() * remaining.length);
+    selected.push(PLATINUM_RULES[remaining[idx]]);
+    remaining.splice(idx, 1);
+  }
+  return selected.join('\n');
+}
+
+// 获取 2026 题材趋势提示（根据作品题材自动匹配）
+function getTrendHint2026(work){
+  var genre = '';
+  try{
+    if(work && work.genre) genre = work.genre;
+    else if(work && work.category && work.category.cat1) genre = work.category.cat1;
+  }catch(e){}
+  if(!genre) return TREND_2026['default'];
+  for(var k in TREND_2026){
+    if(k !== 'default' && genre.indexOf(k) >= 0) return TREND_2026[k];
+  }
+  return TREND_2026['default'];
+}
+
+// ========== 架构模块 prompt 模板（按模块类型区分）==========
+// v48: 核心原则 — 用户输入的提示词（idea）永远放在【用户核心诉求】最前面，权重最高
+function buildArchPrompt(module, idea, work, extraHint){
+  idea = idea || '';
+  extraHint = extraHint || '';
+  var title = (work && work.title) || '未命名作品';
+  var genre = '';
+  var plotType = '';
+  try{
+    if(work){
+      genre = work.genre || (work.category && work.category.cat1) || '';
+      plotType = work.plotType || (work.category && work.category.cat2) || '';
+    }
+  }catch(e){}
+  var trend = getTrendHint2026(work);
+  var platform = '';
+  try{
+    platform = (work && work._platform) || 'qidian';
+  }catch(e){ platform = 'qidian'; }
+  var platformTxt = platform === 'fanqie' ? '番茄（免费制，短平快，三章内必须有冲突爆发和悬念钩子）'
+                   : (platform === 'jinjiang' ? '晋江（精品向，细腻文笔，人物关系张力优先）'
+                   : '起点（订阅制，节奏稳、设定扎实、长线伏笔）');
+
+  // ===== 通用头部（所有模块共用）=====
+  var head = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+
+  // ===== 用户核心诉求放在第一位，优先级最高 =====
+  var userBlock = '';
+  if(idea.trim().length > 0){
+    userBlock += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n';
+    userBlock += idea.trim() + '\n\n';
+  } else {
+    userBlock += '【用户核心诉求 — 本次无特殊要求，由你基于题材和作品自由发挥，但必须避免模板化】\n\n';
+  }
+
+  head += '【作品基础信息】\n';
+  head += '作品名称：' + title + '\n';
+  if(genre) head += '一级题材：' + genre + '\n';
+  if(plotType) head += '二级细分：' + plotType + '\n';
+  head += '发布平台：' + platformTxt + '\n';
+  head += '\n';
+
+  // ===== 白金作家创作法则（2025 年最新，每次随机注入 5 条）=====
+  var platinumBlock = '【白金作家创作法则 — 必须遵循】\n' + getPlatinumRulesHint() + '\n\n';
+
+  // ===== 2026 题材趋势参考（作为灵感来源，权重次于用户诉求；压缩到 400 字）=====
+  var trendBlock = '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' +
+    (trend.length > 400 ? smartTruncate(trend, 400) : trend) + '\n\n';
+
+  // ===== 前置架构上下文（按优先级动态压缩：世界观 > 人设 > 大纲）=====
+  var ctxBlock = '';
+  if(module !== 'world'){
+    ctxBlock += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力】\n';
+    if(work && work.world && work.world.trim()){
+      // 世界观保留核心规则部分（规则/代价/力量体系关键词优先）
+      ctxBlock += '■ 世界观：\n' + smartTruncate(work.world, 1200) + '\n';
+    }
+    if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      // 人设保留角色名和核心属性（避免超长描述）
+      ctxBlock += '■ 人物人设：\n' + smartTruncate(work.chars, 1200) + '\n';
+    }
+    if(module === 'detail' && work && work.outline && work.outline.trim()){
+      // 大纲只保留最近几卷的核心冲突
+      ctxBlock += '■ 全书大纲：\n' + smartTruncate(work.outline, 1500) + '\n';
+    }
+    ctxBlock += '\n';
+  }
+
+  // ===== 各模块专属生成要求 =====
+  var moduleBlock = '';
+  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : '';
+
+  if(module === 'world'){
+    moduleName = moduleName || '世界观';
+    moduleBlock += '【模块目标：' + moduleName + '】\n';
+    moduleBlock += '请基于用户核心诉求，构建一套完整、自洽、有张力的世界观。结构要求如下：\n';
+    moduleBlock += '1. 时代背景与地理设定（世界的基本样貌、历史脉络、推动当前格局的关键事件）\n';
+    moduleBlock += '2. 力量体系与规则（修炼/科技/魔法体系的等级、代价、限制、升级路径；代价必须真实可见）\n';
+    moduleBlock += '3. 社会结构与势力分布（主要阵营、利益冲突、阶级矛盾；每个阵营必须有自己的立场和动机）\n';
+    moduleBlock += '4. 核心矛盾与世界观钩子（推动全书记叙的根本冲突、能贯穿百万字的伏笔种子）\n';
+    moduleBlock += '5. 时代特有的文化符号与器物（读者感知世界的锚点；不要堆砌，要有选择）\n';
+    moduleBlock += '\n【⚠️ 搬运强度：最高 · 本模块内容将被后续所有模块反复引用】\n';
+    moduleBlock += '- 避免堆砌设定条目；所有设定必须服务于"能产生什么故事"\n- 至少给一个小故事片段（100-200字）展示设定如何运作\n- 力量/资源的获取必须有代价和门槛；不能"努力就有"——谁付出什么代价才能获得？\n- 不要出现"四大神兽""五行"等泛滥设定（如果一定要用，给出独特变体）\n- 每一条规则后面请自问："这个规则限制了谁？被谁打破？破了会怎样？"——这些问题的答案就是将来写作的剧情素材\n- 【重要】每条设定都可能被后续写作时自动提取为"世界观规则自证项"，请写得具体、可检验、不空泛';
+    moduleBlock += '\n\n【⚠️ 引擎级设计：势力博弈矩阵 · 必须执行】\n';
+    moduleBlock += '- 每个势力设计时自问 3 个问题：①与主角的关系？②与至少 1 个其他势力有明确冲突或合作？③该势力的最高利益（钱/权/信仰/生存）是什么？\n';
+    moduleBlock += '- 禁止设计"孤立势力"——与其他势力没有张力线的阵营一定会在百万字写作时被遗忘或变成工具人\n';
+    moduleBlock += '- 至少设计 1 个"明面盟友 + 暗地挖坑"的势力关系——这是全书政治/谍战线的基础\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：力量体系规则-代价-后果 · 必须执行】\n';
+    moduleBlock += '- 任何体系必须按"规则 → 代价 → 违反后果"三栏式设计\n';
+    moduleBlock += '- 代价必须是"读者能感知到的真实代价"：生命/寿元/健康/人际关系/道德感/记忆。不是"消耗灵力"这种无感代价\n';
+    moduleBlock += '- 违反后果必须具体到"谁来执行 + 执行方式 + 读者看到时会心惊"——如果没有执行者，就设计一个（天道/组织/代价反噬/心魔）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：地理资源稀缺性 · 必须执行】\n';
+    moduleBlock += '- 任何资源（灵石/功法/丹药/武器/情报/食物）默认稀缺，稀缺原因要能写得出（产地有限/需特定条件/被垄断/有危险）\n';
+    moduleBlock += '- 稀缺资源本身就是冲突源——主角获取资源的过程天然就是一段剧情，不需要额外制造\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：历史事件自证 · 必须执行】\n';
+    moduleBlock += '- 推动当前格局的历史事件，必须至少 1 件"主角会在故事中亲身接触到"的证据（遗迹/当事人传承/被篡改的史书/古老器物）\n';
+    moduleBlock += '- 历史不能只做背景板——至少 1 个关键历史事件有"官方版本"和"真相版本"两个版本，真相版本在主角冒险过程中逐步揭露\n';
+    moduleBlock += '\n【⚠️ 世界观反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：修炼体系只有"等级递增打怪升级"一种推进方式 → 设计至少 1 条"越修炼越危险/代价越大"的规则\n';
+    moduleBlock += '- 禁忌："灵气复苏/系统金手指/退婚打脸/秘境抢宝"等网文常见开篇 → 如果使用，必须在第 1 段就加一个读者意料之外的变体\n';
+    moduleBlock += '- 禁忌：势力关系设计成简单的"正邪二元对立" → 至少 1 个势力的立场在不同事件中会摇摆（有内部矛盾）\n';
+  } else if(module === 'chars'){
+    moduleName = moduleName || '人物人设';
+    moduleBlock += '【模块目标：' + moduleName + '】\n';
+    moduleBlock += '请基于用户核心诉求和世界观设定，构建一个立体的人物阵容。结构要求如下：\n';
+    moduleBlock += '■ 主角（1-3 位）：姓名、年龄/外貌、核心动机（不是"变强"而是"为什么变强"的那个"什么"）、最大执念、最大弱点/缺陷、人物弧光起点、核心能力/资源、外在面具 vs 真实自我\n';
+    moduleBlock += '■ 反派（1-2 位）：姓名、身份、核心目标、反派出场的意义、与主角的根本冲突、反派的正义观、反派人设亮点（反派不能只是坏）\n';
+    moduleBlock += '■ 关键配角（3-5 位）：身份、与主角关系、其存在对剧情的独特作用、一句话标签\n';
+    moduleBlock += '■ 人物关系网：主要人物之间的核心张力线（爱情/亲情/师徒/敌对/合作/利用）\n';
+    moduleBlock += '\n【⚠️ 搬运强度：最高 · 每个人物都会在写作时被主动引用】\n';
+    moduleBlock += '- 每个人物必须有"他/她为什么必须存在于这个故事里"的答案\n';
+    moduleBlock += '- 避免工具人；每个配角都要有独立于主角的目标和欲望\n';
+    moduleBlock += '- 主角动机必须清晰、具体、能贯穿全文\n';
+    moduleBlock += '- 反派不能是"为了坏而坏"；反派必须有自己的逻辑和信念\n';
+    moduleBlock += '- 角色之间要有张力——即便是盟友也有分歧或隐瞒\n';
+    moduleBlock += '- 【重要】每个角色的"弱点/缺陷"和"执念"请写得非常具体——这是后续写作时制造冲突和情感冲击的核心抓手\n';
+    moduleBlock += '- 【重要】每个主角必须配一个"真实缺陷表"（AI不会主动写的不可爱但真实的缺点）：\n';
+    moduleBlock += '  例：路怒症（堵车时疯狂按喇叭）/恐针（30岁还怕打针）/分不清左右（总说"往你拿筷子的手那边"）\n';
+    moduleBlock += '  例：撒谎时眼神飘/手抖/会咬指甲；愤怒时不是大吼而是突然安静；悲伤时不是哭而是拼命做家务\n';
+    moduleBlock += '  这些"缺陷"比任何金手指都更能让读者记住角色——因为读者身边就有这样的真实的人\n';
+    moduleBlock += '- 【重要】人物关系网中的"张力线"将在写作时被作为"该出场时谁会在"的参考依据，请明确冲突点而不是笼统写"敌对/友好"\n';
+    moduleBlock += '\n【⚠️ AI薄弱点强化：人物钩子 + 对话刺刀 · 必须执行】\n';
+    moduleBlock += '- 人物出场必须有"钩子"：不要写"他是XX，特点是XX"，要写矛盾感/反差感\n';
+    moduleBlock += '  例：抠门的人→对自己抠到捡矿泉水瓶，给女儿交学费时眼睛不眨——读者立刻想知道"他经历了什么"\n';
+    moduleBlock += '  例：暴躁的人→暴躁护短，骂完人下一秒替人挡刀——人物立刻立体\n';
+    moduleBlock += '  例：温柔的人→温柔但有绝对不能触碰的底线，一旦触碰比反派还狠\n';
+    moduleBlock += '- 每个主要角色的出场必须自带"读者问题"：读者看完这角色会想问什么问题？那个问题就是钩子\n';
+    moduleBlock += '- 【重要】人物的核心矛盾（执念 vs 底线 vs 弱点）要能直接套用到对话制造冲突——当两个人物的执念/底线碰撞时，对话才有"刺刀"\n';
+    moduleBlock += '  对话刺刀训练：写一段对话，让表面说A，实际在说B；有潜台词；删掉所有"心里想"的旁白后读者仍能感受到情绪\n';
+    moduleBlock += '  【冰山对话·答非所问】被质问时不正面回答：顾左右而言他/转移话题/纠结细节。答非所问是顶级潜台词\n';
+    moduleBlock += '  【冰山对话·微动作藏情绪】用指尖紧绷/眼神躲闪/喉结滚动/耳尖泛红代替"他很紧张"这类直白情绪词\n';
+    moduleBlock += '  【冰山对话·日常事物掩护】把尖锐矛盾藏在日常物件里：香水味/茶水温热/衣物褶皱，看似聊琐事实则暗藏纠葛\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：9维深层矛盾层 · 每个主要角色必须覆盖至少 5 条】\n';
+    moduleBlock += '① 表层性格 vs 深层恐惧（例：表面冷静的人，实际极度害怕被忽视→表现为过度承诺+深夜崩溃）\n';
+    moduleBlock += '② 公开目标 vs 秘密动机（例：对外说"为了家族复仇"，实际是"为了证明自己不是被抛弃的那一个"）\n';
+    moduleBlock += '③ 核心价值观 vs 现实妥协（例：坚信"人不能撒谎"，但为了保护某人不得不撒谎→每一次撒谎都在消耗他/她）\n';
+    moduleBlock += '④ 能力 vs 代价（例：战斗力极强但代价是每次动用都会失去一段记忆→最强的人最空虚）\n';
+    moduleBlock += '⑤ 真实自我 vs 社会角色（例：一个本该杀伐决断的掌门，内心只想做个普通的农民→每次执行掌门职责都是痛苦）\n';
+    moduleBlock += '⑥ 信任 vs 背叛（例：曾经被最信任的人背叛过→现在对任何人都有两套面孔，一套示人一套自留）\n';
+    moduleBlock += '⑦ 理性 vs 情感（例：理性分析应该放弃某人，但情感上做不到→这种拉扯本身就是大量剧情）\n';
+    moduleBlock += '⑧ 过去 vs 未来（例：过去的创伤定义了现在的他/她，但他/她需要摆脱这个定义才能成长）\n';
+    moduleBlock += '⑨ 自我诉求 vs 集体责任（例：个人想隐居，但整个家族/势力的命运压在他/她身上→自由与责任的永恒冲突）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：角色崩溃点 · 每个主角至少设计 3 个】\n';
+    moduleBlock += '- 崩溃点=角色的核心执念被直接击碎的瞬间\n';
+    moduleBlock += '- 例1："主角唯一的精神支柱——妹妹——被人告知妹妹早就死了，他/她一直守护的只是一具空壳"\n';
+    moduleBlock += '- 例2："主角最引以为傲的自律能力，在某件事面前彻底失效，他/她发现自己原来就是个普通人"\n';
+    moduleBlock += '- 例3："主角一直相信的正义，最终发现只是胜利者写的历史；自己一直都是帮凶"\n';
+    moduleBlock += '- 崩溃事件必须具体到"哪句话/哪件事/哪个瞬间"让他/她崩——不是"逐渐崩溃"而是"瞬间破碎"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：6步成长弧光 · 主角完整弧光必须可检验】\n';
+    moduleBlock += '起点状态 → 外部扰动（金手指/重大事件）→ 挣扎与失败 → 谷底重构（世界观被打碎后的重建）→ 新稳态（比起点更强，但也付出了代价）→ 最终选择（主角主动选择的最终立场，不是被动接受）\n';
+    moduleBlock += '- 每一步必须在人设里至少留下一个"能被具体事件触发"的口子\n';
+    moduleBlock += '- 主角的最终选择必须"有代价"——完美结局不真实，他/她应该在"得到最重要的东西"同时"失去另一些重要的东西"\n';
+    moduleBlock += '\n【⚠️ 人设反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：主角模板化（"坚韧/聪明/善良/有底线"四个词写了所有网文主角）→ 用具体可检验的行为特征替代抽象形容词\n';
+    moduleBlock += '- 禁忌：反派纯粹坏（"邪恶/贪婪/残忍"）→ 反派必须有自己的正义观，站在他/她的视角看，他/她是对的\n';
+    moduleBlock += '- 禁忌：工具人配角（"忠心耿耿的朋友/慈祥的师父/神秘的老者"）→ 每个配角必须有与主角无关的独立目标\n';
+    moduleBlock += '- 禁忌：刻板感情线（"男主女主一见钟情/日久生情/并肩作战生情"）→ 感情线的推进要有外部阻力+内部分歧，不是顺理成章\n';
+  } else if(module === 'outline'){
+    moduleName = moduleName || '全书大纲';
+    moduleBlock += '【模块目标：' + moduleName + '】\n';
+    moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，每卷需包含：\n';
+    moduleBlock += '■ 卷名\n';
+    moduleBlock += '■ 本卷核心冲突（主角的外部对手 + 内心挣扎；二者要相关）\n';
+    moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；不要"成长"这种空泛词）\n';
+    moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局）\n';
+    moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化\n';
+    moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记）\n';
+    moduleBlock += '\n【⚠️ 搬运强度：高 · 每卷内容将用于生成章节细纲】\n';
+    moduleBlock += '- 全书主线必须清晰：主角从什么状态到什么状态\n';
+    moduleBlock += '- 每卷必须有明确的"升级/成长/关系变化"\n';
+    moduleBlock += '- 卷与卷之间要有因果推进；前一卷的结果影响后一卷的开局\n';
+    moduleBlock += '- 卷数建议 5-12 卷，视作品规模而定\n';
+    moduleBlock += '- 必须给一个明确的故事终点（不要开放式）\n';
+    moduleBlock += '- 节奏要有起伏：不要每一卷都是"升级→打boss→升级"的循环\n';
+    moduleBlock += '- 【重要】每卷的"核心事件"请用具体动作而非抽象词描述——"主角发现XX"远比"情节有转折"好一万倍\n';
+    moduleBlock += '- 【重要】"本卷伏笔钩子"是全书写到后期时的关键锚点，请写得具体可回收（不要写"有伏笔"这种废话）\n';
+    moduleBlock += '\n【⚠️ AI薄弱点强化：章节钩子 + 情绪波浪 · 必须执行】\n';
+    moduleBlock += '- 每卷的第一章必须设计"炸弹开头"：第一段就要出事，第一章内亮出金手指或核心矛盾\n';
+    moduleBlock += '  炸弹开头公式：冲突前置（不介绍人物，直接扔进事件中心）+ 人设反差 + 金句钩子\n';
+    moduleBlock += '  错误示范："林晚晚是一名普通大学生..." → 读者划走\n';
+    moduleBlock += '  正确示范："林晚晚死过两次了。第三次还没来，但她已经在等了。" → 三个问题立刻产生\n';
+    moduleBlock += '- 每卷的最后一章必须设计"钩子结尾"：给下一卷制造期待，不能用"这一卷完"这种废话收尾\n';
+    moduleBlock += '  钩子公式：揭露一个信息，同时制造更大的疑问；或情绪悬而未决，让读者无法放下\n';
+    moduleBlock += '- 每卷内部要有"情绪波浪"：3章一小爽，10章一大爽。禁忌：连续10章平淡无冲突\n';
+    moduleBlock += '- 每卷的爽点设计要有升级感：下一卷的爽点要比上一卷更炸。不能重复同一个爽点模式\n';
+    moduleBlock += '【⚠️ 爽点密度网格（AI最弱项，必须在大纲里规划好）】\n';
+    moduleBlock += '- 每章必须有至少1个小爽点（让读者嘴角微微上扬即可，不需要大场面）：\n';
+    moduleBlock += '  小爽点公式：配角震惊表情/主角说了一句让人拍手的回击/一个预期之外的小反转\n';
+    moduleBlock += '- 每3-5章必须有1个中爽点（完整打脸/关系突破/实力跃升）\n';
+    moduleBlock += '- 每卷必须有1个大爽点（boss战逆转/身份曝光/多条伏笔同时回收的"拍大腿"时刻）\n';
+    moduleBlock += '- 禁忌：连续3章平淡无任何情绪奖励。AI不会主动制造爽点，必须在大纲阶段就规划好位置\n';
+    moduleBlock += '- 【节奏顿挫】连续3章高强度战斗后必须有一章"喘息期"（感情戏/日常/伏笔铺垫），否则读者会审美疲劳\n';
+    moduleBlock += '【⚠️ 冰山对话·关键时刻打断】在情绪/冲突最高潮时突然中断，打断事件：紧急军情/下属汇报/雷声/敲门声\n';
+    moduleBlock += '  禁忌：打断后不要立刻接新事件，让读者心里像猫抓一样。留白比填满更有力\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：伏笔网络规划 · 必须执行】\n';
+    moduleBlock += '- 全书写入大纲时必须规划 3 层伏笔：① 短期伏笔（10章内回收）② 中期伏笔（30-50章回收）③ 长期伏笔（100章+回收）\n';
+    moduleBlock += '- 短期伏笔举例：①角色随口提的"小时候有个弟弟"→10章内弟弟就该出现或被提及具体事件\n';
+    moduleBlock += '- 中期伏笔举例：②一个反复出现的符号/器物/地名→30-50章时揭示其真实含义\n';
+    moduleBlock += '- 长期伏笔举例：③卷一开篇的一个小暗示/一个被忽视的人物→全书高潮时才揭示其真实身份/作用\n';
+    moduleBlock += '- 每卷必须至少埋下 2 个伏笔，且其中 1 个会在本卷回收、1 个留给后续卷回收\n';
+    moduleBlock += '- 伏笔回收必须"炸"——回收时刻不能只是"哦原来如此"，要让读者拍大腿，必须设计成"读者没想到！"\n';
+    moduleBlock += '- 伏笔设计原则：① 不能明示+② 读者第一次看到时觉得"就是一句普通的话"② 回收时读者才意识到"那居然是伏笔"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：全书节奏总览 · 必须执行】\n';
+    moduleBlock += '- 卷与卷之间需要一个"全局节奏"：开头爆炸 → 节奏递增 → 中段信息释放 → 卷尾大悬念钩子\n';
+    moduleBlock += '- 全书5-12卷的推荐节奏：第1卷（引子+钩子）→ 第2-3卷（发展+升级）→ 第4-5卷（世界观展开+关系冲突）→ 第6-8卷（势力洗牌+旧伏笔回收）→ 第9-10卷（高潮+大反转）→ 第11-12卷（结局+收尾+最终钩子）\n';
+    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进\n';
+    moduleBlock += '\n【⚠️ 大纲反套路 · 必须执行】\n';
+    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板 → 如果用，第一卷就必须加入一个"主角视角的反转（比如退婚其实是女方保护主角的手段，不是看不起）\n';
+    moduleBlock += '- 禁忌：秘境抢宝流（主角进秘境→遇到天材地宝→全收）→ 必须至少1次抢宝失败或错过重要物品，且这个错过在后续带来更大收获\n';
+    moduleBlock += '- 禁忌：扮猪吃虎重复 → 主角扮弱→打脸→扮弱→打脸循环 → 至少设计1次扮弱被真正的弱一次让他付出真实代价（不是永远赢到底）\n';
+    moduleBlock += '- 禁忌：贵人送宝流（贵人/神秘老者/系统给主角送装备）→ 贵人必须有自己的目的，不是慈善家\n';
+    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是的势力\n';
+  } else if(module === 'detail'){
+    moduleName = moduleName || '章节细纲';
+    moduleBlock += '【模块目标：' + moduleName + '】\n';
+    moduleBlock += '请基于用户核心诉求和已有大纲，生成 10-20 章的章节细纲。每章格式严格使用：\n';
+    moduleBlock += '■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx\n';
+    moduleBlock += '\n【⚠️ 搬运强度：最高 · 细纲是写作时最直接的剧本，每一章的信息都会被写作时主动提取】\n';
+    moduleBlock += '【关键要求】\n';
+    moduleBlock += '1. 每章必须有明确的冲突或悬念钩子；章末必须有让读者想点开下一章的欲望（不要用"且听下回分解"这种老套表达）\n';
+    moduleBlock += '2. 剧情节点必须可执行——用具体动作句（"主角去XX地点/主角发现XX/主角被XX截住"），禁止"发生一些事""遇到一些人"这种空泛表达\n';
+    moduleBlock += '3. 人物性格必须与之前人设严格一致；避免 OOC——如果人物在本章做出了偏离其人设的行为，必须在细纲中说明原因（是情势所迫？还是角色成长的一部分？）\n';
+    moduleBlock += '4. 章与章之间有因果推进，不是流水账；前一章的结尾应该触发后一章的开端\n';
+    moduleBlock += '5. 每 3-5 章设计一个重大转折点或小高潮（节奏起伏感），并在该章的【爆点】字段用【重大转折】标记\n';
+    moduleBlock += '6. 章节编号必须连续，格式"第N章"必须统一（N为阿拉伯数字）\n';
+    moduleBlock += '7. 【重要】每章的"人物"字段必须从已有人设中挑选具体角色名，不要出现"一些人""某人""神秘人"等泛称——神秘人也要给一个临时代号或外部特征描述\n';
+    moduleBlock += '8. 【重要】"剧情节点"字段建议分 2-3 个小节点（用"→"分隔）：开始时的状态→中途发生的变故→章末的局面\n';
+    moduleBlock += '9. 【重要】至少每 3 章出现一次伏笔回收或新伏笔植入；如有，在【爆点/悬念钩子】字段用【伏笔】标签标记\n';
+    moduleBlock += '10. 每章的"场景"字段必须写得足够具体——不是"山里"而是"XX山脚，废弃的XX庙门口"——越具体写出来越有画面感\n';
+    moduleBlock += '【⚠️ AI薄弱点强化：炸弹开头 + 刺刀对话 + 钩子结尾 · 必须执行】\n';
+    moduleBlock += '- 每章必须有"炸弹开头"：每章第一段必须出冲突/出事/出悬念，不能从背景介绍或场景描写开始\n';
+    moduleBlock += '  炸弹开头公式：把"第一句话"变成"一颗炸弹"\n';
+    moduleBlock += '  错误："那天早晨，他像往常一样去上班..." → 读者划走\n';
+    moduleBlock += '  正确："他妈说，他出生的那天，他爸在产房外打完了三局斗地主。" → 三个问题立刻产生\n';
+    moduleBlock += '  正确："外卖员是国际杀手"式开头 → 第一句话颠覆读者预期\n';
+    moduleBlock += '- 每章必须有"钩子结尾"：三种经典钩子必须交替使用\n';
+    moduleBlock += '  ① 中断在动作即将发生的瞬间："他举起刀。门突然开了。" → 读者必须翻页\n';
+    moduleBlock += '  ② 揭露信息同时制造更大疑问："她终于知道那个秘密了。但她宁愿自己不知道。"\n';
+    moduleBlock += '  ③ 情绪悬而未决："他看着她的眼睛，张了张嘴，最后什么都没说，转身走了。"\n';
+    moduleBlock += '- 每章必须有一段"刺刀对话"：两个人物的对话表面在说A，实际在说B；有潜台词；删掉旁白后读者仍能感受情绪\n';
+    moduleBlock += '  错误对话："妈，我加班。" "好的，注意安全。" → 无记忆点\n';
+    moduleBlock += '  正确对话："妈，今晚加班。" "又加班？你上次也说加班，结果跑去吃烧烤以为我不知道？" → 话里有话，读者后背发凉\n';
+    moduleBlock += '  【答非所问】被质问时绝对不要正面解释：转移话题/纠结细节/顾左右而言他。越回避越有戏\n';
+    moduleBlock += '  【微动作藏情绪】用指尖紧绷/眼神躲闪/喉结滚动/耳尖泛红代替直白情绪词。越克制，越有力\n';
+    moduleBlock += '【⚠️ 冰山对话·关键时刻打断】在情绪/暧昧/冲突最高潮突然中断，打断事件：紧急军情/敲门声/雷声\n';
+    moduleBlock += '  禁忌：打断后不要立刻接新事件。让读者心里像猫抓一样翻下章\n';
+    moduleBlock += '【⚠️ 逻辑意外 · AI最不会写的人性真实感（必须执行）】\n';
+    moduleBlock += '- AI角色永远"合理"——不犹豫、不犯错、不做莫名其妙但符合性格的事。细纲里必须设计至少1处"逻辑意外"\n';
+    moduleBlock += '  例：主角明明能赢，但关键时刻手抖了/明明知道对方在骗他，但选择不听解释/说谎说到最后自己都信了\n';
+    moduleBlock += '  这种"蠢事"（但符合人设）比完美人设更让读者记住角色——因为读者自己也会犯同样的"蠢"\n';
+    moduleBlock += '- 【情绪撕裂点】细纲里用【情绪撕裂】标记在哪里：当情绪高涨时，强行塞一句完全反情绪的话\n';
+    moduleBlock += '  公式：上一段"他恨透了她" → 下一段"但他把她多加了辣酱的那碗面倒得干干净净"\n';
+    moduleBlock += '  这种撕裂感才是读者追读的原因，AI不会主动这样写，必须在细纲阶段规划好\n';
+    moduleBlock += '- 【重要】"爆点/悬念钩子"字段必须写具体：不是"有悬念"而是"XX说完这句话，门开了/她看到了XX/他倒下时手里握着XX"\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：6类钩子交替使用 · 每章末钩子必须指定类型】\n';
+    moduleBlock += '① 身份揭示型（读者以为是A，章末发现是B → "她的真名是……"）\n';
+    moduleBlock += '② 能力觉醒型（主角突然解锁新能力，但代价是…… → "他第一次感到体内那个东西动了"）\n';
+    moduleBlock += '③ 关系反转型（盟友突然变敌/敌人突然援手 → "他拔出剑，对准的却是身边的人"）\n';
+    moduleBlock += '④ 危险逼近型（更大的威胁已经在路上，主角还不知道 → "他不知道，10公里外的人已经锁定了他"）\n';
+    moduleBlock += '⑤ 秘密揭露型（某件事的真相被部分揭露，但制造更大的疑问 → "日记最后一页只有一句话：不要相信任何人"）\n';
+    moduleBlock += '⑥ 神秘未知型（一个完全无法理解的现象/信息出现 → "那东西不是这个世界的规则能解释的"）\n';
+    moduleBlock += '- 每章末的【爆点/悬念钩子】字段请在括号里标注类型编号，如：【爆点/悬念钩子：③】他拔出剑，对准的却是身边的人\n';
+    moduleBlock += '- 类型必须交替使用，连续 2 章禁止同一类型钩子\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：伏笔植入清单 · 生成细纲时同步规划】\n';
+    moduleBlock += '- 生成的细纲中，至少每 3 章要埋 1 个伏笔，在细纲的【爆点/悬念钩子】字段用【伏笔】标签标记\n';
+    moduleBlock += '- 伏笔类型区分：【伏笔-身份】= 暗示某人真实身份 / 【伏笔-能力】= 暗示某能力的代价 / 【伏笔-关系】= 暗示某角色关系 / 【伏笔-世界观】= 暗示世界观真相 / 【伏笔-物品】= 暗示某物品的真正作用\n';
+    moduleBlock += '- 在本段细纲的最后 2-3 章，至少回收 1 个本段埋的伏笔（形成"埋伏笔→回收"的闭环）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：节奏起伏规划 · 本段细纲内必须体现】\n';
+    moduleBlock += '- 10-12 章细纲的推荐强度曲线：第1章（炸弹开头/高强度）→ 第2-3章（中强度/发展）→ 第4-5章（低强度/喘息+伏笔）→ 第6-7章（高强度/转折点）→ 第8-9章（中强度/推进）→ 第10-12章（最高强度/大爆点+钩子收束）\n';
+    moduleBlock += '- 禁忌：连续 3 章高强度战斗/冲突 → 读者审美疲劳\n';
+    moduleBlock += '- 禁忌：连续 3 章低强度日常/对话 → 读者觉得水\n';
+    moduleBlock += '- 理想节奏：高低高高低高高低高高低高（高低交替，整体爬坡\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：章节因果链 · 必须执行】\n';
+    moduleBlock += '- 每章的开头事件必须能追溯到前一章的结尾——不是"第二天继续"而是"因为上一章结尾发生了X，所以这一章开头发生了Y"\n';
+    moduleBlock += '- 每章至少设计 1 个"角色人设驱动的选择"——这个选择不是作者硬编的，而是这个角色在这个情境下必然会做的\n';
+    moduleBlock += '- 至少每 3 章设计 1 个"世界观规则驱动的限制"——主角想做什么，但被世界的规则阻止了，这迫使他/她换一种方式（而不是靠金手指强行突破\n';
+    moduleBlock += '\n如果用户在核心诉求中明确指定了章节数量或具体情节，优先满足用户要求。';
+  } else {
+    moduleBlock += '【模块目标：生成内容】\n请基于用户核心诉求生成相关内容。\n';
+  }
+
+  // ===== 外部强化提示（如：按评价加强时注入针对性要求）=====
+  if(extraHint && extraHint.trim()){
+    moduleBlock += '\n\n【针对性加强提示 — 本次生成特别关注以下问题】\n' + extraHint.trim() + '\n';
+  }
+
+  // ===== 结尾：明确输出格式要求（v48: 严格控制字数，避免被模型截断）=====
+  // 为每个模块设置明确的、可实现的目标字数
+  var targetLen = {
+    world: '800-1200',
+    chars: '700-1000',
+    outline: '900-1400',
+    detail: '1000-1800'
+  };
+  var detailChapters = '8-12';
+
+  var tail = '\n\n【⚠️ 输出格式与字数要求 · 最高优先级】\n';
+  tail += '- 使用中文；章节标题用《》；关键段落用 ■ 标注；层次清晰\n';
+  tail += '- 不要输出"好的"、"收到"、"以下是……"等对话语，直接输出成品内容（最重要！）\n';
+  tail += '- 不要出现 AI 腔（如"他的内心五味杂陈""时间仿佛静止""命运的齿轮"等模板化表达）\n';
+  if(module === 'detail') tail += '- 细纲必须严格使用 "■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx" 格式，一行一章\n';
+  tail += '- 【硬性字数上限】本模块目标输出字数为 **' + (targetLen[module] || '800-1200') + ' 字**，**严禁超过上限**\n';
+  tail += '- 如果你发现内容过多，请精炼压缩，优先保留核心设定和关键信息\n';
+  tail += '- 细纲模块建议生成 **' + detailChapters + ' 章**，不要超过 15 章\n';
+  tail += '- 如果输出内容较长，请用简洁表达，不要展开大段铺垫和解释\n';
+  tail += '- 如果你认为用户核心诉求与题材有矛盾或需要调整，请在内容末尾用"【作者备注】"单独提出建议（100 字以内）\n';
+
+  // 输出前提示：先估算当前输入长度，若过长则进一步压缩
+  var prePrompt = '';
+  var estimatedInputLen = (userBlock + head + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail).length;
+  // 如果输入已经超过 6000 字，在开头警告 AI 需要精简（通过减少趋势信息的方式）
+  if(estimatedInputLen > 6000){
+    // 压缩趋势信息到更短
+    trendBlock = '【2026 年题材趋势参考（精简版）】\n' + smartTruncate(trend, 200) + '\n\n';
+  }
+
+  var fullPrompt = userBlock + head + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail;
+  return fullPrompt;
+}
+
+// v48: 辅助工具 —— 智能截断（保留完整段落，避免中段切断）
+// 判断是否大上下文模型（128K+），是则不需要截断架构内容
+function isLargeContextModel(){
+  try {
+    if(typeof getModelContextWindow === 'function'){
+      return getModelContextWindow() >= 100000;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function smartTruncate(text, maxLen){
+  if(!text) return '';
+  if(text.length <= maxLen) return text;
+  var head = text.substring(0, maxLen);
+  // 找最后一个句号/换行/■ 作为截断点（在 70% 之后的位置最安全）
+  var searchStart = Math.floor(maxLen * 0.6);
+  var cutPoints = [
+    head.lastIndexOf('\n', maxLen),
+    head.lastIndexOf('。', maxLen),
+    head.lastIndexOf('■', maxLen),
+    head.lastIndexOf('；', maxLen)
+  ];
+  var bestCut = Math.max.apply(null, cutPoints);
+  if(bestCut > searchStart) return head.substring(0, bestCut + 1) + '\n...（后续略）';
+  return head + '...（后续略）';
+}
+
+// ========== 架构内容 → 长记忆同步 ==========
+// 将世界观/人设/大纲/细纲的关键信息提取到 longMemory，实现模块间记忆连接
+
+// v51：角色分级权重表（架构页面本地副本，write-editor.js未加载时使用）
+var ARCH_CHAR_ROLE_WEIGHT = {
+  '主角': 5, '女主': 4, '男主': 4, '反派': 4,
+  '配角': 3, '导师': 3, '伙伴': 3, '龙套': 1
+};
+
+// v51：架构页面本地角色分级识别（write-editor.js未加载时的fallback）
+function archUpdateCharRoles(work){
+  if(!work || !work.chars) return;
+  if(!work.longMemory) work.longMemory = {};
+  if(!work.longMemory.charRoles) work.longMemory.charRoles = {};
+  var lines = (work.chars || '').split('\n');
+  var currentRole = '配角';
+  var roleKeywords = {
+    '主角': ['主角','男主','女主','主人公'],
+    '女主': ['女主','女主角','女一'],
+    '男主': ['男主','男主角','男一'],
+    '反派': ['反派','大反派','最终boss','敌人','对手','幕后黑手'],
+    '配角': ['配角','次要角色'],
+    '导师': ['导师','师傅','师父','老师','引路人'],
+    '伙伴': ['伙伴','队友','同伴','挚友'],
+    '龙套': ['龙套','路人','背景']
+  };
+  lines.forEach(function(l){
+    l = l.trim();
+    if(!l) return;
+    // 检测角色分级标记
+    var detectedRole = null;
+    for(var role in roleKeywords){
+      for(var i = 0; i < roleKeywords[role].length; i++){
+        var kw = roleKeywords[role][i];
+        if(new RegExp('(?:^|[【\\[（(])\\s*' + kw + '\\s*(?:[】\\]）)：:]|$)', 'i').test(l)){
+          detectedRole = role; break;
+        }
+      }
+      if(detectedRole) break;
+    }
+    if(detectedRole) currentRole = detectedRole;
+    // 提取角色名
+    var m = l.match(/^([^：:：\s]{1,6})[：:：\s]/);
+    if(m){
+      var name = m[1].trim();
+      var allRoleWords = ['主角','男主','女主','反派','配角','导师','伙伴','龙套','主人公','女主角','男主角'];
+      if(allRoleWords.indexOf(name) >= 0) return;
+      var existing = work.longMemory.charRoles[name];
+      var roleOrder = ['主角','女主','男主','反派','导师','伙伴','配角','龙套'];
+      if(!existing || roleOrder.indexOf(currentRole) < roleOrder.indexOf(existing)){
+        work.longMemory.charRoles[name] = currentRole;
+      }
+    }
+  });
+}
+
+function syncArchToMemory(work, module){
+  if(!work || !module) return;
+  if(typeof initLongMemory === 'function'){
+    initLongMemory(work);
+  } else {
+    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}, charRoles:{}, _anchorDigest:{}};
+  }
+  var mem = work.longMemory;
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]};
+  if(!mem.charRoles) mem.charRoles = {};
+  var anchors = mem.memoryAnchors;
+
+  // 世界观 → 提取核心设定到记忆锚点
+  if(module === 'world' && work.world && work.world.trim()){
+    anchors.core = anchors.core.filter(function(a){ return a.source !== 'world'; });
+    var worldLines = work.world.split('\n');
+    var worldKeyPoints = [];
+    for(var wi = 0; wi < worldLines.length; wi++){
+      var line = worldLines[wi].trim();
+      if(line.length < 5) continue;
+      // 提取包含关键设定的行
+      if(/境界|等级|体系|规则|代价|限制|势力|阵营|地理|大陆|禁地|秘境|历史|纪元|力量|修炼/.test(line)){
+        worldKeyPoints.push(line.slice(0, 200));
+      }
+    }
+    // 取前15条核心设定
+    worldKeyPoints.slice(0, 15).forEach(function(pt){
+      anchors.core.push({text: pt, source: 'world', chapterIdx: -1, priority: 100, ts: Date.now()});
+    });
+    // 提取地名到 locations
+    var geoMatches = work.world.match(/[\u4e00-\u9fa5]{2,6}(?:大陆|域|州|城|镇|村|山脉|河流|森林|沙漠|海域|岛屿|秘境|遗迹|深渊|禁地|谷|峰|阁|殿|宫)/g);
+    if(geoMatches){
+      var seenGeo = {};
+      geoMatches.forEach(function(g){
+        if(!seenGeo[g] && anchors.locations.filter(function(l){return l.text === g;}).length === 0){
+          anchors.locations.push({text: g, source: 'world', chapterIdx: -1, ts: Date.now()});
+          seenGeo[g] = true;
+        }
+      });
+      if(anchors.locations.length > 50) anchors.locations = anchors.locations.slice(-50);
+    }
+    // 提取势力名到 relationships
+    var factionMatches = work.world.match(/[\u4e00-\u9fa5]{2,8}(?:家族|宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄)/g);
+    if(factionMatches){
+      var seenFaction = {};
+      factionMatches.forEach(function(f){
+        if(!seenFaction[f] && anchors.relationships.filter(function(r){return r.text === f;}).length === 0){
+          anchors.relationships.push({text: f + '（势力）', source: 'world', chapterIdx: -1, ts: Date.now()});
+          seenFaction[f] = true;
+        }
+      });
+      if(anchors.relationships.length > 50) anchors.relationships = anchors.relationships.slice(-50);
+    }
+    // v51 新增：提取能力体系/代价/限制到 abilityCosts
+    var abilityMatches = work.world.match(/[^。\n]{0,40}(?:代价|反噬|消耗|限制|副作用|禁忌|不可|不能|必须|才能|除非)[^。\n]{0,80}[。\n]/g);
+    if(abilityMatches){
+      if(!anchors.abilityCosts) anchors.abilityCosts = [];
+      anchors.abilityCosts = anchors.abilityCosts.filter(function(a){ return a.source !== 'world'; });
+      abilityMatches.slice(0, 15).forEach(function(am){
+        var t = am.trim();
+        if(t.length > 10 && t.length < 120){
+          anchors.abilityCosts.push({text: t, source: 'world', chapterIdx: -1, ts: Date.now()});
+        }
+      });
+      if(anchors.abilityCosts.length > 30) anchors.abilityCosts = anchors.abilityCosts.slice(-30);
+    }
+  }
+
+  // 人设 → 提取角色信息到记忆锚点
+  if(module === 'chars' && work.chars && work.chars.trim()){
+    anchors.characterTags = anchors.characterTags.filter(function(a){ return a.source !== 'chars'; });
+    // v51：同步更新charRoles分级表
+    try {
+      if(typeof updateCharRoles === 'function'){
+        updateCharRoles(work);
+      } else {
+        archUpdateCharRoles(work);
+      }
+    } catch(roleErr) { console.warn('[charRoles] 更新失败:', roleErr); }
+    var charRoles = (work.longMemory && work.longMemory.charRoles) || {};
+    var charLines = work.chars.split('\n');
+    var currentChar = '';
+    var currentRole = '配角';
+    for(var ci = 0; ci < charLines.length; ci++){
+      var cline = charLines[ci].trim();
+      if(cline.length < 3) continue;
+      // v51：检测角色分级标记
+      var roleMatch = cline.match(/(?:【|\[)?(主角|女主|男主|反派|配角|导师|伙伴|龙套)(?:】|\])?[：:]/);
+      if(roleMatch) currentRole = roleMatch[1];
+      // 检测角色名行（通常包含"主角""反派""配角"或2-4字中文名+冒号）
+      var nameMatch = cline.match(/(?:主角|反派|配角|导师|伙伴|女主|男主)[：:]\s*([\u4e00-\u9fa5]{2,4})/) || cline.match(/^([\u4e00-\u9fa5]{2,4})[：:]/);
+      if(nameMatch){
+        currentChar = nameMatch[1] || nameMatch[0];
+        var role = charRoles[currentChar] || currentRole;
+        anchors.characterTags.push({text: currentChar + '（' + role + '）', source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role, ts: Date.now()});
+      }
+      // 提取角色特征（口癖、标志动作、弱点等）
+      if(currentChar && /口癖|标志|弱点|执念|伤疤|特征|性格|身份|秘密/.test(cline)){
+        var role2 = charRoles[currentChar] || currentRole;
+        anchors.characterTags.push({text: currentChar + '：' + cline.slice(0, 100), source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role2, ts: Date.now()});
+      }
+      // v51 新增：提取角色金句（带引号的台词）
+      if(currentChar){
+        var quoteMatch = cline.match(/[“"\u300c\u300e]([^”"\u300d\u300f]{6,60})[”"\u300d\u300f]/);
+        if(quoteMatch && /发誓|绝不|一定|宁可|就算|哪怕|永远|从此|再也不|凭什么|为什么|我不信|我不甘|我命由我|天命|命运|选择|代价|活着|死去|守护|毁灭/.test(quoteMatch[1])){
+          var role3 = charRoles[currentChar] || currentRole;
+          if(!anchors.dialogues) anchors.dialogues = [];
+          anchors.dialogues.push({text: currentChar + '：「' + quoteMatch[1] + '」', source: 'chars', chapterIdx: -1, charName: currentChar, charRole: role3, ts: Date.now()});
+        }
+      }
+    }
+    if(anchors.characterTags.length > 80) anchors.characterTags = anchors.characterTags.slice(-80);
+    if(anchors.dialogues && anchors.dialogues.length > 30) anchors.dialogues = anchors.dialogues.slice(-30);
+  }
+
+  // 大纲 → 提取核心矛盾和伏笔到记忆锚点
+  if(module === 'outline' && work.outline && work.outline.trim()){
+    anchors.hooks = anchors.hooks.filter(function(a){ return a.source !== 'outline'; });
+    var outlineLines = work.outline.split('\n');
+    for(var oi = 0; oi < outlineLines.length; oi++){
+      var oline = outlineLines[oi].trim();
+      if(oline.length < 5) continue;
+      // 提取伏笔和悬念
+      if(/伏笔|悬念|秘密|真相|谜|隐藏|暗中|未解/.test(oline)){
+        anchors.hooks.push({text: oline.slice(0, 150), source: 'outline', chapterIdx: -1, ts: Date.now()});
+      }
+      // 提取承诺和约定
+      if(/承诺|约定|誓言|契约|必须|不能|禁忌/.test(oline)){
+        anchors.promises.push({text: oline.slice(0, 150), source: 'outline', chapterIdx: -1, ts: Date.now()});
+      }
+    }
+    if(anchors.hooks.length > 40) anchors.hooks = anchors.hooks.slice(-40);
+    if(anchors.promises.length > 40) anchors.promises = anchors.promises.slice(-40);
+  }
+
+  // 细纲 → 提取章节级伏笔和时间线
+  if(module === 'detail' && work.detail && work.detail.trim()){
+    var detailLines = work.detail.split('\n');
+    for(var di = 0; di < detailLines.length; di++){
+      var dline = detailLines[di].trim();
+      if(dline.length < 5) continue;
+      // 提取章节编号
+      var chMatch = dline.match(/第(\d+)章/);
+      if(chMatch){
+        var chNum = parseInt(chMatch[1]);
+        // 提取时间线信息
+        if(/黎明|黄昏|夜晚|三天后|一个月|一年|三年|十年|百年/.test(dline)){
+          anchors.timeline.push({text: '第' + chNum + '章：' + dline.slice(0, 100), source: 'detail', chapterIdx: chNum - 1, ts: Date.now()});
+        }
+        // 提取伏笔
+        if(/伏笔|悬念|钩子|爆点|转折/.test(dline)){
+          anchors.hooks.push({text: '第' + chNum + '章：' + dline.slice(0, 100), source: 'detail', chapterIdx: chNum - 1, ts: Date.now()});
+        }
+      }
+    }
+    if(anchors.timeline.length > 50) anchors.timeline = anchors.timeline.slice(-50);
+    if(anchors.hooks.length > 60) anchors.hooks = anchors.hooks.slice(-60);
+  }
+
+  // 保存
+  try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+}
+
+// ========== 架构模块间共享记忆上下文 ==========
+// 从 longMemory 提取已生成模块的关键信息，作为生成新模块时的一致性锚点
+// 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
+function buildArchMemoryContext(work, currentModule){
+  if(!work) return '';
+  if(typeof initLongMemory === 'function'){
+    initLongMemory(work);
+  }
+  var mem = work.longMemory;
+  if(!mem) return '';
+  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]};
+  var anchors = mem.memoryAnchors;
+  var charRoles = mem.charRoles || {};
+
+  var ctx = '';
+  var added = 0;
+  var BUDGET = 1800;
+  function tryAdd(block){
+    if(!block || added >= BUDGET) return;
+    if(added + block.length > BUDGET){
+      var remaining = BUDGET - added;
+      if(remaining > 60){
+        ctx += block.substring(0, remaining - 3) + '...';
+        added = BUDGET;
+      }
+      return;
+    }
+    ctx += block;
+    added += block.length;
+  }
+
+  // 辅助：角色分级标签
+  function roleTag(a){
+    if(a.charRole && a.charRole !== '龙套') return '[' + a.charRole + '] ';
+    return '';
+  }
+
+  // 模块名映射
+  var moduleNames = {world:'世界观', chars:'人设', outline:'大纲', detail:'细纲'};
+
+  // L1: 核心设定（来自世界观，最高优先级）
+  var coreList = (anchors.core || []).filter(function(a){ return a.source !== currentModule; });
+  if(coreList.length > 0){
+    var coreBlock = '【📐 已确立的核心设定（来自世界观，必须严格遵守）】\n';
+    coreList.slice(0, 12).forEach(function(a){
+      coreBlock += '  ■ ' + roleTag(a) + a.text + '\n';
+    });
+    tryAdd(coreBlock + '\n');
+  }
+
+  // L2: 角色记忆点（来自人设）— v51按角色分级排序，主角在前
+  var charList = (anchors.characterTags || []).filter(function(a){ return a.source !== currentModule; });
+  if(charList.length > 0){
+    // v51：主角优先，配角其次，龙套最后
+    var roleOrder = ['主角','女主','男主','反派','导师','伙伴','配角','龙套'];
+    charList.sort(function(a,b){
+      var ra = roleOrder.indexOf(a.charRole || '龙套');
+      var rb = roleOrder.indexOf(b.charRole || '龙套');
+      if(ra !== rb) return ra - rb;
+      return (b.weight||0) - (a.weight||0);
+    });
+    var charBlock = '【👤 已确立的角色设定（来自人设，姓名/特征/关系不得矛盾）】\n';
+    charList.slice(0, 18).forEach(function(a){
+      charBlock += '  ■ ' + roleTag(a) + a.text + '\n';
+    });
+    tryAdd(charBlock + '\n');
+  }
+
+  // L2.5: 角色金句（来自人设/正文）— v51新增
+  var dialogueList = (anchors.dialogues || []).filter(function(a){ return a.source !== currentModule; });
+  if(dialogueList.length > 0){
+    var dialogueBlock = '【💬 角色金句（必须保持角色声音一致，不得OOC）】\n';
+    dialogueList.slice(0, 8).forEach(function(a){
+      dialogueBlock += '  ■ ' + roleTag(a) + a.text + '\n';
+    });
+    tryAdd(dialogueBlock + '\n');
+  }
+
+  // L3: 势力与关系（来自世界观）
+  var relList = (anchors.relationships || []).filter(function(a){ return a.source !== currentModule; });
+  if(relList.length > 0){
+    var relBlock = '【⚔️ 已确立的势力/关系（不得改名或新增冲突设定）】\n';
+    relList.slice(0, 10).forEach(function(a){
+      relBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(relBlock + '\n');
+  }
+
+  // L3.5: 能力代价/限制（来自世界观/正文）— v51新增
+  var abilityList = (anchors.abilityCosts || []).filter(function(a){ return a.source !== currentModule; });
+  if(abilityList.length > 0){
+    var abilityBlock = '【⚡ 已确立的能力代价/限制（防止无限开挂，必须遵守）】\n';
+    abilityList.slice(0, 8).forEach(function(a){
+      abilityBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(abilityBlock + '\n');
+  }
+
+  // L4: 地点（来自世界观）
+  var locList = (anchors.locations || []).filter(function(a){ return a.source !== currentModule; });
+  if(locList.length > 0){
+    var locBlock = '【🗺️ 已确立的地点（地名必须一致）】\n';
+    locList.slice(0, 10).forEach(function(a){
+      locBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(locBlock + '\n');
+  }
+
+  // L5: 伏笔/钩子（来自大纲/细纲）
+  var hookList = (anchors.hooks || []).filter(function(a){ return a.source !== currentModule; });
+  if(hookList.length > 0){
+    var hookBlock = '【🪝 已埋的伏笔/钩子（必须承接，不得遗漏）】\n';
+    hookList.slice(0, 10).forEach(function(a){
+      var chTag = (a.chapterIdx !== undefined && a.chapterIdx >= 0) ? '第' + (a.chapterIdx+1) + '章：' : '';
+      hookBlock += '  ■ ' + chTag + a.text + '\n';
+    });
+    tryAdd(hookBlock + '\n');
+  }
+
+  // L6: 承诺/约定（来自大纲）
+  var promiseList = (anchors.promises || []).filter(function(a){ return a.source !== currentModule; });
+  if(promiseList.length > 0){
+    var promiseBlock = '【📜 已确立的承诺/约定/禁忌（必须遵守）】\n';
+    promiseList.slice(0, 8).forEach(function(a){
+      promiseBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(promiseBlock + '\n');
+  }
+
+  // L7: 时间线（来自细纲）
+  var tlList = (anchors.timeline || []).filter(function(a){ return a.source !== currentModule; });
+  if(tlList.length > 0){
+    var tlBlock = '【⏰ 已确立的时间线（必须连续，不得矛盾）】\n';
+    tlList.slice(0, 8).forEach(function(a){
+      tlBlock += '  ■ ' + a.text + '\n';
+    });
+    tryAdd(tlBlock + '\n');
+  }
+
+  // L8: 章节衍生记忆（如果已有正文，注入角色状态/情节线索/伏笔）
+  if(mem.charStates && mem.charStates.length > 0){
+    var csBlock = '【🎭 正文中角色的当前状态（来自已写章节，必须承接）】\n';
+    mem.charStates.slice(0, 8).forEach(function(cs){
+      csBlock += '  ■ ' + cs.name + '：' + (cs.status || '') + (cs.location ? '，位于' + cs.location : '') + '\n';
+    });
+    tryAdd(csBlock + '\n');
+  }
+  if(mem.plotThreads && mem.plotThreads.length > 0){
+    var pending = mem.plotThreads.filter(function(t){ return t.status === '待解'; });
+    if(pending.length > 0){
+      var ptBlock = '【🔗 正文中待解的情节线索（必须延续）】\n';
+      pending.slice(0, 6).forEach(function(t){
+        ptBlock += '  ■ ' + (t.title || '') + (t.relatedTo ? ' [关联：' + t.relatedTo + ']' : '') + '\n';
+      });
+      tryAdd(ptBlock + '\n');
+    }
+  }
+  if(mem.foreshadows && mem.foreshadows.length > 0){
+    var unsolved = mem.foreshadows.filter(function(f){ return f.status === '未解'; });
+    if(unsolved.length > 0){
+      var fsBlock = '【🔮 正文中未解的伏笔（必须呼应）】\n';
+      unsolved.slice(0, 6).forEach(function(f){
+        fsBlock += '  ■ 第' + (f.chapterIdx + 1) + '章：' + (f.line || '') + '\n';
+      });
+      tryAdd(fsBlock + '\n');
+    }
+  }
+
+  return ctx;
+}
+
+// ========== 核心：架构模块生成主函数 ==========
+// v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
+window.generateArchModule = async function(opts){
+  opts = opts || {};
+  try{
+    var module = _selectedModule || 'world';
+    var work = getCurrentWork();
+    if(!work){
+      showToast('请先选择一部作品', {error:true});
+      goToLevel(2);
+      return;
+    }
+
+    // 1. 读取用户输入的提示词（优先级最高）
+    var ideaEl = document.getElementById('idea-' + module);
+    var idea = ideaEl ? ideaEl.value : '';
+    if(idea && idea.trim()){
+      saveModuleIdea(module, idea.trim());
+    }
+
+    // 2. 显示进度
+    var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+    var actionLabel = opts.isFix ? '按评价重新生成' : 'AI生成';
+    if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…');
+    if(!idea.trim() && !opts.isFix){
+      showToast('已按作品题材自动生成。你也可以在上方输入具体要求，AI 会优先按你的提示词生成。', {duration:3000});
+    }
+
+    // 2.5 AI分工搜索：先生成一份"题材市场调研报告"，作为生成上下文
+    var marketResearch = '';
+    var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+    var plotType = (work && work.plotType) || (work && work.category && work.category.cat2) || '';
+    var platform = '起点';
+    try { if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; } catch(e){}
+    try {
+      if(typeof showLoading === 'function') showLoading('🔍 第1步：搜索2025-2026年' + (genre || '该题材') + '市场趋势…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(5, '🔍 搜索题材市场趋势…');
+
+      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
+      researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      if(plotType) researchPrompt += '【二级细分】' + plotType + '\n';
+      researchPrompt += '【发布平台】' + platform + '\n';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求 · 必须严格遵循】\n' + idea.trim() + '\n';
+      researchPrompt += '\n请分析以下内容（总字数控制在1500字以内）：\n';
+      researchPrompt += '1. 2025-2026年该题材最火的3-5部代表作（书名+核心卖点+为什么火）\n';
+      researchPrompt += '2. 当前读者最买单的核心元素（如：反套路、系统流、凡人流等）\n';
+      researchPrompt += '3. 该题材当前已饱和/读者厌倦的套路（避免踩坑）\n';
+      researchPrompt += '4. 2026年该题材的新趋势和机会点（差异化方向）\n';
+      researchPrompt += '5. 基于以上分析，给出3条具体的创作建议\n';
+      researchPrompt += '\n直接输出分析结果，不要加对话语前缀。';
+
+      var researchResult = null;
+      try {
+        if(typeof callRealAPIWithFallback === 'function'){
+          // silent=true：市场调研是 generateArchModule 流程的一部分，loading 由本函数统一管理
+          researchResult = await callRealAPIWithFallback(researchPrompt, null, 'quality_consist', 1200, true);
+        }
+      } catch(reErr) { console.warn('[市场调研] 失败:', reErr); }
+
+      if(researchResult && researchResult.trim().length > 50){
+        marketResearch = researchResult.trim();
+        if(typeof showToast === 'function') showToast('✅ 市场调研完成，开始生成…', {duration: 2000});
+      }
+    } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
+
+    // 2.6 长记忆注入：提取已生成模块和已写章节的关键记忆作为生成上下文
+    // 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
+    var memoryContext = '';
+    try {
+      if(work){
+        // 优先使用架构专用记忆上下文（模块间共享记忆连接）
+        if(typeof buildArchMemoryContext === 'function'){
+          memoryContext = buildArchMemoryContext(work, module);
+        }
+        // 如果已有章节，补充章节衍生的详细记忆（角色状态/情节线索/伏笔等）
+        if(work.chapters && work.chapters.length > 0 && typeof buildMemoryContext === 'function'){
+          var chapterMem = buildMemoryContext(work, work.chapters.length);
+          if(chapterMem && chapterMem.length > 200){
+            // 架构记忆优先，章节记忆作为补充（避免重复，只取架构记忆未覆盖的部分）
+            var supplement = smartTruncate(chapterMem, 800);
+            if(memoryContext){
+              memoryContext += '\n' + supplement;
+            } else {
+              memoryContext = supplement;
+            }
+          }
+        }
+        if(memoryContext && memoryContext.length > 2500){
+          memoryContext = smartTruncate(memoryContext, 2500);
+        }
+      }
+    } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
+
+    // 2.7 骨架生成 + AI自检：先生成简要大纲，确认符合用户提示词后再继续
+    if(idea && idea.trim()){
+      if(typeof showLoading === 'function') showLoading('🧠 第2步：生成' + moduleName + '骨架，检查是否符合你的提示词…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(8, '🧠 生成骨架并自检…');
+      
+      var skeletonPrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
+      skeletonPrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
+      skeletonPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      if(work && work.world) skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, 500) + '\n\n';
+      if(work && work.chars) skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, 400) + '\n\n';
+      if(work && work.outline) skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, 500) + '\n\n';
+      skeletonPrompt += '\n请按以下格式输出：\n';
+      skeletonPrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
+      skeletonPrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
+      skeletonPrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
+      skeletonPrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
+      skeletonPrompt += '\n直接输出，不要加对话语前缀。';
+      
+      var skeletonResult = null;
+      try {
+        if(typeof callRealAPIWithFallback === 'function'){
+          skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 400, true);
+        }
+      } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
+      
+      if(skeletonResult && skeletonResult.trim()){
+        var skText = skeletonResult.trim();
+        var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+        var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
+        
+        if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
+          // 骨架不通过，显示警告但允许继续（用户可以选择修改提示词后重试）
+          var reason = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
+          if(typeof showToast === 'function') showToast('⚠️ 骨架自检不通过：' + smartTruncate(reason, 80) + ' — 可修改提示词后重试', {duration: 6000});
+          console.warn('[骨架自检] 不通过:', reason);
+          // 仍继续生成，但把骨架作为上下文注入，让AI知道问题所在
+          marketResearch = (marketResearch || '') + '\n\n【骨架自检报告（发现问题，请修正）】\n' + skText;
+        } else {
+          // 骨架通过，注入作为生成指引
+          if(typeof showToast === 'function') showToast('✅ 骨架自检通过，开始生成…', {duration: 1500});
+          marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
+        }
+      }
+    }
+
+    // 3. v48: 卡片分批生成（替代自动续写，每批独立调用，天然不截断且一致性好）
+    var taskType = 'default';
+    if(module === 'world') taskType = 'world_rules';
+    else if(module === 'chars') taskType = 'chars_core';
+    else if(module === 'outline') taskType = 'outline_logic';
+    else if(module === 'detail') taskType = 'detail_base';
+
+    // 4a. 根据模块类型拆分卡片
+    var batches = buildArchCardBatchesV48(module, work, idea);
+    var totalChars = 0;
+    var allCards = [];
+
+    // 4b. 逐卡片生成（每张卡片独立调用 AI，上下文包含已生成内容作为一致性锚点）
+    for(var bi = 0; bi < batches.length; bi++){
+      var card = batches[bi];
+      var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      var progressPct = Math.round((bi / batches.length) * 90); // 0-90% 留10%给完成
+
+      if(typeof showLoading === 'function'){
+        showLoading('正在生成 ' + moduleName + ' · ' + progressLabel);
+      }
+      if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel);
+      }
+
+      // 构建本卡片的 prompt：核心诉求 + 市场调研 + 记忆上下文 + 已生成内容 + 本卡片具体目标 + 评价加强提示
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      var cardTargetChars = card.targetChars || 800;
+
+      var cardResult = null;
+      try{
+        if(typeof callRealAPIWithFallback === 'function'){
+          // silent=true：不在 API 层操作 loading，由本函数统一管理 loading 生命周期
+          cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+        } else if(typeof callRealAPI === 'function'){
+          cardResult = await callRealAPI(cardPrompt, null, {});
+        }
+      }catch(e){
+        console.warn('卡片 ' + card.label + ' 生成失败:', e);
+        cardResult = '（本卡片生成失败）\n';
+      }
+
+      if(!cardResult || !cardResult.trim()){
+        // 某张卡片失败也不中断，后面用户可以手动补
+        cardResult = '（本卡片生成失败，请重试）\n';
+      }
+
+      allCards.push({ label: card.label, content: cardResult });
+      totalChars += cardResult.length;
+
+      // 卡片间极短等待，避免触发服务商 API 速率限制
+      if(bi < batches.length - 1){
+        await new Promise(function(res){ setTimeout(res, 50); });
+      }
+    }
+
+    // 4c. 合并所有卡片为完整结果
+    var result = '';
+    for(var ci = 0; ci < allCards.length; ci++){
+      var c = allCards[ci];
+      var header = '';
+      if(batches.length > 1){
+        header = '【' + c.label + '】\n';
+      }
+      result += header + c.content.trim() + '\n\n';
+    }
+    result = result.trim();
+
+    if(!result || totalChars < 100){
+      if(typeof hideLoading === 'function') hideLoading();
+      showToast('⚠️ 生成失败，请检查 API 设置后重试', {error:true, duration:4000});
+      return;
+    }
+
+    // 5. 写入编辑区 + 保存到作品
+    var rawEl = document.getElementById('raw-' + module);
+    if(rawEl){
+      rawEl.value = result;
+      rawEl.style.height = 'auto';
+      rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+    }
+    work[module] = result;
+    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+
+    // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
+    try { syncArchToMemory(work, module); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
+
+    if(typeof hideLoading === 'function') hideLoading();
+    var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batches.length + ' 张卡片 · ' + result.length + '字）';
+    completionMsg += '。建议点"评价"检查质量。';
+    showToast(completionMsg, {duration:4000});
+  } catch(err){
+    if(typeof hideLoading === 'function') hideLoading();
+    console.error('generateArchModule error:', err);
+    showToast('生成异常：' + (err && err.message ? err.message : err), {error:true, duration:5000});
+  }
+};
+
+// ===== v48: 根据模块类型拆分为多张卡片 =====
+// 每张卡片独立调用 AI，输出目标字数小，天然不会被截断
+// 后续卡片能看到前序卡片的已生成内容作为一致性锚点
+function buildArchCardBatchesV48(module, work, idea){
+  var batches = [];
+
+  if(module === 'world'){
+    // 世界观：8 张卡片，每张聚焦一个维度，极度精细，覆盖大型世界观需求
+    batches.push({
+      label: '世界观·时代定位与历史脉络',
+      targetChars: 3000,
+      focus: '时间线与历史背景 — 精确到年号/纪元的时代定位（可用架空纪年）、至少4个改变世界格局的重大历史事件（每件写清：起因→经过→后果→对当前时代活的直接影响，必须能用在后文剧情中）、当前时代的核心特征（为什么这个时代能产生好故事——是乱世出英雄？还是盛世藏暗流？）、历史遗留的未解之谜（至少3个，将成为跨卷伏笔）、时代特有的禁忌与规则（触碰会怎样，谁在维护这些规则）'
+    });
+    batches.push({
+      label: '世界观·地理环境与生态资源',
+      targetChars: 3000,
+      focus: '地理设定与自然资源 — 核心区域（至少5个，每个写清：名称、地理位置、气候特征、资源特产、交通路线、与主角的关联）、边缘地带/禁地/秘境（至少3个，为什么危险、隐藏什么秘密、谁在探索）、自然资源分布（什么资源稀缺、什么资源是争夺焦点）、生态链（有哪些关键物种/灵兽/魔兽，它们与人类/文明的关系）、对文明发展的影响（地理如何塑造了各地区的发展路径和文化差异）'
+    });
+    batches.push({
+      label: '世界观·文明体系与文化特征',
+      targetChars: 3000,
+      focus: '文明与文化体系 — 主流文明（至少2个，每个写清：核心理念、发展历程、代表性建筑/艺术/科技、与其他文明的交流或冲突）、宗教/信仰体系（至少2个，每个写清：核心教义、信徒群体、神职人员、圣地、对政治的影响）、语言与文字（是否统一语言、是否有失传的古文字、是否有只有特定种族/阶层才能读的语言）、节日与习俗（至少3个重要节日，每个写清：起源、庆祝方式、谁参与谁排斥、是否有潜在的故事冲突）、文化禁忌（至少3个，触碰的后果是什么）'
+    });
+    batches.push({
+      label: '世界观·力量体系完整规则',
+      targetChars: 3000,
+      focus: '力量体系与规则 — 完整等级划分（每级：名称、标志性能力、突破条件、突破失败代价、在总人口中的占比）、力量的来源（来自修炼/血脉/科技/契约/信仰？来源是否有限？）、力量的限制（天花板在哪、为什么不能无限升级、是否有副作用/代价）、力量的分类（至少3种不同类型的力量体系，它们之间的克制/互补关系）、力量体系对社会的影响（强者如何统治、弱者如何生存、力量等级是否决定社会地位）、力量体系对剧情的推动（至少3个与力量体系直接相关的冲突点和转折点）'
+    });
+    batches.push({
+      label: '世界观·势力分布与政治格局',
+      targetChars: 3000,
+      focus: '社会结构与势力分布 — 主要势力（至少5个，每个写清：名称、首领、崛起历史、核心理念、势力范围、核心资源、内部派系、对外关系）、势力间的对立关系（至少4组对立，每组写清：表面关系vs暗地关系、利益冲突点、即将爆发的导火索、谁在调停谁在拱火）、政治体制（各势力的统治方式：君主制/议会制/长老会/宗教统治/强者独裁？）、底层民众的生存状态（他们如何被卷入势力斗争、有没有自己的组织或反抗力量）、隐藏势力/第三方力量（至少2个，在关键时刻搅局，谁也不知道它们的存在）'
+    });
+    batches.push({
+      label: '世界观·经济体系与资源博弈',
+      targetChars: 2500,
+      focus: '经济与资源体系 — 货币体系（统一货币还是各势力各自发行？货币名称、兑换率、购买力、是否有稀缺物资充当特殊货币）、贸易网络（至少3条主要贸易路线，每条写清：起点→终点、运输什么、谁掌控、风险是什么）、稀有资源（至少3种，每种写清：名称、用途、产地、谁垄断、为什么稀缺）、经济命脉（谁掌控世界经济命脉、经济不平等如何加剧社会矛盾）、黑市与地下交易（有没有地下经济、谁在运营、交易什么）'
+    });
+    batches.push({
+      label: '世界观·种族与阶层',
+      targetChars: 2500,
+      focus: '种族与社会阶层 — 主要种族/物种（至少3个，每个写清：外形特征、寿命、天赋/弱点、社会地位、与其他种族的关系、是否有种族歧视或结盟）、社会阶层划分（至少4个阶层，每个写清：构成人群、生活状态、上升通道、与主角的关联）、阶层间的矛盾（贫富差距、种族歧视、新旧贵族之争、平民与特权阶层的冲突）、边缘群体（有没有被社会排斥的群体、他们的生存方式、会不会成为主角的盟友或敌人）、主角所处的阶层（他/她出身的阶层、有哪些限制、如何突破）'
+    });
+    batches.push({
+      label: '世界观·核心矛盾与悬念钩子',
+      targetChars: 2500,
+      focus: '世界观矛盾与悬念钩子 — 核心矛盾（表层矛盾：谁和谁在打+为什么；深层矛盾：真正的原因是什么，99%的人不知道，这个真相何时揭露）、势力间的暗流（至少4条暗线，每条写清：谁在策划什么、为什么不被发现、什么时候浮出水面）、世界观级悬念钩子（至少5个未解之谜，每个标注：谁在追查、预计何时揭晓、揭晓后会引发什么连锁反应）、主角与世界规则的冲突点（主角为什么是打破规则的人、他/她的存在本身是不是对世界规则的威胁）、世界即将面临的变局（至少2个大事件即将发生，改变一切，它们是什么、谁在推动、主角如何被卷入）'
+    });
+  } else if(module === 'chars'){
+    // 人设：7 张卡片，覆盖主角、反派、配角、关系角色 + 关系网
+    batches.push({
+      label: '主角·核心设定',
+      targetChars: 3000,
+      focus: '主角（1位，最核心的那位）：姓名（含含义/外号）、年龄、完整外貌描写（3个辨识点，如伤疤/纹身/习惯动作）、核心动机（不是"变强"，而是具体到"为XX报仇/找到XX/证明XX"，必须能失败）、最大执念（执念到偏执的程度，让他做出不理性选择）、最大弱点/缺陷（性格缺陷，不是能力缺陷，让读者又爱又恨）、人物弧光（起点状态→终点状态，中间至少2次动摇）、核心能力/资源（初始能力+隐藏潜力，标注限制条件）、外在面具 vs 真实自我（他装出来的样子和他真正是什么人）、标志性台词/口头禅（至少2句，读者一看就知道是他说的）、3个让读者记住的细节瞬间'
+    });
+    batches.push({
+      label: '主角·成长轨迹',
+      targetChars: 2500,
+      focus: '主角成长轨迹 — 开局状态（他一无所有/被压制/被误解的具体处境）、第1次觉醒（什么事件触发、他获得了什么、付出了什么代价）、第1次挫折（他失败在哪里、如何爬起来、心态变化）、第1次重大选择（两难抉择，无论选什么都失去重要的东西）、中期转折（他发现自己一直被蒙蔽/利用）、后期蜕变（他真正成为什么样的人，和开局的反差）、最终结局（他得到了什么、失去了什么、他是否还是原来的自己）'
+    });
+    batches.push({
+      label: '反派·核心设定',
+      targetChars: 3000,
+      focus: '主要反派（1位）：姓名、身份/地位、核心目标（他认为自己在做正确的事，写出他的正义观）、与主角的根本冲突（不是简单的善恶对立，而是理念/立场/利益的不可调和）、反派的人设亮点（至少2个让读者觉得"他也有道理"的点）、弱点/软肋（他最在乎的人或事，这是打败他的关键）、与主角的旧关系或镜像关系（他们曾经是朋友/师徒/同类人？）、反派的3步计划（他已经做了什么、正在做什么、最终要做什么）、反派的结局预想（他最终会怎样，是悔悟/毁灭/还是另一种结局）'
+    });
+    batches.push({
+      label: '反派·阵营与暗线',
+      targetChars: 2000,
+      focus: '反派阵营 — 核心手下2-3位（每人：姓名、职位、能力、对反派的忠诚度、个人小算盘）、反派阵营的内部矛盾（谁可能背叛、为什么）、反派隐藏的底牌（至少2张，在关键时刻翻出来）、反派与主角阵营的暗线交集（谁其实是双面间谍/谁有隐藏身份）'
+    });
+    batches.push({
+      label: '关键配角（盟友系）',
+      targetChars: 3000,
+      focus: '主角阵营关键配角 3-4 位，每人必须写清：姓名、身份、与主角的关系（怎么认识的、为什么跟着主角）、独特作用（战斗/情报/情感/搞笑，至少一个不可替代的功能）、一句话标签（读者秒记）、性格辨识点（说话方式/习惯动作/口头禅）、个人秘密（至少1个，在关键时刻揭露）、他/她的成长线（从什么状态到什么状态）、如果这个角色死了对主角的打击'
+    });
+    batches.push({
+      label: '关键配角（对手/中立系）',
+      targetChars: 3000,
+      focus: '对手/中立系关键配角 2-3 位（每人同上格式：姓名、身份、与主角的关系、独特作用、性格辨识点、个人秘密、成长线）+ 中立势力的关键人物（至少1位，他/她为什么保持中立、在什么情况下会倒向主角或反派）'
+    });
+    batches.push({
+      label: '重要关系角色 + 全人物关系网',
+      targetChars: 2500,
+      focus: '（1）恋爱对象/CP角色（如果有）：姓名、外貌、性格、与主角的相遇方式、感情线推进节奏（暧昧→确认→考验→结局）、两人关系中的核心矛盾（不是小三，而是价值观/立场/隐瞒的冲突）、如果BE/如果HE分别是什么结局。（2）导师/引路人（如果有）：姓名、身份、教给主角什么、对主角的期望、最终结局（牺牲/退隐/背叛？）。（3）家族/亲缘关系（如果有）：父母/兄弟姐妹/家族背景，这些关系如何影响主角的行为和选择。（4）完整人物关系网：画出所有主要角色间的张力线（至少10条），每条线标注：关系类型（爱情/亲情/师徒/敌对/合作/利用/暗恋）、当前状态（亲密/疏远/对立/暧昧）、冲突点（什么会让这条关系破裂或转变）、转折预期（这条关系最终走向何方）'
+    });
+  } else if(module === 'outline'){
+    // 大纲：读取用户设置的卷数，动态生成卷卡片
+    var userVolCount = 9;
+    var volInputEl = document.getElementById('vol-count-outline');
+    if(volInputEl){
+      var v = parseInt(volInputEl.value);
+      if(v >= 3 && v <= 20) userVolCount = v;
+    }
+    
+    // 根据卷数动态生成阶段名称
+    var allPhases = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
+    var volPhases = [];
+    for(var pi = 0; pi < userVolCount; pi++){
+      volPhases.push(allPhases[Math.floor(pi * allPhases.length / userVolCount)] || '发展');
+    }
+    
+    batches.push({
+      label: '开篇设计（前3章）',
+      targetChars: 3000,
+      focus: '开篇3章精设计 — 第1章：开场画面（具体场景+感官细节）、主角出场方式（让读者3秒内记住他）、核心冲突引入（主角面临的第一个危机）、钩子设计（章末必须让读者想翻下一页）；第2章：世界观初窥（通过事件而非说明展示）、第一个爽点/虐点、新角色引入；第3章：第一个小高潮（主角的第一次胜利或第一次惨败）、主线任务明确（主角的目标是什么）、留下3个悬念。每章必须标注：情绪曲线（紧张→释放→更紧张）、读者预期管理（读者以为会怎样→实际怎样）'
+    });
+    for(var vi = 0; vi < userVolCount; vi++){
+      var volNum = vi + 1;
+      var phase = volPhases[vi] || '';
+      batches.push({
+        label: '第 ' + volNum + ' 卷（' + phase + '）',
+        targetChars: 2000,
+        focus: '第 ' + volNum + ' 卷（' + phase + '期）：【本卷核心冲突】主角外部对手是谁+内心挣扎是什么，两者必须交织。【本卷主角阶段性目标】具体可检验可失败的目标，不是"变强"而是"在XX之前拿到XX/阻止XX/救出XX"。【本卷核心事件】6-8个转折点，每个写清：触发原因→主角选择→后果→对后续影响，标注哪些是爽点/虐点/泪点。【本卷结束后】主角获得/失去了什么（物质+精神双重变化）、世界发生了什么变化、主角的处境是上升还是恶化。【本卷伏笔】至少3条跨卷伏笔，标注预计在哪一卷回收。【本卷爽点设计】完整的"压抑→爆发"链路，不是突然变强而是有铺垫。【本卷情感线推进】主角与关键角色的关系发生了什么变化。' + (volNum > 1 ? '【承接上卷】上卷末的状态如何延续到本卷，上卷的悬念如何在本卷解开或深化。' : ''),
+        volume: volNum
+      });
+    }
+    batches.push({
+      label: '终卷·大结局 + 跨卷伏笔总览',
+      targetChars: 3000,
+      focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前' + userVolCount + '卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
+    });
+  } else if(module === 'detail'){
+    // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
+    // 读取用户设置的卷数和总章数
+    var volumeCount = 9;
+    var chaptersPerVolume = 10;
+    
+    var volInputEl2 = document.getElementById('vol-count-detail');
+    if(volInputEl2){
+      var v2 = parseInt(volInputEl2.value);
+      if(v2 >= 3 && v2 <= 20) volumeCount = v2;
+    }
+    
+    var chInputEl = document.getElementById('ch-count-detail');
+    if(chInputEl){
+      var c = parseInt(chInputEl.value);
+      if(c >= 1000 && c <= 20000) chaptersPerVolume = Math.max(10, Math.round(c / volumeCount));
+    }
+    
+    // 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
+    if(work && work.outline){
+      var volMatches = work.outline.match(/第[一二三四五六七八九十\d]+卷/g);
+      if(volMatches && volMatches.length > 0) volumeCount = volMatches.length;
+    }
+    
+    // 尝试从用户提示词中提取总章节数来反算每卷章数
+    if(idea && idea.trim()){
+      var chMatch = idea.match(/(\d+)\s*[章话回]/);
+      if(chMatch){
+        var totalCh = parseInt(chMatch[1]);
+        chaptersPerVolume = Math.max(5, Math.ceil(totalCh / volumeCount));
+      }
+    }
+    
+    // 每卷生成一张细纲卡片
+    var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
+    for(var vi = 0; vi < volumeCount; vi++){
+      var volNum = vi + 1;
+      var chStart = (vi * chaptersPerVolume) + 1;
+      var chEnd = (vi + 1) * chaptersPerVolume;
+      var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
+      
+      batches.push({
+        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
+        targetChars: 3000,
+        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+        volume: volNum,
+        chapterRange: chStart + '-' + chEnd + '章'
+      });
+    }
+  } else {
+    // 其他未知模块：默认 1 张卡片
+    batches.push({ label: module, targetChars: 1500, focus: '完整内容' });
+  }
+
+  return batches;
+}
+
+// ===== v48: 为单张卡片构建 prompt =====
+// 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+  var title = (work && work.title) || '未命名作品';
+  var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+  var platform = '起点';
+  try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
+
+  var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+
+  // 用户核心诉求放在第一位，优先级最高
+  if(idea && idea.trim()){
+    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+  } else {
+    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+  }
+
+  prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
+  prompt += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
+  prompt += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
+  prompt += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
+  prompt += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须承接\n';
+  prompt += '5. 如果本卡片内容与已有设定冲突，必须以已有设定为准，本卡片让步\n\n';
+
+  prompt += '【作品基础信息】\n';
+  prompt += '作品名称：' + title + '\n';
+  if(genre) prompt += '一级题材：' + genre + '\n';
+  prompt += '发布平台：' + platform + '\n\n';
+
+  // 前置架构上下文（给本卡片作为一致性锚点，动态截断：大上下文模型完整传入，小模型按比例截断）
+  if(module !== 'world'){
+    var largeCtx = isLargeContextModel();
+    prompt += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力/地名】\n';
+    if(work && work.world && work.world.trim()){
+      var worldLimit = largeCtx ? work.world.length : 4000;
+      prompt += '■ 世界观（核心要点）：\n' + (largeCtx ? work.world : smartTruncate(work.world, worldLimit)) + '\n';
+    }
+    if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      var charsLimit = largeCtx ? work.chars.length : 4000;
+      prompt += '■ 人物人设（核心要点）：\n' + (largeCtx ? work.chars : smartTruncate(work.chars, charsLimit)) + '\n';
+    }
+    if(module === 'detail' && work && work.outline && work.outline.trim()){
+      var outlineLimit = largeCtx ? work.outline.length : 5000;
+      prompt += '■ 全书大纲（核心要点）：\n' + (largeCtx ? work.outline : smartTruncate(work.outline, outlineLimit)) + '\n';
+    }
+    prompt += '\n';
+  }
+
+  // 2026 题材趋势（精简版）
+  var trend = getTrendHint2026(work);
+  if(trend){
+    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 600) + '\n\n';
+  }
+
+  // AI分工搜索：市场调研报告（仅供参考，灵感来源，不是硬性要求）
+  if(marketResearch && marketResearch.trim()){
+    prompt += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求 · AI搜索2025-2026年市场数据】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  }
+
+  // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
+  if(memoryContext && memoryContext.trim()){
+    prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
+  }
+
+  // 关键：已生成的卡片内容（作为一致性锚点，让 AI 知道前面写了什么）
+  if(prevCards && prevCards.length > 0){
+    prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突、不得遗漏已提及的细节】\n';
+    for(var pi = 0; pi < prevCards.length; pi++){
+      var pc = prevCards[pi];
+      // 每张卡片取关键摘要：前 500 字（开头核心设定）+ 最后 500 字（最新内容），确保上下文连贯
+      var snippet = '';
+      if(pc.content.length > 1500){
+        snippet = pc.content.substring(0, 500) + '\n...（中间略）...\n' + pc.content.slice(-500);
+      } else {
+        snippet = pc.content;
+      }
+      prompt += '■ ' + pc.label + '：\n' + snippet.trim() + '\n\n';
+    }
+  }
+
+  // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高
+  if(extraHint && extraHint.trim()){
+    prompt += '【★ 本次生成特别关注 — 来自编辑评价的加强意见，必须优先处理】\n' + smartTruncate(extraHint.trim(), 800) + '\n\n';
+  }
+
+  // 本卡片目标
+  prompt += '【本卡片任务】\n';
+  prompt += '正在生成本模块中的卡片：**' + card.label + '**\n';
+  prompt += '请专注于以下内容：\n' + card.focus + '\n\n';
+
+  // 格式与字数要求
+  prompt += '【⚠️ 输出格式与字数约束】\n';
+  prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
+  prompt += '2. 不要输出与本卡片无关的内容（如创作思路、解释说明）\n';
+  prompt += '3. 段落清晰，用「■」标记关键子项\n';
+  prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
+  prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
+  if(module === 'detail' && card.volume){
+    prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
+    prompt += '7. 本卷细纲的章节编号从第 ' + card.chapterRange + ' 章开始\n';
+  }
+
+  prompt += '\n【开始生成本卡片】\n';
+  return prompt;
+}
+
+// ========== 删除生成内容 ==========
+window.deleteCurrentAIGeneration = function(){
+  try{
+    var module = _selectedModule || 'world';
+    var rawEl = document.getElementById('raw-' + module);
+    if(!rawEl) return;
+    if(!confirm('确定清空当前模块的生成内容吗？')) return;
+    rawEl.value = '';
+    rawEl.readOnly = false;
+    // 清理全文缓存和翻页器
+    delete _archFullContent[module];
+    _archPageMap[module + '_page'] = 1;
+    var pager = document.getElementById('arch-display-pager-' + module);
+    if (pager) pager.style.display = 'none';
+    if (module === 'detail') {
+      _detailPageIdx = 0;
+      var dpager = document.getElementById('detail-pager');
+      if (dpager) dpager.style.display = 'none';
+    }
+    var work = getCurrentWork();
+    if(work){
+      work[module] = '';
+      try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    }
+    showToast('已清空');
+  }catch(e){ console.error(e); showToast('操作失败'); }
+};
+
+// ========== v48: 架构模块深度评价（AI 评价 + 本地启发式双路检查）==========
+// 功能：分析当前模块的生成内容，输出结构化问题列表，为"按评价加强"提供修复线索
+window.evaluateArchModule = async function(){
+  try{
+    var module = _selectedModule || 'world';
+    var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+    // 分页模式下 textarea 只显示当前页，需用全文缓存获取完整内容
+    var content = _archFullContent[module] || '';
+    if (!content) {
+      var rawEl = document.getElementById('raw-' + module);
+      if (rawEl && rawEl.value.trim()) content = rawEl.value.trim();
+    }
+    if(!content){
+      showToast('先生成内容再评价');
+      return;
+    }
+    var len = content.length;
+
+    // ============== 本地启发式快速检查（离线可用）==============
+    var issues = [];
+    var strengths = [];
+
+    // 长度检查
+    if(len < 600) issues.push('内容偏短（<600字），设定/细节可能不足');
+    else if(len >= 800 && len <= 3000) strengths.push('篇幅合理');
+
+    // AI 腔 / 模板化表达检测
+    var aiPatterns = /(他的内心五味杂陈|时间仿佛静止|空气仿佛凝固|心中百感交集|众人震惊|全场震惊|一片哗然|所有人都惊呆了|命运的齿轮开始转动|仿佛是|如同是)/;
+    if(aiPatterns.test(content)) issues.push('检测到 AI 腔/模板化表达（应替换为具体动作/对话）');
+    else strengths.push('模板化表达少');
+
+    // 细纲格式检查
+    if(module === 'detail'){
+      var chapterCount = (content.match(/第[\d一二三四五六七八九十百零两]+章/g) || []).length;
+      if(chapterCount === 0) issues.push('细纲中未检测到"第N章"格式；建议明确分章');
+      if(chapterCount < 5) issues.push('细纲章节数偏少（<5）；建议扩展到10-20章');
+      var hasHookPattern = /(原来|其实|秘密|真正|不仅|更|可|却|谁也没想到|就在这时)/;
+      if(chapterCount > 0 && !hasHookPattern.test(content)) issues.push('悬念钩子不足；每章末应有让读者想点下一章的内容');
+      var pipeCount = (content.match(/\|/g) || []).length;
+      if(chapterCount > 0 && pipeCount < chapterCount) issues.push('部分章节未使用"|"字段分隔符；统一格式便于后续写作');
+      if(chapterCount >= 8 && pipeCount >= chapterCount) strengths.push('细纲格式规范');
+    }
+
+    // 人设检查
+    if(module === 'chars'){
+      if(!/反派|对手|敌人|敌对/.test(content)) issues.push('人设中未见明确的反派/敌对角色');
+      var nameCount = (content.match(/[\u4e00-\u9fa5]{2,4}(?=\s*[（(]|：|:)/g) || []).length;
+      if(nameCount >= 4) strengths.push('人物名识别正常');
+      if(content.length < 800) issues.push('人物设定偏短；建议补充每个人物的动机/弱点/弧光起点');
+    }
+
+    // 世界观检查
+    if(module === 'world'){
+      if(!/(代价|限制|规则|矛盾|冲突|力量|体系|社会|势力)/.test(content)) issues.push('世界观缺少"代价/规则/矛盾/势力"等核心要素');
+      if(/(四大神兽|五行|元素|斗气|魔法)/.test(content)) issues.push('使用了较泛的传统设定；建议添加独特变体以避免套路化');
+    }
+
+    // 大纲检查
+    if(module === 'outline'){
+      var juanCount = (content.match(/第[一二三四五六七八九十\d]+卷|卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十\d]+幕/g) || []).length;
+      if(juanCount === 0) issues.push('未见明确分卷结构；建议按"卷"组织全书');
+      if(!/(伏笔|钩子|悬念|转折|冲突|爆点|揭示)/.test(content)) issues.push('大纲缺少伏笔/钩子/转折等结构要素');
+    }
+
+    // ============== AI 深度评价（按模块不同评价维度）==============
+    var aiReport = '';
+    if(typeof callRealAPIWithFallback === 'function' && len > 100){
+      if(typeof showLoading === 'function') showLoading('评价分析中…');
+      var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿，找出具体的可改进点。\n\n';
+      evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
+      evalPrompt += '【待评价内容】\n' + content + '\n\n';
+      
+      // 按模块不同评价维度
+      evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
+      if(module === 'world'){
+        evalPrompt += '1. 设定完整度：世界观体系是否自洽、有层次\n';
+        evalPrompt += '2. 独特创新：是否有区别于传统套路的独特要素\n';
+        evalPrompt += '3. 冲突张力：规则/矛盾/冲突源设计是否有力\n';
+        evalPrompt += '4. 力量体系：规则是否清晰、有代价和限制\n';
+        evalPrompt += '5. 社会结构：势力/阶层/组织分布是否合理\n';
+        evalPrompt += '6. 叙事潜力：是否为故事提供了足够的戏剧空间\n';
+      } else if(module === 'chars'){
+        evalPrompt += '1. 人物立体度：是否有动机、弱点、弧光\n';
+        evalPrompt += '2. 关系网络：人物之间的关系/冲突是否清晰\n';
+        evalPrompt += '3. 反派/对抗力：对立面是否足够强大有趣\n';
+        evalPrompt += '4. 差异化：人物之间性格/背景是否足够区分\n';
+        evalPrompt += '5. 成长空间：人物是否有可追踪的成长弧线\n';
+        evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入\n';
+      } else if(module === 'outline'){
+        evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理\n';
+        evalPrompt += '2. 节奏把控：高潮点和休息点的安排是否得当\n';
+        evalPrompt += '3. 伏笔设计：是否有足够的伏笔和钩子\n';
+        evalPrompt += '4. 主线清晰：主线是否明确、支线不喧宾夺主\n';
+        evalPrompt += '5. 冲突递进：冲突是否逐级升级\n';
+        evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足\n';
+      } else if(module === 'detail'){
+        evalPrompt += '1. 章节连贯：章与章之间的衔接是否自然\n';
+        evalPrompt += '2. 钩子密度：每章结尾是否有让读者想点下一章的钩子\n';
+        evalPrompt += '3. 信息释放：信息是否有序释放、不堆砌\n';
+        evalPrompt += '4. 节奏控制：每章节奏是否得当、有无拖沓\n';
+        evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布\n';
+        evalPrompt += '6. 可执行性：每章目标是否明确、适合写正文\n';
+      } else {
+        evalPrompt += '1. 内容质量：整体水平\n';
+        evalPrompt += '2. 结构完整：结构是否合理\n';
+        evalPrompt += '3. 创新性：是否有独特之处\n';
+        evalPrompt += '4. 可执行性：是否适合后续写作\n';
+      }
+      evalPrompt += '\n【你的输出格式】\n';
+      evalPrompt += '- 每个维度：维度名 X分 — 具体评价\n';
+      evalPrompt += '- 列出 3-6 条具体问题（必须针对上文内容，不能泛泛而谈）\n';
+      evalPrompt += '- 给出 2-3 条针对性改进建议\n';
+      evalPrompt += '- 不要超过 400 字；用简短犀利的编辑口吻\n';
+      evalPrompt += '- 不要用"好的""收到"等对话语';
+      try{
+        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default');
+      }catch(e){ aiReport = ''; }
+      if(typeof hideLoading === 'function') hideLoading();
+    }
+
+    // ============== 汇总报告 ==============
+    var localReport = '【本地检查】' + (strengths.length ? '优点：' + strengths.join('、') : '') + (issues.length ? '；问题：' + issues.join('；') : '整体结构良好 ✅');
+    var fullReport = localReport;
+    if(aiReport && aiReport.trim() && aiReport.indexOf('暂不可用') === -1){
+      fullReport += '\n\n【编辑意见】\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(aiReport) : aiReport);
+    }
+
+    // 保存到作品元数据（供"按评价加强"读取）
+    var work = getCurrentWork();
+    if(work){
+      work._archEval = work._archEval || {};
+      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, time: Date.now() };
+      try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    }
+
+    // 展示修复按钮 + 报告（v48: 每个模块有独立 ID）
+    var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
+    var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
+    if(fixBtn){
+      fixBtn.style.display = '';
+      fixBtn.textContent = '🔥 按评价加强（' + issues.length + '个问题）';
+    }
+
+    // 用 alert 显示完整报告（便于阅读长文）
+    var finalMsg = '【' + moduleName + ' · 质量评价】\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
+    try{
+      alert(finalMsg);
+    }catch(e){
+      showToast(localReport, {duration:6000});
+    }
+  }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
+};
+
+// ========== v48: 按评价加强 —— 基于最近一次评价的问题重新生成 ==========
+window.fixArchModule = async function(){
+  try{
+    var module = _selectedModule || 'world';
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择一部作品'); return; }
+    var evalData = work._archEval && work._archEval[module];
+    if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
+
+    // 构造针对本次问题的加强提示（从本地 issues 中提炼）
+    var extraHint = '';
+    if(evalData.issues && evalData.issues.length){
+      extraHint += '本次重新生成，你必须特别解决以下问题：\n';
+      for(var i=0;i<evalData.issues.length;i++){
+        extraHint += '- ' + evalData.issues[i] + '\n';
+      }
+    }
+    if(evalData.aiReport && evalData.aiReport.trim() && evalData.aiReport.indexOf('暂不可用') === -1){
+      extraHint += '\n此外，参考编辑的以下意见：\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport);
+    }
+
+    // 调用 generateArchModule 并注入加强提示
+    await window.generateArchModule({ isFix: true, extraHint: extraHint });
+  }catch(e){ console.error('fixArchModule error:', e); showToast('加强失败：' + (e.message||e), {error:true}); }
+};
+
+// ========== v48: 细纲智能补强（卡片分批版）—— 冲突/节奏/伏笔/角色一致性全链路 ==========
+// 每 5 章为一批，每批独立调用 AI，避免一次性 3000 字被截断
+window.strengthenDetailOutlineV46 = async function(){
+  try{
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择一部作品'); return; }
+    if(!work.detail || !work.detail.trim()){ showToast('请先生成章节细纲'); return; }
+
+    // 1. 先解析现有细纲，识别有多少章
+    var existingChapters = parseDetailChaptersV48(work.detail);
+    var totalChapters = existingChapters.length;
+
+    // 2. 拆分卡片：每 5 章一批
+    var batches = [];
+    for(var ci = 0; ci < totalChapters; ci += 5){
+      var endIdx = Math.min(ci + 4, totalChapters - 1);
+      var startNum = ci + 1;
+      var endNum = endIdx + 1;
+      batches.push({
+        label: '补强第 ' + startNum + '-' + endNum + ' 章',
+        startIdx: ci,
+        endIdx: endIdx,
+        targetChars: 1000
+      });
+    }
+    if(batches.length === 0){
+      batches.push({ label: '全量补强', startIdx: 0, endIdx: totalChapters, targetChars: 1500 });
+    }
+
+    // 3. 通用上下文（给每批卡片共享）
+    var contextBlock = '';
+    var largeModel = isLargeContextModel();
+    contextBlock += '【作品题材】' + (work.genre || '未知') + '\n';
+    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + (largeModel ? work.world : smartTruncate(work.world, 2000)) + '\n';
+    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + (largeModel ? work.chars : smartTruncate(work.chars, 2000)) + '\n';
+    if(work.outline) contextBlock += '【全书大纲参考】\n' + (largeModel ? work.outline : smartTruncate(work.outline, 2000)) + '\n';
+
+    // 4. 每批卡片独立调用 AI
+    var allCards = [];
+    for(var bi = 0; bi < batches.length; bi++){
+      var card = batches[bi];
+      var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
+
+      // 构建本批的专属 prompt
+      var prompt = '你是一位擅长节奏设计的资深网文编辑。请对以下章节细纲进行"全链路质量补强"，使每一章都能驱动读者想点开下一章。\n\n';
+      prompt += contextBlock + '\n';
+
+      // 已补强的前序章节（作为一致性锚点，取最后 500 字）
+      if(allCards.length > 0){
+        var prevCombined = '';
+        for(var pi = 0; pi < allCards.length; pi++) prevCombined += allCards[pi].content;
+        prompt += '【已补强的章节（作为参考，保持风格与设定一致）】\n' + smartTruncate(prevCombined, 600) + '\n\n';
+      }
+
+      // 待补强的章节片段
+      var chapterSnippet = '';
+      for(var xi = card.startIdx; xi <= card.endIdx; xi++){
+        if(xi < existingChapters.length) chapterSnippet += existingChapters[xi] + '\n';
+      }
+      prompt += '【本卡片待补强的细纲】\n' + chapterSnippet + '\n';
+
+      // 补强要求
+      prompt += '【你的补强任务】\n';
+      prompt += '1. 【爆点/悬念钩子】每章末尾必须有悬念/钩子；钩子必须是"信息差"或"承诺兑现"\n';
+      prompt += '2. 【转折密度】每 3-5 章有一个较大转折点，用【重大转折】标签标记\n';
+      prompt += '3. 【因果推进】章节间必须有因果推进，不能是流水账\n';
+      prompt += '4. 【格式严格保持】"■ 第N章《标题》|场景:|人物:|剧情节点:|爆点/悬念钩子:"\n';
+      prompt += '5. 【角色名强制来源】人物名必须从【人物参考】中挑选；不得出现"一些人""某人""神秘人"等泛称——神秘人也要给外部特征描述\n';
+      prompt += '6. 【场景具体化】场景不能是"山里""城里"，必须给具体位置\n';
+      prompt += '7. 【剧情节点拆分】剧情节点字段分 2-3 个小节点，用"→"分隔\n';
+      prompt += '8. 【伏笔体系】至少每 3 章出现一次伏笔回收或新伏笔植入，用【伏笔】标签标记\n';
+      prompt += '9. 【冲突升级合理化】不能"突然出现新敌人"；新敌人必须有铺垫\n';
+      prompt += '10. 【人物行为一致性】若本章角色做出违反人设的行为，必须在剧情节点中说明原因\n';
+      prompt += '11. 直接输出补强后的细纲，不要加"好的/收到"等对话语\n';
+      prompt += '12. 本卡片目标字数至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩\n';
+
+      var cardResult = null;
+      try{
+        if(typeof callRealAPIWithFallback === 'function'){
+          // silent=true：不在 API 层操作 loading，由本函数统一管理 loading 生命周期
+          cardResult = await callRealAPIWithFallback(prompt, null, 'detail_base', card.targetChars, true);
+        } else if(typeof callRealAPI === 'function'){
+          cardResult = await callRealAPI(prompt, null, {});
+        }
+      }catch(e){ console.warn('细纲补强卡片 ' + card.label + ' 失败:', e); }
+
+      if(!cardResult || !cardResult.trim()) cardResult = '（本卡片补强失败，请重试）\n';
+      allCards.push({ label: card.label, content: cardResult });
+
+      // 卡片间极短等待，避免触发服务商 API 速率限制
+      if(bi < batches.length - 1){
+        await new Promise(function(res){ setTimeout(res, 50); });
+      }
+    }
+
+    // 5. 合并所有卡片
+    var result = '';
+    for(var ci2 = 0; ci2 < allCards.length; ci2++){
+      result += allCards[ci2].content.trim() + '\n';
+    }
+    result = result.trim();
+
+    if(!result || result.length < 100){
+      if(typeof hideLoading === 'function') hideLoading();
+      showToast('补强失败，请检查 API', {error:true, duration:3500});
+      return;
+    }
+
+    // 写入细纲编辑区 + 保存
+    var rawEl = document.getElementById('raw-detail');
+    if(rawEl){
+      rawEl.value = result;
+      rawEl.style.height = 'auto';
+      rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+    }
+    // 清理分页全文缓存，确保后续保存以新内容为准，并重新初始化细纲翻页器
+    delete _archFullContent['detail'];
+    work.detail = result;
+    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    if(typeof hideLoading === 'function') hideLoading();
+    try { initDetailPager(); } catch(e){ console.warn('initDetailPager after strengthen failed:', e); }
+    showToast('✅ 细纲补强完成（' + batches.length + ' 张卡片 · ' + result.length + '字）', {duration:3000});
+  }catch(e){ console.error('strengthenDetailOutlineV46 error:', e); if(typeof hideLoading === 'function') hideLoading(); showToast('补强失败：' + (e.message||e), {error:true}); }
+};
+
+// ===== v48: 从细纲文本中按章节拆分 =====
+function parseDetailChaptersV48(text){
+  if(!text) return [];
+  var lines = text.split('\n');
+  var chapters = [];
+  var current = '';
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li].trim();
+    // 检测"第N章"的章节开头
+    var isChapterStart = /^■?\s*第[一二三四五六七八九十百零〇\d]+章/.test(line) || /^■?\s*\d+\s*[、章.\-]/.test(line);
+    if(isChapterStart && current){
+      chapters.push(current.trim());
+      current = line;
+    } else if(isChapterStart){
+      current = line;
+    } else if(line){
+      current += (current ? '\n' : '') + line;
+    }
+  }
+  if(current) chapters.push(current.trim());
+  return chapters;
+}
+
+// ========== 一键生成全部 4 个模块 ==========
+window.generateAllPipeline = async function(){
+  try{
+    var modules = ['world','chars','outline','detail'];
+    var moduleNames = ['世界观','人物人设','全书大纲','章节细纲'];
+    var work = getCurrentWork();
+    if(!work){
+      showToast('请先选择一部作品');
+      goToLevel(2);
+      return;
+    }
+
+    // 循环生成：每一个模块都优先读取对应的 user idea
+    for(var i=0;i<modules.length;i++){
+      _selectedModule = modules[i];
+      // 尝试切换到对应 tab 的 UI（如果存在）
+      try{
+        var pages = document.querySelectorAll('.module-page');
+        pages.forEach(function(p){ p.classList.remove('current'); });
+        var target = document.getElementById('page-' + modules[i]);
+        if(target) target.classList.add('current');
+      }catch(e){}
+
+      var overallPct = Math.round((i / modules.length) * 100);
+      if(typeof showLoading === 'function'){
+        showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+      }
+      if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(overallPct, '🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+      }
+      await window.generateArchModule();
+    }
+
+    if(typeof updateLoadingProgress === 'function'){
+      updateLoadingProgress(100, '✅ 全部完成');
+    }
+    if(typeof hideLoading === 'function') hideLoading();
+    showToast('✅ 四个模块全部生成完成！', {duration:3500});
+    _selectedModule = 'world';
+  }catch(err){
+    if(typeof hideLoading === 'function') hideLoading();
+    console.error('generateAllPipeline error:', err);
+    showToast('流水线生成异常：' + (err && err.message ? err.message : err));
+  }
+};
+
+// ========== initArchPage（被 switchArchModule 调用的初始化）==========
+window.initArchPage = function(){
+  try{
+    var work = getCurrentWork();
+    if(!work) return;
+    // 恢复用户已输入的提示词
+    ['world','chars','outline','detail'].forEach(function(m){
+      var el = document.getElementById('idea-' + m);
+      if(el && work._moduleIdeas && work._moduleIdeas[m] && !el.value.trim()){
+        el.value = work._moduleIdeas[m];
+      }
+      var raw = document.getElementById('raw-' + m);
+      if(raw && work[m] && work[m].trim() && !raw.value.trim()){
+        raw.value = work[m];
+      }
+    });
+    // 初始化各模块翻页器（内容超过页大小时启用分页）
+    ['world','chars','outline'].forEach(function(m){
+      initArchPager(m);
+    });
+    initDetailPager();
+  }catch(e){}
+};
+
+// ===== v48: 保存当前模块内容到作品 =====
+window.saveArchModule = function(){
+  try{
+    var module = _selectedModule || 'world';
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择一部作品',{error:true}); return; }
+    var rawEl = document.getElementById('raw-' + module);
+    if(!rawEl){ showToast('保存失败',{error:true}); return; }
+    // 分页模式下 textarea 只显示当前页，需用全文缓存；非分页模式直接用 textarea 值
+    var content = _archFullContent[module] || rawEl.value || '';
+    work[module] = content;
+    if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module), {duration:2500});
+  }catch(e){ console.error('saveArchModule error:',e); showToast('保存失败',{error:true}); }
+};
+
+// ===== v48: 从文件导入架构内容（.json/.md/.txt）=====
+window.handleArchFileImport = function(event){
+  try{
+    var file = event.target.files && event.target.files[0];
+    if(!file){ return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var text = e.target.result;
+        var module = _selectedModule || 'world';
+        var work = getCurrentWork();
+        // 如果是 JSON 且包含对应模块字段，尝试解析
+        if(file.name.toLowerCase().indexOf('.json') > -1){
+          try{
+            var data = JSON.parse(text);
+            if(data.world || data.chars || data.outline || data.detail){
+              // 批量导入
+              var imported = 0;
+              for(var key in data){
+                if(typeof data[key] === 'string' && (key==='world'||key==='chars'||key==='outline'||key==='detail')){
+                  var rawE = document.getElementById('raw-' + key);
+                  if(rawE){ rawE.value = data[key]; imported++; }
+                  if(work) work[key] = data[key];
+                  // 清理每个模块的全文缓存和翻页器，重新初始化
+                  delete _archFullContent[key];
+                  _archPageMap[key + '_page'] = 1;
+                }
+              }
+              if(work && typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+              // 重新初始化所有模块的翻页器
+              ['world','chars','outline'].forEach(function(m){ initArchPager(m); });
+              initDetailPager();
+              showToast('✅ 已导入 ' + imported + ' 个模块', {duration:3000});
+            } else {
+              // 当作纯文本导入当前模块
+              var rawEl = document.getElementById('raw-' + module);
+              if(rawEl) rawEl.value = text;
+              if(work){ work[module] = text; if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }
+              showToast('✅ 已导入', {duration:2000});
+            }
+          }catch(jsonErr){
+            // JSON 解析失败，当作纯文本
+            var rawEl2 = document.getElementById('raw-' + module);
+            if(rawEl2) rawEl2.value = text;
+            if(work){ work[module] = text; if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }
+            showToast('✅ 已作为文本导入', {duration:2000});
+          }
+        } else {
+          // 纯文本：导入当前模块
+          var rawEl3 = document.getElementById('raw-' + module);
+          if(rawEl3) rawEl3.value = text;
+          if(work){ work[module] = text; if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }
+          showToast('✅ 已导入', {duration:2000});
+        }
+        // 导入后清理全文缓存并重新初始化翻页器
+        delete _archFullContent[module];
+        if (module === 'detail') { initDetailPager(); } else { initArchPager(module); }
+      }catch(err){ console.error('handleArchFileImport error:',err); showToast('导入失败',{error:true}); }
+    };
+    reader.readAsText(file, 'UTF-8');
+    // 重置 input，让同一份文件能再次被选择
+    event.target.value = '';
+  }catch(e){ console.error('handleArchFileImport error:',e); showToast('导入失败',{error:true}); }
+};
+
+// 初始化
+window.addEventListener('DOMContentLoaded',function(){
+  try{
+    if(typeof DB !== 'undefined' && typeof DB.init === 'function') DB.init();
+    var lastId = localStorage.getItem('last_edit_work');
+    if (lastId && typeof DB !== 'undefined' && DB.works && DB.works.find(function(w){ return w.id === lastId; })) {
+      _selectedWorkId = lastId;
+      goToLevel(2);
+    } else {
+      goToLevel(1);
+    }
+  } catch(e){
+    console.error('Init error:',e);
+    goToLevel(1);
+  }
+  
+  // 细纲：卷数和章数联动，更新"每卷约X章"提示
+  var volInput = document.getElementById('vol-count-detail');
+  var chInput = document.getElementById('ch-count-detail');
+  var hintEl = document.getElementById('ch-per-vol-hint');
+  if(volInput && chInput && hintEl){
+    var updateHint = function(){
+      var v = parseInt(volInput.value) || 9;
+      var c = parseInt(chInput.value) || 3000;
+      hintEl.textContent = Math.max(1, Math.round(c / v));
+    };
+    volInput.addEventListener('input', updateHint);
+    chInput.addEventListener('input', updateHint);
+  }
+  
+  // 大纲和细纲的卷数双向同步
+  var volOutline = document.getElementById('vol-count-outline');
+  var volDetail = document.getElementById('vol-count-detail');
+  if(volOutline && volDetail){
+    volOutline.addEventListener('input', function(){ volDetail.value = volOutline.value; });
+    volDetail.addEventListener('input', function(){ volOutline.value = volDetail.value; });
+  }
+});
+
+// 安全兜底
+setTimeout(function(){
+  try{
+    var ca = document.getElementById('card-world');
+    if(ca && (!ca.innerHTML||ca.innerHTML.trim()==='')){
+      ca.innerHTML='<div style="padding:30px;text-align:center;color:#999;"><p>正在加载…</p><p style="font-size:12px;margin-top:6px;">如长时间无响应，请<a href="new-book.html" style="color:#6366f1;">新建作品</a>后重试</p></div>';
+    }
+  }catch(e){}
+},2000);
+
+// ===== v52: 架构展示翻页器（真正实现内容分页）=====
+var _archPageMap = {};
+var _archPageSize = 2000; // 每页显示字数
+var _archFullContent = {}; // 各模块全文缓存（分页时 textarea 只显示当前页，全文存这里）
+
+// 获取原始全文内容（优先用全文缓存，其次 textarea，最后 work 对象）
+function getArchRawContent(module) {
+  if (_archFullContent[module]) return _archFullContent[module];
+  var rawEl = document.getElementById('raw-' + module);
+  if (rawEl && rawEl.value.trim()) return rawEl.value.trim();
+  var work = getCurrentWork();
+  if (work && work[module]) return work[module].trim();
+  return '';
+}
+
+// 更新分页后的内容显示
+function updateArchDisplay(module) {
+  var rawEl = document.getElementById('raw-' + module);
+  if (!rawEl) return;
+  var content = getArchRawContent(module);
+  if (!content) return;
+
+  // 保存全文到缓存
+  _archFullContent[module] = content;
+
+  var key = module + '_page';
+  var totalPages = Math.ceil(content.length / _archPageSize) || 1;
+  var currentPage = Math.min(_archPageMap[key] || 1, totalPages);
+  _archPageMap[key] = currentPage;
+
+  // 计算当前页的内容范围
+  var start = (currentPage - 1) * _archPageSize;
+  var end = Math.min(start + _archPageSize, content.length);
+  var pageContent = content.substring(start, end);
+
+  // 把当前页写入 textarea（只读，防止用户编辑破坏全文）
+  rawEl.value = pageContent;
+  rawEl.readOnly = true;
+
+  // 更新分页信息
+  var infoEl = document.getElementById('arch-display-info-' + module);
+  if (infoEl) infoEl.textContent = '第' + currentPage + '/' + totalPages + '页 (' + content.length + '字)';
+
+  // 显示翻页器并更新按钮状态
+  var pager = document.getElementById('arch-display-pager-' + module);
+  if (pager) {
+    pager.style.display = 'flex';
+    var prevBtn = pager.querySelector('.pager-btn');
+    var nextBtn = pager.querySelectorAll('.pager-btn')[1];
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+  }
+}
+
+window.archDisplayPrevPageV52 = function(){
+  var module = _selectedModule || 'world';
+  var key = module + '_page';
+  _archPageMap[key] = Math.max(1, (_archPageMap[key] || 1) - 1);
+  updateArchDisplay(module);
+};
+window.archDisplayNextPageV52 = function(){
+  var module = _selectedModule || 'world';
+  var key = module + '_page';
+  var content = getArchRawContent(module);
+  if (!content) return;
+  var totalPages = Math.ceil(content.length / _archPageSize) || 1;
+  _archPageMap[key] = Math.min(totalPages, (_archPageMap[key] || 1) + 1);
+  updateArchDisplay(module);
+};
+window.archDisplayShowAllV52 = function(){
+  var module = _selectedModule || 'world';
+  var rawEl = document.getElementById('raw-' + module);
+  if (rawEl) {
+    // 恢复全文显示，允许编辑
+    rawEl.value = _archFullContent[module] || rawEl.value;
+    rawEl.readOnly = false;
+    rawEl.style.height = 'auto';
+    rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+  }
+  // 隐藏翻页器
+  var pager = document.getElementById('arch-display-pager-' + module);
+  if (pager) pager.style.display = 'none';
+  _archPageMap[module + '_page'] = 1;
+  // 清除全文缓存，后续保存时以 textarea 编辑内容为准
+  delete _archFullContent[module];
+};
+window.archDisplayBackToPagedV52 = function(){
+  var module = _selectedModule || 'world';
+  // 重新读取 textarea 全文作为缓存（用户可能编辑过）
+  var rawEl = document.getElementById('raw-' + module);
+  if (rawEl && rawEl.value.trim()) _archFullContent[module] = rawEl.value.trim();
+  _archPageMap[module + '_page'] = 1;
+  updateArchDisplay(module);
+};
+
+// 初始化指定模块的翻页器（内容超过页大小时启用，否则隐藏）
+function initArchPager(module) {
+  var content = getArchRawContent(module);
+  var pager = document.getElementById('arch-display-pager-' + module);
+  var rawEl = document.getElementById('raw-' + module);
+  if (content && content.length > _archPageSize) {
+    _archFullContent[module] = content;
+    _archPageMap[module + '_page'] = 1;
+    updateArchDisplay(module);
+  } else {
+    // 内容不长，隐藏翻页器，恢复可编辑
+    if (pager) pager.style.display = 'none';
+    if (rawEl) rawEl.readOnly = false;
+    delete _archFullContent[module];
+  }
+}
+
+// 生成完成后自动启用分页显示
+var _origGenerateArchModule = window.generateArchModule;
+window.generateArchModule = async function(opts) {
+  var captureModule = _selectedModule || 'world'; // 捕获当前模块，防止异步期间切换
+  var result = await _origGenerateArchModule.apply(this, arguments);
+  setTimeout(function() {
+    // 清除旧的全文本缓存（重新生成/按评价加强时，旧缓存可能指向旧内容）
+    delete _archFullContent[captureModule];
+    if (captureModule === 'detail') {
+      _detailPageIdx = 0;
+      initDetailPager();
+    } else {
+      _archPageMap[captureModule + '_page'] = 1;
+      initArchPager(captureModule);
+    }
+  }, 100);
+  return result;
+};
+
+// ===== v52: 细纲翻页器（真正实现）=====
+var _detailPageIdx = 0;
+var _detailPageSize = 5000; // 每批显示字数（细纲按段落）
+
+// 获取细纲全文（优先用全文缓存，避免分页后 textarea 只有当前批导致全文丢失）
+function getDetailContent() {
+  if (_archFullContent['detail']) return _archFullContent['detail'];
+  var rawEl = document.getElementById('raw-detail');
+  if (rawEl && rawEl.value.trim()) return rawEl.value.trim();
+  var work = getCurrentWork();
+  if (work && work.detail) return work.detail.trim();
+  return '';
+}
+
+function updateDetailDisplay() {
+  var content = getDetailContent();
+  if (!content) return;
+
+  // 保存全文到缓存
+  _archFullContent['detail'] = content;
+
+  // 按章节分割（找"第N章"模式）
+  var chapters = parseDetailChaptersV48(content);
+  var totalBatches = Math.ceil(chapters.length / 10) || 1; // 每批10章
+  var currentBatch = Math.min(_detailPageIdx + 1, totalBatches);
+
+  var start = _detailPageIdx * 10;
+  var end = Math.min(start + 10, chapters.length);
+  var batchContent = chapters.slice(start, end).join('\n\n');
+
+  var rawEl = document.getElementById('raw-detail');
+  if (rawEl) {
+    rawEl.value = batchContent;
+    rawEl.readOnly = true;
+  }
+
+  var info = document.getElementById('detail-pager-info');
+  if (info) info.textContent = '第' + currentBatch + '/' + totalBatches + '批 (' + chapters.length + '章)';
+
+  var pager = document.getElementById('detail-pager');
+  if (pager) pager.style.display = 'flex';
+
+  var prevBtn = document.getElementById('detail-pager-prev');
+  var nextBtn = document.getElementById('detail-pager-next');
+  if (prevBtn) prevBtn.disabled = _detailPageIdx <= 0;
+  if (nextBtn) nextBtn.disabled = _detailPageIdx >= totalBatches - 1;
+}
+
+// 初始化细纲翻页器
+function initDetailPager() {
+  var content = getDetailContent();
+  var pager = document.getElementById('detail-pager');
+  var rawEl = document.getElementById('raw-detail');
+  var chapters = content ? parseDetailChaptersV48(content) : [];
+  if (chapters.length > 10) {
+    _archFullContent['detail'] = content;
+    _detailPageIdx = 0;
+    updateDetailDisplay();
+  } else {
+    // 章节不多，隐藏翻页器，恢复可编辑
+    if (pager) pager.style.display = 'none';
+    if (rawEl) rawEl.readOnly = false;
+    // 恢复全文显示
+    if (content && rawEl) rawEl.value = content;
+    delete _archFullContent['detail'];
+  }
+}
+
+window.detailPrevPage = function(){
+  _detailPageIdx = Math.max(0, _detailPageIdx - 1);
+  updateDetailDisplay();
+};
+window.detailNextPage = function(){
+  var content = getDetailContent();
+  if (!content) return;
+  var chapters = parseDetailChaptersV48(content);
+  var totalBatches = Math.ceil(chapters.length / 10) || 1;
+  _detailPageIdx = Math.min(totalBatches - 1, _detailPageIdx + 1);
+  updateDetailDisplay();
+};
+// 细纲显示全文（退出分页，恢复可编辑）
+window.detailShowAll = function(){
+  var rawEl = document.getElementById('raw-detail');
+  if (rawEl) {
+    rawEl.value = _archFullContent['detail'] || rawEl.value;
+    rawEl.readOnly = false;
+    rawEl.style.height = 'auto';
+    rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+  }
+  var pager = document.getElementById('detail-pager');
+  if (pager) pager.style.display = 'none';
+  _detailPageIdx = 0;
+  // 清除全文缓存，后续保存时以 textarea 编辑内容为准
+  delete _archFullContent['detail'];
+};
+
+// ===== v48: 细纲导入功能 =====
+window.hideImportArea = function(){
+  var area = document.getElementById('detail-import-area');
+  if(area) area.style.display = 'none';
+};
+window.importDetailText = function(){
+  try{
+    var textEl = document.getElementById('detail-import-text');
+    var rawEl = document.getElementById('raw-detail');
+    if(!textEl || !rawEl || !textEl.value.trim()){ showToast('请粘贴细纲文本',{error:true}); return; }
+    rawEl.value = textEl.value;
+    var work = getCurrentWork();
+    if(work){ work.detail = textEl.value; if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }
+    hideImportArea();
+    // 导入后清理全文缓存并重新初始化翻页器
+    delete _archFullContent['detail'];
+    _detailPageIdx = 0;
+    initDetailPager();
+    showToast('✅ 已导入细纲');
+  }catch(e){ console.error('importDetailText:',e); showToast('导入失败',{error:true}); }
+};
+
+// ===== v48: 后台生成切换 =====
+var _bgGenRunning = false;
+window.switchToBackgroundGen = function(){
+  _bgGenRunning = true;
+  document.getElementById('detail-progress').style.display = 'none';
+  var indicator = document.getElementById('bg-gen-indicator');
+  if(indicator) indicator.style.display = 'block';
+  showToast('已切换到后台生成，可继续浏览其他模块',{duration:2500});
+};
+window.cancelGeneration = function(){
+  _bgGenRunning = false;
+  document.getElementById('detail-progress').style.display = 'none';
+  var indicator = document.getElementById('bg-gen-indicator');
+  if(indicator) indicator.style.display = 'none';
+  showToast('已取消生成');
+};
+window.switchToFrontGen = function(){
+  document.getElementById('detail-progress').style.display = '';
+  var indicator = document.getElementById('bg-gen-indicator');
+  if(indicator) indicator.style.display = 'none';
+};
+
+// ===== v48: 保存确认弹窗 =====
+window.cancelSave = function(){
+  document.getElementById('save-confirm-modal').style.display = 'none';
+};
+window.confirmSave = function(){
+  try{
+    var module = _selectedModule || 'world';
+    var work = getCurrentWork();
+    if(!work){ showToast('无作品',{error:true}); return; }
+    var rawEl = document.getElementById('raw-' + module);
+    // 分页模式下用全文缓存，非分页模式用 textarea 值
+    if(rawEl){ work[module] = _archFullContent[module] || rawEl.value || ''; }
+    if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    document.getElementById('save-confirm-modal').style.display = 'none';
+    showToast('✅ 已保存并解锁');
+    // 自动跳转到下一个模块
+    var nextMap = { world:'chars', chars:'outline', outline:'detail' };
+    var next = nextMap[module];
+    if(next){ _selectedModule = next; goToLevel(4); }
+  }catch(e){ console.error('confirmSave:',e); showToast('保存失败',{error:true}); }
+};
+
+// ===== v52: 素材库面板 =====
+var _matLib = null; // 当前素材库缓存
+
+function openMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  _matLib = work.materialLib || null;
+  document.getElementById('matlib-overlay').style.display = 'block';
+  document.getElementById('matlib-panel').style.display = 'block';
+  var statusEl = document.getElementById('matlib-status');
+  if (_matLib && _matLib.extractedAt) {
+    statusEl.textContent = '上次提取：' + new Date(_matLib.extractedAt).toLocaleString() + ' | 共 ' + (_matLib.categoryCount || 0) + ' 个类别';
+  } else {
+    statusEl.textContent = '尚未提取';
+  }
+  renderMaterialLib();
+}
+
+function closeMaterialLib() {
+  document.getElementById('matlib-overlay').style.display = 'none';
+  document.getElementById('matlib-panel').style.display = 'none';
+}
+
+function renderMaterialLib() {
+  var el = document.getElementById('matlib-content');
+  if (!_matLib || !_matLib.categories) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#ccc;">尚未提取素材库<br>点击「🤖 AI 提取」自动从设定中提取</div>';
+    return;
+  }
+  var cats = _matLib.categories;
+  var html = '';
+  var catNames = ['地名/地点', '势力/组织', '功法/技能', '道具/物品', '货币/资源', '修炼等级', '特殊称谓', '时间单位', '文化习俗', '种族/物种', '法则/规则', '其他'];
+  var catKeys = ['places', 'factions', 'skills', 'items', 'currency', 'levels', 'titles', 'timeUnits', 'customs', 'races', 'rules', 'other'];
+  var shown = 0;
+  for (var ci = 0; ci < catKeys.length; ci++) {
+    var key = catKeys[ci];
+    var items = cats[key];
+    if (!items || !items.length) continue;
+    shown++;
+    html += '<div style="margin-bottom:14px;"><strong style="color:#333;">' + catNames[ci] + '</strong>';
+    html += '<div style="color:#666;margin-top:2px;">';
+    for (var ii = 0; ii < items.length; ii++) {
+      var item = items[ii];
+      if (typeof item === 'string') {
+        html += '<span style="display:inline-block;background:#f0f0ff;padding:2px 8px;border-radius:4px;margin:2px 4px 2px 0;font-size:12px;">' + item + '</span>';
+      } else if (item && item.name) {
+        var desc = item.desc ? ' <span style="color:#999;font-size:11px;">— ' + item.desc + '</span>' : '';
+        html += '<span style="display:inline-block;background:#f0f0ff;padding:2px 8px;border-radius:4px;margin:2px 4px 2px 0;font-size:12px;">' + item.name + '</span>' + desc;
+      }
+    }
+    html += '</div></div>';
+  }
+  if (shown === 0) {
+    html = '<div style="text-align:center;padding:20px;color:#ccc;">素材库为空，请点击「AI 提取」</div>';
+  }
+  el.innerHTML = html;
+}
+
+async function aiExtractMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  
+  var statusEl = document.getElementById('matlib-status');
+  statusEl.textContent = '🤖 AI 正在分析设定，提取素材...';
+  var contentEl = document.getElementById('matlib-content');
+  contentEl.innerHTML = '<div style="text-align:center;padding:40px;color:#6366f1;">🤖 AI 正在分析你的世界观、人设、大纲...<br><span style="font-size:12px;color:#999;">提取地名、势力、功法、道具、货币、等级、称谓、习俗等</span></div>';
+  
+  var worldText = work.world || '';
+  var charsText = work.chars || '';
+  var outlineText = work.outline || '';
+  var detailText = work.detail || '';
+  var allText = worldText + '\n\n' + charsText + '\n\n' + outlineText + '\n\n' + detailText;
+  
+  if (allText.trim().length < 50) {
+    statusEl.textContent = '⚠️ 设定内容太少，请先生成世界观/人设/大纲';
+    contentEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">设定内容不足，无法提取素材库</div>';
+    return;
+  }
+  
+  // 截断过长文本
+  if (allText.length > 15000) allText = allText.substring(0, 15000) + '\n...(内容过长，已截断)';
+  
+  var prompt = '请从以下小说设定中提取结构化素材库。输出必须是纯JSON格式，不要加任何解释。\n\n';
+  prompt += '【小说设定】\n' + allText + '\n\n';
+  prompt += '【输出格式】严格按以下JSON结构输出，每个类别最多15项：\n';
+  prompt += '{\n';
+  prompt += '  "places": ["地名1", "地名2"],\n';
+  prompt += '  "factions": ["势力名1", "势力名2"],\n';
+  prompt += '  "skills": ["功法/技能名1", "功法/技能名2"],\n';
+  prompt += '  "items": ["道具/物品名1", "道具/物品名2"],\n';
+  prompt += '  "currency": ["货币/资源名1", "货币/资源名2"],\n';
+  prompt += '  "levels": [{"name":"境界名","desc":"简要说明"}, ...],\n';
+  prompt += '  "titles": ["称谓/身份1", "称谓/身份2"],\n';
+  prompt += '  "timeUnits": ["时间单位1", "时间单位2"],\n';
+  prompt += '  "customs": ["文化习俗1", "文化习俗2"],\n';
+  prompt += '  "races": ["种族/物种1", "种族/物种2"],\n';
+  prompt += '  "rules": ["世界观法则1", "世界观法则2"],\n';
+  prompt += '  "other": ["其他重要设定元素"]\n';
+  prompt += '}\n\n';
+  prompt += '规则：\n';
+  prompt += '1. 只提取在设定中明确出现过或强烈暗示过的元素，不要凭空编造\n';
+  prompt += '2. 如果某个类别在设定中没有任何内容，返回空数组[]\n';
+  prompt += '3. 名称要简洁（2-8字），便于AI在写作时引用\n';
+  prompt += '4. levels 类别需要包含 name 和 desc 两个字段\n';
+  prompt += '5. 直接输出JSON，不要加```json标记或任何其他文字\n';
+  
+  try {
+    var result = await callRealAPI(prompt, null, 'matlib', 2000);
+    // 尝试解析JSON
+    var jsonStr = result.trim();
+    // 清理可能的markdown标记
+    jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+    var parsed = JSON.parse(jsonStr);
+    
+    _matLib = {
+      categories: parsed,
+      categoryCount: Object.keys(parsed).filter(function(k) { return parsed[k] && parsed[k].length > 0; }).length,
+      extractedAt: Date.now()
+    };
+    
+    statusEl.textContent = '✅ 提取完成！共 ' + _matLib.categoryCount + ' 个类别 | ' + new Date().toLocaleString();
+    renderMaterialLib();
+  } catch (e) {
+    console.error('素材库提取失败:', e);
+    statusEl.textContent = '❌ 提取失败，请重试';
+    contentEl.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e;">解析失败，AI 返回格式不正确<br><span style="font-size:12px;color:#999;">请重试，或检查设定内容是否足够丰富</span></div>';
+  }
+}
+
+function saveMaterialLib() {
+  var work = getCurrentWork();
+  if (!work) { showToast('请先打开作品', {error: true}); return; }
+  if (!_matLib || !_matLib.categories) { showToast('素材库为空，请先提取', {error: true}); return; }
+  
+  work.materialLib = _matLib;
+  if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+  showToast('✅ 素材库已保存');
+  closeMaterialLib();
+}
+
+window.openMaterialLib = openMaterialLib;
+window.closeMaterialLib = closeMaterialLib;
+window.aiExtractMaterialLib = aiExtractMaterialLib;
+window.saveMaterialLib = saveMaterialLib;
+</script>
+</body>
+</html>

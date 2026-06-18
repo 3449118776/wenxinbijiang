@@ -1,0 +1,8 @@
+{
+  "appId": "com.wenxinbijiang.app",
+  "appName": "文心笔匠",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

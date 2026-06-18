@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>文心笔匠 - 预测入口 v24</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+body{background:#f6f7f9;color:#222;padding-bottom:82px}
+.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:10}
+.back-btn{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:#f5f5f5;cursor:pointer}
+.page-title{flex:1;text-align:center;font-size:17px;font-weight:700}
+.placeholder{width:32px}
+.section{background:#fff;margin-top:8px;padding:16px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:12px}
+.platform-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.platform-tab{height:50px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.platform-tab.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-row{margin-bottom:10px}
+.form-row.full{grid-column:1/3}
+label{display:block;font-size:12px;color:#777;margin-bottom:5px}
+input,select{width:100%;height:48px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:15px;background:#fff;color:#222}
+.hint{font-size:12px;color:#888;line-height:1.7;margin-top:8px}
+.predict-btn{width:calc(100% - 32px);margin:14px 16px 10px;height:54px;border:none;border-radius:14px;background:#6366f1;color:#fff;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(99,102,241,.24);-webkit-tap-highlight-color:transparent}
+.predict-btn:active{transform:scale(.98)}
+.predict-btn.loading{background:#a5b4fc;pointer-events:none}
+.quick-list{display:flex;flex-direction:column;gap:8px}
+.quick-item{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.quick-item.active{border-color:#6366f1;background:#f0f2ff}
+.quick-title{font-size:14px;font-weight:700}
+.quick-meta{font-size:12px;color:#777;margin-top:5px}
+.empty{padding:24px 16px;text-align:center;color:#888;line-height:1.8;font-size:14px;background:#fff;margin-top:8px}
+.toast{position:fixed;top:78px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:12px 20px;border-radius:22px;font-size:14px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
+.toast.show{opacity:1}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#999;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:6px 0;gap:2px}
+.tab-icon{font-size:22px;line-height:1.2}
+</style>
+</head>
+<body>
+<div class="page-header"><div class="back-btn" id="back-btn">‹</div><div class="page-title">数据预测</div><div class="placeholder"></div></div>
+
+<div class="section">
+  <div class="section-title">预测平台</div>
+  <div class="platform-tabs">
+    <button class="platform-tab active" data-platform="qidian">📚 起点</button>
+    <button class="platform-tab" data-platform="fanqie">🍅 番茄</button>
+  </div>
+</div>
+
+<div class="section" id="work-section">
+  <div class="section-title">自动接入小说</div>
+  <div id="quick-list" class="quick-list"></div>
+  <div class="hint">默认选择最近编辑的作品；也可以点列表切换。点击“开始预测”后会直接跳转到预测结果界面。</div>
+</div>
+
+<div class="section">
+  <div class="section-title">手动补充/覆盖</div>
+  <div class="form-grid">
+    <div class="form-row full"><label>作品名称</label><input id="book-name" placeholder="自动读取，可手动修改"></div>
+    <div class="form-row"><label>题材</label><select id="book-genre"><option value="">题材</option><option>玄幻</option><option>仙侠</option><option>都市</option><option>历史</option><option>末世</option><option>武侠</option><option>言情</option><option>种田</option><option>争霸</option></select></div>
+    <div class="form-row"><label>已发章节数</label><input id="chapter-count" type="number" placeholder="0"></div>
+    <div class="form-row"><label>总字数（万）</label><input id="word-count" type="number" step="0.1" placeholder="0.0"></div>
+    <div class="form-row"><label>日更字数</label><input id="daily-update" type="number" placeholder="4000"></div>
+  </div>
+</div>
+
+<button class="predict-btn" id="predict-btn">📈 开始预测</button>
+
+<div class="empty" id="empty-hint" style="display:none">没有检测到作品，也可以手动填写作品信息后开始预测。</div>
+
+<div class="tab-bar">
+  <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/cloud-sync.js"></script>
+<script src="assets/js/nav-helper.js"></script>
+<script src="assets/js/api.js"></script>
+<script>
+var selectedPlatform='qidian';
+var selectedWorkId='';
+var works=[];
+function $(id){return document.getElementById(id)}
+function showToast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2200)}
+
+function safeText(v){return (v==null?'':String(v)).trim()}
+function countWords(w){return (w.chapters||[]).reduce(function(s,ch){return s+(ch.content||'').length},0)}
+function getGenre(w){return safeText((w.settings&&w.settings.genre)||w.genre||(w.category&&w.category.cat1)||'')}
+function fillFromWork(w){
+  selectedWorkId=w.id||'';
+  $('book-name').value=w.title||'';
+  $('book-genre').value=getGenre(w)||'';
+  var chs=w.chapters||[];
+  var words=countWords(w);
+  $('chapter-count').value=chs.length||'';
+  $('word-count').value=words?Math.max(0.1,words/10000).toFixed(1):'';
+  $('daily-update').value=(w.settings&&w.settings.dailyUpdate)||4000;
+  var pf=(w.settings&&w.settings.platform)||'';
+  if(pf==='fanqie') setPlatform('fanqie');
+  document.querySelectorAll('.quick-item').forEach(function(x){x.classList.toggle('active',x.dataset.id===selectedWorkId)})
+}
+function renderWorks(){
+  if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; }
+  works=DB.works||[];
+  var last=localStorage.getItem('last_edit_work')||'';
+  var list=$('quick-list');
+  if(!works.length){
+    list.innerHTML='<div class="hint">暂无作品数据。</div>';
+    $('empty-hint').style.display='block';
+    return;
+  }
+  var sorted=works.slice().sort(function(a,b){
+    if(a.id===last)return -1;
+    if(b.id===last)return 1;
+    return (b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0);
+  });
+  list.innerHTML=sorted.slice(0,6).map(function(w){
+    var words=countWords(w), chs=(w.chapters||[]).length, genre=getGenre(w)||'未设定';
+    return '<div class="quick-item" data-id="'+(w.id||'')+'"><div class="quick-title">'+(w.title||'未命名')+'</div><div class="quick-meta">'+genre+' · '+chs+'章 · '+(words>=10000?(words/10000).toFixed(1)+'万字':words+'字')+'</div></div>';
+  }).join('');
+  list.querySelectorAll('.quick-item').forEach(function(el){
+    el.addEventListener('click',function(){var w=works.find(function(x){return x.id===el.dataset.id});if(w)fillFromWork(w)})
+  });
+  fillFromWork(sorted[0]);
+}
+function setPlatform(p){
+  selectedPlatform=p;
+  document.querySelectorAll('.platform-tab').forEach(function(btn){btn.classList.toggle('active',btn.dataset.platform===p)})
+}
+document.querySelectorAll('.platform-tab').forEach(function(btn){btn.addEventListener('click',function(){setPlatform(btn.dataset.platform)})});
+$('back-btn').addEventListener('click',function(){location.href='index.html'});
+function startPredict(){
+  var manual={
+    id:selectedWorkId,
+    title:safeText($('book-name').value)||'未命名作品',
+    genre:safeText($('book-genre').value),
+    chapters:parseInt($('chapter-count').value,10)||0,
+    wordsWan:parseFloat($('word-count').value)||0,
+    daily:parseInt($('daily-update').value,10)||0,
+    platform:selectedPlatform
+  };
+  if(!manual.genre||!manual.chapters||!manual.wordsWan){
+    showToast('请补齐题材、章节数和总字数');
+    return;
+  }
+  localStorage.setItem('predict_work_id',selectedWorkId||'');
+  localStorage.setItem('predict_platform',selectedPlatform);
+  localStorage.setItem('predict_manual_data',JSON.stringify(manual));
+  var btn=$('predict-btn');btn.classList.add('loading');btn.textContent='正在进入预测界面...';
+  setTimeout(function(){location.href='predict-result.html?from=entry&t='+Date.now()},120);
+}
+$('predict-btn').addEventListener('click',startPredict);
+renderWorks();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "wenxin-bijiang",
+  "version": "1.0.0",
+  "description": "文心笔匠 - AI 写作助手",
+  "private": true,
+  "scripts": {
+    "build": "echo 'static site, no build needed'",
+    "cap": "cap",
+    "cap:sync": "cap sync",
+    "cap:add:android": "cap add android",
+    "cap:build:android": "cap build android",
+    "apk:build": "cd android && ./gradlew assembleDebug"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1"
+  }
+}
