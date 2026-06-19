@@ -402,7 +402,6 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
         <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
         <button class="sec-btn" onclick="openReader('world')">📖 阅读</button>
@@ -431,7 +430,6 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
         <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <button class="sec-btn" onclick="showRelationGraph()">👥 关系图</button>
         <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
@@ -466,7 +464,6 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
         <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
         <button class="sec-btn" onclick="openReader('outline')">📖 阅读</button>
@@ -502,7 +499,6 @@ body{display:flex;flex-direction:column;}
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
         <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
         <button class="sec-btn" onclick="strengthenDetailOutlineV46()">🔥 细纲补强</button>
-        <button class="sec-btn" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
         <button class="sec-btn" onclick="openReader('detail')">📖 阅读</button>
@@ -2799,16 +2795,9 @@ window.evaluateArchModule = async function(){
       // === 判断是否达标 ===
       if(aiScore >= TARGET_SCORE || !fixedVersion || round >= MAX_ROUNDS){
         // 显示结果
-        var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
-        var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-        if(fixBtn){
-          fixBtn.style.display = aiScore >= TARGET_SCORE ? 'none' : '';
-          fixBtn.textContent = '🔥 按评价加强（' + (aiScore > 0 ? '评分' + aiScore + '分 · ' : '') + allIssues.length + '个问题）';
-        }
         var roundTag = round > 1 ? '（经' + round + '轮迭代）' : '';
         var scoreLabel = aiScore >= TARGET_SCORE ? '🎉 已达9分精品标准！' : (aiScore >= 7 ? '👍 中等偏上' : (aiScore >= 4 ? '⚠️ 需要修改' : '❌ 严重问题'));
         var finalMsg = '【' + moduleName + ' · 质量评价' + roundTag + '】\n【AI评分】' + aiScore + '/10分 ' + scoreLabel + '\n\n' + (aiReport ? aiReport.replace(/【修正版】[\s\S]*$/, '').trim() : '');
-        if(aiScore < TARGET_SCORE && fixedVersion) finalMsg += '\n\n💡 修正版已缓存，点击"按评价加强"即可应用（无需额外API调用）';
         if(aiScore >= TARGET_SCORE) finalMsg += '\n\n✅ 恭喜！' + moduleName + '已达到精品签约标准！';
         try{ alert(finalMsg); }catch(e){ showToast(finalMsg.slice(0, 200), {duration: 6000}); }
         return;
