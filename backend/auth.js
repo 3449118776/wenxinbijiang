@@ -2,7 +2,7 @@
  * JWT 认证中间件
  */
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'wxbj_cloud_secret_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'wxbj_cloud_secret_2026_v2_production';
 
 function generateToken(userId, email) {
   return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '30d' });

@@ -1,7 +1,9 @@
 // 共用工具：JWT + KV 存储 + 密码哈希
 // Cloudflare Pages Functions 使用 Web Crypto API
 
-export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2';
+import bcrypt from 'bcryptjs';
+
+export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2_production';
 globalThis.__JWT_SECRET = JWT_SECRET;
 
 // ============ Base64URL ============
@@ -120,8 +122,10 @@ export async function verify_password(password, storedHash) {
     }
     return ok;
   }
-  // bcrypt 格式（以 $2 开头）- Worker 环境下降级支持（简单比较前8位作为兜底）
-  // 实际生产中应统一使用 PBKDF2
+  // bcrypt 格式（以 $2 开头）- 使用 bcryptjs 纯 JS 库验证
+  if (storedHash.startsWith('$2')) {
+    return bcrypt.compare(password, storedHash);
+  }
   return false;
 }
 

@@ -637,9 +637,9 @@ window.CloudSync = CloudSync;
 if (!window.cloud) {
   var _apiBase;
   var _protocol = (location.protocol || '').toLowerCase();
-  if (_protocol === 'file:' || !location.hostname || location.origin === 'null' || location.origin === null) {
-    // file:// 协议或无域名环境下，云端同步不可用（保留本地数据即可）
-    _apiBase = '';
+  if (_protocol === 'file:' || !location.hostname || location.origin === 'null' || location.origin === null || location.hostname === 'capacitor') {
+    // file:// / capacitor:// / 无域名环境下，使用 Cloudflare Pages 远程 API
+    _apiBase = 'https://wxbj-main.pages.dev/api';
   } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     _apiBase = 'http://localhost:8787/api';
   } else {
