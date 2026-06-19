@@ -2841,6 +2841,104 @@ window.evaluateArchModule = async function(){
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
 
+// ========== v53: 全模块批量评价 —— 一次API调用评价所有模块（省3次调用）==========
+window.evaluateAllArchModules = async function(){
+  try{
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择一部作品'); return; }
+    
+    // 收集所有有内容的模块
+    var modules = ['world', 'chars', 'outline', 'detail'];
+    var moduleNames = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
+    var contents = {};
+    var hasAny = false;
+    modules.forEach(function(m){
+      var c = _archFullContent[m] || '';
+      if(!c){
+        var rawEl = document.getElementById('raw-' + m);
+        if(rawEl && rawEl.value.trim()) c = rawEl.value.trim();
+      }
+      if(c && c.length > 100){ contents[m] = c; hasAny = true; }
+    });
+    if(!hasAny){ showToast('请先生成至少一个模块的内容再评价'); return; }
+    
+    if(typeof showLoading === 'function') showLoading('全模块评价中…（1次调用）');
+    
+    // 构建合并评价 prompt
+    var prompt = '你是一位严格的资深网文编辑。请对以下架构模块逐一评分并给出修正版。\n\n';
+    prompt += '【作品题材】' + (work.genre || '未知') + '\n';
+    prompt += '【评分标准】1-3分=严重问题，4-6分=有明显缺陷，7-8分=中等偏上，9-10分=精品级别\n\n';
+    
+    var modKeys = [];
+    modules.forEach(function(m){
+      if(!contents[m]) return;
+      modKeys.push(m);
+      var c = contents[m];
+      prompt += '=== ' + m.toUpperCase() + '·' + moduleNames[m] + '（共' + c.length + '字）===\n';
+      prompt += c.slice(0, 2000) + (c.length > 2000 ? '\n...(已截断至2000字)...' : '') + '\n\n';
+    });
+    
+    prompt += '【请对以上每个模块逐项评价，输出格式：】\n';
+    prompt += '┌─ [模块名] ─────────────────\n';
+    prompt += '│【总分】X/10分\n';
+    prompt += '│【主要问题】（2-3条）\n';
+    prompt += '│【修正版】（直接输出完整修正后的内容；如已达9分则写"无需修改"）\n';
+    prompt += '└──────────────────────────\n';
+    prompt += '（每个模块用以上格式依次输出，模块间用空行分隔）\n';
+    
+    var result = '';
+    try{
+      result = await callRealAPIWithFallback(prompt, null, 'batch_eval', 3000, true);
+    }catch(e){ result = ''; }
+    
+    if(typeof hideLoading === 'function') hideLoading();
+    if(!result || result.length < 50){ showToast('评价API调用失败'); return; }
+    
+    // 解析每个模块的结果
+    var summaryLines = [];
+    var totalCalls = 0;
+    modKeys.forEach(function(m){
+      var name = moduleNames[m];
+      var re = new RegExp('┌─\\s*\\[?' + m.toUpperCase() + '[^\\n]*\\n([\\s\\S]*?)(?=┌─|$)', 'i');
+      var match = result.match(re);
+      if(!match){ summaryLines.push(name + '：未找到评价结果'); return; }
+      var block = match[1];
+      
+      // 解析分数
+      var scoreMatch = block.match(/【总分】\s*(\d+(\.\d+)?)\s*\/?\s*10\s*分?/);
+      var aiScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+      
+      // 解析问题
+      var issuesMatch = block.match(/【主要问题】([\s\S]*?)(?=【修正版】|$)/);
+      var issues = [];
+      if(issuesMatch){
+        issues = issuesMatch[1].split('\n').filter(function(l){ return l.trim().length > 5; }).map(function(l){ return l.replace(/^[-•\d.]+\s*/, '').trim(); });
+      }
+      
+      // 解析修正版
+      var fixMatch = block.match(/【修正版】([\s\S]*?)$/);
+      var fixedVersion = '';
+      if(fixMatch && fixMatch[1] && fixMatch[1].trim().length > 50 && fixMatch[1].indexOf('无需修改') === -1){
+        fixedVersion = fixMatch[1].trim();
+      }
+      
+      // 保存
+      work._archEval = work._archEval || {};
+      work._archEval[m] = { issues: issues, strengths: [], aiReport: block, aiScore: aiScore, time: Date.now(), fixedVersion: fixedVersion };
+      
+      var scoreLabel = aiScore >= 9 ? '🎉' : (aiScore >= 7 ? '👍' : (aiScore >= 4 ? '⚠️' : '❌'));
+      summaryLines.push(name + '：' + scoreLabel + ' ' + aiScore + '/10分' + (issues.length ? '（' + issues.length + '个问题）' : ''));
+      if(fixedVersion) totalCalls++;
+    });
+    
+    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    
+    var summary = '✅ 全模块评价完成（1次API调用 vs 常规' + modKeys.length + '次）\n\n' + summaryLines.join('\n');
+    if(totalCalls > 0) summary += '\n\n' + totalCalls + '个模块已有修正版，点击"按评价加强"可直接应用（无需额外调用）';
+    try{ alert(summary); }catch(e){ showToast(summary, {duration: 8000}); }
+  }catch(e){ console.error('evaluateAllArchModules error:', e); showToast('批量评价失败：' + (e.message||e), {error:true}); }
+};
+
 // ========== v53: 按评价加强 —— 优先使用评价时已生成的修正版，避免额外API调用 ==========
 window.fixArchModule = async function(){
   try{
@@ -2895,6 +2993,38 @@ window.fixArchModule = async function(){
     extraHint += '- 细纲：每章必须有炸弹开头、钩子结尾、剧情节点、对话亮点\n';
     await window.generateArchModule({ isFix: true, extraHint: extraHint });
   }catch(e){ console.error('fixArchModule error:', e); showToast('加强失败：' + (e.message||e), {error:true}); }
+};
+
+// ========== v53: 全模块一键加强 —— 批量应用所有缓存修正版（无需额外API调用）==========
+window.fixAllArchModules = function(){
+  try{
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择一部作品'); return; }
+    if(!work._archEval){ showToast('请先进行全模块评价'); return; }
+    
+    var modules = ['world', 'chars', 'outline', 'detail'];
+    var moduleNames = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
+    var applied = [];
+    var skipped = [];
+    
+    modules.forEach(function(m){
+      var evalData = work._archEval[m];
+      if(!evalData || !evalData.fixedVersion || evalData.fixedVersion.length < 50){
+        skipped.push(moduleNames[m]);
+        return;
+      }
+      work[m] = evalData.fixedVersion;
+      applied.push(moduleNames[m]);
+    });
+    
+    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    
+    var msg = '✅ 已应用修正版（无需API调用）：\n' + applied.join('、');
+    if(skipped.length) msg += '\n\n⚠️ 无修正版缓存：' + skipped.join('、') + '（请先全模块评价）';
+    showToast(msg, 5000);
+    // 刷新当前显示
+    if(typeof renderArchContent === 'function') renderArchContent(_selectedModule || 'world');
+  }catch(e){ console.error('fixAllArchModules error:', e); }
 };
 
 // ========== v53: 模块间反向修正联动 — 修改一个模块时自动标记关联模块 ==========
