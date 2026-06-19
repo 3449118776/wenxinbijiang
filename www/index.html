@@ -132,7 +132,7 @@ body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
 
 (function(){
   var API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:8787/api'
+    ? (location.port === '8787' ? 'http://localhost:8787/api' : 'https://wxbj-main.pages.dev/api')
     : (location.protocol === 'file:' || location.hostname === 'capacitor' || !location.hostname)
       ? 'https://wxbj-main.pages.dev/api'
       : '/api';
