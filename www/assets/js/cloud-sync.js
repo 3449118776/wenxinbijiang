@@ -637,13 +637,10 @@ window.CloudSync = CloudSync;
 if (!window.cloud) {
   var _apiBase;
   var _protocol = (location.protocol || '').toLowerCase();
-  if (_protocol === 'file:' || !location.hostname || location.origin === 'null' || location.origin === null) {
-    // file:// 协议或无域名环境下，云端同步不可用（保留本地数据即可）
-    _apiBase = '';
-  } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     _apiBase = 'http://localhost:8787/api';
   } else {
-    _apiBase = location.origin + '/api';
+    _apiBase = (location.origin && location.origin !== 'null') ? (location.origin + '/api') : 'https://wxbj-main.pages.dev/api';
   }
   window.cloud = new CloudSync({ apiBase: _apiBase, autoSync: true });
 }
