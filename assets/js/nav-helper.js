@@ -1,22 +1,18 @@
 /**
- * nav-helper.js - 文心笔匠 导航优化助手
+ * nav-helper.js - 文心笔匠 导航优化助手 v2
  *
- * 功能：
- * 1. 导航加载遮罩 —— 切换页面时显示过渡动画，用户感知流畅
- * 2. Tab 点击防抖 —— 防止快速连续点击导致多次页面加载
- * 3. 活跃指示器动画 —— tab 切换时指示器平滑滑动
- * 4. 导航状态管理 —— 记录当前页，刷新后正确高亮
- * 5. 页面预加载提示 —— 减少感知等待时间
- *
- * 使用方法：在各页面 <script src="assets/js/ui.js"> 之后引入本文件即可。
- * 各页面的 tab-bar 按钮保持原有 onclick 逻辑不变，navHelper 会自动拦截增强。
+ * 优化：
+ * 1. 即时跳转（去掉80ms延迟）
+ * 2. hover/touch 预加载（prefetch 页面资源）
+ * 3. ViewTransition API 平滑过渡
+ * 4. 减轻遮罩时间，减少等待感
  */
 (function () {
   'use strict';
 
   // ===== 配置 =====
-  var NAV_LOADING_MIN_MS = 300;  // 加载遮罩最少显示时间（ms），避免闪烁
-  var DEBOUNCE_MS = 400;         // 防抖间隔（ms），此时间内重复点击会被忽略
+  var NAV_LOADING_MIN_MS = 120;  // 加载遮罩最少显示时间（ms），降至120ms减少感知延迟
+  var DEBOUNCE_MS = 200;         // 防抖间隔（ms），200ms足够防误触
 
   // ===== 状态 =====
   var _lastNavTime = 0;
@@ -25,8 +21,9 @@
   var _hideTimer = null;
   var _indicatorStyleEl = null;
   var _initialized = false;
+  var _prefetched = {}; // 已预加载的页面
 
-  // 预定义的 tab 页面路径映射（用于预加载提示和状态判断）
+  // 预定义的 tab 页面路径映射
   var TAB_PAGES = {
     'index':      'index.html',
     'architecture': 'architecture.html',
@@ -55,20 +52,17 @@
       'background:rgba(255,255,255,0.92);' +
       'display:flex;align-items:center;justify-content:center;' +
       'opacity:0;pointer-events:none;' +
-      'transition:opacity 0.18s ease';
+      'transition:opacity 0.12s ease';
     document.body.appendChild(el);
 
-    // 注入微调样式（仅首次）
     var style = document.createElement('style');
     style.textContent = [
       '.nav-loading-inner{display:flex;flex-direction:column;align-items:center;gap:12px}',
       '.nav-loading-spinner{width:36px;height:36px;border:3px solid #e0e7ff;border-top-color:#6366f1;border-radius:50%;animation:navSpin .7s linear infinite}',
       '.nav-loading-text{font-size:13px;color:#6366f1;font-weight:500}',
       '@keyframes navSpin{to{transform:rotate(360deg)}}',
-      // 页面淡入动画
       '.nav-page-ready{animation:navPageIn .25s ease forwards}',
       '@keyframes navPageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
-      // tab 指示器平滑滑动
       '.nav-tab-bar{position:relative;overflow:hidden}',
       '.nav-tab-indicator{position:absolute;bottom:0;height:2px;background:#6366f1;border-radius:2px 2px 0 0;transition:left .22s cubic-bezier(.4,0,.2,1),width .22s cubic-bezier(.4,0,.2,1);pointer-events:none}'
     ].join('\n');
@@ -88,8 +82,7 @@
   }
 
   function hideNavLoading() {
-    if (_hideTimer) return; // 已经在隐藏流程中
-    // 保证最少显示 NAV_LOADING_MIN_MS，避免闪烁
+    if (_hideTimer) return;
     var elapsed = Date.now() - _lastNavTime;
     var delay = Math.max(0, NAV_LOADING_MIN_MS - elapsed);
     _hideTimer = setTimeout(function () {
@@ -107,7 +100,7 @@
   function canNavigate() {
     var now = Date.now();
     if (now - _lastNavTime < DEBOUNCE_MS) {
-      return false; // 拒绝：点击太快
+      return false;
     }
     _lastNavTime = now;
     return true;
@@ -132,35 +125,69 @@
     indicator.style.width = width + 'px';
   }
 
-  // ===== 核心导航函数（替换原来的 location.href） =====
+  // ===== v2: 页面预加载（hover/touch时提前加载） =====
+
+  function prefetchPage(url) {
+    if (!url || _prefetched[url]) return;
+    _prefetched[url] = true;
+    
+    // 使用 prefetch 预加载页面 HTML
+    var link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = url;
+    link.as = 'document';
+    document.head.appendChild(link);
+    
+    // 同时预加载该页面的关键 JS
+    var pageName = url.replace(/\.html$/, '');
+    var jsMap = {
+      'architecture': 'architecture.html',
+      'write': 'write.html',
+      'settings': 'settings.html',
+      'work-list': 'work-list.html',
+      'index': 'index.html'
+    };
+    // 预加载 settings 页面可能需要的资源
+    if (url === 'settings.html') {
+      var prefetchApi = document.createElement('link');
+      prefetchApi.rel = 'prefetch';
+      prefetchApi.href = 'assets/js/api.js';
+      prefetchApi.as = 'script';
+      document.head.appendChild(prefetchApi);
+    }
+  }
+
+  // ===== v2: 核心导航（即时跳转，无延迟） =====
 
   function navigate(url, tabName) {
     if (!canNavigate()) return;
 
-    // 记录导航次数（用于判断是否首次）
     _navCount++;
 
-    // 1. 立即显示加载遮罩（让用户知道系统在响应）
+    // 1. 立即显示加载遮罩
     showNavLoading('页面切换中…');
 
-    // 2. 短暂延迟后跳转（让遮罩先显示出来）
-    setTimeout(function () {
-      // 3. 更新 localStorage 中的当前页状态
-      if (tabName && url) {
-        try {
-          localStorage.setItem('wxbj_last_page', tabName);
-        } catch (e) {}
-      }
+    // 2. 更新 localStorage
+    if (tabName && url) {
+      try {
+        localStorage.setItem('wxbj_last_page', tabName);
+      } catch (e) {}
+    }
 
-      // 4. 真正跳转
+    // 3. v2: 使用 ViewTransition 或立即跳转（去掉80ms延迟）
+    if (document.startViewTransition) {
+      document.startViewTransition(function () {
+        window.location.href = url;
+      });
+    } else {
+      // 无 ViewTransition 支持时直接跳转，不延迟
       window.location.href = url;
-    }, 80);
+    }
   }
 
   // ===== 页面就绪动画 =====
 
   function triggerPageReady() {
-    // 给页面主体加一个淡入动画（仅第一次加载时）
     if (_navCount <= 1) {
       var main = document.querySelector('.page-body,main,.main-content,#main-content,body');
       if (main) {
@@ -172,7 +199,7 @@
     }
   }
 
-  // ===== Tab-bar 初始化：拦截原有 onclick 事件 =====
+  // ===== Tab-bar 初始化：拦截原有 onclick + 添加预加载 =====
 
   function initTabBar() {
     if (_initialized) return;
@@ -180,18 +207,15 @@
 
     var tabBars = document.querySelectorAll('.tab-bar');
     tabBars.forEach(function (tabBar) {
-      // 给 tab-bar 加动画 class
       tabBar.classList.add('nav-tab-bar');
 
       var items = tabBar.querySelectorAll('.tab-item');
       items.forEach(function (item) {
-        // 提取原始跳转地址
         var onclickAttr = item.getAttribute('onclick') || '';
         var match = onclickAttr.match(/location\.href\s*=\s*['"]([^'"]+)['"]/);
         if (!match) return;
         var targetUrl = match[1];
 
-        // 反查 tab 名称
         var tabName = null;
         for (var k in TAB_PAGES) {
           if (TAB_PAGES[k] === targetUrl) {
@@ -200,12 +224,10 @@
           }
         }
 
-        // 判断当前页
         var currentPageFile = window.location.pathname.split('/').pop() || 'index.html';
         var isCurrentPage = (targetUrl === currentPageFile) ||
           (targetUrl === '' && currentPageFile === 'index.html');
 
-        // 标记活跃项
         if (isCurrentPage) {
           item.classList.add('active');
           updateTabIndicator(tabBar, item);
@@ -213,19 +235,28 @@
           item.classList.remove('active');
         }
 
-        // 替换为增强版跳转
         item.setAttribute('data-nav-url', targetUrl);
         item.setAttribute('data-nav-tab', tabName || '');
         item.removeAttribute('onclick');
+
         item.addEventListener('click', function (e) {
           e.preventDefault();
           var url = this.getAttribute('data-nav-url');
           var name = this.getAttribute('data-nav-tab');
           navigate(url, name);
         });
+
+        // v2: hover/touch 时预加载目标页面
+        if (!isCurrentPage && targetUrl) {
+          item.addEventListener('mouseenter', function () {
+            prefetchPage(targetUrl);
+          }, { once: true });
+          item.addEventListener('touchstart', function () {
+            prefetchPage(targetUrl);
+          }, { once: true, passive: true });
+        }
       });
 
-      // 窗口尺寸变化时重新定位指示器
       window.addEventListener('resize', (function (bar) {
         var debounce = null;
         return function () {
@@ -245,13 +276,13 @@
     navigate: navigate,
     showLoading: showNavLoading,
     hideLoading: hideNavLoading,
-    init: initTabBar
+    init: initTabBar,
+    prefetch: prefetchPage
   };
 
   // ===== DOMContentLoaded 后自动初始化 =====
 
   function bootstrap() {
-    // 等 DB.init 完成（如果有）
     var waitForDB = function (cb, attempts) {
       attempts = attempts || 0;
       if (typeof DB !== 'undefined' && typeof DB.init === 'function') {
@@ -259,23 +290,17 @@
       } else if (attempts < 20) {
         setTimeout(function () { waitForDB(cb, attempts + 1); }, 50);
       } else {
-        cb(); // 超时也继续
+        cb();
       }
     };
 
     waitForDB(function () {
-      // 1. 触发页面就绪动画
       triggerPageReady();
-
-      // 2. 初始化 tab-bar 增强
       initTabBar();
-
-      // 3. 隐藏因导航残留的加载遮罩
       hideNavLoading();
     }, 0);
   }
 
-  // 如果 DOM 已就绪，立即执行；否则等 DOMContentLoaded
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrap);
   } else {
