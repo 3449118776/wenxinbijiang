@@ -286,7 +286,7 @@ function _getCloud() {
         (window.location && window.location.protocol === 'file:') ||
         (window.location && window.location.protocol === 'content:') ||
         (navigator && navigator.userAgent && navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
-      base = isCapacitor ? 'https://wenxin-bijiang.pages.dev/api' : '/api';
+      base = isCapacitor ? 'https://wxbj-main.pages.dev/api' : '/api';
     }
     window.cloud = new CloudSync({ apiBase: base });
   }
