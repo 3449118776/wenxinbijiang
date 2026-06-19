@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文心笔匠 - 下载</title>
+<script>
+window.onload = function() {
+  var a = document.createElement('a');
+  a.href = 'app-debug.apk';
+  a.download = '文心笔匠.apk';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+</script>
+</head>
+<body style="text-align:center;padding-top:50px;font-family:sans-serif;">
+  <p>正在下载文心笔匠 App...</p>
+  <p style="color:#999">如未自动下载，请<a href="app-debug.apk" download="文心笔匠.apk">点击这里</a></p>
+</body>
+</html>
