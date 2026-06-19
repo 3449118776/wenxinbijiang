@@ -78,3 +78,4 @@ backend/data/
 # ===== Images / Assets =====
 *.png
 !assets/**/*.png
+android-sdk/
