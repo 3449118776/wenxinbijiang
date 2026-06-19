@@ -495,6 +495,7 @@ body{display:flex;flex-direction:column;}
         <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数">卷
         <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
         <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
+        <span style="margin-left:12px;color:#666;font-size:13px;">生成卷：</span><input type="number" id="gen-vol-detail" value="1" min="1" max="20" style="width:50px;" title="选择要生成的卷号">
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -1449,16 +1450,32 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 禁忌：反派纯粹坏（"邪恶/贪婪/残忍"）→ 反派必须有自己的正义观，站在他/她的视角看，他/她是对的\n';
     moduleBlock += '- 禁忌：工具人配角（"忠心耿耿的朋友/慈祥的师父/神秘的老者"）→ 每个配角必须有与主角无关的独立目标\n';
     moduleBlock += '- 禁忌：刻板感情线（"男主女主一见钟情/日久生情/并肩作战生情"）→ 感情线的推进要有外部阻力+内部分歧，不是顺理成章\n';
+    moduleBlock += '\n【⚠️ v53 角色碰撞测试 · 验证人际张力是否真实】\n';
+    moduleBlock += '- 生成所有人设后，额外执行一次碰撞测试：任选2个主要角色，模拟"在封闭空间独处10分钟"的场景\n';
+    moduleBlock += '- 输出格式：【碰撞测试：A vs B】\n';
+    moduleBlock += '  - A的内心活动：xxx\n';
+    moduleBlock += '  - B的内心活动：xxx\n';
+    moduleBlock += '  - 二人对话：xxx（至少6轮对话，含潜台词和微动作）\n';
+    moduleBlock += '  - 碰撞结果：A得到了什么/失去了什么，B得到了什么/失去了什么\n';
+    moduleBlock += '- 如果碰撞测试中角色之间没有产生任何张力，说明人设太平面，需要重新设计\n';
+    moduleBlock += '\n【⚠️ v53 对话样本生成 · 每个角色附带标志性语气样本】\n';
+    moduleBlock += '- 每个主要角色额外生成一段100字对话样本，展示该角色的标志性说话方式\n';
+    moduleBlock += '- 格式：【对话样本·角色名】\n';
+    moduleBlock += '  "（该角色的标志性台词）"——说话时的微动作、语气习惯、招牌句式\n';
+    moduleBlock += '- 例："【对话样本·林晚晚】"我死过两次，还怕这个？"——说话喜欢用反问句，习惯性自我贬低，但眼神从不躲闪"\n';
+    moduleBlock += '- 对话样本将在正文生成时作为"角色语料库"注入，确保每个角色开口就有辨识度\n';
   } else if(module === 'outline'){
     moduleName = moduleName || '全书大纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
     moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，每卷需包含：\n';
     moduleBlock += '■ 卷名\n';
     moduleBlock += '■ 本卷核心冲突（主角的外部对手 + 内心挣扎；二者要相关）\n';
-    moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；不要"成长"这种空泛词）\n';
-    moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局）\n';
-    moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化\n';
-    moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记）\n';
+    moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；必须具体到"在XX之前拿到XX/阻止XX/救出XX"，禁止"变强""成长"等空泛词）\n';
+    moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局；每个事件必须写清：触发原因→主角选择→后果→对后续影响）\n';
+    moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化（必须写清物质+精神双重变化）\n';
+    moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记；必须具体可回收）\n';
+    moduleBlock += '■ 本卷情感线推进（主角与关键角色的关系变化；必须写清：关系当前状态→触发事件→关系新状态）\n';
+    moduleBlock += '■ 本卷爽点设计（完整的"压抑→爆发"链路；标注小爽点/中爽点/大爽点的位置；必须有铺垫）\n';
     moduleBlock += '\n【⚠️ 搬运强度：高 · 每卷内容将用于生成章节细纲】\n';
     moduleBlock += '- 全书主线必须清晰：主角从什么状态到什么状态\n';
     moduleBlock += '- 每卷必须有明确的"升级/成长/关系变化"\n';
@@ -1468,6 +1485,8 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 节奏要有起伏：不要每一卷都是"升级→打boss→升级"的循环\n';
     moduleBlock += '- 【重要】每卷的"核心事件"请用具体动作而非抽象词描述——"主角发现XX"远比"情节有转折"好一万倍\n';
     moduleBlock += '- 【重要】"本卷伏笔钩子"是全书写到后期时的关键锚点，请写得具体可回收（不要写"有伏笔"这种废话）\n';
+    moduleBlock += '- 【重要】情感线推进必须写清"谁对谁的感情发生了什么变化"，不要笼统写"感情升温"\n';
+    moduleBlock += '- 【重要】阶段性目标必须"可失败"——如果主角失败了，会发生什么？失败的代价是什么？\n';
     moduleBlock += '\n【⚠️ AI薄弱点强化：章节钩子 + 情绪波浪 · 必须执行】\n';
     moduleBlock += '- 每卷的第一章必须设计"炸弹开头"：第一段就要出事，第一章内亮出金手指或核心矛盾\n';
     moduleBlock += '  炸弹开头公式：冲突前置（不介绍人物，直接扔进事件中心）+ 人设反差 + 金句钩子\n';
@@ -1477,15 +1496,13 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '  钩子公式：揭露一个信息，同时制造更大的疑问；或情绪悬而未决，让读者无法放下\n';
     moduleBlock += '- 每卷内部要有"情绪波浪"：3章一小爽，10章一大爽。禁忌：连续10章平淡无冲突\n';
     moduleBlock += '- 每卷的爽点设计要有升级感：下一卷的爽点要比上一卷更炸。不能重复同一个爽点模式\n';
-    moduleBlock += '【⚠️ 爽点密度网格（AI最弱项，必须在大纲里规划好）】\n';
+    moduleBlock += '\n【⚠️ 爽点密度网格（AI最弱项，必须在大纲里规划好）】\n';
     moduleBlock += '- 每章必须有至少1个小爽点（让读者嘴角微微上扬即可，不需要大场面）：\n';
     moduleBlock += '  小爽点公式：配角震惊表情/主角说了一句让人拍手的回击/一个预期之外的小反转\n';
     moduleBlock += '- 每3-5章必须有1个中爽点（完整打脸/关系突破/实力跃升）\n';
     moduleBlock += '- 每卷必须有1个大爽点（boss战逆转/身份曝光/多条伏笔同时回收的"拍大腿"时刻）\n';
     moduleBlock += '- 禁忌：连续3章平淡无任何情绪奖励。AI不会主动制造爽点，必须在大纲阶段就规划好位置\n';
     moduleBlock += '- 【节奏顿挫】连续3章高强度战斗后必须有一章"喘息期"（感情戏/日常/伏笔铺垫），否则读者会审美疲劳\n';
-    moduleBlock += '【⚠️ 冰山对话·关键时刻打断】在情绪/冲突最高潮时突然中断，打断事件：紧急军情/下属汇报/雷声/敲门声\n';
-    moduleBlock += '  禁忌：打断后不要立刻接新事件，让读者心里像猫抓一样。留白比填满更有力\n';
     moduleBlock += '\n【⚠️ 引擎级设计：伏笔网络规划 · 必须执行】\n';
     moduleBlock += '- 全书写入大纲时必须规划 3 层伏笔：① 短期伏笔（10章内回收）② 中期伏笔（30-50章回收）③ 长期伏笔（100章+回收）\n';
     moduleBlock += '- 短期伏笔举例：①角色随口提的"小时候有个弟弟"→10章内弟弟就该出现或被提及具体事件\n';
@@ -1497,13 +1514,33 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '\n【⚠️ 引擎级设计：全书节奏总览 · 必须执行】\n';
     moduleBlock += '- 卷与卷之间需要一个"全局节奏"：开头爆炸 → 节奏递增 → 中段信息释放 → 卷尾大悬念钩子\n';
     moduleBlock += '- 全书5-12卷的推荐节奏：第1卷（引子+钩子）→ 第2-3卷（发展+升级）→ 第4-5卷（世界观展开+关系冲突）→ 第6-8卷（势力洗牌+旧伏笔回收）→ 第9-10卷（高潮+大反转）→ 第11-12卷（结局+收尾+最终钩子）\n';
-    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进\n';
+    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：情感线推进规划 · 必须执行】\n';
+    moduleBlock += '- 全书必须规划至少1条核心情感线（爱情/亲情/友情），并在大纲中明确标注每卷的推进节点\n';
+    moduleBlock += '- 情感线推进公式：心动→试探→确认→考验→危机→和解/破裂（必须有外部阻力+内部分歧，不是顺理成章）\n';
+    moduleBlock += '- 每卷至少设计1个"情感高光时刻"——让读者为之动容的场景（用【情感高光】标签标记）\n';
+    moduleBlock += '- 情感冲突必须与主线冲突交织——感情问题影响主线决策，主线事件改变感情走向\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：名场面规划 · 必须执行】\n';
+    moduleBlock += '- 全书必须规划至少3-5个"名场面"（读者会截图保存、讨论转发的场景）\n';
+    moduleBlock += '- 名场面公式：极致情绪（愤怒/悲伤/感动/震撼）+ 经典台词 + 视觉画面\n';
+    moduleBlock += '- 在大纲中标注名场面出现的卷和大致章节位置（用【名场面】标签标记）\n';
     moduleBlock += '\n【⚠️ 大纲反套路 · 必须执行】\n';
-    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板 → 如果用，第一卷就必须加入一个"主角视角的反转（比如退婚其实是女方保护主角的手段，不是看不起）\n';
+    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板）→ 如果用，第一卷就必须加入一个"主角视角的反转"（比如退婚其实是女方保护主角的手段，不是看不起）\n';
     moduleBlock += '- 禁忌：秘境抢宝流（主角进秘境→遇到天材地宝→全收）→ 必须至少1次抢宝失败或错过重要物品，且这个错过在后续带来更大收获\n';
     moduleBlock += '- 禁忌：扮猪吃虎重复 → 主角扮弱→打脸→扮弱→打脸循环 → 至少设计1次扮弱被真正的弱一次让他付出真实代价（不是永远赢到底）\n';
     moduleBlock += '- 禁忌：贵人送宝流（贵人/神秘老者/系统给主角送装备）→ 贵人必须有自己的目的，不是慈善家\n';
-    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是的势力\n';
+    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是"的势力\n';
+    moduleBlock += '- 禁忌：情感线"一见钟情+顺理成章" → 必须设计至少1次感情危机（信任破裂/立场对立/误解），且危机的解决需要真实的努力\n';
+    moduleBlock += '\n【⚠️ v53 付费点规划 · 起点/番茄付费模式适配】\n';
+    moduleBlock += '- 起点付费模式：第100章左右上架，在上架前10章（90-99章）必须设置强力钩子，确保读者愿意付费\n';
+    moduleBlock += '- 番茄模式：在关键章节（每10-15章高潮点）设置广告插入点，广告前要有强悬念确保读者不划走\n';
+    moduleBlock += '- 在大纲中标注【付费卡点】位置：推荐位置 = 大战前夕/身份即将揭露/关系即将突破的瞬间\n';
+    moduleBlock += '- 付费卡点前必须有"读者必须知道答案"的问题，卡点后立刻给出答案或更大的反转\n';
+    moduleBlock += '\n【⚠️ v53 钩子强度递进 · 每卷钩子必须比上一卷更炸裂】\n';
+    moduleBlock += '- 要求：卷2钩子 > 卷1钩子，卷3钩子 > 卷2钩子，以此类推\n';
+    moduleBlock += '- 如果上一卷钩子是"身份揭露"，本卷必须叠加至少两个要素（身份揭露+关系反转+世界观真相揭示）\n';
+    moduleBlock += '- 在每卷末尾标注【钩子强度：X/10】，并说明"比上一卷强化了什么维度"\n';
+    moduleBlock += '- 最终卷钩子必须是全书最大悬念的引爆——读者看完最后一卷的钩子，必须去买下一本\n';
   } else if(module === 'detail'){
     moduleName = moduleName || '章节细纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
@@ -1569,6 +1606,16 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 每章至少设计 1 个"角色人设驱动的选择"——这个选择不是作者硬编的，而是这个角色在这个情境下必然会做的\n';
     moduleBlock += '- 至少每 3 章设计 1 个"世界观规则驱动的限制"——主角想做什么，但被世界的规则阻止了，这迫使他/她换一种方式（而不是靠金手指强行突破\n';
     moduleBlock += '\n如果用户在核心诉求中明确指定了章节数量或具体情节，优先满足用户要求。';
+    moduleBlock += '\n\n【⚠️ v53 场景卡化升级 · 每章生成3张场景卡】\n';
+    moduleBlock += '- 在细纲末尾额外生成本章的场景卡模板（3张/章），格式如下：\n';
+    moduleBlock += '  【场景卡 1·开场】感官锚点：xxx | 冲突焦点：xxx | 对话目标：xxx | 动作清单：xxx\n';
+    moduleBlock += '  【场景卡 2·冲突】感官锚点：xxx | 冲突焦点：xxx | 对话目标：xxx | 动作清单：xxx\n';
+    moduleBlock += '  【场景卡 3·收尾】感官锚点：xxx | 冲突焦点：xxx | 对话目标：xxx | 动作清单：xxx\n';
+    moduleBlock += '- 感官锚点：场景中最具辨识度的感官细节（温度/气味/声音/光线/质地），至少1个\n';
+    moduleBlock += '- 冲突焦点：本场景的核心矛盾（谁vs谁，争什么，为什么急）\n';
+    moduleBlock += '- 对话目标：本场景对话要达成的目的（揭露信息/制造误解/推进关系/引爆冲突）\n';
+    moduleBlock += '- 动作清单：本场景中角色必须做的具体动作（至少2个），用"→"串联\n';
+    moduleBlock += '- 场景卡将在正文写作时被逐张提取，作为第' + (chapterIdx || 0) + '章的分场景写作指令';
   } else {
     moduleBlock += '【模块目标：生成内容】\n请基于用户核心诉求生成相关内容。\n';
   }
@@ -2226,15 +2273,39 @@ window.generateArchModule = async function(opts){
 
     // 4c. 合并所有卡片为完整结果
     var result = '';
-    for(var ci = 0; ci < allCards.length; ci++){
-      var c = allCards[ci];
-      var header = '';
-      if(batches.length > 1){
-        header = '【' + c.label + '】\n';
+    
+    if(module === 'detail' && work.detail && work.detail.trim().length > 0){
+      var existingContent = work.detail.trim();
+      var replaced = false;
+      
+      for(var ci = 0; ci < allCards.length; ci++){
+        var c = allCards[ci];
+        var volMatch = c.label.match(/第\s*(\d+)\s*卷/);
+        if(volMatch){
+          var targetVol = parseInt(volMatch[1]);
+          var volPattern = new RegExp('【第\\s*' + targetVol + '\\s*卷[^】]*】[\\s\\S]*?(?=【第\\s*\\d+\\s*卷|$)');
+          if(volPattern.test(existingContent)){
+            result = existingContent.replace(volPattern, '【' + c.label + '】\n' + c.content.trim());
+            replaced = true;
+            break;
+          }
+        }
       }
-      result += header + c.content.trim() + '\n\n';
+      
+      if(!replaced){
+        result = existingContent + '\n\n【' + allCards[0].label + '】\n' + allCards[0].content.trim();
+      }
+    } else {
+      for(var ci = 0; ci < allCards.length; ci++){
+        var c = allCards[ci];
+        var header = '';
+        if(batches.length > 1){
+          header = '【' + c.label + '】\n';
+        }
+        result += header + c.content.trim() + '\n\n';
+      }
+      result = result.trim();
     }
-    result = result.trim();
 
     if(!result || totalChars < 100){
       if(typeof hideLoading === 'function') hideLoading();
@@ -2420,22 +2491,28 @@ function buildArchCardBatchesV48(module, work, idea){
       }
     }
     
-    // 每卷生成一张细纲卡片
-    var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
-    for(var vi = 0; vi < volumeCount; vi++){
-      var volNum = vi + 1;
-      var chStart = (vi * chaptersPerVolume) + 1;
-      var chEnd = (vi + 1) * chaptersPerVolume;
-      var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
-      
-      batches.push({
-        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
-        targetChars: 3000,
-        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
-        volume: volNum,
-        chapterRange: chStart + '-' + chEnd + '章'
-      });
+    // 获取用户选择的生成卷号
+    var genVolEl = document.getElementById('gen-vol-detail');
+    var genVolNum = 1;
+    if(genVolEl){
+      var gv = parseInt(genVolEl.value);
+      if(gv >= 1 && gv <= volumeCount) genVolNum = gv;
     }
+    
+    // 只生成用户选择的那一卷
+    var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
+    var vi = genVolNum - 1;
+    var chStart = (vi * chaptersPerVolume) + 1;
+    var chEnd = (vi + 1) * chaptersPerVolume;
+    var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
+    
+    batches.push({
+      label: '第 ' + genVolNum + ' 卷（' + volPhase + '）· 细纲',
+      targetChars: 3000,
+      focus: '第 ' + genVolNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+      volume: genVolNum,
+      chapterRange: chStart + '-' + chEnd + '章'
+    });
   } else {
     // 其他未知模块：默认 1 张卡片
     batches.push({ label: module, targetChars: 1500, focus: '完整内容' });
@@ -2645,57 +2722,76 @@ window.evaluateArchModule = async function(){
 
     // ============== AI 深度评价（按模块不同评价维度）==============
     var aiReport = '';
+    var aiScore = 0;
     if(typeof callRealAPIWithFallback === 'function' && len > 100){
       if(typeof showLoading === 'function') showLoading('评价分析中…');
-      var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿，找出具体的可改进点。\n\n';
+      var evalPrompt = '你是一位严格的资深网文编辑，评分标准如下：\n';
+      evalPrompt += '- 1-3分：严重问题，无法使用\n';
+      evalPrompt += '- 4-6分：有明显缺陷，需要大幅修改\n';
+      evalPrompt += '- 7-8分：中等偏上，有亮点但不够完美\n';
+      evalPrompt += '- 9-10分：精品级别，可直接用于出版或签约\n';
+      evalPrompt += '请用以上标准严格评价以下' + moduleName + '，给出精准评分和具体问题。\n\n';
       evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
       
-      // 按模块不同评价维度
+      // 按模块不同评价维度（更细致的评分标准）
       evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
       if(module === 'world'){
-        evalPrompt += '1. 设定完整度：世界观体系是否自洽、有层次\n';
-        evalPrompt += '2. 独特创新：是否有区别于传统套路的独特要素\n';
-        evalPrompt += '3. 冲突张力：规则/矛盾/冲突源设计是否有力\n';
-        evalPrompt += '4. 力量体系：规则是否清晰、有代价和限制\n';
-        evalPrompt += '5. 社会结构：势力/阶层/组织分布是否合理\n';
-        evalPrompt += '6. 叙事潜力：是否为故事提供了足够的戏剧空间\n';
+        evalPrompt += '1. 设定完整度（权重20%）：规则是否自洽？是否有漏洞？层次是否分明？\n';
+        evalPrompt += '2. 独特创新（权重20%）：是否有区别于"四大神兽/五行/斗气"的独特设定？世界观是否有记忆点？\n';
+        evalPrompt += '3. 冲突张力（权重15%）：规则/矛盾/冲突源是否足够有力？是否能支撑百万字剧情？\n';
+        evalPrompt += '4. 力量体系（权重15%）：等级划分是否清晰？突破条件是否合理？是否有明确代价和限制？\n';
+        evalPrompt += '5. 社会结构（权重15%）：势力分布是否合理？阶层矛盾是否真实？底层生存状态是否有描写？\n';
+        evalPrompt += '6. 叙事潜力（权重15%）：是否为故事提供了足够的戏剧空间？是否有多个可挖掘的支线？\n';
       } else if(module === 'chars'){
-        evalPrompt += '1. 人物立体度：是否有动机、弱点、弧光\n';
-        evalPrompt += '2. 关系网络：人物之间的关系/冲突是否清晰\n';
-        evalPrompt += '3. 反派/对抗力：对立面是否足够强大有趣\n';
-        evalPrompt += '4. 差异化：人物之间性格/背景是否足够区分\n';
-        evalPrompt += '5. 成长空间：人物是否有可追踪的成长弧线\n';
-        evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入\n';
+        evalPrompt += '1. 人物立体度（权重20%）：是否有明确动机+致命弱点+成长弧光？是否避免了模板化？\n';
+        evalPrompt += '2. 关系网络（权重15%）：人物之间的关系是否清晰？是否有张力线？\n';
+        evalPrompt += '3. 反派/对抗力（权重20%）：反派是否有自己的正义观？对抗力是否足够强大有趣？\n';
+        evalPrompt += '4. 差异化（权重15%）：人物之间性格/背景/说话方式是否足够区分？能否一眼认出是谁在说话？\n';
+        evalPrompt += '5. 成长空间（权重15%）：是否有可追踪的成长弧线？是否有具体的成长节点？\n';
+        evalPrompt += '6. 情感共鸣（权重15%）：读者能否对角色产生情感投入？是否有让人动容的设计？\n';
       } else if(module === 'outline'){
-        evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理\n';
-        evalPrompt += '2. 节奏把控：高潮点和休息点的安排是否得当\n';
-        evalPrompt += '3. 伏笔设计：是否有足够的伏笔和钩子\n';
-        evalPrompt += '4. 主线清晰：主线是否明确、支线不喧宾夺主\n';
-        evalPrompt += '5. 冲突递进：冲突是否逐级升级\n';
-        evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足\n';
+        evalPrompt += '1. 结构清晰（权重15%）：分卷/分幕结构是否合理？卷与卷之间是否有因果推进？\n';
+        evalPrompt += '2. 节奏把控（权重20%）：高潮点和休息点安排是否得当？是否有节奏顿挫设计？\n';
+        evalPrompt += '3. 伏笔设计（权重20%）：是否有3层伏笔？是否有具体回收计划？回收是否"炸"？\n';
+        evalPrompt += '4. 主线清晰（权重15%）：主线是否明确？支线是否服务主线？\n';
+        evalPrompt += '5. 冲突递进（权重15%）：冲突是否逐级升级？是否避免重复模式？\n';
+        evalPrompt += '6. 商业价值（权重15%）：爽点/爆点/名场面是否充足？是否有情绪波浪设计？\n';
       } else if(module === 'detail'){
-        evalPrompt += '1. 章节连贯：章与章之间的衔接是否自然\n';
-        evalPrompt += '2. 钩子密度：每章结尾是否有让读者想点下一章的钩子\n';
-        evalPrompt += '3. 信息释放：信息是否有序释放、不堆砌\n';
-        evalPrompt += '4. 节奏控制：每章节奏是否得当、有无拖沓\n';
-        evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布\n';
-        evalPrompt += '6. 可执行性：每章目标是否明确、适合写正文\n';
+        evalPrompt += '1. 章节连贯（权重15%）：章与章之间衔接是否自然？是否有因果推进？\n';
+        evalPrompt += '2. 钩子密度（权重20%）：每章结尾是否有让读者想点下一章的钩子？是否有6类钩子交替？\n';
+        evalPrompt += '3. 信息释放（权重15%）：信息是否有序释放？是否避免堆砌？\n';
+        evalPrompt += '4. 节奏控制（权重20%）：每章节奏是否得当？是否有炸弹开头和钩子结尾？\n';
+        evalPrompt += '5. 爽点分布（权重15%）：爽点/转折/揭示是否合理分布？是否有压抑→爆发链路？\n';
+        evalPrompt += '6. 可执行性（权重15%）：每章目标是否明确？是否适合直接写正文？\n';
       } else {
-        evalPrompt += '1. 内容质量：整体水平\n';
-        evalPrompt += '2. 结构完整：结构是否合理\n';
-        evalPrompt += '3. 创新性：是否有独特之处\n';
-        evalPrompt += '4. 可执行性：是否适合后续写作\n';
+        evalPrompt += '1. 内容质量（权重25%）：整体水平\n';
+        evalPrompt += '2. 结构完整（权重25%）：结构是否合理\n';
+        evalPrompt += '3. 创新性（权重25%）：是否有独特之处\n';
+        evalPrompt += '4. 可执行性（权重25%）：是否适合后续写作\n';
       }
-      evalPrompt += '\n【你的输出格式】\n';
-      evalPrompt += '- 每个维度：维度名 X分 — 具体评价\n';
-      evalPrompt += '- 列出 3-6 条具体问题（必须针对上文内容，不能泛泛而谈）\n';
-      evalPrompt += '- 给出 2-3 条针对性改进建议\n';
-      evalPrompt += '- 不要超过 400 字；用简短犀利的编辑口吻\n';
-      evalPrompt += '- 不要用"好的""收到"等对话语';
+      evalPrompt += '\n【你的输出格式（严格遵守）】\n';
+      evalPrompt += '【总分】X/10分\n';
+      evalPrompt += '【各维度评分】\n';
+      evalPrompt += '- 维度名：X分 — 具体评价（至少20字）\n';
+      evalPrompt += '【主要问题】（列出3-6条具体问题，每条至少30字，必须针对上文内容）\n';
+      evalPrompt += '- 问题1：具体描述\n';
+      evalPrompt += '【改进建议】（给出3-5条针对性改进建议，每条至少30字）\n';
+      evalPrompt += '- 建议1：具体操作\n';
+      evalPrompt += '【9.0分标准对照】（对照以上内容，说明还差哪些达到9.0分标准）\n';
       try{
-        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default');
+        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'quality_consist', 1500, true);
       }catch(e){ aiReport = ''; }
+      
+      // 解析AI评分
+      var scoreMatch = aiReport.match(/【总分】\s*(\d+(\.\d+)?)\s*\/\s*10\s*分/);
+      if(scoreMatch){
+        aiScore = parseFloat(scoreMatch[1]);
+      } else {
+        var scoreMatch2 = aiReport.match(/(\d+(\.\d+)?)\s*分/);
+        if(scoreMatch2) aiScore = parseFloat(scoreMatch2[1]);
+      }
+      
       if(typeof hideLoading === 'function') hideLoading();
     }
 
@@ -2710,7 +2806,7 @@ window.evaluateArchModule = async function(){
     var work = getCurrentWork();
     if(work){
       work._archEval = work._archEval || {};
-      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, time: Date.now() };
+      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, aiScore: aiScore, time: Date.now() };
       try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
     }
 
@@ -2719,15 +2815,17 @@ window.evaluateArchModule = async function(){
     var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
     if(fixBtn){
       fixBtn.style.display = '';
-      fixBtn.textContent = '🔥 按评价加强（' + issues.length + '个问题）';
+      var scoreText = aiScore > 0 ? '评分 ' + aiScore + '分 · ' : '';
+      fixBtn.textContent = '🔥 按评价加强（' + scoreText + issues.length + '个问题）';
     }
 
-    // 用 alert 显示完整报告（便于阅读长文）
-    var finalMsg = '【' + moduleName + ' · 质量评价】\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
+    // 构建显示消息
+    var scoreMsg = aiScore > 0 ? '\n\n【AI评分】' + aiScore + '/10分' + (aiScore >= 9 ? ' 🎉 已达到精品标准！' : (aiScore >= 7 ? ' 👍 中等偏上' : (aiScore >= 4 ? ' ⚠️ 需要修改' : ' ❌ 严重问题'))) : '';
+    var finalMsg = '【' + moduleName + ' · 质量评价】' + scoreMsg + '\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
     try{
       alert(finalMsg);
     }catch(e){
-      showToast(localReport, {duration:6000});
+      showToast(localReport + (aiScore > 0 ? ' · AI评分:' + aiScore + '/10' : ''), {duration:6000});
     }
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
@@ -2741,21 +2839,104 @@ window.fixArchModule = async function(){
     var evalData = work._archEval && work._archEval[module];
     if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
 
-    // 构造针对本次问题的加强提示（从本地 issues 中提炼）
+    // 构造针对本次问题的加强提示（从本地 issues 和 AI 报告中提炼）
     var extraHint = '';
+    
+    // 当前评分和目标
+    var currentScore = evalData.aiScore || 0;
+    var targetScore = 9.0;
+    extraHint += '【评分目标】当前评分 ' + currentScore + '/10分，本次重新生成必须达到 ' + targetScore + '分以上。\n\n';
+    
+    // 必须解决的问题
+    extraHint += '【必须解决的问题】本次重新生成，你必须逐一解决以下问题，每个问题都要有明确的改进方案：\n';
     if(evalData.issues && evalData.issues.length){
-      extraHint += '本次重新生成，你必须特别解决以下问题：\n';
       for(var i=0;i<evalData.issues.length;i++){
-        extraHint += '- ' + evalData.issues[i] + '\n';
+        extraHint += (i+1) + '. ' + evalData.issues[i] + '\n';
+        extraHint += '   → 改进方案：（请写出具体的修改内容，不要只说"加强"）\n';
       }
     }
+    
+    // AI编辑意见
     if(evalData.aiReport && evalData.aiReport.trim() && evalData.aiReport.indexOf('暂不可用') === -1){
-      extraHint += '\n此外，参考编辑的以下意见：\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport);
+      var cleanReport = typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport;
+      
+      // 提取改进建议
+      var suggestionMatch = cleanReport.match(/【改进建议】([\s\S]*?)(?=【|$)/);
+      if(suggestionMatch){
+        extraHint += '\n【编辑改进建议】请严格按照以下建议进行修改：\n';
+        extraHint += suggestionMatch[1];
+      }
+      
+      // 提取9.0分标准对照
+      var standardMatch = cleanReport.match(/【9.0分标准对照】([\s\S]*?)(?=【|$)/);
+      if(standardMatch){
+        extraHint += '\n【9.0分标准对照】以下是达到9.0分还需要做到的内容，请逐条落实：\n';
+        extraHint += standardMatch[1];
+      }
     }
-
+    
+    // 质量标准要求
+    extraHint += '\n【质量标准底线】\n';
+    extraHint += '- 禁止使用"众人震惊/空气凝固/心中暗道/命运的齿轮"等AI模板化表达\n';
+    extraHint += '- 禁止使用"极其强大/无比恐怖/深不可测"等万能形容词\n';
+    extraHint += '- 世界观：必须有明确的规则、代价、限制、冲突源\n';
+    extraHint += '- 人设：必须有明确动机、致命弱点、成长弧光、真实缺陷\n';
+    extraHint += '- 大纲：必须有3层伏笔、节奏曲线、情绪波浪、名场面规划\n';
+    extraHint += '- 细纲：每章必须有炸弹开头、钩子结尾、剧情节点、对话亮点\n';
+    
     // 调用 generateArchModule 并注入加强提示
     await window.generateArchModule({ isFix: true, extraHint: extraHint });
   }catch(e){ console.error('fixArchModule error:', e); showToast('加强失败：' + (e.message||e), {error:true}); }
+};
+
+// ========== v53: 模块间反向修正联动 — 修改一个模块时自动标记关联模块 ==========
+window.checkCrossModuleImpact = function(changedModule){
+  try{
+    var work = getCurrentWork();
+    if(!work) return;
+    var moduleMap = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
+    var changedName = moduleMap[changedModule] || changedModule;
+    var impacted = [];
+    
+    // 反向影响规则
+    if(changedModule === 'world'){
+      // 世界观变了 → 人设可能需要调整（有些角色能力依赖世界观规则）
+      if(work.chars && work.chars.trim()) impacted.push('world→chars');
+      // 世界观变了 → 大纲中的冲突源可能变了
+      if(work.outline && work.outline.trim()) impacted.push('world→outline');
+    } else if(changedModule === 'chars'){
+      // 人设变了 → 细纲中的人物出场需要调整
+      if(work.detail && work.detail.trim()) impacted.push('chars→detail');
+      // 人设变了 → 大纲中的情感线和关系网需要调整
+      if(work.outline && work.outline.trim()) impacted.push('chars→outline');
+    } else if(changedModule === 'outline'){
+      // 大纲变了 → 细纲必须重新生成（章节结构变了）
+      if(work.detail && work.detail.trim()) impacted.push('outline→detail');
+    } else if(changedModule === 'detail'){
+      // 细纲变了 → 通常不需要反向修改，但可以标记当前章节进度
+      // 细纲可能揭示了人设中的矛盾 → 建议检查人设
+      if(work.chars && work.chars.trim()) impacted.push('detail→chars');
+    }
+    
+    if(impacted.length > 0){
+      var msg = '⚠️ ' + changedName + '已修改，以下关联模块可能受影响：\n';
+      var impactNames = [];
+      impacted.forEach(function(rel){
+        var parts = rel.split('→');
+        var target = moduleMap[parts[1]] || parts[1];
+        impactNames.push(target);
+        msg += '  • ' + target + ' — 建议重新检查并修正\n';
+      });
+      msg += '\n是否立即检查并修正关联模块？';
+      if(confirm(msg)){
+        // 自动依次调用关联模块的评价
+        impactNames.forEach(function(modName){
+          for(var key in moduleMap){ if(moduleMap[key] === modName){ _selectedModule = key; break; } }
+          if(typeof window.evaluateArchModule === 'function') window.evaluateArchModule();
+        });
+      }
+    }
+  }catch(e){ console.warn('[crossModuleImpact]', e); }
 };
 
 // ========== v48: 细纲智能补强（卡片分批版）—— 冲突/节奏/伏笔/角色一致性全链路 ==========

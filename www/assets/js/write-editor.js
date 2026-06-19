@@ -2886,6 +2886,12 @@ function smartCompressArch(text, maxLen) {
   prompt += '6. 本章的事件是否与【L0世界观锁】和【L1人设锁】中的规则冲突？\n';
   prompt += '7. 若有偏离，必须在偏离处标注【偏离说明：原因】，且偏离必须服务于更好的故事体验。\n';
 
+  // === v53: 注入用户长期风格偏好（≥3次编辑后生效）===
+  if (typeof QualityEngine !== 'undefined' && QualityEngine.getUserStyleHint) {
+    var styleHint = QualityEngine.getUserStyleHint(work);
+    if (styleHint) prompt += '\n' + styleHint;
+  }
+
   return prompt;
 }
 
@@ -3831,6 +3837,82 @@ async function aiWriteChapter(){
         QualityEngine.attach(work, chapterIdx, _qReport);
       }
     } catch(e) { console.warn('[quality]', e); }
+
+    // ===== v53: 生成后自修循环 —— 质量不达标自动定向修复（最多2轮）=====
+    var fixRound = 0;
+    var MAX_FIX_ROUNDS = 2;
+    var FIX_THRESHOLD = 75;
+    while (_qReport && _qReport.score < FIX_THRESHOLD && fixRound < MAX_FIX_ROUNDS && typeof callRealAPIWithFallback === 'function') {
+      fixRound++;
+      statusBar.style.background = '#fef3c7';
+      statusBar.style.color = '#92400e';
+      var weakList = (_qReport.weaknesses || []).slice(0, 3).join('；');
+      statusBar.textContent = '🔧 自修第' + fixRound + '轮：质量分 ' + _qReport.score + '/100，短板：' + (weakList || '综合优化');
+      
+      var fixPrompt = '你是一位资深网文编辑。请对以下章节进行精准修改，只修复指出的问题，保留其他部分不变。\n\n';
+      fixPrompt += '【当前质量分】' + _qReport.score + '/100\n';
+      if (_qReport.weaknesses && _qReport.weaknesses.length) {
+        fixPrompt += '【必须修复的短板】\n';
+        _qReport.weaknesses.forEach(function(w, i) { fixPrompt += (i+1) + '. ' + w + '\n'; });
+      }
+      fixPrompt += '\n【修复原则】\n';
+      fixPrompt += '1. 只修改与短板相关的内容，其他写得好的部分一个标点都不要动\n';
+      fixPrompt += '2. 如果"缺少对话"：在关键场景增加2-3轮人物对话，每轮对话带动作描写\n';
+      fixPrompt += '3. 如果"开篇偏平"：重写开头200字，直接切入冲突或悬念\n';
+      fixPrompt += '4. 如果"章末缺少悬念钩子"：重写最后300字，加入意外打断/信息揭露/情绪悬置\n';
+      fixPrompt += '5. 如果"模板化表达"：逐句替换AI腔，改用具体动作和独特细节\n';
+      fixPrompt += '6. 如果"信息密度过低"：删掉无关描写和重复叙述，压缩冗余段落\n';
+      fixPrompt += '7. 如果"段落过长"：拆分超过300字的段落\n';
+      fixPrompt += '8. 保持原有剧情走向、角色性格、对话风格不变\n';
+      fixPrompt += '9. 输出修改后的完整正文，不要加任何解释或标记\n\n';
+      fixPrompt += '【原文】\n' + result;
+      
+      try {
+        var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'self_fix', Math.max(500, result.length));
+        if (fixResult && fixResult.length > 100 && fixResult !== result) {
+          result = fixResult;
+          // 重新打分
+          if (typeof QualityEngine !== 'undefined') {
+            _qReport = QualityEngine.score(result, { work: work, prevContent: _prev, genre: genre });
+            QualityEngine.attach(work, chapterIdx, _qReport);
+          }
+          statusBar.style.background = '#dcfce7';
+          statusBar.style.color = '#166534';
+          statusBar.textContent = '🔧 自修第' + fixRound + '轮完成 → 质量分 ' + (_qReport ? _qReport.score + '/100' : 'N/A');
+        } else {
+          break; // 修复无效，跳出循环
+        }
+      } catch(fixErr) { console.warn('[self-fix] 第' + fixRound + '轮失败:', fixErr); break; }
+    }
+
+    // ===== v53: 章末钩子增强 —— 生成3个候选钩子，选取最优 =====
+    if (_qReport && _qReport.weaknesses && _qReport.weaknesses.join(',').indexOf('钩子') >= 0 && typeof callRealAPIWithFallback === 'function') {
+      statusBar.style.background = '#fef3c7';
+      statusBar.style.color = '#92400e';
+      statusBar.textContent = '🪝 章末钩子增强中…';
+      var tailText = result.slice(-Math.min(500, result.length));
+      var hookPrompt = '你是一位网文钩子设计专家。请为以下章节设计3个不同的章末钩子结尾，每个30-60字，分别使用以下策略：\n';
+      hookPrompt += '① 中断动作型：在动作即将发生的瞬间突然中断（"他举起刀。门突然开了。"）\n';
+      hookPrompt += '② 信息揭露型：揭露一个信息，同时制造更大的疑问（"她终于知道那个秘密了。但她宁愿自己不知道。"）\n';
+      hookPrompt += '③ 情绪悬置型：情绪悬而未决，给读者留下强烈余韵（"他看着她的眼睛，张了张嘴，最后什么都没说，转身走了。"）\n\n';
+      hookPrompt += '【章节末尾原文】\n' + tailText + '\n\n';
+      hookPrompt += '【输出格式】\n①（中断动作型钩子）\n②（信息揭露型钩子）\n③（情绪悬置型钩子）\n\n直接输出，不要加任何前缀解释。';
+      
+      try {
+        var hookResult = await callRealAPIWithFallback(hookPrompt, null, 'hook_gen', 200);
+        if (hookResult && hookResult.trim()) {
+          // 提取第一个钩子（中断动作型通常最有效）
+          var hookMatch = hookResult.match(/①\s*\n?\s*(.+?)(?=②|$)/s);
+          if (hookMatch && hookMatch[1].trim()) {
+            var bestHook = hookMatch[1].trim();
+            // 替换原文最后200字为钩子结尾
+            var mainBody = result.slice(0, -Math.min(300, Math.floor(result.length * 0.15)));
+            result = mainBody + '\n\n' + bestHook;
+            statusBar.textContent = '🪝 钩子已增强（' + hookResult.split('\n').filter(function(l){return l.trim();}).length + '个候选生成）';
+          }
+        }
+      } catch(hookErr) { console.warn('[hook-gen] 失败:', hookErr); }
+    }
 
     statusBar.style.background = '#dcfce7';
     statusBar.style.color = '#166534';

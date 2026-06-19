@@ -1,5 +1,5 @@
-// quality.js - 轻量中文网文质量评估 v52
-// 暴露 window.QualityEngine：score / attach / lastHints / analyzeChapter / learnFromEdit
+// quality.js - 轻量中文网文质量评估 v53
+// 暴露 window.QualityEngine：score / attach / lastHints / analyzeChapter / learnFromEdit / persistLearnings / getUserStyleHint / llmEvaluate
 // 主要被 write-editor.js 中的 AI 生成流程调用
 (function () {
   // 基础"毒点/模版腔"模式（仅启发式，非严格）
@@ -90,7 +90,6 @@
 
     // === v52: 对话/叙述比例 ===
     if (len >= 500) {
-      // 估算对话占比（引号内容占总字数的比例）
       var dialogChars = 0;
       var dRE = /["""][^""""]*["""]/g;
       var dm;
@@ -156,7 +155,6 @@
       if (!r) return null;
       
       var hints = [];
-      // 生成具体可操作的提示
       if (r.weaknesses && r.weaknesses.length) {
         for (var wi = 0; wi < r.weaknesses.length; wi++) {
           var w = r.weaknesses[wi];
@@ -173,7 +171,6 @@
         }
       }
       
-      // 质量趋势分析（对比前三章）
       var trend = '';
       if (chapterIdx >= 3) {
         var scores = [];
@@ -212,15 +209,11 @@
       weaknesses: info.weakness,
       strengths: info.strength,
       details: info.details,
-      // 统计角色出场
       characterAppearances: {},
-      // 检测到的伏笔关键词
       foreshadowingDetected: [],
-      // 情绪弧线
       emotionArc: []
     };
     
-    // 检测角色出场
     if (work && work.chars) {
       var charNameRE = /[【\[]([^】\]\n]{1,12})[】\]]/g;
       var nmMatch;
@@ -233,7 +226,6 @@
       }
     }
     
-    // 检测伏笔关键词
     var foreshadowRE = /(伏笔|悬念|暗线|埋|隐藏|秘密|真相|揭露|反转|意外|惊人|才发现|原来|这才知道|才明白|终于|最终|结局|谜底|揭开|揭晓)/g;
     var fm;
     while ((fm = foreshadowRE.exec(text)) !== null) {
@@ -246,28 +238,24 @@
   }
 
   // === v52: 用户编辑学习 · 从用户修改中提取偏好 ===
-  // 比较 AI 原稿和用户修改后的文本，提取用户偏好
   function learnFromEdit(aiOriginal, userEdited) {
     if (!aiOriginal || !userEdited) return null;
     
     var learnings = {
-      userDeleted: [],      // 用户删了什么（AI 写多了）
-      userAdded: [],        // 用户加了什么（AI 漏了）
-      userRewrote: [],      // 用户重写了什么（AI 写错了）
-      stylePrefs: {}        // 风格偏好
+      userDeleted: [],
+      userAdded: [],
+      userRewrote: [],
+      stylePrefs: {}
     };
     
-    // 简单对比：如果用户版本更短，说明用户删了内容
     if (userEdited.length < aiOriginal.length * 0.8) {
       learnings.userDeleted.push('用户删减了大量内容，AI 输出可能过于冗长，请精简');
     }
     
-    // 如果用户版本更长，说明用户加了内容
     if (userEdited.length > aiOriginal.length * 1.2) {
       learnings.userAdded.push('用户补充了大量内容，AI 输出可能不够详细，请增加细节');
     }
     
-    // 检测 AI 腔是否被删除
     var aiClichés = ['众人震惊', '空气凝固', '心中暗道', '心头一颤', '瞳孔一缩', '嘴角勾起', '目光如炬'];
     var deletedClichés = [];
     aiClichés.forEach(function (c) {
@@ -279,7 +267,6 @@
       learnings.userDeleted.push('用户删除了AI模板化表达：' + deletedClichés.join('、'));
     }
     
-    // 检测用户偏好：如果用户添加了更多对话
     var origQuotes = countMatches(aiOriginal, /["""]/g);
     var editedQuotes = countMatches(userEdited, /["""]/g);
     if (editedQuotes > origQuotes * 1.5) {
@@ -287,7 +274,6 @@
       learnings.userAdded.push('用户增加了大量对话，偏好对话更多的写作风格');
     }
     
-    // 检测用户偏好：如果用户添加了更多段落分隔
     var origParas = (aiOriginal.match(/\n\n/g) || []).length;
     var editedParas = (userEdited.match(/\n\n/g) || []).length;
     if (editedParas > origParas * 1.5) {
@@ -295,7 +281,6 @@
       learnings.userAdded.push('用户增加了段落分隔，偏好更短的段落');
     }
     
-    // 检测用户偏好：如果用户删除了大量副词
     var adverbRE = /(缓缓|慢慢|轻轻|淡淡|微微|稍稍|渐渐|悄悄|默默|静静|幽幽)/g;
     var origAdverbs = countMatches(aiOriginal, adverbRE);
     var editedAdverbs = countMatches(userEdited, adverbRE);
@@ -304,11 +289,97 @@
       learnings.userDeleted.push('用户删除了大量副词，偏好更简洁有力的描写');
     }
     
-    // 记录学习时间
     learnings.learnedAt = Date.now();
     learnings.hasLearnings = learnings.userDeleted.length > 0 || learnings.userAdded.length > 0 || learnings.userRewrote.length > 0;
     
     return learnings;
+  }
+
+  // === v53: 持久化用户编辑学习到作品级配置 ===
+  function persistLearnings(work, learnings) {
+    if (!work || !learnings || !learnings.hasLearnings) return;
+    try {
+      if (!work._userStyle) work._userStyle = {};
+      var s = work._userStyle;
+      s.totalEdits = (s.totalEdits || 0) + 1;
+      if (learnings.stylePrefs.moreDialog) s.moreDialogCount = (s.moreDialogCount || 0) + 1;
+      if (learnings.stylePrefs.shorterParagraphs) s.shorterParagraphsCount = (s.shorterParagraphsCount || 0) + 1;
+      if (learnings.stylePrefs.lessAdverbs) s.lessAdverbsCount = (s.lessAdverbsCount || 0) + 1;
+      if (learnings.userDeleted.length > 0) {
+        s.avoidPatterns = s.avoidPatterns || [];
+        learnings.userDeleted.forEach(function(d) {
+          if (s.avoidPatterns.indexOf(d) === -1) s.avoidPatterns.push(d);
+        });
+      }
+      if (learnings.userAdded.length > 0) {
+        s.preferPatterns = s.preferPatterns || [];
+        learnings.userAdded.forEach(function(a) {
+          if (s.preferPatterns.indexOf(a) === -1) s.preferPatterns.push(a);
+        });
+      }
+      s.lastLearnedAt = learnings.learnedAt;
+      if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    } catch(e) { console.warn('[persistLearnings]', e); }
+  }
+
+  // === v53: 获取持久化的用户风格偏好（用于注入生成prompt） ===
+  function getUserStyleHint(work) {
+    if (!work || !work._userStyle || !work._userStyle.totalEdits || work._userStyle.totalEdits < 3) return '';
+    var s = work._userStyle;
+    var hint = '【📝 用户长期风格偏好 · 根据' + s.totalEdits + '次编辑历史总结】\n';
+    if (s.moreDialogCount >= Math.floor(s.totalEdits * 0.5)) hint += '- 用户偏好更多对话，请增加角色互动和对话密度\n';
+    if (s.shorterParagraphsCount >= Math.floor(s.totalEdits * 0.4)) hint += '- 用户偏好更短的段落，请控制段落长度在200字以内\n';
+    if (s.lessAdverbsCount >= Math.floor(s.totalEdits * 0.3)) hint += '- 用户偏好简洁描写，请减少副词使用\n';
+    if (s.avoidPatterns && s.avoidPatterns.length > 2) hint += '- 用户长期删除AI腔，请避免模板化表达\n';
+    if (s.preferPatterns && s.preferPatterns.length > 2) hint += '- 用户偏好方向：' + s.preferPatterns.slice(-3).join('；') + '\n';
+    hint += '\n';
+    return hint;
+  }
+
+  // === v53: LLM深度评价（替代纯正则的启发式检查） ===
+  async function llmEvaluate(text, work) {
+    if (typeof callRealAPIWithFallback !== 'function') return null;
+    if (!text || text.length < 100) return null;
+    
+    var genre = (work && work.settings && work.settings.genre) || '';
+    var prompt = '你是一位严格的专业网文质量评审。请对以下章节进行10维度评分（每项1-10分），并给出具体问题。\n\n';
+    prompt += '【评分维度】\n';
+    prompt += '1. 开篇吸引力：开头300字是否抓住读者（冲突/悬念/动作）\n';
+    prompt += '2. 章末钩子：结尾是否有让读者必须点下一章的钩子\n';
+    prompt += '3. 对话质量：对话是否自然有个性，有无潜台词\n';
+    prompt += '4. 动作描写：身体语言和动作调度是否生动具体\n';
+    prompt += '5. 情绪张力：情绪是否通过微动作外化，是否避免直白情绪词\n';
+    prompt += '6. 节奏控制：段落长短交替、紧张处用短句、舒缓处用长句\n';
+    prompt += '7. 文笔水平：有无AI模板化表达（众人震惊/空气凝固/瞳孔一缩等）\n';
+    prompt += '8. 信息密度：每500字是否有新信息推进，有无水字数\n';
+    prompt += '9. 人物一致性：角色行为是否符合人设，有无OOC\n';
+    prompt += '10. 商业追读感：整体是否有让读者追更的冲动\n';
+    if (genre) prompt += '\n【作品题材】' + genre + '\n';
+    prompt += '\n【输出格式】\n';
+    prompt += '【综合评分】X/100分\n';
+    prompt += '【各维度】\n1. 开篇吸引力：X分 — 具体评价\n...（逐项）\n';
+    prompt += '【核心问题】（2-3个最严重的问题）\n';
+    prompt += '【改进建议】（2-3条可操作的具体改法）\n\n';
+    prompt += '【正文】\n' + text.slice(0, 3000);
+    
+    try {
+      var result = await callRealAPIWithFallback(prompt, null, 'llm_eval', 500, true);
+      if (!result) return null;
+      var scoreMatch = result.match(/【综合评分】\s*(\d+)\s*\/?\s*100\s*分?/);
+      var score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+      var dims = [];
+      var dimRE = /\d+\.\s*(.+?)：\s*(\d+)\s*分\s*[—\-]\s*(.+?)(?=\n\d+\.|\n【|$)/g;
+      var dm;
+      while ((dm = dimRE.exec(result)) !== null) {
+        dims.push({ name: dm[1].trim(), score: parseInt(dm[2]), comment: dm[3].trim() });
+      }
+      var issuesMatch = result.match(/【核心问题】([\s\S]*?)(?=【改进建议】|$)/);
+      var issues = [];
+      if (issuesMatch) {
+        issues = issuesMatch[1].split('\n').filter(function(l) { return l.trim().length > 5; }).map(function(l) { return l.replace(/^[-•\d.]+\s*/, '').trim(); });
+      }
+      return { score: score, dimensions: dims, issues: issues, rawReport: result, evaluatedAt: Date.now(), source: 'llm' };
+    } catch(e) { console.warn('[llmEvaluate]', e); return null; }
   }
 
   window.QualityEngine = {
@@ -317,6 +388,9 @@
     lastHints: lastHints,
     analyzeChapter: analyzeChapter,
     learnFromEdit: learnFromEdit,
+    persistLearnings: persistLearnings,
+    getUserStyleHint: getUserStyleHint,
+    llmEvaluate: llmEvaluate,
     _scoreChinese: scoreChinese,
     _POISON: POISON_PATTERNS
   };

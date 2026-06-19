@@ -1,5 +1,5 @@
-// quality.js - 轻量中文网文质量评估 v52
-// 暴露 window.QualityEngine：score / attach / lastHints / analyzeChapter / learnFromEdit
+// quality.js - 轻量中文网文质量评估 v53
+// 暴露 window.QualityEngine：score / attach / lastHints / analyzeChapter / learnFromEdit / persistLearnings / getUserStyleHint / llmEvaluate
 // 主要被 write-editor.js 中的 AI 生成流程调用
 (function () {
   // 基础"毒点/模版腔"模式（仅启发式，非严格）
@@ -90,7 +90,6 @@
 
     // === v52: 对话/叙述比例 ===
     if (len >= 500) {
-      // 估算对话占比（引号内容占总字数的比例）
       var dialogChars = 0;
       var dRE = /["""][^""""]*["""]/g;
       var dm;
@@ -156,7 +155,6 @@
       if (!r) return null;
       
       var hints = [];
-      // 生成具体可操作的提示
       if (r.weaknesses && r.weaknesses.length) {
         for (var wi = 0; wi < r.weaknesses.length; wi++) {
           var w = r.weaknesses[wi];
@@ -173,7 +171,6 @@
         }
       }
       
-      // 质量趋势分析（对比前三章）
       var trend = '';
       if (chapterIdx >= 3) {
         var scores = [];
@@ -212,15 +209,11 @@
       weaknesses: info.weakness,
       strengths: info.strength,
       details: info.details,
-      // 统计角色出场
       characterAppearances: {},
-      // 检测到的伏笔关键词
       foreshadowingDetected: [],
-      // 情绪弧线
       emotionArc: []
     };
     
-    // 检测角色出场
     if (work && work.chars) {
       var charNameRE = /[【\[]([^】\]\n]{1,12})[】\]]/g;
       var nmMatch;
@@ -233,7 +226,6 @@
       }
     }
     
-    // 检测伏笔关键词
     var foreshadowRE = /(伏笔|悬念|暗线|埋|隐藏|秘密|真相|揭露|反转|意外|惊人|才发现|原来|这才知道|才明白|终于|最终|结局|谜底|揭开|揭晓)/g;
     var fm;
     while ((fm = foreshadowRE.exec(text)) !== null) {
@@ -246,28 +238,24 @@
   }
 
   // === v52: 用户编辑学习 · 从用户修改中提取偏好 ===
-  // 比较 AI 原稿和用户修改后的文本，提取用户偏好
   function learnFromEdit(aiOriginal, userEdited) {
     if (!aiOriginal || !userEdited) return null;
     
     var learnings = {
-      userDeleted: [],      // 用户删了什么（AI 写多了）
-      userAdded: [],        // 用户加了什么（AI 漏了）
-      userRewrote: [],      // 用户重写了什么（AI 写错了）
-      stylePrefs: {}        // 风格偏好
+      userDeleted: [],
+      userAdded: [],
+      userRewrote: [],
+      stylePrefs: {}
     };
     
-    // 简单对比：如果用户版本更短，说明用户删了内容
     if (userEdited.length < aiOriginal.length * 0.8) {
       learnings.userDeleted.push('用户删减了大量内容，AI 输出可能过于冗长，请精简');
     }
     
-    // 如果用户版本更长，说明用户加了内容
     if (userEdited.length > aiOriginal.length * 1.2) {
       learnings.userAdded.push('用户补充了大量内容，AI 输出可能不够详细，请增加细节');
     }
     
-    // 检测 AI 腔是否被删除
     var aiClichés = ['众人震惊', '空气凝固', '心中暗道', '心头一颤', '瞳孔一缩', '嘴角勾起', '目光如炬'];
     var deletedClichés = [];
     aiClichés.forEach(function (c) {
@@ -279,7 +267,6 @@
       learnings.userDeleted.push('用户删除了AI模板化表达：' + deletedClichés.join('、'));
     }
     
-    // 检测用户偏好：如果用户添加了更多对话
     var origQuotes = countMatches(aiOriginal, /["""]/g);
     var editedQuotes = countMatches(userEdited, /["""]/g);
     if (editedQuotes > origQuotes * 1.5) {
@@ -287,7 +274,6 @@
       learnings.userAdded.push('用户增加了大量对话，偏好对话更多的写作风格');
     }
     
-    // 检测用户偏好：如果用户添加了更多段落分隔
     var origParas = (aiOriginal.match(/\n\n/g) || []).length;
     var editedParas = (userEdited.match(/\n\n/g) || []).length;
     if (editedParas > origParas * 1.5) {
@@ -295,7 +281,6 @@
       learnings.userAdded.push('用户增加了段落分隔，偏好更短的段落');
     }
     
-    // 检测用户偏好：如果用户删除了大量副词
     var adverbRE = /(缓缓|慢慢|轻轻|淡淡|微微|稍稍|渐渐|悄悄|默默|静静|幽幽)/g;
     var origAdverbs = countMatches(aiOriginal, adverbRE);
     var editedAdverbs = countMatches(userEdited, adverbRE);
@@ -304,11 +289,97 @@
       learnings.userDeleted.push('用户删除了大量副词，偏好更简洁有力的描写');
     }
     
-    // 记录学习时间
     learnings.learnedAt = Date.now();
     learnings.hasLearnings = learnings.userDeleted.length > 0 || learnings.userAdded.length > 0 || learnings.userRewrote.length > 0;
     
     return learnings;
+  }
+
+  // === v53: 持久化用户编辑学习到作品级配置 ===
+  function persistLearnings(work, learnings) {
+    if (!work || !learnings || !learnings.hasLearnings) return;
+    try {
+      if (!work._userStyle) work._userStyle = {};
+      var s = work._userStyle;
+      s.totalEdits = (s.totalEdits || 0) + 1;
+      if (learnings.stylePrefs.moreDialog) s.moreDialogCount = (s.moreDialogCount || 0) + 1;
+      if (learnings.stylePrefs.shorterParagraphs) s.shorterParagraphsCount = (s.shorterParagraphsCount || 0) + 1;
+      if (learnings.stylePrefs.lessAdverbs) s.lessAdverbsCount = (s.lessAdverbsCount || 0) + 1;
+      if (learnings.userDeleted.length > 0) {
+        s.avoidPatterns = s.avoidPatterns || [];
+        learnings.userDeleted.forEach(function(d) {
+          if (s.avoidPatterns.indexOf(d) === -1) s.avoidPatterns.push(d);
+        });
+      }
+      if (learnings.userAdded.length > 0) {
+        s.preferPatterns = s.preferPatterns || [];
+        learnings.userAdded.forEach(function(a) {
+          if (s.preferPatterns.indexOf(a) === -1) s.preferPatterns.push(a);
+        });
+      }
+      s.lastLearnedAt = learnings.learnedAt;
+      if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    } catch(e) { console.warn('[persistLearnings]', e); }
+  }
+
+  // === v53: 获取持久化的用户风格偏好（用于注入生成prompt） ===
+  function getUserStyleHint(work) {
+    if (!work || !work._userStyle || !work._userStyle.totalEdits || work._userStyle.totalEdits < 3) return '';
+    var s = work._userStyle;
+    var hint = '【📝 用户长期风格偏好 · 根据' + s.totalEdits + '次编辑历史总结】\n';
+    if (s.moreDialogCount >= Math.floor(s.totalEdits * 0.5)) hint += '- 用户偏好更多对话，请增加角色互动和对话密度\n';
+    if (s.shorterParagraphsCount >= Math.floor(s.totalEdits * 0.4)) hint += '- 用户偏好更短的段落，请控制段落长度在200字以内\n';
+    if (s.lessAdverbsCount >= Math.floor(s.totalEdits * 0.3)) hint += '- 用户偏好简洁描写，请减少副词使用\n';
+    if (s.avoidPatterns && s.avoidPatterns.length > 2) hint += '- 用户长期删除AI腔，请避免模板化表达\n';
+    if (s.preferPatterns && s.preferPatterns.length > 2) hint += '- 用户偏好方向：' + s.preferPatterns.slice(-3).join('；') + '\n';
+    hint += '\n';
+    return hint;
+  }
+
+  // === v53: LLM深度评价（替代纯正则的启发式检查） ===
+  async function llmEvaluate(text, work) {
+    if (typeof callRealAPIWithFallback !== 'function') return null;
+    if (!text || text.length < 100) return null;
+    
+    var genre = (work && work.settings && work.settings.genre) || '';
+    var prompt = '你是一位严格的专业网文质量评审。请对以下章节进行10维度评分（每项1-10分），并给出具体问题。\n\n';
+    prompt += '【评分维度】\n';
+    prompt += '1. 开篇吸引力：开头300字是否抓住读者（冲突/悬念/动作）\n';
+    prompt += '2. 章末钩子：结尾是否有让读者必须点下一章的钩子\n';
+    prompt += '3. 对话质量：对话是否自然有个性，有无潜台词\n';
+    prompt += '4. 动作描写：身体语言和动作调度是否生动具体\n';
+    prompt += '5. 情绪张力：情绪是否通过微动作外化，是否避免直白情绪词\n';
+    prompt += '6. 节奏控制：段落长短交替、紧张处用短句、舒缓处用长句\n';
+    prompt += '7. 文笔水平：有无AI模板化表达（众人震惊/空气凝固/瞳孔一缩等）\n';
+    prompt += '8. 信息密度：每500字是否有新信息推进，有无水字数\n';
+    prompt += '9. 人物一致性：角色行为是否符合人设，有无OOC\n';
+    prompt += '10. 商业追读感：整体是否有让读者追更的冲动\n';
+    if (genre) prompt += '\n【作品题材】' + genre + '\n';
+    prompt += '\n【输出格式】\n';
+    prompt += '【综合评分】X/100分\n';
+    prompt += '【各维度】\n1. 开篇吸引力：X分 — 具体评价\n...（逐项）\n';
+    prompt += '【核心问题】（2-3个最严重的问题）\n';
+    prompt += '【改进建议】（2-3条可操作的具体改法）\n\n';
+    prompt += '【正文】\n' + text.slice(0, 3000);
+    
+    try {
+      var result = await callRealAPIWithFallback(prompt, null, 'llm_eval', 500, true);
+      if (!result) return null;
+      var scoreMatch = result.match(/【综合评分】\s*(\d+)\s*\/?\s*100\s*分?/);
+      var score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+      var dims = [];
+      var dimRE = /\d+\.\s*(.+?)：\s*(\d+)\s*分\s*[—\-]\s*(.+?)(?=\n\d+\.|\n【|$)/g;
+      var dm;
+      while ((dm = dimRE.exec(result)) !== null) {
+        dims.push({ name: dm[1].trim(), score: parseInt(dm[2]), comment: dm[3].trim() });
+      }
+      var issuesMatch = result.match(/【核心问题】([\s\S]*?)(?=【改进建议】|$)/);
+      var issues = [];
+      if (issuesMatch) {
+        issues = issuesMatch[1].split('\n').filter(function(l) { return l.trim().length > 5; }).map(function(l) { return l.replace(/^[-•\d.]+\s*/, '').trim(); });
+      }
+      return { score: score, dimensions: dims, issues: issues, rawReport: result, evaluatedAt: Date.now(), source: 'llm' };
+    } catch(e) { console.warn('[llmEvaluate]', e); return null; }
   }
 
   window.QualityEngine = {
@@ -317,835 +388,10 @@
     lastHints: lastHints,
     analyzeChapter: analyzeChapter,
     learnFromEdit: learnFromEdit,
+    persistLearnings: persistLearnings,
+    getUserStyleHint: getUserStyleHint,
+    llmEvaluate: llmEvaluate,
     _scoreChinese: scoreChinese,
     _POISON: POISON_PATTERNS
   };
-})();// quality.js v5// quality.js v53 — 统一评价引擎（12维度// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade /// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() →// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // =====================// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTER// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    {// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,1// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // =====================// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTER// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_P// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推|击|刺|砍|劈|躲|摔|撞/g;
-  var DI// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推|击|刺|砍|劈|躲|摔|撞/g;
-  var DIALOG_PATTERN = /[""][^""]{2,}[""]/g;// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推|击|刺|砍|劈|躲|摔|撞/g;
-  var DIALOG_PATTERN = /[""][^""]{2,}[""]/g;
-
-  // ===================== 词库：题材专属锚点 =====================
-  var GENRE// quality.js v53 — 统一评价引擎（12维度评分 + 结构化输出）
-// 暴露：QualityEngine / checkEval / getGrade / getGenreEvalTips
-// 被调用链路：write-editor.js → aiEvaluate() → AI评价 或 checkEval() 本地评价
-(function () {
-  // ===================== 词库：毒点/套路化表达 =====================
-  var CAVITY_PATTERNS = [
-    { name: '无效震惊', re: /众人震惊|全场震惊|所有人都惊呆了|众人哗然|一片哗然/g, weight: 3 },
-    { name: '空泛推进', re: /事情变得复杂起来|一切才刚刚开始|命运的齿轮开始转动|真正的挑战才刚刚开始|好戏才刚刚开始/g, weight: 3 },
-    { name: '空泛情绪', re: /空气仿佛凝固|时间仿佛静止|他的内心五味杂陈|心中百感交集|心里咯噔一下/g, weight: 3 },
-    { name: '万能形容词', re: /极其强大|无比恐怖|深不可测|不可名状|难以言喻|难以形容|无法用语言形容/g, weight: 3 },
-    { name: '高频动作套路', re: /嘴角勾起|眼神一冷|瞳孔一缩|眉头一皱|眉头微蹙|目光如炬/g, weight: 2 },
-    { name: '空洞心理', re: /他心中暗想|他暗自下定决心|他心中涌起一股|他不禁感叹|他心想道/g, weight: 3 },
-    { name: '重复副词', re: /缓缓地.{0,12}缓缓地|慢慢地.{0,12}慢慢地|轻轻地.{0,12}轻轻地|微微.{0,12}微微/g, weight: 2 },
-    { name: '重复认识', re: /他知道.{0,12}他知道|没想到.{0,20}没想到|他不知道.{0,12}他不知道|他明白.{0,12}他明白/g, weight: 2 },
-    { name: '虚假紧迫感', re: /不好！|糟了！|该死！|妈的！|该死的！/g, weight: 2 },
-    { name: '直白情绪词', re: /他很紧张|他很愤怒|他很伤心|他很害怕|她很紧张|她很愤怒|她非常紧张/g, weight: 3 }
-  ];
-
-  // ===================== 词库：冰山技法 / 正面信号 =====================
-  var MICRO_ACTION_PATTERNS = /指尖发白|咬紧后槽牙|声音压低|嘴角抽动|喉结滚动|手指摩挲|攥紧杯沿|耳尖泛红|指腹蹭过|视线躲闪|空玻璃杯擦|背对着人|摸耳垂|清嗓子|端起茶|放下茶|攥紧拳|别过头/g;
-  var SENSORY_PATTERNS = /闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|咸|涩|闷|黏/g;
-  var DIALOG_NON_ANSWER = /没有回答|移开目光|话到嘴边|欲言又止|沉默.{0,4}了|清了清嗓子|端起.{0,6}茶|放下.{0,6}茶/g;
-  var HOOK_PATTERNS = /然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|抬头|脸色一变|问题是|秘密|原来|其实|只是|竟然|居然/g;
-  var CONFLICT_PATTERNS = /冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|撞击|抓住|推|刀|剑|拳|掌|血|冷|惊|怕|危险|爆炸|破碎|裂|断/g;
-  var ACTION_PATTERNS = /抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推|击|刺|砍|劈|躲|摔|撞/g;
-  var DIALOG_PATTERN = /[""][^""]{2,}[""]/g;
-
-  // ===================== 词库：题材专属锚点 =====================
-  var GENRE_ANCHORS = {
-    '玄幻|仙侠': ['境界|灵力|剑意|法宝
+})();
