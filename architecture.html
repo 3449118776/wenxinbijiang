@@ -496,8 +496,25 @@ body{display:flex;flex-direction:column;}
         <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
         <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
       </div>
+      <div class="page-batch-selector" id="batch-select-detail" style="padding:8px 12px;background:#f8f9ff;border-radius:8px;margin-bottom:8px;border:1px solid #e8eaff;">
+        <span style="font-size:12px;color:#666;margin-right:8px;">📦 分批生成：</span>
+        <select id="batch-mode-detail" onchange="toggleBatchModeDetail()">
+          <option value="all">全部卷</option>
+          <option value="range">指定卷范围</option>
+          <option value="single">单卷</option>
+        </select>
+        <span id="batch-range-area" style="display:none;">
+          <input type="number" id="batch-start-vol" value="1" min="1" max="20" style="width:45px;" title="起始卷">
+          <span>至</span>
+          <input type="number" id="batch-end-vol" value="3" min="1" max="20" style="width:45px;" title="结束卷">
+        </span>
+        <span id="batch-single-area" style="display:none;">
+          <input type="number" id="batch-single-vol" value="1" min="1" max="20" style="width:45px;" title="卷号">
+        </span>
+        <span id="batch-status" style="font-size:11px;color:#10b981;margin-left:8px;">（未生成）</span>
+      </div>
       <div class="page-actions">
-        <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
+        <button class="main-btn" onclick="generateDetailByBatch()">🤖 分批生成</button>
         <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
         <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
         <button class="sec-btn" onclick="strengthenDetailOutlineV46()">🔥 细纲补强</button>
@@ -1455,10 +1472,12 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，每卷需包含：\n';
     moduleBlock += '■ 卷名\n';
     moduleBlock += '■ 本卷核心冲突（主角的外部对手 + 内心挣扎；二者要相关）\n';
-    moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；不要"成长"这种空泛词）\n';
-    moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局）\n';
-    moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化\n';
-    moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记）\n';
+    moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；必须具体到"在XX之前拿到XX/阻止XX/救出XX"，禁止"变强""成长"等空泛词）\n';
+    moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局；每个事件必须写清：触发原因→主角选择→后果→对后续影响）\n';
+    moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化（必须写清物质+精神双重变化）\n';
+    moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记；必须具体可回收）\n';
+    moduleBlock += '■ 本卷情感线推进（主角与关键角色的关系变化；必须写清：关系当前状态→触发事件→关系新状态）\n';
+    moduleBlock += '■ 本卷爽点设计（完整的"压抑→爆发"链路；标注小爽点/中爽点/大爽点的位置；必须有铺垫）\n';
     moduleBlock += '\n【⚠️ 搬运强度：高 · 每卷内容将用于生成章节细纲】\n';
     moduleBlock += '- 全书主线必须清晰：主角从什么状态到什么状态\n';
     moduleBlock += '- 每卷必须有明确的"升级/成长/关系变化"\n';
@@ -1468,6 +1487,8 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 节奏要有起伏：不要每一卷都是"升级→打boss→升级"的循环\n';
     moduleBlock += '- 【重要】每卷的"核心事件"请用具体动作而非抽象词描述——"主角发现XX"远比"情节有转折"好一万倍\n';
     moduleBlock += '- 【重要】"本卷伏笔钩子"是全书写到后期时的关键锚点，请写得具体可回收（不要写"有伏笔"这种废话）\n';
+    moduleBlock += '- 【重要】情感线推进必须写清"谁对谁的感情发生了什么变化"，不要笼统写"感情升温"\n';
+    moduleBlock += '- 【重要】阶段性目标必须"可失败"——如果主角失败了，会发生什么？失败的代价是什么？\n';
     moduleBlock += '\n【⚠️ AI薄弱点强化：章节钩子 + 情绪波浪 · 必须执行】\n';
     moduleBlock += '- 每卷的第一章必须设计"炸弹开头"：第一段就要出事，第一章内亮出金手指或核心矛盾\n';
     moduleBlock += '  炸弹开头公式：冲突前置（不介绍人物，直接扔进事件中心）+ 人设反差 + 金句钩子\n';
@@ -1477,15 +1498,13 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '  钩子公式：揭露一个信息，同时制造更大的疑问；或情绪悬而未决，让读者无法放下\n';
     moduleBlock += '- 每卷内部要有"情绪波浪"：3章一小爽，10章一大爽。禁忌：连续10章平淡无冲突\n';
     moduleBlock += '- 每卷的爽点设计要有升级感：下一卷的爽点要比上一卷更炸。不能重复同一个爽点模式\n';
-    moduleBlock += '【⚠️ 爽点密度网格（AI最弱项，必须在大纲里规划好）】\n';
+    moduleBlock += '\n【⚠️ 爽点密度网格（AI最弱项，必须在大纲里规划好）】\n';
     moduleBlock += '- 每章必须有至少1个小爽点（让读者嘴角微微上扬即可，不需要大场面）：\n';
     moduleBlock += '  小爽点公式：配角震惊表情/主角说了一句让人拍手的回击/一个预期之外的小反转\n';
     moduleBlock += '- 每3-5章必须有1个中爽点（完整打脸/关系突破/实力跃升）\n';
     moduleBlock += '- 每卷必须有1个大爽点（boss战逆转/身份曝光/多条伏笔同时回收的"拍大腿"时刻）\n';
     moduleBlock += '- 禁忌：连续3章平淡无任何情绪奖励。AI不会主动制造爽点，必须在大纲阶段就规划好位置\n';
     moduleBlock += '- 【节奏顿挫】连续3章高强度战斗后必须有一章"喘息期"（感情戏/日常/伏笔铺垫），否则读者会审美疲劳\n';
-    moduleBlock += '【⚠️ 冰山对话·关键时刻打断】在情绪/冲突最高潮时突然中断，打断事件：紧急军情/下属汇报/雷声/敲门声\n';
-    moduleBlock += '  禁忌：打断后不要立刻接新事件，让读者心里像猫抓一样。留白比填满更有力\n';
     moduleBlock += '\n【⚠️ 引擎级设计：伏笔网络规划 · 必须执行】\n';
     moduleBlock += '- 全书写入大纲时必须规划 3 层伏笔：① 短期伏笔（10章内回收）② 中期伏笔（30-50章回收）③ 长期伏笔（100章+回收）\n';
     moduleBlock += '- 短期伏笔举例：①角色随口提的"小时候有个弟弟"→10章内弟弟就该出现或被提及具体事件\n';
@@ -1497,13 +1516,23 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '\n【⚠️ 引擎级设计：全书节奏总览 · 必须执行】\n';
     moduleBlock += '- 卷与卷之间需要一个"全局节奏"：开头爆炸 → 节奏递增 → 中段信息释放 → 卷尾大悬念钩子\n';
     moduleBlock += '- 全书5-12卷的推荐节奏：第1卷（引子+钩子）→ 第2-3卷（发展+升级）→ 第4-5卷（世界观展开+关系冲突）→ 第6-8卷（势力洗牌+旧伏笔回收）→ 第9-10卷（高潮+大反转）→ 第11-12卷（结局+收尾+最终钩子）\n';
-    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进\n';
+    moduleBlock += '- 禁忌：卷与卷之间重复相同模式（打boss→升级→换新地图→又打boss）→ 至少每2-3卷换一种推进方式（感情推进/阴谋推进/身份推进/关系破裂推进/信息揭露推进）\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：情感线推进规划 · 必须执行】\n';
+    moduleBlock += '- 全书必须规划至少1条核心情感线（爱情/亲情/友情），并在大纲中明确标注每卷的推进节点\n';
+    moduleBlock += '- 情感线推进公式：心动→试探→确认→考验→危机→和解/破裂（必须有外部阻力+内部分歧，不是顺理成章）\n';
+    moduleBlock += '- 每卷至少设计1个"情感高光时刻"——让读者为之动容的场景（用【情感高光】标签标记）\n';
+    moduleBlock += '- 情感冲突必须与主线冲突交织——感情问题影响主线决策，主线事件改变感情走向\n';
+    moduleBlock += '\n【⚠️ 引擎级设计：名场面规划 · 必须执行】\n';
+    moduleBlock += '- 全书必须规划至少3-5个"名场面"（读者会截图保存、讨论转发的场景）\n';
+    moduleBlock += '- 名场面公式：极致情绪（愤怒/悲伤/感动/震撼）+ 经典台词 + 视觉画面\n';
+    moduleBlock += '- 在大纲中标注名场面出现的卷和大致章节位置（用【名场面】标签标记）\n';
     moduleBlock += '\n【⚠️ 大纲反套路 · 必须执行】\n';
-    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板 → 如果用，第一卷就必须加入一个"主角视角的反转（比如退婚其实是女方保护主角的手段，不是看不起）\n';
+    moduleBlock += '- 禁忌：退婚/打脸/系统面板流（"三十年河东三十年河西"模板）→ 如果用，第一卷就必须加入一个"主角视角的反转"（比如退婚其实是女方保护主角的手段，不是看不起）\n';
     moduleBlock += '- 禁忌：秘境抢宝流（主角进秘境→遇到天材地宝→全收）→ 必须至少1次抢宝失败或错过重要物品，且这个错过在后续带来更大收获\n';
     moduleBlock += '- 禁忌：扮猪吃虎重复 → 主角扮弱→打脸→扮弱→打脸循环 → 至少设计1次扮弱被真正的弱一次让他付出真实代价（不是永远赢到底）\n';
     moduleBlock += '- 禁忌：贵人送宝流（贵人/神秘老者/系统给主角送装备）→ 贵人必须有自己的目的，不是慈善家\n';
-    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是的势力\n';
+    moduleBlock += '- 禁忌：皇室权贵无脑挑衅→反派无脑→主角团灭 → 至少设计1个"看起来像反派但实际不是"的势力\n';
+    moduleBlock += '- 禁忌：情感线"一见钟情+顺理成章" → 必须设计至少1次感情危机（信任破裂/立场对立/误解），且危机的解决需要真实的努力\n';
   } else if(module === 'detail'){
     moduleName = moduleName || '章节细纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
@@ -3095,7 +3124,245 @@ window.addEventListener('DOMContentLoaded',function(){
     volOutline.addEventListener('input', function(){ volDetail.value = volOutline.value; });
     volDetail.addEventListener('input', function(){ volOutline.value = volDetail.value; });
   }
+  
+  // 初始化分批生成模式切换
+  toggleBatchModeDetail();
 });
+
+// ===== 细纲分批生成功能 =====
+function toggleBatchModeDetail(){
+  var mode = document.getElementById('batch-mode-detail').value;
+  document.getElementById('batch-range-area').style.display = mode === 'range' ? 'inline' : 'none';
+  document.getElementById('batch-single-area').style.display = mode === 'single' ? 'inline' : 'none';
+  updateBatchStatusDetail();
+}
+
+function getBatchRangeDetail(){
+  var mode = document.getElementById('batch-mode-detail').value;
+  var totalVol = parseInt(document.getElementById('vol-count-detail').value) || 9;
+  
+  if(mode === 'all'){
+    return { start: 1, end: totalVol };
+  } else if(mode === 'range'){
+    var start = parseInt(document.getElementById('batch-start-vol').value) || 1;
+    var end = parseInt(document.getElementById('batch-end-vol').value) || totalVol;
+    return { start: Math.max(1, start), end: Math.min(totalVol, Math.max(start, end)) };
+  } else {
+    var single = parseInt(document.getElementById('batch-single-vol').value) || 1;
+    return { start: Math.max(1, Math.min(totalVol, single)), end: Math.max(1, Math.min(totalVol, single)) };
+  }
+}
+
+function updateBatchStatusDetail(){
+  var work = getCurrentWork();
+  if(!work || !work.detail) {
+    document.getElementById('batch-status').textContent = '（未生成）';
+    return;
+  }
+  
+  var range = getBatchRangeDetail();
+  var detail = work.detail;
+  var generatedVols = [];
+  
+  for(var v = range.start; v <= range.end; v++){
+    if(detail.indexOf('第 ' + v + ' 卷') >= 0 || detail.indexOf('第' + v + '卷') >= 0){
+      generatedVols.push(v);
+    }
+  }
+  
+  var totalVols = range.end - range.start + 1;
+  if(generatedVols.length === 0){
+    document.getElementById('batch-status').textContent = '（未生成）';
+  } else if(generatedVols.length === totalVols){
+    document.getElementById('batch-status').textContent = '（全部已生成）';
+  } else {
+    document.getElementById('batch-status').textContent = '（已生成：卷' + generatedVols.join(',') + '）';
+  }
+}
+
+async function generateDetailByBatch(){
+  var work = getCurrentWork();
+  if(!work){
+    showToast('请先选择作品', {error:true});
+    return;
+  }
+  
+  var range = getBatchRangeDetail();
+  var totalVol = parseInt(document.getElementById('vol-count-detail').value) || 9;
+  
+  if(range.start > range.end){
+    showToast('起始卷不能大于结束卷', {error:true});
+    return;
+  }
+  
+  if(range.start < 1 || range.end > totalVol){
+    showToast('卷数超出范围（1-' + totalVol + '卷）', {error:true});
+    return;
+  }
+  
+  var mode = document.getElementById('batch-mode-detail').value;
+  var desc = mode === 'all' ? '全部' : (mode === 'single' ? '第' + range.start + '卷' : '第' + range.start + '-' + range.end + '卷');
+  
+  if(!confirm('确认生成' + desc + '细纲？\n\n当前已有内容将保留，新生成的卷会追加到细纲中。')){
+    return;
+  }
+  
+  try{
+    _selectedModule = 'detail';
+    
+    var ideaEl = document.getElementById('idea-detail');
+    var idea = ideaEl ? ideaEl.value : '';
+    if(idea && idea.trim()){
+      saveModuleIdea('detail', idea.trim());
+    }
+    
+    if(typeof showLoading === 'function') showLoading('🔍 准备生成' + desc + '细纲…');
+    
+    var marketResearch = '';
+    var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+    var platform = '起点';
+    try { if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; } catch(e){}
+    
+    try {
+      if(typeof showLoading === 'function') showLoading('🔍 搜索题材市场趋势…');
+      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
+      researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      researchPrompt += '【发布平台】' + platform + '\n';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求】\n' + idea.trim() + '\n';
+      researchPrompt += '\n请分析：1. 当前读者最买单的核心元素 2. 已饱和的套路 3. 2026年新趋势 4. 3条创作建议（总字数1500字以内）\n直接输出，不要加对话语前缀。';
+      
+      var researchResult = null;
+      try {
+        if(typeof callRealAPIWithFallback === 'function'){
+          researchResult = await callRealAPIWithFallback(researchPrompt, null, 'quality_consist', 1200, true);
+        }
+      } catch(reErr) { console.warn('[市场调研] 失败:', reErr); }
+      
+      if(researchResult && researchResult.trim().length > 50){
+        marketResearch = researchResult.trim();
+      }
+    } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
+    
+    var memoryContext = '';
+    try {
+      if(typeof buildArchMemoryContext === 'function'){
+        memoryContext = buildArchMemoryContext(work, 'detail');
+      }
+      if(memoryContext && memoryContext.length > 2500){
+        memoryContext = smartTruncate(memoryContext, 2500);
+      }
+    } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
+    
+    var batches = [];
+    var chaptersPerVolume = 10;
+    var chInputEl = document.getElementById('ch-count-detail');
+    if(chInputEl){
+      var c = parseInt(chInputEl.value);
+      if(c >= 1000 && c <= 20000) chaptersPerVolume = Math.max(10, Math.round(c / totalVol));
+    }
+    
+    var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
+    
+    for(var vi = range.start - 1; vi <= range.end - 1; vi++){
+      var volNum = vi + 1;
+      var chStart = (vi * chaptersPerVolume) + 1;
+      var chEnd = (vi + 1) * chaptersPerVolume;
+      var volPhase = allPhases2[Math.floor(vi * allPhases2.length / totalVol)] || '发展';
+      
+      batches.push({
+        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
+        targetChars: 3000,
+        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+        volume: volNum,
+        chapterRange: chStart + '-' + chEnd + '章'
+      });
+    }
+    
+    var allCards = [];
+    var existingDetail = work.detail || '';
+    var hasExistingVolumes = existingDetail.trim().length > 0;
+    
+    if(hasExistingVolumes){
+      allCards.push({ label: '已有细纲', content: existingDetail });
+    }
+    
+    for(var bi = 0; bi < batches.length; bi++){
+      var card = batches[bi];
+      var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      var progressPct = Math.round((bi / batches.length) * 90);
+      
+      if(typeof showLoading === 'function'){
+        showLoading('正在生成细纲 · ' + progressLabel);
+      }
+      if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(progressPct, '正在生成细纲 · ' + progressLabel);
+      }
+      
+      var cardPrompt = buildArchCardPromptV48('detail', card, work, idea, allCards, '', marketResearch, memoryContext);
+      var cardTargetChars = card.targetChars || 800;
+      
+      var cardResult = null;
+      try{
+        if(typeof callRealAPIWithFallback === 'function'){
+          cardResult = await callRealAPIWithFallback(cardPrompt, null, 'detail_base', cardTargetChars, true);
+        } else if(typeof callRealAPI === 'function'){
+          cardResult = await callRealAPI(cardPrompt, null, {});
+        }
+      }catch(e){
+        console.warn('卡片 ' + card.label + ' 生成失败:', e);
+        cardResult = '（本卡片生成失败）\n';
+      }
+      
+      if(!cardResult || !cardResult.trim()){
+        cardResult = '（本卡片生成失败，请重试）\n';
+      }
+      
+      allCards.push({ label: card.label, content: cardResult });
+      
+      if(bi < batches.length - 1){
+        await new Promise(function(res){ setTimeout(res, 50); });
+      }
+    }
+    
+    var result = '';
+    for(var ci = 0; ci < allCards.length; ci++){
+      var c = allCards[ci];
+      if(c.label === '已有细纲'){
+        result += c.content.trim() + '\n\n';
+      } else {
+        result += '【' + c.label + '】\n';
+        result += c.content.trim() + '\n\n';
+      }
+    }
+    result = result.trim();
+    
+    if(!result || result.length < 100){
+      if(typeof hideLoading === 'function') hideLoading();
+      showToast('⚠️ 生成失败', {error:true, duration:4000});
+      return;
+    }
+    
+    var rawEl = document.getElementById('raw-detail');
+    if(rawEl){
+      rawEl.value = result;
+      rawEl.style.height = 'auto';
+      rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+    }
+    work.detail = result;
+    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+    
+    try { syncArchToMemory(work, 'detail'); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
+    
+    if(typeof hideLoading === 'function') hideLoading();
+    updateBatchStatusDetail();
+    showToast('✅ ' + desc + '细纲生成完成，已追加到现有内容中', {duration:4000});
+    
+  } catch(err){
+    if(typeof hideLoading === 'function') hideLoading();
+    console.error('generateDetailByBatch error:', err);
+    showToast('生成异常：' + (err && err.message ? err.message : err), {error:true, duration:5000});
+  }
+}
 
 // 安全兜底
 setTimeout(function(){
