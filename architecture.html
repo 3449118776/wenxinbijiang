@@ -495,6 +495,7 @@ body{display:flex;flex-direction:column;}
         <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数">卷
         <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
         <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
+        <span style="margin-left:12px;color:#666;font-size:13px;">生成卷：</span><input type="number" id="gen-vol-detail" value="1" min="1" max="20" style="width:50px;" title="选择要生成的卷号">
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -2240,18 +2241,37 @@ window.generateArchModule = async function(opts){
     var result = '';
     
     if(module === 'detail' && work.detail && work.detail.trim().length > 0){
-      result = work.detail.trim() + '\n\n';
-    }
-    
-    for(var ci = 0; ci < allCards.length; ci++){
-      var c = allCards[ci];
-      var header = '';
-      if(batches.length > 1){
-        header = '【' + c.label + '】\n';
+      var existingContent = work.detail.trim();
+      var replaced = false;
+      
+      for(var ci = 0; ci < allCards.length; ci++){
+        var c = allCards[ci];
+        var volMatch = c.label.match(/第\s*(\d+)\s*卷/);
+        if(volMatch){
+          var targetVol = parseInt(volMatch[1]);
+          var volPattern = new RegExp('【第\\s*' + targetVol + '\\s*卷[^】]*】[\\s\\S]*?(?=【第\\s*\\d+\\s*卷|$)');
+          if(volPattern.test(existingContent)){
+            result = existingContent.replace(volPattern, '【' + c.label + '】\n' + c.content.trim());
+            replaced = true;
+            break;
+          }
+        }
       }
-      result += header + c.content.trim() + '\n\n';
+      
+      if(!replaced){
+        result = existingContent + '\n\n【' + allCards[0].label + '】\n' + allCards[0].content.trim();
+      }
+    } else {
+      for(var ci = 0; ci < allCards.length; ci++){
+        var c = allCards[ci];
+        var header = '';
+        if(batches.length > 1){
+          header = '【' + c.label + '】\n';
+        }
+        result += header + c.content.trim() + '\n\n';
+      }
+      result = result.trim();
     }
-    result = result.trim();
 
     if(!result || totalChars < 100){
       if(typeof hideLoading === 'function') hideLoading();
@@ -2437,31 +2457,28 @@ function buildArchCardBatchesV48(module, work, idea){
       }
     }
     
-    // 检测已有细纲的卷数，从已有卷数之后开始生成
-    var startVol = 1;
-    if(work && work.detail && work.detail.trim()){
-      var existingVolMatches = work.detail.match(/第[一二三四五六七八九十\d]+卷/g);
-      if(existingVolMatches && existingVolMatches.length > 0){
-        startVol = existingVolMatches.length + 1;
-      }
+    // 获取用户选择的生成卷号
+    var genVolEl = document.getElementById('gen-vol-detail');
+    var genVolNum = 1;
+    if(genVolEl){
+      var gv = parseInt(genVolEl.value);
+      if(gv >= 1 && gv <= volumeCount) genVolNum = gv;
     }
     
-    // 每卷生成一张细纲卡片
+    // 只生成用户选择的那一卷
     var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
-    for(var vi = startVol - 1; vi < volumeCount; vi++){
-      var volNum = vi + 1;
-      var chStart = (vi * chaptersPerVolume) + 1;
-      var chEnd = (vi + 1) * chaptersPerVolume;
-      var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
-      
-      batches.push({
-        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
-        targetChars: 3000,
-        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
-        volume: volNum,
-        chapterRange: chStart + '-' + chEnd + '章'
-      });
-    }
+    var vi = genVolNum - 1;
+    var chStart = (vi * chaptersPerVolume) + 1;
+    var chEnd = (vi + 1) * chaptersPerVolume;
+    var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
+    
+    batches.push({
+      label: '第 ' + genVolNum + ' 卷（' + volPhase + '）· 细纲',
+      targetChars: 3000,
+      focus: '第 ' + genVolNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+      volume: genVolNum,
+      chapterRange: chStart + '-' + chEnd + '章'
+    });
   } else {
     // 其他未知模块：默认 1 张卡片
     batches.push({ label: module, targetChars: 1500, focus: '完整内容' });
