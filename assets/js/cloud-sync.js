@@ -648,4 +648,39 @@ if (!window.cloud) {
   window.cloud = new CloudSync({ apiBase: _apiBase, autoSync: true });
 }
 
+// ===== 自动更新检查 =====
+(function() {
+  var CURRENT_VERSION = '1.0.0';
+  var VERSION_URL = 'https://wxbj-main.pages.dev/version.json';
+  
+  function checkUpdate() {
+    // 仅在 Capacitor 环境（Android APP）中检查更新
+    var isApp = (typeof window.Capacitor !== 'undefined') ||
+      (location.protocol === 'file:') ||
+      (location.protocol === 'content:') ||
+      (navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
+    if (!isApp) return;
+    
+    fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-cache' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.version && data.version !== CURRENT_VERSION && data.apk) {
+          var updateUrl = 'https://wxbj-main.pages.dev' + data.apk;
+          var doUpdate = confirm(
+            '发现新版本 v' + data.version + '！\n\n' +
+            '当前版本: v' + CURRENT_VERSION + '\n' +
+            '是否立即更新？'
+          );
+          if (doUpdate) {
+            window.open(updateUrl, '_system');
+          }
+        }
+      })
+      .catch(function() { /* 静默失败 */ });
+  }
+  
+  // 启动后延迟 2 秒再检查，避免影响页面加载
+  setTimeout(checkUpdate, 2000);
+})();
+
 })();
