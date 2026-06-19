@@ -2688,57 +2688,76 @@ window.evaluateArchModule = async function(){
 
     // ============== AI 深度评价（按模块不同评价维度）==============
     var aiReport = '';
+    var aiScore = 0;
     if(typeof callRealAPIWithFallback === 'function' && len > 100){
       if(typeof showLoading === 'function') showLoading('评价分析中…');
-      var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿，找出具体的可改进点。\n\n';
+      var evalPrompt = '你是一位严格的资深网文编辑，评分标准如下：\n';
+      evalPrompt += '- 1-3分：严重问题，无法使用\n';
+      evalPrompt += '- 4-6分：有明显缺陷，需要大幅修改\n';
+      evalPrompt += '- 7-8分：中等偏上，有亮点但不够完美\n';
+      evalPrompt += '- 9-10分：精品级别，可直接用于出版或签约\n';
+      evalPrompt += '请用以上标准严格评价以下' + moduleName + '，给出精准评分和具体问题。\n\n';
       evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
       
-      // 按模块不同评价维度
+      // 按模块不同评价维度（更细致的评分标准）
       evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
       if(module === 'world'){
-        evalPrompt += '1. 设定完整度：世界观体系是否自洽、有层次\n';
-        evalPrompt += '2. 独特创新：是否有区别于传统套路的独特要素\n';
-        evalPrompt += '3. 冲突张力：规则/矛盾/冲突源设计是否有力\n';
-        evalPrompt += '4. 力量体系：规则是否清晰、有代价和限制\n';
-        evalPrompt += '5. 社会结构：势力/阶层/组织分布是否合理\n';
-        evalPrompt += '6. 叙事潜力：是否为故事提供了足够的戏剧空间\n';
+        evalPrompt += '1. 设定完整度（权重20%）：规则是否自洽？是否有漏洞？层次是否分明？\n';
+        evalPrompt += '2. 独特创新（权重20%）：是否有区别于"四大神兽/五行/斗气"的独特设定？世界观是否有记忆点？\n';
+        evalPrompt += '3. 冲突张力（权重15%）：规则/矛盾/冲突源是否足够有力？是否能支撑百万字剧情？\n';
+        evalPrompt += '4. 力量体系（权重15%）：等级划分是否清晰？突破条件是否合理？是否有明确代价和限制？\n';
+        evalPrompt += '5. 社会结构（权重15%）：势力分布是否合理？阶层矛盾是否真实？底层生存状态是否有描写？\n';
+        evalPrompt += '6. 叙事潜力（权重15%）：是否为故事提供了足够的戏剧空间？是否有多个可挖掘的支线？\n';
       } else if(module === 'chars'){
-        evalPrompt += '1. 人物立体度：是否有动机、弱点、弧光\n';
-        evalPrompt += '2. 关系网络：人物之间的关系/冲突是否清晰\n';
-        evalPrompt += '3. 反派/对抗力：对立面是否足够强大有趣\n';
-        evalPrompt += '4. 差异化：人物之间性格/背景是否足够区分\n';
-        evalPrompt += '5. 成长空间：人物是否有可追踪的成长弧线\n';
-        evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入\n';
+        evalPrompt += '1. 人物立体度（权重20%）：是否有明确动机+致命弱点+成长弧光？是否避免了模板化？\n';
+        evalPrompt += '2. 关系网络（权重15%）：人物之间的关系是否清晰？是否有张力线？\n';
+        evalPrompt += '3. 反派/对抗力（权重20%）：反派是否有自己的正义观？对抗力是否足够强大有趣？\n';
+        evalPrompt += '4. 差异化（权重15%）：人物之间性格/背景/说话方式是否足够区分？能否一眼认出是谁在说话？\n';
+        evalPrompt += '5. 成长空间（权重15%）：是否有可追踪的成长弧线？是否有具体的成长节点？\n';
+        evalPrompt += '6. 情感共鸣（权重15%）：读者能否对角色产生情感投入？是否有让人动容的设计？\n';
       } else if(module === 'outline'){
-        evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理\n';
-        evalPrompt += '2. 节奏把控：高潮点和休息点的安排是否得当\n';
-        evalPrompt += '3. 伏笔设计：是否有足够的伏笔和钩子\n';
-        evalPrompt += '4. 主线清晰：主线是否明确、支线不喧宾夺主\n';
-        evalPrompt += '5. 冲突递进：冲突是否逐级升级\n';
-        evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足\n';
+        evalPrompt += '1. 结构清晰（权重15%）：分卷/分幕结构是否合理？卷与卷之间是否有因果推进？\n';
+        evalPrompt += '2. 节奏把控（权重20%）：高潮点和休息点安排是否得当？是否有节奏顿挫设计？\n';
+        evalPrompt += '3. 伏笔设计（权重20%）：是否有3层伏笔？是否有具体回收计划？回收是否"炸"？\n';
+        evalPrompt += '4. 主线清晰（权重15%）：主线是否明确？支线是否服务主线？\n';
+        evalPrompt += '5. 冲突递进（权重15%）：冲突是否逐级升级？是否避免重复模式？\n';
+        evalPrompt += '6. 商业价值（权重15%）：爽点/爆点/名场面是否充足？是否有情绪波浪设计？\n';
       } else if(module === 'detail'){
-        evalPrompt += '1. 章节连贯：章与章之间的衔接是否自然\n';
-        evalPrompt += '2. 钩子密度：每章结尾是否有让读者想点下一章的钩子\n';
-        evalPrompt += '3. 信息释放：信息是否有序释放、不堆砌\n';
-        evalPrompt += '4. 节奏控制：每章节奏是否得当、有无拖沓\n';
-        evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布\n';
-        evalPrompt += '6. 可执行性：每章目标是否明确、适合写正文\n';
+        evalPrompt += '1. 章节连贯（权重15%）：章与章之间衔接是否自然？是否有因果推进？\n';
+        evalPrompt += '2. 钩子密度（权重20%）：每章结尾是否有让读者想点下一章的钩子？是否有6类钩子交替？\n';
+        evalPrompt += '3. 信息释放（权重15%）：信息是否有序释放？是否避免堆砌？\n';
+        evalPrompt += '4. 节奏控制（权重20%）：每章节奏是否得当？是否有炸弹开头和钩子结尾？\n';
+        evalPrompt += '5. 爽点分布（权重15%）：爽点/转折/揭示是否合理分布？是否有压抑→爆发链路？\n';
+        evalPrompt += '6. 可执行性（权重15%）：每章目标是否明确？是否适合直接写正文？\n';
       } else {
-        evalPrompt += '1. 内容质量：整体水平\n';
-        evalPrompt += '2. 结构完整：结构是否合理\n';
-        evalPrompt += '3. 创新性：是否有独特之处\n';
-        evalPrompt += '4. 可执行性：是否适合后续写作\n';
+        evalPrompt += '1. 内容质量（权重25%）：整体水平\n';
+        evalPrompt += '2. 结构完整（权重25%）：结构是否合理\n';
+        evalPrompt += '3. 创新性（权重25%）：是否有独特之处\n';
+        evalPrompt += '4. 可执行性（权重25%）：是否适合后续写作\n';
       }
-      evalPrompt += '\n【你的输出格式】\n';
-      evalPrompt += '- 每个维度：维度名 X分 — 具体评价\n';
-      evalPrompt += '- 列出 3-6 条具体问题（必须针对上文内容，不能泛泛而谈）\n';
-      evalPrompt += '- 给出 2-3 条针对性改进建议\n';
-      evalPrompt += '- 不要超过 400 字；用简短犀利的编辑口吻\n';
-      evalPrompt += '- 不要用"好的""收到"等对话语';
+      evalPrompt += '\n【你的输出格式（严格遵守）】\n';
+      evalPrompt += '【总分】X/10分\n';
+      evalPrompt += '【各维度评分】\n';
+      evalPrompt += '- 维度名：X分 — 具体评价（至少20字）\n';
+      evalPrompt += '【主要问题】（列出3-6条具体问题，每条至少30字，必须针对上文内容）\n';
+      evalPrompt += '- 问题1：具体描述\n';
+      evalPrompt += '【改进建议】（给出3-5条针对性改进建议，每条至少30字）\n';
+      evalPrompt += '- 建议1：具体操作\n';
+      evalPrompt += '【9.0分标准对照】（对照以上内容，说明还差哪些达到9.0分标准）\n';
       try{
-        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default');
+        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'quality_consist', 1500, true);
       }catch(e){ aiReport = ''; }
+      
+      // 解析AI评分
+      var scoreMatch = aiReport.match(/【总分】\s*(\d+(\.\d+)?)\s*\/\s*10\s*分/);
+      if(scoreMatch){
+        aiScore = parseFloat(scoreMatch[1]);
+      } else {
+        var scoreMatch2 = aiReport.match(/(\d+(\.\d+)?)\s*分/);
+        if(scoreMatch2) aiScore = parseFloat(scoreMatch2[1]);
+      }
+      
       if(typeof hideLoading === 'function') hideLoading();
     }
 
@@ -2753,7 +2772,7 @@ window.evaluateArchModule = async function(){
     var work = getCurrentWork();
     if(work){
       work._archEval = work._archEval || {};
-      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, time: Date.now() };
+      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, aiScore: aiScore, time: Date.now() };
       try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
     }
 
@@ -2762,15 +2781,17 @@ window.evaluateArchModule = async function(){
     var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
     if(fixBtn){
       fixBtn.style.display = '';
-      fixBtn.textContent = '🔥 按评价加强（' + issues.length + '个问题）';
+      var scoreText = aiScore > 0 ? '评分 ' + aiScore + '分 · ' : '';
+      fixBtn.textContent = '🔥 按评价加强（' + scoreText + issues.length + '个问题）';
     }
 
-    // 用 alert 显示完整报告（便于阅读长文）
-    var finalMsg = '【' + moduleName + ' · 质量评价】\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
+    // 构建显示消息
+    var scoreMsg = aiScore > 0 ? '\n\n【AI评分】' + aiScore + '/10分' + (aiScore >= 9 ? ' 🎉 已达到精品标准！' : (aiScore >= 7 ? ' 👍 中等偏上' : (aiScore >= 4 ? ' ⚠️ 需要修改' : ' ❌ 严重问题'))) : '';
+    var finalMsg = '【' + moduleName + ' · 质量评价】' + scoreMsg + '\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
     try{
       alert(finalMsg);
     }catch(e){
-      showToast(localReport, {duration:6000});
+      showToast(localReport + (aiScore > 0 ? ' · AI评分:' + aiScore + '/10' : ''), {duration:6000});
     }
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
@@ -2784,18 +2805,51 @@ window.fixArchModule = async function(){
     var evalData = work._archEval && work._archEval[module];
     if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
 
-    // 构造针对本次问题的加强提示（从本地 issues 中提炼）
+    // 构造针对本次问题的加强提示（从本地 issues 和 AI 报告中提炼）
     var extraHint = '';
+    
+    // 当前评分和目标
+    var currentScore = evalData.aiScore || 0;
+    var targetScore = 9.0;
+    extraHint += '【评分目标】当前评分 ' + currentScore + '/10分，本次重新生成必须达到 ' + targetScore + '分以上。\n\n';
+    
+    // 必须解决的问题
+    extraHint += '【必须解决的问题】本次重新生成，你必须逐一解决以下问题，每个问题都要有明确的改进方案：\n';
     if(evalData.issues && evalData.issues.length){
-      extraHint += '本次重新生成，你必须特别解决以下问题：\n';
       for(var i=0;i<evalData.issues.length;i++){
-        extraHint += '- ' + evalData.issues[i] + '\n';
+        extraHint += (i+1) + '. ' + evalData.issues[i] + '\n';
+        extraHint += '   → 改进方案：（请写出具体的修改内容，不要只说"加强"）\n';
       }
     }
+    
+    // AI编辑意见
     if(evalData.aiReport && evalData.aiReport.trim() && evalData.aiReport.indexOf('暂不可用') === -1){
-      extraHint += '\n此外，参考编辑的以下意见：\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport);
+      var cleanReport = typeof cleanAIOutput === 'function' ? cleanAIOutput(evalData.aiReport) : evalData.aiReport;
+      
+      // 提取改进建议
+      var suggestionMatch = cleanReport.match(/【改进建议】([\s\S]*?)(?=【|$)/);
+      if(suggestionMatch){
+        extraHint += '\n【编辑改进建议】请严格按照以下建议进行修改：\n';
+        extraHint += suggestionMatch[1];
+      }
+      
+      // 提取9.0分标准对照
+      var standardMatch = cleanReport.match(/【9.0分标准对照】([\s\S]*?)(?=【|$)/);
+      if(standardMatch){
+        extraHint += '\n【9.0分标准对照】以下是达到9.0分还需要做到的内容，请逐条落实：\n';
+        extraHint += standardMatch[1];
+      }
     }
-
+    
+    // 质量标准要求
+    extraHint += '\n【质量标准底线】\n';
+    extraHint += '- 禁止使用"众人震惊/空气凝固/心中暗道/命运的齿轮"等AI模板化表达\n';
+    extraHint += '- 禁止使用"极其强大/无比恐怖/深不可测"等万能形容词\n';
+    extraHint += '- 世界观：必须有明确的规则、代价、限制、冲突源\n';
+    extraHint += '- 人设：必须有明确动机、致命弱点、成长弧光、真实缺陷\n';
+    extraHint += '- 大纲：必须有3层伏笔、节奏曲线、情绪波浪、名场面规划\n';
+    extraHint += '- 细纲：每章必须有炸弹开头、钩子结尾、剧情节点、对话亮点\n';
+    
     // 调用 generateArchModule 并注入加强提示
     await window.generateArchModule({ isFix: true, extraHint: extraHint });
   }catch(e){ console.error('fixArchModule error:', e); showToast('加强失败：' + (e.message||e), {error:true}); }
