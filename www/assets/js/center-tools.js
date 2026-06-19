@@ -269,8 +269,8 @@ function he(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// 云端实例（全局复用）
-window.cloud = null;
+// 云端实例（全局复用，不覆盖 cloud-sync.js 已初始化的实例）
+window.cloud = window.cloud || null;
 
 function _getCloud() {
   if (!window.cloud) {
@@ -286,7 +286,7 @@ function _getCloud() {
         (window.location && window.location.protocol === 'file:') ||
         (window.location && window.location.protocol === 'content:') ||
         (navigator && navigator.userAgent && navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
-      base = isCapacitor ? 'https://wenxin-bijiang.pages.dev/api' : '/api';
+      base = isCapacitor ? 'https://wxbj-main.pages.dev/api' : '/api';
     }
     window.cloud = new CloudSync({ apiBase: base });
   }
