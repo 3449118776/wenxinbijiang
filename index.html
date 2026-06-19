@@ -126,16 +126,16 @@ body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
 <script src="assets/js/ui.js"></script>
 <script src="assets/js/cloud-sync.js"></script>
 <script>
-// 初始化云端同步
-var API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:8787/api'
-  : location.origin + '/api';
-window.cloud = new CloudSync({ apiBase: API_BASE, autoSync: true });
+// 初始化云端同步（cloud-sync.js 已自动处理，这里不再覆盖）
 </script>
 <script>
 
 (function(){
-  var API_BASE = location.protocol === 'file:' ? '/api' : '/api';
+  var API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8787/api'
+    : (location.protocol === 'file:' || location.hostname === 'capacitor' || !location.hostname)
+      ? 'https://wxbj-main.pages.dev/api'
+      : '/api';
   var mode = 'login';
 
   function getToken(){ try{ return localStorage.getItem('wxbj_cloud_token')||''; }catch(e){ return ''; } }
