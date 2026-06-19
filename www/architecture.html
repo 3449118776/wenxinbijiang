@@ -2319,6 +2319,62 @@ window.generateArchModule = async function(opts){
     work[module] = result;
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
 
+    // ===== v53: 细纲完成后自动生成商业级书名+简介 =====
+    if(module === 'detail' && (!work.title || work.title === '未命名作品') && typeof callRealAPIWithFallback === 'function'){
+      if(typeof showLoading === 'function') showLoading('🎯 细纲完成，自动生成商业级书名与简介…');
+      try{
+        var titlePrompt = '你是一位起点中文网/番茄小说的资深签约编辑，擅长给作品起爆款书名和写吸量简介。\n\n';
+        titlePrompt += '【作品基本信息】\n';
+        titlePrompt += '题材：' + (genre || '未知') + (plotType ? ' · ' + plotType : '') + '\n';
+        titlePrompt += '平台：' + platform + '\n';
+        if(work.world) titlePrompt += '世界观摘要：' + work.world.slice(0, 500) + '\n';
+        if(work.chars) titlePrompt += '人设摘要：' + work.chars.slice(0, 500) + '\n';
+        if(work.outline) titlePrompt += '大纲摘要：' + work.outline.slice(0, 500) + '\n';
+        if(work.detail) titlePrompt += '细纲摘要：' + work.detail.slice(0, 500) + '\n';
+        if(marketResearch) titlePrompt += '市场调研：' + marketResearch.slice(0, 500) + '\n';
+        titlePrompt += '\n【任务：生成商业级书名和简介】\n';
+        titlePrompt += '\n一、书名要求（生成3个候选书名，按爆款潜力排序）：\n';
+        titlePrompt += '1. 书名长度8-15字为佳，简洁有力，一眼能记住\n';
+        titlePrompt += '2. 书名必须包含至少一个"钩子"元素：矛盾感/反差感/悬念/身份标签/金手指特征\n';
+        titlePrompt += '3. 避免"记/传/录/史/谱"等古典结尾，避免"XXX之XXX"套娃格式\n';
+        titlePrompt += '4. 考虑平台风格：起点偏"世界观+身份"（如《诡秘之主》《大奉打更人》），番茄偏"冲突+爽点"（如《我在精神病院学斩神》《重生之都市修仙》）\n';
+        titlePrompt += '5. 每个书名后标注【爆款指数：X/10】和一句话理由\n\n';
+        titlePrompt += '二、简介要求（生成200字以内的简介）：\n';
+        titlePrompt += '1. 开头20字内必须有钩子（一句话抓住读者好奇心）\n';
+        titlePrompt += '2. 中间120字：展示世界观亮点+主角核心矛盾+最炸的金手指/身份\n';
+        titlePrompt += '3. 结尾60字：制造悬念，让读者忍不住点"开始阅读"\n';
+        titlePrompt += '4. 避免"这是一个……的故事"、"且看……"等套话\n';
+        titlePrompt += '5. 简介要有"网感"——节奏快、信息密度高、每句都推动阅读欲望\n\n';
+        titlePrompt += '【输出格式】\n';
+        titlePrompt += '【书名1】XXX 【爆款指数：X/10】理由：XXX\n';
+        titlePrompt += '【书名2】XXX 【爆款指数：X/10】理由：XXX\n';
+        titlePrompt += '【书名3】XXX 【爆款指数：X/10】理由：XXX\n';
+        titlePrompt += '【最佳书名】XXX（从3个中选最优）\n';
+        titlePrompt += '【简介】\nXXX（200字以内）\n';
+
+        var titleResult = await callRealAPIWithFallback(titlePrompt, null, 'title_synopsis', 800, true);
+        if(titleResult && titleResult.length > 50){
+          // 解析最佳书名
+          var bestTitleMatch = titleResult.match(/【最佳书名】\s*(.+?)(?:\n|$)/);
+          if(bestTitleMatch && bestTitleMatch[1].trim()){
+            work.title = bestTitleMatch[1].trim();
+          } else {
+            // 降级：取第一个书名
+            var t1Match = titleResult.match(/【书名1】\s*(.+?)\s*【爆款指数/);
+            if(t1Match && t1Match[1].trim()) work.title = t1Match[1].trim();
+          }
+          // 解析简介
+          var synopsisMatch = titleResult.match(/【简介】\s*\n?\s*([\s\S]+?)$/);
+          if(synopsisMatch && synopsisMatch[1].trim()){
+            work.synopsis = synopsisMatch[1].trim();
+          }
+          try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+          showToast('🎉 已自动生成书名：' + work.title, {duration: 4000});
+        }
+      }catch(titleErr){ console.warn('[书名生成] 失败:', titleErr); }
+      if(typeof hideLoading === 'function') hideLoading();
+    }
+
     // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
     try { syncArchToMemory(work, module); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
 
