@@ -2662,280 +2662,286 @@ window.evaluateArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
-    // 分页模式下 textarea 只显示当前页，需用全文缓存获取完整内容
     var content = _archFullContent[module] || '';
     if (!content) {
       var rawEl = document.getElementById('raw-' + module);
       if (rawEl && rawEl.value.trim()) content = rawEl.value.trim();
     }
-    if(!content){
-      showToast('先生成内容再评价');
-      return;
-    }
-    var len = content.length;
+    if(!content){ showToast('先生成内容再评价'); return; }
 
-    // ============== 本地启发式快速检查（离线可用）==============
-    var issues = [];
-    var strengths = [];
-
-    // 长度检查
-    if(len < 600) issues.push('内容偏短（<600字），设定/细节可能不足');
-    else if(len >= 800 && len <= 3000) strengths.push('篇幅合理');
-
-    // AI 腔 / 模板化表达检测
-    var aiPatterns = /(他的内心五味杂陈|时间仿佛静止|空气仿佛凝固|心中百感交集|众人震惊|全场震惊|一片哗然|所有人都惊呆了|命运的齿轮开始转动|仿佛是|如同是)/;
-    if(aiPatterns.test(content)) issues.push('检测到 AI 腔/模板化表达（应替换为具体动作/对话）');
-    else strengths.push('模板化表达少');
-
-    // 细纲格式检查
-    if(module === 'detail'){
-      var chapterCount = (content.match(/第[\d一二三四五六七八九十百零两]+章/g) || []).length;
-      if(chapterCount === 0) issues.push('细纲中未检测到"第N章"格式；建议明确分章');
-      if(chapterCount < 5) issues.push('细纲章节数偏少（<5）；建议扩展到10-20章');
-      var hasHookPattern = /(原来|其实|秘密|真正|不仅|更|可|却|谁也没想到|就在这时)/;
-      if(chapterCount > 0 && !hasHookPattern.test(content)) issues.push('悬念钩子不足；每章末应有让读者想点下一章的内容');
-      var pipeCount = (content.match(/\|/g) || []).length;
-      if(chapterCount > 0 && pipeCount < chapterCount) issues.push('部分章节未使用"|"字段分隔符；统一格式便于后续写作');
-      if(chapterCount >= 8 && pipeCount >= chapterCount) strengths.push('细纲格式规范');
-    }
-
-    // 人设检查
-    if(module === 'chars'){
-      if(!/反派|对手|敌人|敌对/.test(content)) issues.push('人设中未见明确的反派/敌对角色');
-      var nameCount = (content.match(/[\u4e00-\u9fa5]{2,4}(?=\s*[（(]|：|:)/g) || []).length;
-      if(nameCount >= 4) strengths.push('人物名识别正常');
-      if(content.length < 800) issues.push('人物设定偏短；建议补充每个人物的动机/弱点/弧光起点');
-    }
-
-    // 世界观检查
-    if(module === 'world'){
-      if(!/(代价|限制|规则|矛盾|冲突|力量|体系|社会|势力)/.test(content)) issues.push('世界观缺少"代价/规则/矛盾/势力"等核心要素');
-      if(/(四大神兽|五行|元素|斗气|魔法)/.test(content)) issues.push('使用了较泛的传统设定；建议添加独特变体以避免套路化');
-    }
-
-    // 大纲检查
-    if(module === 'outline'){
-      var juanCount = (content.match(/第[一二三四五六七八九十\d]+卷|卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十\d]+幕/g) || []).length;
-      if(juanCount === 0) issues.push('未见明确分卷结构；建议按"卷"组织全书');
-      if(!/(伏笔|钩子|悬念|转折|冲突|爆点|揭示)/.test(content)) issues.push('大纲缺少伏笔/钩子/转折等结构要素');
-    }
-
-    // ============== AI 深度评价（按模块不同评价维度）==============
-    var aiReport = '';
-    var aiScore = 0;
-    if(typeof callRealAPIWithFallback === 'function' && len > 100){
-      if(typeof showLoading === 'function') showLoading('评价分析中…');
-      var evalPrompt = '你是一位严格的资深网文编辑，评分标准如下：\n';
-      evalPrompt += '- 1-3分：严重问题，无法使用\n';
-      evalPrompt += '- 4-6分：有明显缺陷，需要大幅修改\n';
-      evalPrompt += '- 7-8分：中等偏上，有亮点但不够完美\n';
-      evalPrompt += '- 9-10分：精品级别，可直接用于出版或签约\n';
-      evalPrompt += '请用以上标准严格评价以下' + moduleName + '，给出精准评分和具体问题。\n\n';
-      evalPrompt += '【作品题材】' + ((getCurrentWork() && getCurrentWork().genre) || '未知') + '\n';
-      evalPrompt += '【待评价内容】\n' + content + '\n\n';
-      
-      // 按模块不同评价维度（更细致的评分标准）
-      evalPrompt += '【评价维度 — 请逐项打分（1-10分）并给出具体问题】\n';
-      if(module === 'world'){
-        evalPrompt += '1. 设定完整度（权重20%）：规则是否自洽？是否有漏洞？层次是否分明？\n';
-        evalPrompt += '2. 独特创新（权重20%）：是否有区别于"四大神兽/五行/斗气"的独特设定？世界观是否有记忆点？\n';
-        evalPrompt += '3. 冲突张力（权重15%）：规则/矛盾/冲突源是否足够有力？是否能支撑百万字剧情？\n';
-        evalPrompt += '4. 力量体系（权重15%）：等级划分是否清晰？突破条件是否合理？是否有明确代价和限制？\n';
-        evalPrompt += '5. 社会结构（权重15%）：势力分布是否合理？阶层矛盾是否真实？底层生存状态是否有描写？\n';
-        evalPrompt += '6. 叙事潜力（权重15%）：是否为故事提供了足够的戏剧空间？是否有多个可挖掘的支线？\n';
-      } else if(module === 'chars'){
-        evalPrompt += '1. 人物立体度（权重20%）：是否有明确动机+致命弱点+成长弧光？是否避免了模板化？\n';
-        evalPrompt += '2. 关系网络（权重15%）：人物之间的关系是否清晰？是否有张力线？\n';
-        evalPrompt += '3. 反派/对抗力（权重20%）：反派是否有自己的正义观？对抗力是否足够强大有趣？\n';
-        evalPrompt += '4. 差异化（权重15%）：人物之间性格/背景/说话方式是否足够区分？能否一眼认出是谁在说话？\n';
-        evalPrompt += '5. 成长空间（权重15%）：是否有可追踪的成长弧线？是否有具体的成长节点？\n';
-        evalPrompt += '6. 情感共鸣（权重15%）：读者能否对角色产生情感投入？是否有让人动容的设计？\n';
-      } else if(module === 'outline'){
-        evalPrompt += '1. 结构清晰（权重15%）：分卷/分幕结构是否合理？卷与卷之间是否有因果推进？\n';
-        evalPrompt += '2. 节奏把控（权重20%）：高潮点和休息点安排是否得当？是否有节奏顿挫设计？\n';
-        evalPrompt += '3. 伏笔设计（权重20%）：是否有3层伏笔？是否有具体回收计划？回收是否"炸"？\n';
-        evalPrompt += '4. 主线清晰（权重15%）：主线是否明确？支线是否服务主线？\n';
-        evalPrompt += '5. 冲突递进（权重15%）：冲突是否逐级升级？是否避免重复模式？\n';
-        evalPrompt += '6. 商业价值（权重15%）：爽点/爆点/名场面是否充足？是否有情绪波浪设计？\n';
-      } else if(module === 'detail'){
-        evalPrompt += '1. 章节连贯（权重15%）：章与章之间衔接是否自然？是否有因果推进？\n';
-        evalPrompt += '2. 钩子密度（权重20%）：每章结尾是否有让读者想点下一章的钩子？是否有6类钩子交替？\n';
-        evalPrompt += '3. 信息释放（权重15%）：信息是否有序释放？是否避免堆砌？\n';
-        evalPrompt += '4. 节奏控制（权重20%）：每章节奏是否得当？是否有炸弹开头和钩子结尾？\n';
-        evalPrompt += '5. 爽点分布（权重15%）：爽点/转折/揭示是否合理分布？是否有压抑→爆发链路？\n';
-        evalPrompt += '6. 可执行性（权重15%）：每章目标是否明确？是否适合直接写正文？\n';
-      } else {
-        evalPrompt += '1. 内容质量（权重25%）：整体水平\n';
-        evalPrompt += '2. 结构完整（权重25%）：结构是否合理\n';
-        evalPrompt += '3. 创新性（权重25%）：是否有独特之处\n';
-        evalPrompt += '4. 可执行性（权重25%）：是否适合后续写作\n';
-      }
-      evalPrompt += '\n【你的输出格式（严格遵守）】\n';
-      evalPrompt += '【总分】X/10分\n';
-      evalPrompt += '【各维度评分】\n';
-      evalPrompt += '- 维度名：X分 — 具体评价（至少20字）\n';
-      evalPrompt += '【主要问题】（列出3-6条具体问题，每条至少30字，必须针对上文内容）\n';
-      evalPrompt += '- 问题1：具体描述\n';
-      evalPrompt += '【改进建议】（给出3-5条针对性改进建议，每条至少30字）\n';
-      evalPrompt += '- 建议1：具体操作\n';
-      evalPrompt += '【9.0分标准对照】（对照以上内容，说明还差哪些达到9.0分标准）\n';
-      evalPrompt += '【修正版】（直接输出根据以上问题和建议修改后的完整修正版内容，将作为后续生成的依据。如果当前版本已达标，输出"当前版本已达标，无需修改"）\n';
-      try{
-        aiReport = await callRealAPIWithFallback(evalPrompt, null, 'quality_consist', 1500, true);
-      }catch(e){ aiReport = ''; }
-      
-      // 解析AI评分
-      var scoreMatch = aiReport.match(/【总分】\s*(\d+(\.\d+)?)\s*\/\s*10\s*分/);
-      if(scoreMatch){
-        aiScore = parseFloat(scoreMatch[1]);
-      } else {
-        var scoreMatch2 = aiReport.match(/(\d+(\.\d+)?)\s*分/);
-        if(scoreMatch2) aiScore = parseFloat(scoreMatch2[1]);
-      }
-      
-      if(typeof hideLoading === 'function') hideLoading();
-    }
-
-    // ============== 汇总报告 ==============
-    var localReport = '【本地检查】' + (strengths.length ? '优点：' + strengths.join('、') : '') + (issues.length ? '；问题：' + issues.join('；') : '整体结构良好 ✅');
-    var fullReport = localReport;
-    if(aiReport && aiReport.trim() && aiReport.indexOf('暂不可用') === -1){
-      fullReport += '\n\n【编辑意见】\n' + (typeof cleanAIOutput === 'function' ? cleanAIOutput(aiReport) : aiReport);
-    }
-
-    // 保存到作品元数据（供"按评价加强"读取）
     var work = getCurrentWork();
-    if(work){
-      // === v53: 从AI报告中提取修正版，省去fixArchModule的额外API调用 ===
+    var MAX_ROUNDS = 3;
+    var TARGET_SCORE = 9;
+    var finalScore = 0;
+    var finalReport = '';
+    var allIssues = [];
+    var allStrengths = [];
+
+    for(var round = 1; round <= MAX_ROUNDS; round++){
+      var len = content.length;
+      var issues = [];
+      var strengths = [];
+
+      // === 本地启发式检查 ===
+      if(len < 600) issues.push('内容偏短（<600字），设定/细节可能不足');
+      else if(len >= 800 && len <= 3000) strengths.push('篇幅合理');
+      var aiPatterns = /(他的内心五味杂陈|时间仿佛静止|空气仿佛凝固|心中百感交集|众人震惊|全场震惊|一片哗然|所有人都惊呆了|命运的齿轮开始转动|仿佛是|如同是)/;
+      if(aiPatterns.test(content)) issues.push('检测到 AI 腔/模板化表达');
+      else strengths.push('模板化表达少');
+      if(module === 'detail'){
+        var chapterCount = (content.match(/第[\d一二三四五六七八九十百零两]+章/g) || []).length;
+        if(chapterCount === 0) issues.push('未检测到"第N章"格式');
+        if(chapterCount < 5) issues.push('章节数偏少（<5）');
+        var hasHookPattern = /(原来|其实|秘密|真正|不仅|更|可|却|谁也没想到|就在这时)/;
+        if(chapterCount > 0 && !hasHookPattern.test(content)) issues.push('悬念钩子不足');
+        var pipeCount = (content.match(/\|/g) || []).length;
+        if(chapterCount >= 8 && pipeCount >= chapterCount) strengths.push('细纲格式规范');
+      }
+      if(module === 'chars'){
+        if(!/反派|对手|敌人|敌对/.test(content)) issues.push('未见明确的反派/敌对角色');
+        if(content.length < 800) issues.push('人物设定偏短');
+      }
+      if(module === 'world'){
+        if(!/(代价|限制|规则|矛盾|冲突|力量|体系|社会|势力)/.test(content)) issues.push('缺少"代价/规则/矛盾/势力"等核心要素');
+        if(/(四大神兽|五行|元素|斗气|魔法)/.test(content)) issues.push('使用了较泛的传统设定');
+      }
+      if(module === 'outline'){
+        var juanCount = (content.match(/第[一二三四五六七八九十\d]+卷|卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十\d]+幕/g) || []).length;
+        if(juanCount === 0) issues.push('未见明确分卷结构');
+        if(!/(伏笔|钩子|悬念|转折|冲突|爆点|揭示)/.test(content)) issues.push('缺少伏笔/钩子/转折等结构要素');
+      }
+
+      // === AI 深度评价 ===
+      var aiReport = '';
+      var aiScore = 0;
+      if(typeof callRealAPIWithFallback === 'function' && len > 100){
+        if(typeof showLoading === 'function') showLoading('评价第' + round + '轮…');
+        var evalPrompt = '你是一位极其严格的资深网文签约编辑。你的评分直接决定作品能否签约。\n\n';
+        evalPrompt += '【9分标准 — 必须达标才能签约】\n';
+        evalPrompt += '- 9分：不存在任何模板化表达，每个设定都有具体可检验的细节，可直接用于出版签约\n';
+        evalPrompt += '- 8分：总体优秀但仍有1-2处可改进的细节\n';
+        evalPrompt += '- 7分：中等偏上，有亮点但不够完美\n';
+        evalPrompt += '- 6分及以下：有明显缺陷，必须大幅修改\n\n';
+        evalPrompt += '【作品题材】' + ((work && work.genre) || '未知') + '\n';
+        evalPrompt += '【待评价内容】\n' + content + '\n\n';
+        evalPrompt += '【' + moduleName + '评价维度 — 逐项打分（1-10分）】\n';
+        if(module === 'world'){
+          evalPrompt += '1. 设定完整度：规则是否自洽？是否有漏洞？\n';
+          evalPrompt += '2. 独特创新：是否有区别于"四大神兽/五行/斗气"的独特设定？\n';
+          evalPrompt += '3. 冲突张力：规则/矛盾/冲突源是否足够有力？\n';
+          evalPrompt += '4. 力量体系：等级划分是否清晰？是否有明确代价和限制？\n';
+          evalPrompt += '5. 社会结构：势力分布是否合理？阶层矛盾是否真实？\n';
+          evalPrompt += '6. 叙事潜力：是否提供了足够的戏剧空间？\n';
+        } else if(module === 'chars'){
+          evalPrompt += '1. 人物立体度：是否有明确动机+致命弱点+成长弧光？\n';
+          evalPrompt += '2. 关系网络：人物之间的关系是否清晰？是否有张力线？\n';
+          evalPrompt += '3. 反派/对抗力：反派是否有自己的正义观？\n';
+          evalPrompt += '4. 差异化：人物之间能否一眼认出是谁在说话？\n';
+          evalPrompt += '5. 成长空间：是否有可追踪的成长弧线？\n';
+          evalPrompt += '6. 情感共鸣：读者能否对角色产生情感投入？\n';
+        } else if(module === 'outline'){
+          evalPrompt += '1. 结构清晰：分卷/分幕结构是否合理？\n';
+          evalPrompt += '2. 节奏把控：高潮点和休息点安排是否得当？\n';
+          evalPrompt += '3. 伏笔设计：是否有3层伏笔？回收是否"炸"？\n';
+          evalPrompt += '4. 主线清晰：主线是否明确？\n';
+          evalPrompt += '5. 冲突递进：冲突是否逐级升级？\n';
+          evalPrompt += '6. 商业价值：爽点/爆点/名场面是否充足？\n';
+        } else if(module === 'detail'){
+          evalPrompt += '1. 章节连贯：章与章之间衔接是否自然？\n';
+          evalPrompt += '2. 钩子密度：每章结尾是否有钩子？6类钩子是否交替？\n';
+          evalPrompt += '3. 信息释放：信息是否有序释放？\n';
+          evalPrompt += '4. 节奏控制：是否有炸弹开头和钩子结尾？\n';
+          evalPrompt += '5. 爽点分布：爽点/转折/揭示是否合理分布？\n';
+          evalPrompt += '6. 可执行性：是否适合直接写正文？\n';
+        }
+        evalPrompt += '\n【输出格式 · 严格遵守】\n';
+        evalPrompt += '【总分】X/10分\n';
+        evalPrompt += '【各维度评分】\n- 维度名：X分 — 具体评价\n';
+        evalPrompt += '【主要问题】（2-3条，每条必须具体可操作）\n';
+        evalPrompt += '【修正版】\n';
+        evalPrompt += '（输出修改后的完整内容，确保达到9分标准。\n';
+        evalPrompt += '如果当前评分已≥9分，输出"当前版本已达标，无需修改"。\n';
+        evalPrompt += '如果当前评分<9分，必须输出逐条修改后的完整内容，不得省略任何部分。\n';
+        evalPrompt += '修正版必须比原版有实质性提升，针对性解决所有【主要问题】。）\n';
+
+        try{
+          aiReport = await callRealAPIWithFallback(evalPrompt, null, 'quality_consist', Math.max(1500, len), true);
+        }catch(e){ aiReport = ''; }
+
+        var scoreMatch = aiReport.match(/【总分】\s*(\d+(\.\d+)?)\s*\/?\s*10\s*分?/);
+        if(scoreMatch) aiScore = parseFloat(scoreMatch[1]);
+        else{ var sm2 = aiReport.match(/(\d+(\.\d+)?)\s*分/); if(sm2) aiScore = parseFloat(sm2[1]); }
+        if(typeof hideLoading === 'function') hideLoading();
+      }
+
+      // 累积问题
+      allIssues = allIssues.concat(issues);
+      allStrengths = allStrengths.concat(strengths);
+      finalScore = aiScore;
+      finalReport = aiReport;
+
+      // === 提取修正版 ===
       var fixedVersion = '';
       if(aiReport){
         var fixMatch = aiReport.match(/【修正版】([\s\S]*?)$/);
-        if(fixMatch && fixMatch[1] && fixMatch[1].trim() && fixMatch[1].indexOf('无需修改') === -1 && fixMatch[1].length > 50){
+        if(fixMatch && fixMatch[1] && fixMatch[1].trim().length > 50 && fixMatch[1].indexOf('无需修改') === -1){
           fixedVersion = fixMatch[1].trim();
-          // 从全报告中移除修正版部分，避免在展示时显示
-          aiReport = aiReport.replace(/【修正版】[\s\S]*$/, '').trim();
         }
       }
-      work._archEval = work._archEval || {};
-      work._archEval[module] = { issues: issues, strengths: strengths, aiReport: aiReport, aiScore: aiScore, time: Date.now(), fixedVersion: fixedVersion };
-      try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-    }
 
-    // 展示修复按钮 + 报告（v48: 每个模块有独立 ID）
-    var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
-    var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-    if(fixBtn){
-      fixBtn.style.display = '';
-      var scoreText = aiScore > 0 ? '评分 ' + aiScore + '分 · ' : '';
-      fixBtn.textContent = '🔥 按评价加强（' + scoreText + issues.length + '个问题）';
-    }
+      // === 保存本轮结果 ===
+      if(work){
+        work._archEval = work._archEval || {};
+        work._archEval[module] = { issues: allIssues, strengths: allStrengths, aiReport: aiReport.replace(/【修正版】[\s\S]*$/, '').trim(), aiScore: aiScore, time: Date.now(), fixedVersion: fixedVersion, rounds: round };
+        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      }
 
-    // 构建显示消息
-    var scoreMsg = aiScore > 0 ? '\n\n【AI评分】' + aiScore + '/10分' + (aiScore >= 9 ? ' 🎉 已达到精品标准！' : (aiScore >= 7 ? ' 👍 中等偏上' : (aiScore >= 4 ? ' ⚠️ 需要修改' : ' ❌ 严重问题'))) : '';
-    var finalMsg = '【' + moduleName + ' · 质量评价】' + scoreMsg + '\n\n' + fullReport + '\n\n' + (issues.length || aiReport ? '可点"🔥 按评价加强"让 AI 针对以上问题重写' : '当前版本质量良好');
-    try{
-      alert(finalMsg);
-    }catch(e){
-      showToast(localReport + (aiScore > 0 ? ' · AI评分:' + aiScore + '/10' : ''), {duration:6000});
+      // === 判断是否达标 ===
+      if(aiScore >= TARGET_SCORE || !fixedVersion || round >= MAX_ROUNDS){
+        // 显示结果
+        var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
+        var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
+        if(fixBtn){
+          fixBtn.style.display = aiScore >= TARGET_SCORE ? 'none' : '';
+          fixBtn.textContent = '🔥 按评价加强（' + (aiScore > 0 ? '评分' + aiScore + '分 · ' : '') + allIssues.length + '个问题）';
+        }
+        var roundTag = round > 1 ? '（经' + round + '轮迭代）' : '';
+        var scoreLabel = aiScore >= TARGET_SCORE ? '🎉 已达9分精品标准！' : (aiScore >= 7 ? '👍 中等偏上' : (aiScore >= 4 ? '⚠️ 需要修改' : '❌ 严重问题'));
+        var finalMsg = '【' + moduleName + ' · 质量评价' + roundTag + '】\n【AI评分】' + aiScore + '/10分 ' + scoreLabel + '\n\n' + (aiReport ? aiReport.replace(/【修正版】[\s\S]*$/, '').trim() : '');
+        if(aiScore < TARGET_SCORE && fixedVersion) finalMsg += '\n\n💡 修正版已缓存，点击"按评价加强"即可应用（无需额外API调用）';
+        if(aiScore >= TARGET_SCORE) finalMsg += '\n\n✅ 恭喜！' + moduleName + '已达到精品签约标准！';
+        try{ alert(finalMsg); }catch(e){ showToast(finalMsg.slice(0, 200), {duration: 6000}); }
+        return;
+      }
+
+      // === 未达标：应用修正版，进入下一轮 ===
+      content = fixedVersion;
+      if(work){
+        work[module] = fixedVersion;
+        _archFullContent[module] = fixedVersion;
+        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      }
+      // 刷新UI
+      if(typeof renderArchContent === 'function') renderArchContent(module);
+      showToast('🔄 第' + round + '轮评分' + aiScore + '/10，未达标，自动进入第' + (round+1) + '轮迭代…', 3000);
     }
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
 
-// ========== v53: 全模块批量评价 —— 一次API调用评价所有模块（省3次调用）==========
+// ========== v53: 全模块批量评价 + 自动迭代至9分（最多3轮）==========
 window.evaluateAllArchModules = async function(){
   try{
     var work = getCurrentWork();
     if(!work){ showToast('请先选择一部作品'); return; }
     
-    // 收集所有有内容的模块
     var modules = ['world', 'chars', 'outline', 'detail'];
     var moduleNames = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
-    var contents = {};
-    var hasAny = false;
-    modules.forEach(function(m){
-      var c = _archFullContent[m] || '';
-      if(!c){
-        var rawEl = document.getElementById('raw-' + m);
-        if(rawEl && rawEl.value.trim()) c = rawEl.value.trim();
-      }
-      if(c && c.length > 100){ contents[m] = c; hasAny = true; }
-    });
-    if(!hasAny){ showToast('请先生成至少一个模块的内容再评价'); return; }
-    
-    if(typeof showLoading === 'function') showLoading('全模块评价中…（1次调用）');
-    
-    // 构建合并评价 prompt
-    var prompt = '你是一位严格的资深网文编辑。请对以下架构模块逐一评分并给出修正版。\n\n';
-    prompt += '【作品题材】' + (work.genre || '未知') + '\n';
-    prompt += '【评分标准】1-3分=严重问题，4-6分=有明显缺陷，7-8分=中等偏上，9-10分=精品级别\n\n';
-    
-    var modKeys = [];
-    modules.forEach(function(m){
-      if(!contents[m]) return;
-      modKeys.push(m);
-      var c = contents[m];
-      prompt += '=== ' + m.toUpperCase() + '·' + moduleNames[m] + '（共' + c.length + '字）===\n';
-      prompt += c.slice(0, 2000) + (c.length > 2000 ? '\n...(已截断至2000字)...' : '') + '\n\n';
-    });
-    
-    prompt += '【请对以上每个模块逐项评价，输出格式：】\n';
-    prompt += '┌─ [模块名] ─────────────────\n';
-    prompt += '│【总分】X/10分\n';
-    prompt += '│【主要问题】（2-3条）\n';
-    prompt += '│【修正版】（直接输出完整修正后的内容；如已达9分则写"无需修改"）\n';
-    prompt += '└──────────────────────────\n';
-    prompt += '（每个模块用以上格式依次输出，模块间用空行分隔）\n';
-    
-    var result = '';
-    try{
-      result = await callRealAPIWithFallback(prompt, null, 'batch_eval', 3000, true);
-    }catch(e){ result = ''; }
-    
-    if(typeof hideLoading === 'function') hideLoading();
-    if(!result || result.length < 50){ showToast('评价API调用失败'); return; }
-    
-    // 解析每个模块的结果
-    var summaryLines = [];
+    var MAX_ROUNDS = 3;
+    var TARGET_SCORE = 9;
     var totalCalls = 0;
-    modKeys.forEach(function(m){
-      var name = moduleNames[m];
-      var re = new RegExp('┌─\\s*\\[?' + m.toUpperCase() + '[^\\n]*\\n([\\s\\S]*?)(?=┌─|$)', 'i');
-      var match = result.match(re);
-      if(!match){ summaryLines.push(name + '：未找到评价结果'); return; }
-      var block = match[1];
+
+    for(var round = 1; round <= MAX_ROUNDS; round++){
+      // 收集所有有内容的模块
+      var contents = {};
+      var modKeys = [];
+      modules.forEach(function(m){
+        var c = _archFullContent[m] || '';
+        if(!c){
+          var rawEl = document.getElementById('raw-' + m);
+          if(rawEl && rawEl.value.trim()) c = rawEl.value.trim();
+        }
+        if(c && c.length > 100){ contents[m] = c; modKeys.push(m); }
+      });
+      if(modKeys.length === 0){ showToast('请先生成至少一个模块的内容再评价'); return; }
       
-      // 解析分数
-      var scoreMatch = block.match(/【总分】\s*(\d+(\.\d+)?)\s*\/?\s*10\s*分?/);
-      var aiScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+      if(typeof showLoading === 'function') showLoading('全模块评价第' + round + '轮…（1次调用）');
       
-      // 解析问题
-      var issuesMatch = block.match(/【主要问题】([\s\S]*?)(?=【修正版】|$)/);
-      var issues = [];
-      if(issuesMatch){
-        issues = issuesMatch[1].split('\n').filter(function(l){ return l.trim().length > 5; }).map(function(l){ return l.replace(/^[-•\d.]+\s*/, '').trim(); });
+      var prompt = '你是一位极其严格的资深网文签约编辑。你的评分直接决定作品能否签约。\n\n';
+      prompt += '【9分标准】不存在任何模板化表达，每个设定都有具体可检验的细节，可直接用于出版签约。\n';
+      prompt += '【作品题材】' + (work.genre || '未知') + '\n\n';
+      
+      modKeys.forEach(function(m){
+        var c = contents[m];
+        prompt += '=== ' + m.toUpperCase() + '·' + moduleNames[m] + '（' + c.length + '字）===\n';
+        prompt += c.slice(0, 2000) + (c.length > 2000 ? '\n...(已截断)...' : '') + '\n\n';
+      });
+      
+      prompt += '【输出格式 · 每个模块用以下格式依次输出】\n';
+      prompt += '┌─ [模块名] ─────────────────\n';
+      prompt += '│【总分】X/10分\n';
+      prompt += '│【主要问题】（2-3条）\n';
+      prompt += '│【修正版】\n';
+      prompt += '│（输出修改后的完整内容，确保达到9分标准。\n';
+      prompt += '│ 如果已≥9分写"无需修改"，如果<9分必须输出完整修正版，不得省略）\n';
+      prompt += '└──────────────────────────\n\n';
+      
+      var result = '';
+      try{
+        result = await callRealAPIWithFallback(prompt, null, 'batch_eval', 3000, true);
+      }catch(e){ result = ''; }
+      totalCalls++;
+      
+      if(typeof hideLoading === 'function') hideLoading();
+      if(!result || result.length < 50){ showToast('评价API调用失败'); return; }
+      
+      // 解析每个模块的结果，标记未达标模块
+      var summaryLines = [];
+      var needReiterate = false;
+      var allDone = true;
+      
+      modKeys.forEach(function(m){
+        var re = new RegExp('┌─\\s*\\[?' + m.toUpperCase() + '[^\\n]*\\n([\\s\\S]*?)(?=┌─|$)', 'i');
+        var match = result.match(re);
+        if(!match){ summaryLines.push(moduleNames[m] + '：未找到评价结果'); return; }
+        var block = match[1];
+        
+        var scoreMatch = block.match(/【总分】\s*(\d+(\.\d+)?)\s*\/?\s*10\s*分?/);
+        var aiScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+        
+        var issuesMatch = block.match(/【主要问题】([\s\S]*?)(?=【修正版】|$)/);
+        var issues = [];
+        if(issuesMatch){
+          issues = issuesMatch[1].split('\n').filter(function(l){ return l.trim().length > 5; }).map(function(l){ return l.replace(/^[-•\d.]+\s*/, '').trim(); });
+        }
+        
+        var fixMatch = block.match(/【修正版】([\s\S]*?)$/);
+        var fixedVersion = '';
+        if(fixMatch && fixMatch[1] && fixMatch[1].trim().length > 50 && fixMatch[1].indexOf('无需修改') === -1){
+          fixedVersion = fixMatch[1].trim();
+        }
+        
+        work._archEval = work._archEval || {};
+        work._archEval[m] = { issues: issues, strengths: [], aiReport: block.replace(/【修正版】[\s\S]*$/, '').trim(), aiScore: aiScore, time: Date.now(), fixedVersion: fixedVersion, rounds: round };
+        
+        var scoreLabel = aiScore >= TARGET_SCORE ? '🎉' : (aiScore >= 7 ? '👍' : (aiScore >= 4 ? '⚠️' : '❌'));
+        summaryLines.push(moduleNames[m] + '：' + scoreLabel + ' ' + aiScore + '/10分' + (issues.length ? '（' + issues.length + '个问题）' : ''));
+        
+        // 未达标且有修正版 → 自动应用，进入下一轮
+        if(aiScore < TARGET_SCORE && fixedVersion){
+          work[m] = fixedVersion;
+          _archFullContent[m] = fixedVersion;
+          needReiterate = true;
+          allDone = false;
+        } else if(aiScore < TARGET_SCORE){
+          allDone = false;
+        }
+      });
+      
+      try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      if(typeof renderArchContent === 'function') renderArchContent(_selectedModule || 'world');
+      
+      // 判断是否结束
+      if(allDone || !needReiterate || round >= MAX_ROUNDS){
+        var summary = '✅ 全模块评价完成（' + totalCalls + '次API调用，' + round + '轮迭代）\n\n' + summaryLines.join('\n');
+        var doneCount = modKeys.filter(function(m){ return work._archEval[m] && work._archEval[m].aiScore >= TARGET_SCORE; }).length;
+        if(doneCount === modKeys.length) summary += '\n\n🎉 全部模块已达9分精品标准！';
+        else summary += '\n\n' + doneCount + '/' + modKeys.length + '个模块达标，未达标模块可重新评价或手动加强';
+        try{ alert(summary); }catch(e){ showToast(summary, {duration: 8000}); }
+        return;
       }
       
-      // 解析修正版
-      var fixMatch = block.match(/【修正版】([\s\S]*?)$/);
-      var fixedVersion = '';
-      if(fixMatch && fixMatch[1] && fixMatch[1].trim().length > 50 && fixMatch[1].indexOf('无需修改') === -1){
-        fixedVersion = fixMatch[1].trim();
-      }
-      
-      // 保存
-      work._archEval = work._archEval || {};
-      work._archEval[m] = { issues: issues, strengths: [], aiReport: block, aiScore: aiScore, time: Date.now(), fixedVersion: fixedVersion };
-      
-      var scoreLabel = aiScore >= 9 ? '🎉' : (aiScore >= 7 ? '👍' : (aiScore >= 4 ? '⚠️' : '❌'));
-      summaryLines.push(name + '：' + scoreLabel + ' ' + aiScore + '/10分' + (issues.length ? '（' + issues.length + '个问题）' : ''));
-      if(fixedVersion) totalCalls++;
-    });
-    
-    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-    
-    var summary = '✅ 全模块评价完成（1次API调用 vs 常规' + modKeys.length + '次）\n\n' + summaryLines.join('\n');
-    if(totalCalls > 0) summary += '\n\n' + totalCalls + '个模块已有修正版，点击"按评价加强"可直接应用（无需额外调用）';
-    try{ alert(summary); }catch(e){ showToast(summary, {duration: 8000}); }
+      showToast('🔄 第' + round + '轮：部分模块未达标，自动应用修正版并进入第' + (round+1) + '轮…', 3000);
+    }
   }catch(e){ console.error('evaluateAllArchModules error:', e); showToast('批量评价失败：' + (e.message||e), {error:true}); }
 };
 
@@ -2950,16 +2956,17 @@ window.fixArchModule = async function(){
 
     // === v53: 如果评价时已生成修正版，直接使用，无需额外API调用 ===
     if(evalData.fixedVersion && evalData.fixedVersion.length > 50){
-      showToast('📋 使用评价时生成的修正版（无需额外API调用）', 2000);
-      // 将修正版写入对应模块
+      showToast('📋 应用修正版并自动重新评价…', 2000);
       var modMap = { world: 'world', chars: 'chars', outline: 'outline', detail: 'detail' };
       var modKey = modMap[module];
       if(modKey && work[modKey] !== undefined){
         work[modKey] = evalData.fixedVersion;
+        _archFullContent[module] = evalData.fixedVersion;
         try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-        // 刷新显示
         if(typeof renderArchContent === 'function') renderArchContent(module);
-        showToast('✅ 已应用修正版，可重新评价确认质量', 3000);
+        // 自动重新评价，确认修正后的分数
+        showToast('✅ 已应用修正版，正在重新评价…', 2000);
+        window.evaluateArchModule();
         return;
       }
     }
