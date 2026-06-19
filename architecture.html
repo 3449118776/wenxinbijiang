@@ -2319,8 +2319,8 @@ window.generateArchModule = async function(opts){
     work[module] = result;
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
 
-    // ===== v53: 细纲完成后自动生成商业级书名+简介 =====
-    if(module === 'detail' && (!work.title || work.title === '未命名作品') && typeof callRealAPIWithFallback === 'function'){
+    // ===== v53: 细纲完成后自动生成商业级书名+简介（每次覆盖）=====
+    if(module === 'detail' && typeof callRealAPIWithFallback === 'function'){
       if(typeof showLoading === 'function') showLoading('🎯 细纲完成，自动生成商业级书名与简介…');
       try{
         var titlePrompt = '你是一位起点中文网/番茄小说的资深签约编辑，擅长给作品起爆款书名和写吸量简介。\n\n';
@@ -2369,7 +2369,7 @@ window.generateArchModule = async function(opts){
             work.synopsis = synopsisMatch[1].trim();
           }
           try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-          showToast('🎉 已自动生成书名：' + work.title, {duration: 4000});
+          showToast('🎉 书名已更新：' + work.title, {duration: 4000});
         }
       }catch(titleErr){ console.warn('[书名生成] 失败:', titleErr); }
       if(typeof hideLoading === 'function') hideLoading();
