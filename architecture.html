@@ -2238,6 +2238,11 @@ window.generateArchModule = async function(opts){
 
     // 4c. 合并所有卡片为完整结果
     var result = '';
+    
+    if(module === 'detail' && work.detail && work.detail.trim().length > 0){
+      result = work.detail.trim() + '\n\n';
+    }
+    
     for(var ci = 0; ci < allCards.length; ci++){
       var c = allCards[ci];
       var header = '';
@@ -2432,9 +2437,18 @@ function buildArchCardBatchesV48(module, work, idea){
       }
     }
     
+    // 检测已有细纲的卷数，从已有卷数之后开始生成
+    var startVol = 1;
+    if(work && work.detail && work.detail.trim()){
+      var existingVolMatches = work.detail.match(/第[一二三四五六七八九十\d]+卷/g);
+      if(existingVolMatches && existingVolMatches.length > 0){
+        startVol = existingVolMatches.length + 1;
+      }
+    }
+    
     // 每卷生成一张细纲卡片
     var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
-    for(var vi = 0; vi < volumeCount; vi++){
+    for(var vi = startVol - 1; vi < volumeCount; vi++){
       var volNum = vi + 1;
       var chStart = (vi * chaptersPerVolume) + 1;
       var chEnd = (vi + 1) * chaptersPerVolume;
