@@ -273,21 +273,20 @@ function he(str) {
 window.cloud = null;
 
 function _getCloud() {
-  if (!window.cloud) {
-    if (typeof CloudSync === 'undefined') {
-      console.warn('CloudSync 未加载，跳过云端同步');
-      return null;
-    }
-    var base = localStorage.getItem('wxbj_cloud_base') || '';
-    if (!base) {
-      // 在 Capacitor/WebView 环境中，本地文件协议下无法使用相对路径
-      // 自动切换到远程 API
-      var isCapacitor = (typeof window.Capacitor !== 'undefined') ||
-        (window.location && window.location.protocol === 'file:') ||
-        (window.location && window.location.protocol === 'content:') ||
-        (navigator && navigator.userAgent && navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
-      base = isCapacitor ? 'https://wxbj-main.pages.dev/api' : '/api';
-    }
+  if (typeof CloudSync === 'undefined') {
+    console.warn('CloudSync 未加载，跳过云端同步');
+    return null;
+  }
+  var isCapacitor = (typeof window.Capacitor !== 'undefined') ||
+    (window.location && window.location.protocol === 'file:') ||
+    (window.location && window.location.protocol === 'content:') ||
+    (navigator && navigator.userAgent && navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
+  var base = localStorage.getItem('wxbj_cloud_base') || '';
+  if (!base) {
+    base = isCapacitor ? 'https://wxbj-main.pages.dev/api' : '/api';
+  }
+  // 如果 cloud 实例不存在或 apiBase 不对（Capacitor 下被错误设成了 localhost），重建
+  if (!window.cloud || window.cloud.apiBase !== base) {
     window.cloud = new CloudSync({ apiBase: base });
   }
   return window.cloud;

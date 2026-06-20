@@ -637,9 +637,17 @@ window.CloudSync = CloudSync;
 if (!window.cloud) {
   var _apiBase;
   var _protocol = (location.protocol || '').toLowerCase();
+  // 检测 Capacitor/WebView 环境
+  var _isCapacitor = (typeof window.Capacitor !== 'undefined') ||
+    (location.protocol === 'file:') ||
+    (location.protocol === 'content:') ||
+    (navigator && navigator.userAgent && navigator.userAgent.indexOf('Android') >= 0 && navigator.userAgent.indexOf('wv') >= 0);
   if (_protocol === 'file:' || !location.hostname || location.origin === 'null' || location.origin === null) {
     // file:// 协议或无域名环境下，云端同步不可用（保留本地数据即可）
     _apiBase = '';
+  } else if (_isCapacitor) {
+    // Capacitor/WebView 环境：使用远程 API
+    _apiBase = 'https://wxbj-main.pages.dev/api';
   } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     _apiBase = 'http://localhost:8787/api';
   } else {
