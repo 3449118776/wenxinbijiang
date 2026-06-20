@@ -1082,13 +1082,14 @@ function toggleMiniPreview(module){
     var work = getCurrentWork();
     var html = '';
     var largeModel = isLargeContextModel();
-    var previewLimit = largeModel ? 2000 : 800;
+    // v52: 大模型下预览给更长的完整内容，确保记忆一致性——小模型仍保持合理上限
+    var previewLimit = largeModel ? 8000 : 2000;
     if(work){
       if(module === 'chars'){
         // 人设页：显示世界观预览
         if(work.world && work.world.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
-          var limit = largeModel ? 2000 : 800;
+          var limit = largeModel ? 8000 : 2000;
           html += '<div>' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
         } else {
           html += '<div style="color:#999;">世界观尚未生成</div>';
@@ -1097,12 +1098,12 @@ function toggleMiniPreview(module){
         // 大纲页：显示世界观+人设预览
         if(work.world && work.world.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
-          var limit = largeModel ? 1500 : 600;
+          var limit = largeModel ? 6000 : 1500;
           html += '<div style="margin-bottom:8px;">' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
         }
         if(work.chars && work.chars.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">👤 人物人设</div>';
-          var limit = largeModel ? 1500 : 600;
+          var limit = largeModel ? 6000 : 1500;
           html += '<div>' + he(work.chars.substring(0, limit)) + (work.chars.length > limit ? '...' : '') + '</div>';
         }
         if(!html) html = '<div style="color:#999;">世界观和人设尚未生成</div>';
@@ -1110,17 +1111,17 @@ function toggleMiniPreview(module){
         // 细纲页：显示世界观+人设+大纲预览
         if(work.world && work.world.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">🌍 世界观</div>';
-          var limit = largeModel ? 1200 : 400;
+          var limit = largeModel ? 5000 : 1200;
           html += '<div style="margin-bottom:8px;">' + he(work.world.substring(0, limit)) + (work.world.length > limit ? '...' : '') + '</div>';
         }
         if(work.chars && work.chars.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">👤 人物人设</div>';
-          var limit = largeModel ? 1200 : 400;
+          var limit = largeModel ? 5000 : 1200;
           html += '<div style="margin-bottom:8px;">' + he(work.chars.substring(0, limit)) + (work.chars.length > limit ? '...' : '') + '</div>';
         }
         if(work.outline && work.outline.trim()){
           html += '<div style="font-weight:600;margin-bottom:4px;">📋 全书大纲</div>';
-          var limit = largeModel ? 1200 : 500;
+          var limit = largeModel ? 5000 : 1500;
           html += '<div>' + he(work.outline.substring(0, limit)) + (work.outline.length > limit ? '...' : '') + '</div>';
         }
         if(!html) html = '<div style="color:#999;">前置架构尚未生成</div>';
@@ -1851,7 +1852,8 @@ function buildArchPrompt(module, idea, work, extraHint){
 function isLargeContextModel(){
   try {
     if(typeof getModelContextWindow === 'function'){
-      return getModelContextWindow() >= 100000;
+      // 用户使用大模型时降低阈值到 32K，覆盖 GPT-4o、DeepSeek、Claude、Kimi、Qwen 等主流大模型
+      return getModelContextWindow() >= 32000;
     }
   } catch(e) {}
   return false;
@@ -2109,7 +2111,10 @@ function buildArchMemoryContext(work, currentModule){
 
   var ctx = '';
   var added = 0;
-  var BUDGET = 1800;
+  // 大模型用更大的记忆预算：32K 上下文给 5000 字记忆，128K+ 给 8000 字记忆
+  var _ctxSize = 0;
+  try { if(typeof getModelContextWindow === 'function') _ctxSize = getModelContextWindow() || 0; } catch(e){}
+  var BUDGET = _ctxSize >= 128000 ? 8000 : (_ctxSize >= 32000 ? 5000 : (_ctxSize >= 16000 ? 3500 : 1800));
   function tryAdd(block){
     if(!block || added >= BUDGET) return;
     if(added + block.length > BUDGET){
@@ -2124,6 +2129,10 @@ function buildArchMemoryContext(work, currentModule){
     added += block.length;
   }
 
+  // 辅助：大模型允许更多条目
+  var _isBig = _ctxSize >= 32000;
+  var _itemMult = _isBig ? 2 : 1;
+
   // 辅助：角色分级标签
   function roleTag(a){
     if(a.charRole && a.charRole !== '龙套') return '[' + a.charRole + '] ';
@@ -2137,7 +2146,7 @@ function buildArchMemoryContext(work, currentModule){
   var coreList = (anchors.core || []).filter(function(a){ return a.source !== currentModule; });
   if(coreList.length > 0){
     var coreBlock = '【📐 已确立的核心设定（来自世界观，必须严格遵守）】\n';
-    coreList.slice(0, 12).forEach(function(a){
+    coreList.slice(0, 12 * _itemMult).forEach(function(a){
       coreBlock += '  ■ ' + roleTag(a) + a.text + '\n';
     });
     tryAdd(coreBlock + '\n');
@@ -2155,7 +2164,7 @@ function buildArchMemoryContext(work, currentModule){
       return (b.weight||0) - (a.weight||0);
     });
     var charBlock = '【👤 已确立的角色设定（来自人设，姓名/特征/关系不得矛盾）】\n';
-    charList.slice(0, 18).forEach(function(a){
+    charList.slice(0, 30 * _itemMult).forEach(function(a){
       charBlock += '  ■ ' + roleTag(a) + a.text + '\n';
     });
     tryAdd(charBlock + '\n');
@@ -2165,7 +2174,7 @@ function buildArchMemoryContext(work, currentModule){
   var dialogueList = (anchors.dialogues || []).filter(function(a){ return a.source !== currentModule; });
   if(dialogueList.length > 0){
     var dialogueBlock = '【💬 角色金句（必须保持角色声音一致，不得OOC）】\n';
-    dialogueList.slice(0, 8).forEach(function(a){
+    dialogueList.slice(0, 15 * _itemMult).forEach(function(a){
       dialogueBlock += '  ■ ' + roleTag(a) + a.text + '\n';
     });
     tryAdd(dialogueBlock + '\n');
@@ -2175,7 +2184,7 @@ function buildArchMemoryContext(work, currentModule){
   var relList = (anchors.relationships || []).filter(function(a){ return a.source !== currentModule; });
   if(relList.length > 0){
     var relBlock = '【⚔️ 已确立的势力/关系（不得改名或新增冲突设定）】\n';
-    relList.slice(0, 10).forEach(function(a){
+    relList.slice(0, 18 * _itemMult).forEach(function(a){
       relBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(relBlock + '\n');
@@ -2185,7 +2194,7 @@ function buildArchMemoryContext(work, currentModule){
   var abilityList = (anchors.abilityCosts || []).filter(function(a){ return a.source !== currentModule; });
   if(abilityList.length > 0){
     var abilityBlock = '【⚡ 已确立的能力代价/限制（防止无限开挂，必须遵守）】\n';
-    abilityList.slice(0, 8).forEach(function(a){
+    abilityList.slice(0, 15 * _itemMult).forEach(function(a){
       abilityBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(abilityBlock + '\n');
@@ -2195,7 +2204,7 @@ function buildArchMemoryContext(work, currentModule){
   var locList = (anchors.locations || []).filter(function(a){ return a.source !== currentModule; });
   if(locList.length > 0){
     var locBlock = '【🗺️ 已确立的地点（地名必须一致）】\n';
-    locList.slice(0, 10).forEach(function(a){
+    locList.slice(0, 18 * _itemMult).forEach(function(a){
       locBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(locBlock + '\n');
@@ -2205,7 +2214,7 @@ function buildArchMemoryContext(work, currentModule){
   var hookList = (anchors.hooks || []).filter(function(a){ return a.source !== currentModule; });
   if(hookList.length > 0){
     var hookBlock = '【🪝 已埋的伏笔/钩子（必须承接，不得遗漏）】\n';
-    hookList.slice(0, 10).forEach(function(a){
+    hookList.slice(0, 20 * _itemMult).forEach(function(a){
       var chTag = (a.chapterIdx !== undefined && a.chapterIdx >= 0) ? '第' + (a.chapterIdx+1) + '章：' : '';
       hookBlock += '  ■ ' + chTag + a.text + '\n';
     });
@@ -2216,7 +2225,7 @@ function buildArchMemoryContext(work, currentModule){
   var promiseList = (anchors.promises || []).filter(function(a){ return a.source !== currentModule; });
   if(promiseList.length > 0){
     var promiseBlock = '【📜 已确立的承诺/约定/禁忌（必须遵守）】\n';
-    promiseList.slice(0, 8).forEach(function(a){
+    promiseList.slice(0, 15 * _itemMult).forEach(function(a){
       promiseBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(promiseBlock + '\n');
@@ -2226,7 +2235,7 @@ function buildArchMemoryContext(work, currentModule){
   var tlList = (anchors.timeline || []).filter(function(a){ return a.source !== currentModule; });
   if(tlList.length > 0){
     var tlBlock = '【⏰ 已确立的时间线（必须连续，不得矛盾）】\n';
-    tlList.slice(0, 8).forEach(function(a){
+    tlList.slice(0, 15 * _itemMult).forEach(function(a){
       tlBlock += '  ■ ' + a.text + '\n';
     });
     tryAdd(tlBlock + '\n');
@@ -2235,7 +2244,7 @@ function buildArchMemoryContext(work, currentModule){
   // L8: 章节衍生记忆（如果已有正文，注入角色状态/情节线索/伏笔）
   if(mem.charStates && mem.charStates.length > 0){
     var csBlock = '【🎭 正文中角色的当前状态（来自已写章节，必须承接）】\n';
-    mem.charStates.slice(0, 8).forEach(function(cs){
+    mem.charStates.slice(0, 12 * _itemMult).forEach(function(cs){
       csBlock += '  ■ ' + cs.name + '：' + (cs.status || '') + (cs.location ? '，位于' + cs.location : '') + '\n';
     });
     tryAdd(csBlock + '\n');
@@ -2271,12 +2280,22 @@ function extractModuleSummary(module, content, allCards){
   if(!content && (!allCards || allCards.length === 0)) return '';
 
   var summary = '';
+  // v52: 大模型下给更长的卡片首段 + 更多条目——省 token 不如完整性重要
+  var _exBig = isLargeContextModel();
+  var _cardHead = _exBig ? 600 : 200;
+  var _kLines = _exBig ? 50 : 20;
+  var _geoN = _exBig ? 30 : 15;
+  var _factionN = _exBig ? 25 : 12;
+  var _volN = _exBig ? 30 : 12;
+  var _plotN = _exBig ? 30 : 15;
+  var _charN = _exBig ? 30 : 15;
+  var _chapN = _exBig ? 80 : 30;
 
-  // 1. 优先：每张卡片：标题 + 首段 200字（AI自己写的内容，质量最高）
+  // 1. 优先：每张卡片：标题 + 首段 _cardHead字（AI自己写的内容，质量最高）
   if(allCards && allCards.length > 0){
     for(var si = 0; si < allCards.length; si++){
       var sc = allCards[si];
-      var firstPart = (sc.content || '').substring(0, 200).trim();
+      var firstPart = (sc.content || '').substring(0, _cardHead).trim();
       if(firstPart){
         summary += '■ ' + sc.label + '：' + firstPart + '\n';
       }
@@ -2289,11 +2308,11 @@ function extractModuleSummary(module, content, allCards){
     if(module === 'world'){
       var worldLines = content.split('\n');
       var worldKp = [];
-      for(var wi2 = 0; wi2 < worldLines.length && worldKp.length < 20; wi2++){
+      for(var wi2 = 0; wi2 < worldLines.length && worldKp.length < _kLines; wi2++){
         var wl = worldLines[wi2].trim();
         if(wl.length < 8) continue;
         if(/^(第[一二三四五六七八九十百零\d]+[章节卷部篇]|【|■|★|\[|\(|【)/.test(wl)) continue;
-        if(/境界|等级|体系|规则|代价|限制|势力|阵营|地理|大陆|禁地|秘境|历史|纪元|力量|修炼|天赋|血脉|功法|法宝|丹药|灵石|阵法|符箓|妖兽|灵根|属性|神格|法则/.test(wl) && wl.length < 180){
+        if(/境界|等级|体系|规则|代价|限制|势力|阵营|地理|大陆|禁地|秘境|历史|纪元|力量|修炼|天赋|血脉|功法|法宝|丹药|灵石|阵法|符箓|妖兽|灵根|属性|神格|法则/.test(wl) && wl.length < 300){
           worldKp.push('★ ' + wl);
         }
       }
@@ -2306,7 +2325,7 @@ function extractModuleSummary(module, content, allCards){
         var seenGeo = {};
         var geoList = [];
         geoMatches.forEach(function(g){ if(!seenGeo[g]){ seenGeo[g]=true; geoList.push(g); }});
-        if(geoList.length > 0) summary += '\n【关键地名】\n' + geoList.slice(0, 15).join('、') + '\n';
+        if(geoList.length > 0) summary += '\n【关键地名】\n' + geoList.slice(0, _geoN).join('、') + '\n';
       }
       // 提取势力名
       var factionMatches = content.match(/[\u4e00-\u9fa5]{2,8}(?:家族|宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄|圣殿|圣地|书院|楼|坊|塔|厅|阁|台)/g);
@@ -2314,7 +2333,7 @@ function extractModuleSummary(module, content, allCards){
         var seenFaction = {};
         var factionList = [];
         factionMatches.forEach(function(f){ if(!seenFaction[f]){ seenFaction[f]=true; factionList.push(f); }});
-        if(factionList.length > 0) summary += '\n【主要势力】\n' + factionList.slice(0, 12).join('、') + '\n';
+        if(factionList.length > 0) summary += '\n【主要势力】\n' + factionList.slice(0, _factionN).join('、') + '\n';
       }
     }
 
@@ -2323,7 +2342,7 @@ function extractModuleSummary(module, content, allCards){
       var volRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*/g;
       var volMatch;
       var volLines = [];
-      while((volMatch = volRegex.exec(content)) !== null && volLines.length < 12){
+      while((volMatch = volRegex.exec(content)) !== null && volLines.length < _volN){
         volLines.push(volMatch[0].trim());
       }
       if(volLines.length > 0){
@@ -2333,12 +2352,12 @@ function extractModuleSummary(module, content, allCards){
         }
       }
       // 大纲：提取关键情节转折/伏笔点
-      var plotRegex = /[■■★◆●□■]\s*([^\n]{2,80})/g;
+      var plotRegex = /[■■★◆●□■]\s*([^\n]{2,200})/g;
       var plotLines = [];
       var pMatch;
-      while((pMatch = plotRegex.exec(content)) !== null && plotLines.length < 15){
+      while((pMatch = plotRegex.exec(content)) !== null && plotLines.length < _plotN){
         var pt = pMatch[1].trim();
-        if(pt.length > 4 && pt.length < 120) plotLines.push('◆ ' + pt);
+        if(pt.length > 4 && pt.length < 200) plotLines.push('◆ ' + pt);
       }
       if(plotLines.length > 0 && volLines.length === 0){
         summary += '\n【大纲要点】\n' + plotLines.join('\n') + '\n';
@@ -2347,13 +2366,13 @@ function extractModuleSummary(module, content, allCards){
 
     // ---- 人设：提取角色分层信息 ----
     if(module === 'chars'){
-      var charRegex2 = /[■■★◆●]\s*([\u4e00-\u9fa5]{2,6})[（(]?([主角反派配角导师伙伴龙套女主男主师父长老师兄师妹管家侍女侍从管家]+)?[）)]?[^\n：]*[：:]\s*([^\n]{3,150})/g;
+      var charRegex2 = /[■■★◆●]\s*([\u4e00-\u9fa5]{2,6})[（(]?([主角反派配角导师伙伴龙套女主男主师父长老师兄师妹管家侍女侍从管家]+)?[）)]?[^\n：]*[：:]\s*([^\n]{3,300})/g;
       var cMatch2;
       var charLines2 = [];
-      while((cMatch2 = charRegex2.exec(content)) !== null && charLines2.length < 15){
+      while((cMatch2 = charRegex2.exec(content)) !== null && charLines2.length < _charN){
         var name2 = cMatch2[1];
         var role2 = cMatch2[2] || '';
-        var desc2 = (cMatch2[3] || '').trim().substring(0, 100);
+        var desc2 = (cMatch2[3] || '').trim().substring(0, 200);
         charLines2.push('★ ' + name2 + (role2 ? '（' + role2 + '）' : '') + '：' + desc2);
       }
       if(charLines2.length > 0){
@@ -2366,12 +2385,12 @@ function extractModuleSummary(module, content, allCards){
 
     // ---- 细纲：提取卷结构和关键章节 ----
     if(module === 'detail'){
-      var chapRegex2 = /第[一二三四五六七八九十百零\d]+卷[^\n]*|■\s*第\d+章[^\n]*|★\s*[^\n]{5,80}/g;
+      var chapRegex2 = /第[一二三四五六七八九十百零\d]+卷[^\n]*|■\s*第\d+章[^\n]*|★\s*[^\n]{5,200}/g;
       var chapMatch2;
       var chapLines2 = [];
-      while((chapMatch2 = chapRegex2.exec(content)) !== null && chapLines2.length < 30){
+      while((chapMatch2 = chapRegex2.exec(content)) !== null && chapLines2.length < _chapN){
         var line2 = chapMatch2[0].trim();
-        if(line2.length > 10 && line2.length < 200){
+        if(line2.length > 10 && line2.length < 300){
           chapLines2.push('◆ ' + line2);
         }
       }
@@ -2393,7 +2412,15 @@ function buildModuleSummaryContext(work, currentModule){
   if(keys.length === 0) return '';
   
   var labels = {world:'世界观', chars:'人设', outline:'大纲', detail:'细纲'};
-  var limits = {world:1500, chars:1200, outline:1200, detail:1000};
+  // v52: 动态限制——大模型下记忆精要给更长的完整内容
+  var _ctxSize2 = 0;
+  try { if(typeof getModelContextWindow === 'function') _ctxSize2 = getModelContextWindow() || 0; } catch(e){}
+  var _isBig2 = _ctxSize2 >= 32000;
+  var _worldLimit = _isBig2 ? 5000 : 2000;
+  var _charsLimit = _isBig2 ? 5000 : 2000;
+  var _outlineLimit = _isBig2 ? 5000 : 2000;
+  var _detailLimit = _isBig2 ? 4000 : 1500;
+  var limits = {world:_worldLimit, chars:_charsLimit, outline:_outlineLimit, detail:_detailLimit};
   
   var ctx = '【📐 已确立的核心设定 — AI提炼的记忆精要，必须严格遵守，不得矛盾、不得编造新的核心人物/势力/地名】\n';
   for(var ki = 0; ki < keys.length; ki++){
@@ -2495,8 +2522,10 @@ window.generateArchModule = async function(opts){
         if(work.chapters && work.chapters.length > 0 && typeof buildMemoryContext === 'function'){
           var chapterMem = buildMemoryContext(work, work.chapters.length);
           if(chapterMem && chapterMem.length > 200){
-            // 架构记忆优先，章节记忆作为补充（避免重复，只取架构记忆未覆盖的部分）
-            var supplement = smartTruncate(chapterMem, 800);
+            // v52: 大模型下给更长的章节记忆补充，确保完整性和一致性
+            var _mcBig = isLargeContextModel();
+            var _suppLimit = _mcBig ? 3000 : 800;
+            var supplement = smartTruncate(chapterMem, _suppLimit);
             if(memoryContext){
               memoryContext += '\n' + supplement;
             } else {
@@ -2504,8 +2533,11 @@ window.generateArchModule = async function(opts){
             }
           }
         }
-        if(memoryContext && memoryContext.length > 2500){
-          memoryContext = smartTruncate(memoryContext, 2500);
+        // v52: 大模型下给更长的总记忆上限，确保内容完整性——省 token 不如一致性重要
+        var _mcBig2 = isLargeContextModel();
+        var _totalLimit = _mcBig2 ? 10000 : 4000;
+        if(memoryContext && memoryContext.length > _totalLimit){
+          memoryContext = smartTruncate(memoryContext, _totalLimit);
         }
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
@@ -2522,14 +2554,21 @@ window.generateArchModule = async function(opts){
       // 优先使用记忆精要（AI自己提炼的核心设定）
       var sMem2 = work && work.longMemory && work.longMemory.moduleSummaries;
       if(sMem2 && Object.keys(sMem2).length > 0){
-        if(sMem2.world && module !== 'world') skeletonPrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, 800) + '\n\n';
-        if(sMem2.chars && module !== 'chars') skeletonPrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, 700) + '\n\n';
-        if(sMem2.outline && module === 'detail') skeletonPrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, 800) + '\n\n';
+        // v52: 骨架也需要完整记忆，大模型下给更长限制
+        var _skBig = isLargeContextModel();
+        var _skWorld = _skBig ? 3000 : 1200;
+        var _skChars = _skBig ? 3000 : 1000;
+        var _skOutline = _skBig ? 3000 : 1200;
+        if(sMem2.world && module !== 'world') skeletonPrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, _skWorld) + '\n\n';
+        if(sMem2.chars && module !== 'chars') skeletonPrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, _skChars) + '\n\n';
+        if(sMem2.outline && module === 'detail') skeletonPrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, _skOutline) + '\n\n';
       } else {
-        // 兜底：记忆精要尚未生成（首次），临时注入限量原文
-        if(work && work.world && module !== 'world') skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, 500) + '\n\n';
-        if(work && work.chars && module !== 'chars') skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, 400) + '\n\n';
-        if(work && work.outline && module === 'detail') skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, 500) + '\n\n';
+        // 兜底：记忆精要尚未生成（首次），临时注入原文
+        var _skBig2 = isLargeContextModel();
+        var _skFallback = _skBig2 ? 2000 : 500;
+        if(work && work.world && module !== 'world') skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, _skFallback) + '\n\n';
+        if(work && work.chars && module !== 'chars') skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, _skFallback) + '\n\n';
+        if(work && work.outline && module === 'detail') skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, _skFallback) + '\n\n';
       }
       skeletonPrompt += '\n请按以下格式输出：\n';
       skeletonPrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
@@ -2975,13 +3014,17 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(prevCards && prevCards.length > 0){
     prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
     
-    // 最近 2 张：完整摘要（首段 300字 + 末段 200字），保持上下文连贯
+    // v52: 最近 2 张卡片给更长的完整摘要（首段 + 末段），保持上下文连贯——大模型给更多
+    var _rcBig = isLargeContextModel();
+    var _rcLimit = _rcBig ? 2000 : 800;
+    var _rcFirst = _rcBig ? 800 : 300;
+    var _rcLast = _rcBig ? 400 : 200;
     var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
     for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
       var pc2 = prevCards[pi2];
       var snip2 = '';
-      if(pc2.content.length > 800){
-        snip2 = pc2.content.substring(0, 300) + '\n...（中间略）...\n' + pc2.content.slice(-200);
+      if(pc2.content.length > _rcLimit){
+        snip2 = pc2.content.substring(0, _rcFirst) + '\n...（中间略）...\n' + pc2.content.slice(-_rcLast);
       } else {
         snip2 = pc2.content;
       }
@@ -3189,9 +3232,11 @@ window.strengthenDetailOutlineV46 = async function(){
     var contextBlock = '';
     var largeModel = isLargeContextModel();
     contextBlock += '【作品题材】' + (work.genre || '未知') + '\n';
-    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + (largeModel ? work.world : smartTruncate(work.world, 2000)) + '\n';
-    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + (largeModel ? work.chars : smartTruncate(work.chars, 2000)) + '\n';
-    if(work.outline) contextBlock += '【全书大纲参考】\n' + (largeModel ? work.outline : smartTruncate(work.outline, 2000)) + '\n';
+    // v52: 大模型也需要上限保护——几万字全文注入会导致 prompt 爆炸，但保持大模型用更宽松的限制
+    var _ctxCB = isLargeContextModel() ? 10000 : 3000;
+    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + smartTruncate(work.world, _ctxCB) + '\n';
+    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + smartTruncate(work.chars, _ctxCB) + '\n';
+    if(work.outline) contextBlock += '【全书大纲参考】\n' + smartTruncate(work.outline, _ctxCB) + '\n';
 
     // 4. 每批卡片独立调用 AI
     var allCards = [];
