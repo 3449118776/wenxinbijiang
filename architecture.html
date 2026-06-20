@@ -2033,6 +2033,105 @@ function buildArchMemoryContext(work, currentModule){
 }
 
 // ========== 核心：架构模块生成主函数 ==========
+// ===== 从已生成内容中提取记忆精要（替代原文注入，保持一致性同时省token）=====
+// 策略：每张卡片的标题 + 首段 200字 作为"卡片锚点"；模块特定信息补充
+function extractModuleSummary(module, content, allCards){
+  if(!content && (!allCards || allCards.length === 0)) return '';
+  
+  var summary = '';
+  
+  // 1. 每张卡片：标题 + 首段 200字（AI自己写的内容，质量最高）
+  if(allCards && allCards.length > 0){
+    for(var si = 0; si < allCards.length; si++){
+      var sc = allCards[si];
+      var firstPart = (sc.content || '').substring(0, 200).trim();
+      if(firstPart){
+        summary += '■ ' + sc.label + '：' + firstPart + '\n';
+      }
+    }
+  }
+  
+  // 2. 大纲：额外提取卷结构
+  if(module === 'outline' && content){
+    var volRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*/g;
+    var volMatch;
+    var volLines = [];
+    while((volMatch = volRegex.exec(content)) !== null && volLines.length < 12){
+      volLines.push(volMatch[0].trim());
+    }
+    if(volLines.length > 0){
+      summary += '\n【卷结构】\n';
+      for(var vi = 0; vi < volLines.length; vi++){
+        summary += '★ ' + volLines[vi] + '\n';
+      }
+    }
+  }
+  
+  // 3. 人设：额外提取角色分层信息（姓名+角色类型）
+  if(module === 'chars' && content){
+    var charRegex = /[■■]\s*([\u4e00-\u9fa5]{2,6})[（(]?([主角反派配角导师伙伴龙套女主男主]+)?[）)]?[^：\n]*[：:]/g;
+    var cMatch;
+    var charLines = [];
+    while((cMatch = charRegex.exec(content)) !== null && charLines.length < 15){
+      var csStart = cMatch.index + cMatch[0].length;
+      var csEnd = content.indexOf('\n', csStart);
+      if(csEnd < 0) csEnd = Math.min(csStart + 150, content.length);
+      var charInfo = content.substring(csStart, csEnd).trim();
+      var charName = cMatch[1];
+      var charRole = cMatch[2] || '';
+      charLines.push('★ ' + charName + (charRole ? '（' + charRole + '）' : '') + '：' + charInfo.substring(0, 100));
+    }
+    if(charLines.length > 0){
+      summary += '\n【角色清单】\n';
+      for(var ci3 = 0; ci3 < charLines.length; ci3++){
+        summary += charLines[ci3] + '\n';
+      }
+    }
+  }
+  
+  // 4. 细纲：提取每卷的章节数和关键转折
+  if(module === 'detail' && content){
+    var chapRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*|■\s*第\d+章[^\n]*/g;
+    var chapMatch;
+    var chapLines = [];
+    while((chapMatch = chapRegex.exec(content)) !== null && chapLines.length < 30){
+      var line = chapMatch[0].trim();
+      if(line.length > 10 && line.length < 200){
+        chapLines.push(line);
+      }
+    }
+    if(chapLines.length > 0){
+      summary += '\n【章节结构摘要】\n';
+      for(var chi = 0; chi < chapLines.length; chi++){
+        summary += '★ ' + chapLines[chi] + '\n';
+      }
+    }
+  }
+  
+  return summary.trim();
+}
+
+// ===== 构建记忆精要 prompt 注入（从 longMemory.moduleSummaries 读取）=====
+function buildModuleSummaryContext(work, currentModule){
+  if(!work || !work.longMemory || !work.longMemory.moduleSummaries) return '';
+  
+  var sums = work.longMemory.moduleSummaries;
+  var keys = Object.keys(sums).filter(function(k){ return k !== currentModule && sums[k] && sums[k].trim(); });
+  if(keys.length === 0) return '';
+  
+  var labels = {world:'世界观', chars:'人设', outline:'大纲', detail:'细纲'};
+  var limits = {world:1500, chars:1200, outline:1200, detail:1000};
+  
+  var ctx = '【📐 已确立的核心设定 — AI提炼的记忆精要，必须严格遵守，不得矛盾、不得编造新的核心人物/势力/地名】\n';
+  for(var ki = 0; ki < keys.length; ki++){
+    var km = keys[ki];
+    var label = labels[km] || km;
+    var limit = limits[km] || 1000;
+    ctx += '【' + label + '】\n' + smartTruncate(sums[km], limit) + '\n\n';
+  }
+  return ctx.trim();
+}
+
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
   opts = opts || {};
@@ -2097,8 +2196,18 @@ window.generateArchModule = async function(opts){
       }
     } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
 
-    // 2.6 长记忆注入前先同步架构内容到记忆（确保longMemory已初始化）
-    try { if(work && typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(syncErr) {}
+    // 2.6 长记忆注入前先同步架构内容到记忆（同步所有已有模块，确保当前模块能读到其他模块的记忆锚点）
+    try {
+      if(work && typeof syncArchToMemory === 'function'){
+        var modList = ['world', 'chars', 'outline', 'detail'];
+        for(var mi2 = 0; mi2 < modList.length; mi2++){
+          var mm = modList[mi2];
+          if(work[mm] && work[mm].trim()){
+            syncArchToMemory(work, mm);
+          }
+        }
+      }
+    } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
 
     // 2.6 长记忆注入：提取已生成模块和已写章节的关键记忆作为生成上下文
     // 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
@@ -2136,9 +2245,19 @@ window.generateArchModule = async function(opts){
       var skeletonPrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
       skeletonPrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
       skeletonPrompt += '【作品题材】' + (genre || '通用') + '\n';
-      if(work && work.world) skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, 500) + '\n\n';
-      if(work && work.chars) skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, 400) + '\n\n';
-      if(work && work.outline) skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, 500) + '\n\n';
+      
+      // 优先使用记忆精要（AI自己提炼的核心设定）
+      var sMem2 = work && work.longMemory && work.longMemory.moduleSummaries;
+      if(sMem2 && Object.keys(sMem2).length > 0){
+        if(sMem2.world && module !== 'world') skeletonPrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, 800) + '\n\n';
+        if(sMem2.chars && module !== 'chars') skeletonPrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, 700) + '\n\n';
+        if(sMem2.outline && module === 'detail') skeletonPrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, 800) + '\n\n';
+      } else {
+        // 兜底：记忆精要尚未生成（首次），临时注入限量原文
+        if(work && work.world && module !== 'world') skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, 500) + '\n\n';
+        if(work && work.chars && module !== 'chars') skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, 400) + '\n\n';
+        if(work && work.outline && module === 'detail') skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, 500) + '\n\n';
+      }
       skeletonPrompt += '\n请按以下格式输出：\n';
       skeletonPrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
       skeletonPrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
@@ -2255,6 +2374,20 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+    
+    // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
+    try {
+      if(!work.longMemory) work.longMemory = {};
+      if(!work.longMemory.moduleSummaries) work.longMemory.moduleSummaries = {};
+      
+      var moduleSum = extractModuleSummary(module, result, allCards);
+      if(moduleSum && moduleSum.trim()){
+        work.longMemory.moduleSummaries[module] = moduleSum.trim();
+        // 保存到数据库（记忆精要会被后续模块的生成调用读取）
+        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      }
+    } catch(sumErr) { console.warn('[记忆精要提取] 异常:', sumErr); }
+    
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
 
     // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
@@ -2479,23 +2612,25 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
-  // 前置架构上下文（给本卡片作为一致性锚点，动态截断：大上下文模型完整传入，小模型按比例截断）
+  // 前置架构上下文：优先使用 longMemory.moduleSummaries（AI自己提炼的记忆精要，更准更省token）
+  // 只有当记忆精要尚未生成（首次）时，才临时注入限量原文
   if(module !== 'world'){
-    var largeCtx = isLargeContextModel();
-    prompt += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力/地名】\n';
-    if(work && work.world && work.world.trim()){
-      var worldLimit = largeCtx ? work.world.length : 4000;
-      prompt += '■ 世界观（核心要点）：\n' + (largeCtx ? work.world : smartTruncate(work.world, worldLimit)) + '\n';
+    var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
+    if(sumCtx && sumCtx.trim()){
+      prompt += sumCtx + '\n\n';
+    } else {
+      // 兜底：记忆精要尚未生成（首次生成），临时注入限量原文
+      prompt += '【📐 临时设定参考 — 记忆精要尚未生成，本次临时注入限量原文】\n';
+      if(work && work.world && work.world.trim()){
+        prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
+      }
+      if(module !== 'chars' && work && work.chars && work.chars.trim()){
+        prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
+      }
+      if(module === 'detail' && work && work.outline && work.outline.trim()){
+        prompt += '■ 全书大纲摘要：\n' + smartTruncate(work.outline, 2500) + '\n\n';
+      }
     }
-    if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      var charsLimit = largeCtx ? work.chars.length : 4000;
-      prompt += '■ 人物人设（核心要点）：\n' + (largeCtx ? work.chars : smartTruncate(work.chars, charsLimit)) + '\n';
-    }
-    if(module === 'detail' && work && work.outline && work.outline.trim()){
-      var outlineLimit = largeCtx ? work.outline.length : 5000;
-      prompt += '■ 全书大纲（核心要点）：\n' + (largeCtx ? work.outline : smartTruncate(work.outline, outlineLimit)) + '\n';
-    }
-    prompt += '\n';
   }
 
   // 2026 题材趋势（精简版）
@@ -2514,19 +2649,30 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
-  // 关键：已生成的卡片内容（作为一致性锚点，让 AI 知道前面写了什么）
+  // 关键：已生成的卡片内容（最近2张给完整摘要确保连贯，更早的只列标题——内容已提炼到记忆精要）
   if(prevCards && prevCards.length > 0){
-    prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突、不得遗漏已提及的细节】\n';
-    for(var pi = 0; pi < prevCards.length; pi++){
-      var pc = prevCards[pi];
-      // 每张卡片取关键摘要：前 500 字（开头核心设定）+ 最后 500 字（最新内容），确保上下文连贯
-      var snippet = '';
-      if(pc.content.length > 1500){
-        snippet = pc.content.substring(0, 500) + '\n...（中间略）...\n' + pc.content.slice(-500);
+    prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
+    
+    // 最近 2 张：完整摘要（首段 300字 + 末段 200字），保持上下文连贯
+    var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
+    for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
+      var pc2 = prevCards[pi2];
+      var snip2 = '';
+      if(pc2.content.length > 800){
+        snip2 = pc2.content.substring(0, 300) + '\n...（中间略）...\n' + pc2.content.slice(-200);
       } else {
-        snippet = pc.content;
+        snip2 = pc2.content;
       }
-      prompt += '■ ' + pc.label + '：\n' + snippet.trim() + '\n\n';
+      prompt += '■ ' + pc2.label + '：\n' + snip2.trim() + '\n\n';
+    }
+    
+    // 更早的卡片：只列标题（内容已提炼到记忆精要，避免 prompt 爆炸）
+    if(recentLimit > 0){
+      prompt += '【更早的卡片（标题参考，内容已提炼到记忆精要）】\n';
+      for(var oi2 = 0; oi2 < recentLimit; oi2++){
+        prompt += '· ' + prevCards[oi2].label + '\n';
+      }
+      prompt += '\n';
     }
   }
 
