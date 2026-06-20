@@ -3621,7 +3621,7 @@ async function startChapterPipeline() {
   var work = getCurrentWork();
   if (!validateCurrentWorkBeforeWrite(work)) return;
   var totalExisting = work.chapters && work.chapters.length ? work.chapters.length : 1;
-  var input = prompt('输入流水线章节范围，例如：1-10\n最多一次建议 50 章。', (currentChapterIdx + 1) + '-' + Math.min(currentChapterIdx + 5, Math.max(totalExisting, currentChapterIdx + 5)));
+  var input = prompt('输入流水线章节范围，例如：1-10\n默认 10 章一批，最多一次建议 50 章。', (currentChapterIdx + 1) + '-' + Math.min(currentChapterIdx + 10, Math.max(totalExisting, currentChapterIdx + 10)));
   if (!input) return;
   var m = input.match(/(\d+)\s*[-~到至,，]\s*(\d+)/) || input.match(/^(\d+)$/);
   if (!m) { showToast('范围格式不正确，例如 1-10'); return; }
