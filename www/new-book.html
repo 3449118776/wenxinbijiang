@@ -208,15 +208,20 @@ function submitNewBook(){
 
   var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStylesArr(selectedStyles)});
 
-  // 保存题材信息到作品根字段，供AI模块使用
   work.genre = selectedCat1;
   work.plotType = selectedCat2;
   work._platform = selectedPlatform;
-  // createWork内部已调用save()，这里只需flush立即落盘
   DB.flush();
+  try {
+    var _c = window.cloud;
+    if (_c && _c.isLoggedIn()) {
+      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 1500);
+    }
+  } catch(e){}
 
-  showToast('创建成功');
-  setTimeout(function(){location.href='architecture.html';},800);
+  showToast('创建成功，正在同步云端…');
+  setTimeout(function(){location.href='architecture.html';},1200);
   } catch(e) {
     var errMsg = '创建失败：' + (e.message || '未知错误');
     try { showToast(errMsg, {error: true, duration: 5000}); } catch(e2) {}

@@ -2679,6 +2679,26 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   if (consBlock) prompt += consBlock + '\n';
   var chainLock = buildFullChainLock(work, chapterIdx);
   if (chainLock) prompt += chainLock + '\n';
+  // === 架构模块记忆锚点（moduleSummaries，与架构生成页共用同一套一致性锚） ===
+  try {
+    if (work.longMemory && work.longMemory.moduleSummaries) {
+      var sums = work.longMemory.moduleSummaries;
+      var sumKeys = Object.keys(sums);
+      if (sumKeys.length > 0) {
+        var sumLabels = {world:'世界观',chars:'人设',outline:'大纲',detail:'细纲'};
+        var sumBlock = '【📐 架构记忆锚点（来自架构页已生成内容，必须严格遵守）】\n';
+        var addedSum = false;
+        for (var ski = 0; ski < sumKeys.length; ski++) {
+          var sk = sumKeys[ski];
+          if (!sums[sk] || !sums[sk].trim()) continue;
+          var label = sumLabels[sk] || sk;
+          sumBlock += '■ ' + label + '：\n' + smartTruncate(sums[sk].trim(), 800) + '\n';
+          addedSum = true;
+        }
+        if (addedSum) prompt += sumBlock + '\n';
+      }
+    }
+  } catch(e){}
 
   // ===== v50: 白金作家法则注入（随机10条，核心6条必选） =====
   var platinumRules = getPlatinumRulesHint(work);

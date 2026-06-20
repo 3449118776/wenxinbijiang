@@ -1477,6 +1477,16 @@ const DB = {
     this.works.push(work);
     this.save();
     try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
+    try {
+      var _c = window.cloud;
+      if (_c && _c.isLoggedIn()) {
+        var _self = this;
+        if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+        _c._pushTimer = setTimeout(function(){
+          try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){}
+        }, 2000);
+      }
+    } catch(e){}
     return work;
   },
 

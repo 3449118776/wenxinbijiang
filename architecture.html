@@ -3273,11 +3273,19 @@ window.saveArchModule = function(){
     if(!work){ showToast('请先选择一部作品',{error:true}); return; }
     var rawEl = document.getElementById('raw-' + module);
     if(!rawEl){ showToast('保存失败',{error:true}); return; }
-    // 分页模式下 textarea 只显示当前页，需用全文缓存；非分页模式直接用 textarea 值
     var content = _archFullContent[module] || rawEl.value || '';
     work[module] = content;
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
-    showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module), {duration:2500});
+    // 立即落盘并触发云端同步（登录状态下 2 秒内推送）
+    try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}
+    try {
+      var _c = window.cloud;
+      if (_c && _c.isLoggedIn()) {
+        if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+      }
+    } catch(e){}
+    showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module) + '，正在同步云端…', {duration:2500});
   }catch(e){ console.error('saveArchModule error:',e); showToast('保存失败',{error:true}); }
 };
 
