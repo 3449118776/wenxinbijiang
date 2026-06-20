@@ -554,6 +554,7 @@ CloudSync.prototype = {
 
   _fetch: async function(path, opts) {
     opts = opts || {};
+    var fullUrl = (this.apiBase || '') + path;
     if (!this.apiBase) return { error: '未配置后端地址' };
     // KV配额超限检测：如果之前检测到配额超限，暂停写入类请求5分钟
     if (this._kvQuotaExceeded && Date.now() - this._kvQuotaExceeded < 300000) {
@@ -566,19 +567,23 @@ CloudSync.prototype = {
     if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
     var resp;
     try {
-      resp = await fetch(this.apiBase + path, {
+      resp = await fetch(fullUrl, {
         method: opts.method || 'GET',
         headers: headers,
         body: opts.body || undefined
       });
     } catch (e) {
-      throw new Error('网络连接失败（' + (e && e.message ? e.message : 'unknown') + '）');
+      throw new Error('网络连接失败(' + fullUrl + '): ' + (e && e.message ? e.message : 'unknown'));
     }
     var text = '';
     try { text = await resp.text(); } catch (_) {}
     var data = null;
     try { if (text) data = JSON.parse(text); } catch (_) {}
-    if (!data) data = { error: '服务器返回异常（' + (text ? text.substring(0, 30) : '空响应') + '）' };
+    if (!data) {
+      // 显示更多调试信息：HTTP状态码 + 响应前100字符
+      var preview = text ? text.substring(0, 100) : '空响应';
+      throw new Error('服务器异常 HTTP' + resp.status + ' [' + fullUrl + ']: ' + preview);
+    }
     if (!resp.ok) {
       // KV配额超限检测：记录时间戳，暂停后续写入
       if (data.error && data.error.indexOf('KV put() limit exceeded') >= 0) {
