@@ -562,38 +562,44 @@ CloudSync.prototype = {
         return { error: '云端存储配额已超限，请稍后再试（每天UTC 0点重置）' };
       }
     }
-    var headers = (opts.headers || {});
-    headers['Content-Type'] = 'application/json';
-    if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
-    var resp;
-    try {
-      resp = await fetch(fullUrl, {
-        method: opts.method || 'GET',
-        headers: headers,
-        body: opts.body || undefined
-      });
-    } catch (e) {
-      throw new Error('网络连接失败(' + fullUrl + '): ' + (e && e.message ? e.message : 'unknown'));
-    }
-    var text = '';
-    try { text = await resp.text(); } catch (_) {}
-    var data = null;
-    try { if (text) data = JSON.parse(text); } catch (_) {}
-    if (!data) {
-      // 显示更多调试信息：HTTP状态码 + 响应前100字符
-      var preview = text ? text.substring(0, 100) : '空响应';
-      throw new Error('服务器异常 HTTP' + resp.status + ' [' + fullUrl + ']: ' + preview);
-    }
-    if (!resp.ok) {
-      // KV配额超限检测：记录时间戳，暂停后续写入
-      if (data.error && data.error.indexOf('KV put() limit exceeded') >= 0) {
-        this._kvQuotaExceeded = Date.now();
-        console.warn('[cloud-sync] KV配额超限，暂停写入5分钟');
+    var self = this;
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open(opts.method || 'GET', fullUrl, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      if (self.token) xhr.setRequestHeader('Authorization', 'Bearer ' + self.token);
+      xhr.timeout = 15000;
+      
+      xhr.onload = function() {
+        var text = xhr.responseText || '';
+        var data = null;
+        try { if (text) data = JSON.parse(text); } catch (_) {}
+        
+        if (xhr.status >= 200 && xhr.status < 300 && data) {
+          resolve(data);
+        } else if (!data) {
+          var preview = text ? text.substring(0, 150) : '空响应';
+          reject(new Error('HTTP' + xhr.status + ' 响应异常 [' + fullUrl + ']\n' + preview));
+        } else {
+          if (xhr.status === 401) self._clearToken();
+          reject(new Error(data.error || '请求失败 ' + xhr.status));
+        }
+      };
+      
+      xhr.onerror = function() {
+        reject(new Error('网络错误 [URL:' + fullUrl + ']'));
+      };
+      
+      xhr.ontimeout = function() {
+        reject(new Error('请求超时 [URL:' + fullUrl + ']'));
+      };
+      
+      try {
+        xhr.send(opts.body || null);
+      } catch(e) {
+        reject(new Error('发送失败: ' + (e && e.message ? e.message : 'unknown')));
       }
-      if (resp.status === 401) this._clearToken();
-      throw new Error(data.error || '请求失败 ' + resp.status);
-    }
-    return data;
+    });
   }
 };
 

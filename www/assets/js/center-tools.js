@@ -343,8 +343,33 @@ function showLoginPanel() {
   html += '<button onclick="cloudLogin()" style="flex:1;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">登录</button>';
   html += '<button onclick="cloudRegister()" style="flex:1;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">注册</button>';
   html += '</div>';
+  html += '<div style="margin-top:10px;display:flex;gap:8px;align-items:center;">';
+  html += '<button onclick="testApiConnection()" style="padding:6px 12px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">测试连接</button>';
+  html += '<span style="font-size:10px;color:#9ca3af;">v2.0</span>';
+  html += '</div>';
   html += '</div>';
   showCustomModal('登录 / 注册', html);
+}
+
+async function testApiConnection() {
+  var base = document.getElementById('cloud-base-input').value.trim();
+  if (base) setCloudBase(base);
+  var c = _getCloud();
+  if (!c || !c.apiBase) {
+    showToast('API地址未配置', { error: true });
+    return;
+  }
+  showToast('测试中: ' + c.apiBase + '/health ...', { duration: 5000 });
+  try {
+    var resp = await c._fetch('/health');
+    if (resp && resp.ok) {
+      showToast('连接成功！服务器时间: ' + new Date(resp.time).toLocaleString(), { duration: 3000 });
+    } else {
+      showToast('响应异常: ' + JSON.stringify(resp), { error: true, duration: 5000 });
+    }
+  } catch(e) {
+    showToast('连接失败: ' + (e && e.message ? e.message : '未知'), { error: true, duration: 8000 });
+  }
 }
 
 async function cloudLogin() {
