@@ -710,6 +710,151 @@ function deleteCurrentChapter(){
   showToast('已删除');
 }
 
+// v55: 重生成当前章节（保留历史版本，重新生成）
+async function regenerateChapter(){
+  const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
+  const chapterIdx = currentChapterIdx || 0;
+  const ch = work.chapters[chapterIdx];
+  if(!ch){showToast('章节不存在');return;}
+  if(!confirm('确定重写第'+(chapterIdx+1)+'章「'+ch.title+'」？\n\n当前内容会保存到历史版本，可随时恢复。'))return;
+  
+  // 保存当前内容到历史版本
+  if(!ch._history) ch._history = [];
+  ch._history.push({ content: ch.content || '', wordCount: (ch.content || '').length, createdAt: Date.now(), id: 'hist_' + Date.now() });
+  if(ch._history.length > 20) ch._history = ch._history.slice(-20);
+  
+  // 清空当前内容，让AI全新生成
+  document.getElementById('editor').value = '';
+  showToast('🔄 正在重写第'+(chapterIdx+1)+'章…', {duration:2000});
+  await aiWriteChapter();
+  showToast('✅ 第'+(chapterIdx+1)+'章已重写，可在历史版本中恢复旧版', {duration:3000});
+}
+
+// v55: 在当前章节后插入新章
+function insertChapterAfter(){
+  const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
+  if(!work.chapters) work.chapters=[];
+  const chapterIdx = currentChapterIdx || 0;
+  const insertPos = chapterIdx + 1;
+  
+  var newTitle = '第' + (insertPos + 1) + '章';
+  if(!confirm('在第'+(chapterIdx+1)+'章「'+ ((work.chapters[chapterIdx]||{}).title||'') +'」后插入新章「'+newTitle+'」？'))return;
+  
+  // 插入空章节
+  var newChapter = { title: newTitle, content: '', wordCount: 0, createdAt: Date.now() };
+  work.chapters.splice(insertPos, 0, newChapter);
+  
+  // 重新编号后续章节
+  for(var i = insertPos + 1; i < work.chapters.length; i++){
+    var ch = work.chapters[i];
+    if(/^第[\d一二三四五六七八九十]+章\b/.test(ch.title.trim())){
+      ch.title = ch.title.replace(/^第[\d一二三四五六七八九十]+章\b/, '第' + (i + 1) + '章');
+    }
+  }
+  
+  // 重映射 _chapterCards
+  if(work._chapterCards){
+    var newCards = {};
+    var keys = Object.keys(work._chapterCards).sort();
+    keys.forEach(function(key){
+      var m = key.match(/^ch_(\d+)$/);
+      if(m){
+        var oldIdx = parseInt(m[1], 10);
+        if(oldIdx < insertPos){ newCards['ch_'+oldIdx] = work._chapterCards[key]; }
+        else { newCards['ch_'+(oldIdx+1)] = work._chapterCards[key]; }
+      } else {
+        newCards[key] = work._chapterCards[key];
+      }
+    });
+    work._chapterCards = newCards;
+  }
+  
+  DB.saveWork(work);
+  currentChapterIdx = insertPos;
+  loadChapter(insertPos);
+  renderChSidebar();
+  showToast('✅ 已插入新章，可在编辑区手动编写或点"AI写本章"生成');
+}
+
+// v55: 导出格式化HTML（带目录，可转EPUB）
+function exportFormattedHTML(){
+  const work = getCurrentWork();
+  if(!work){ showToast('请先选择作品'); return; }
+  if(!work.chapters || work.chapters.length === 0){ showToast('暂无章节'); return; }
+  
+  var title = work.title || '未命名作品';
+  var author = work.author || 'AI Writer';
+  var genre = work.genre || '';
+  
+  var html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n';
+  html += '<meta charset="UTF-8">\n';
+  html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
+  html += '<title>' + he(title) + '</title>\n';
+  html += '<style>\n';
+  html += 'body{font-family:"Noto Serif SC","Source Han Serif SC","SimSun",serif;max-width:800px;margin:0 auto;padding:40px 20px;line-height:2;color:#333;background:#faf9f6;}\n';
+  html += 'h1{text-align:center;font-size:28px;margin-bottom:8px;color:#1a1a2e;}\n';
+  html += '.meta{text-align:center;color:#999;font-size:14px;margin-bottom:40px;}\n';
+  html += '.toc{margin:30px 0;padding:20px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);}\n';
+  html += '.toc h2{font-size:18px;margin-bottom:12px;color:#6366f1;}\n';
+  html += '.toc a{display:block;padding:4px 0;color:#333;text-decoration:none;font-size:15px;}\n';
+  html += '.toc a:hover{color:#6366f1;}\n';
+  html += '.chapter{margin-top:40px;page-break-before:always;}\n';
+  html += '.chapter:first-of-type{page-break-before:auto;}\n';
+  html += '.chapter h2{font-size:22px;color:#1a1a2e;border-bottom:2px solid #6366f1;padding-bottom:8px;margin-bottom:20px;}\n';
+  html += '.chapter p{text-indent:2em;margin:8px 0;}\n';
+  html += '.footer{text-align:center;color:#ccc;margin-top:60px;padding-top:20px;border-top:1px solid #eee;font-size:13px;}\n';
+  html += '@media print{body{background:#fff;}}\n';
+  html += '</style>\n</head>\n<body>\n';
+  
+  // 封面
+  html += '<h1>' + he(title) + '</h1>\n';
+  html += '<div class="meta">作者：' + he(author) + (genre ? ' | 题材：' + he(genre) : '') + '<br>导出时间：' + new Date().toLocaleString() + '</div>\n';
+  
+  // 目录
+  html += '<div class="toc">\n<h2>目录</h2>\n';
+  for(var i = 0; i < work.chapters.length; i++){
+    var ch = work.chapters[i];
+    var chTitle = ch.title || ('第' + (i + 1) + '章');
+    html += '<a href="#ch' + (i + 1) + '">' + he(chTitle) + '</a>\n';
+  }
+  html += '</div>\n';
+  
+  // 章节正文
+  for(var i = 0; i < work.chapters.length; i++){
+    var ch = work.chapters[i];
+    var chTitle = ch.title || ('第' + (i + 1) + '章');
+    var content = ch.content || '';
+    // 按段落拆分，每段加<p>标签
+    var paragraphs = content.split(/\n\s*\n/).filter(function(p){ return p.trim(); });
+    html += '<div class="chapter" id="ch' + (i + 1) + '">\n';
+    html += '<h2>' + he(chTitle) + '</h2>\n';
+    for(var p = 0; p < paragraphs.length; p++){
+      var para = paragraphs[p].trim();
+      // 单行也按句号拆
+      var lines = para.split(/\n/).filter(function(l){ return l.trim(); });
+      for(var l = 0; l < lines.length; l++){
+        html += '<p>' + he(lines[l].trim()) + '</p>\n';
+      }
+    }
+    html += '</div>\n';
+  }
+  
+  html += '<div class="footer">由 AI 写作工具生成 | ' + he(title) + ' | 共 ' + work.chapters.length + ' 章</div>\n';
+  html += '</body>\n</html>';
+  
+  // 下载
+  var blob = new Blob([html], { type: 'text/html;charset=UTF-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = (title || '小说') + '（格式化）.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✅ 已导出格式化HTML（' + work.chapters.length + '章，可转EPUB）');
+}
+
 function buildWritePrompt(work,content,cmd){
   let prompt='你是一位网文写作助手。\n\n';
   prompt += getWriteConstraint(getWorkGenre(work), work) + '\n';
@@ -3966,13 +4111,26 @@ async function startChapterPipeline() {
       await pipelineSleep(100); // v48: 缩短章节间等待，快速切换
       pipelineStatus('🏭 流水线写作中：第 ' + n + ' / ' + end + ' 章');
       var before = (ch.content || '').length;
-      try {
-        await aiWriteChapter();
-      } catch(e) {
-        console.error('[pipeline aiWriteChapter]', e);
-        pipelineStatus('⚠️ 第' + n + '章生成异常，流水线已暂停：' + (e && e.message ? e.message : e), false);
-        break;
+      var retryCount = 0;
+      var maxRetries = 3;
+      var genSuccess = false;
+      while (retryCount < maxRetries && !genSuccess) {
+        try {
+          await aiWriteChapter();
+          genSuccess = true;
+        } catch(e) {
+          retryCount++;
+          console.error('[pipeline aiWriteChapter] 第' + n + '章失败，重试 ' + retryCount + '/' + maxRetries + ':', e);
+          if (retryCount < maxRetries) {
+            pipelineStatus('⚠️ 第' + n + '章生成失败，重试 ' + retryCount + '/' + maxRetries + '…');
+            await pipelineSleep(2000);
+          } else {
+            pipelineStatus('⚠️ 第' + n + '章生成失败（已重试' + maxRetries + '次），流水线已暂停', false);
+            showToast('第' + n + '章连续失败' + maxRetries + '次，流水线暂停', 5000);
+          }
+        }
       }
+      if (!genSuccess) break;
       work = getCurrentWork();
       ch = work.chapters[idx];
       var after = ch && ch.content ? ch.content.length : 0;
@@ -4125,6 +4283,25 @@ async function aiWriteChapter(){
       showToast('⚠️ ' + validationError, 5000);
       // 不覆盖编辑器，保留旧内容
       return;
+    }
+    
+    // v55: 字数硬性校验 — 不足补写，超标警告
+    if (result.length < 1500) {
+      statusBar.textContent = '⚠️ 字数不足(' + result.length + '字)，自动补写至2000+字…';
+      showToast('字数不足，正在自动补写…', 2000);
+      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至2000字以上。\n\n';
+      extendPrompt += '【已有内容】\n' + result + '\n\n';
+      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写\n3. 新写内容500-1500字，使总字数达到2000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n\n请直接输出补写段落：';
+      try {
+        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 1500, true);
+        if (extendResult && extendResult.length > 100) {
+          result = result + '\n\n' + extendResult;
+          statusBar.textContent = '✅ 补写完成（' + result.length + '字）';
+        }
+      } catch(e) { console.warn('[字数补写] 失败:', e); }
+    }
+    if (result.length > 5000) {
+      showToast('⚠️ 字数超标(' + result.length + '字)，建议手动精简。可点"重写"重新生成。', {duration:5000});
     }
     
     // === v29: 质量打分 ===

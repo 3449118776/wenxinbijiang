@@ -295,6 +295,8 @@ body{display:flex;flex-direction:column;}
 .module-card .mc-status.pending{background:#f3f4f6;color:#9ca3af;}
 .module-card .mc-status.done{background:#ecfdf5;color:#10b981;}
 .module-card .mc-status.locked{background:#fef3c7;color:#d97706;}
+.module-card .mc-status.stale{background:#fef3c7;color:#d97706;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
 .module-card .mc-arrow{color:#d1d5db;font-size:16px;}
 
 /* 四级：AI生成页 */
@@ -761,11 +763,17 @@ function renderLevel3() {
     var hasContent = !!(w[key]);
     var statusClass = hasContent ? 'done' : 'pending';
     var statusText = hasContent ? '已完成' : '未生成';
+    // v55: 检查是否过期
+    var isStale = w._archStale && w._archStale[key];
+    if(isStale){
+      statusClass = 'stale';
+      statusText = '⚠️ 需更新';
+    }
 
     html += '<div class="module-card" onclick="selectModule(\'' + key + '\')">';
     html += '<div class="mc-icon ' + mi.iconClass + '">' + mi.icon + '</div>';
     html += '<div class="mc-info">';
-    html += '<div class="mc-title">' + mi.name + '</div>';
+    html += '<div class="mc-title">' + mi.name + (isStale ? ' ⚠️' : '') + '</div>';
     html += '<div class="mc-desc">' + mi.desc + '</div>';
     html += '</div>';
     html += '<span class="mc-status ' + statusClass + '">' + statusText + '</span>';
@@ -2393,10 +2401,59 @@ window.generateArchModule = async function(opts){
     // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
     try { syncArchToMemory(work, module); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
 
+    // v55: 清除本模块的过期标记
+    if(work._archStale && work._archStale[module]){
+      delete work._archStale[module];
+    }
+
+    // v55: 自动触发质量评价
+    var evalResult = null;
+    try {
+      if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+        evalResult = QualityEngine.evaluate(result, module);
+        if(evalResult){
+          work._archEval = work._archEval || {};
+          work._archEval[module] = evalResult;
+          try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+          // 显示修复按钮
+          var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
+          var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
+          if(fixBtn && evalResult){
+            fixBtn.style.display = '';
+            var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
+            fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
+          }
+        }
+      }
+    } catch(evalErr) { console.warn('[自动评价] 异常:', evalErr); }
+
+    // v55: 架构模块间一致性校验 — 标记依赖模块为"可能过期"
+    var archDeps = { world: ['chars','outline','detail'], chars: ['outline','detail'], outline: ['detail'], detail: [] };
+    var staleMods = [];
+    if(archDeps[module]){
+      for(var di = 0; di < archDeps[module].length; di++){
+        var depMod = archDeps[module][di];
+        if(work[depMod] && work[depMod].trim()){
+          work._archStale = work._archStale || {};
+          work._archStale[depMod] = Date.now();
+          staleMods.push(depMod);
+        }
+      }
+    }
+    if(staleMods.length > 0){
+      var modNames = { world:'世界观', chars:'人设', outline:'大纲', detail:'细纲' };
+      var staleNames = staleMods.map(function(m){ return modNames[m] || m; });
+      try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      showToast('⚠️ ' + (modNames[module]||module) + '已更新，以下模块可能需要重新生成：' + staleNames.join('、'), {duration:6000});
+    }
+
     if(typeof hideLoading === 'function') hideLoading();
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batches.length + ' 张卡片 · ' + result.length + '字）';
-    completionMsg += '。建议点"评价"检查质量。';
-    showToast(completionMsg, {duration:4000});
+    if(evalResult && evalResult.totalScore !== undefined){
+      completionMsg += ' | 质量：' + evalResult.grade + ' ' + evalResult.totalScore + '/100';
+      if(evalResult.totalScore < 60) completionMsg += ' ⚠️ 建议点击"评价"查看详情并修复';
+    }
+    showToast(completionMsg, {duration:5000});
   } catch(err){
     if(typeof hideLoading === 'function') hideLoading();
     console.error('generateArchModule error:', err);
