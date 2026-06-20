@@ -21,9 +21,18 @@ function CloudSync(opts) {
   this.token = null;
   this.user = null;
   this.autoSync = !!opts.autoSync;
-  this.autoInterval = opts.autoInterval || 300000; // 5 分钟（避免KV写入配额超限）
+  // 检测环境：本地开发/移动App用较短间隔，浏览器线上用1分钟（原5分钟太慢导致跨设备不同步感知差）
+  var _hostname = '';
+  try { _hostname = (location.hostname || ''); } catch(e) {}
+  var _isLocalDev = _hostname === 'localhost' || _hostname === '127.0.0.1';
+  var _protocol = '';
+  try { _protocol = location.protocol || ''; } catch(e) {}
+  var _isMobileApp = (_protocol === 'capacitor:' || _protocol === 'ionic:' || _protocol === 'file:');
+  var _activeInterval = _isLocalDev ? 30000 : (_isMobileApp ? 120000 : 60000); // 30s/2min/1min
+  this.autoInterval = opts.autoInterval || _activeInterval;
   this._timer = null;
   this._syncTimer = null;
+  this._callbacks = []; // onSync 回调列表
   this._loadToken();
   // 启动自动同步（如果配置了）
   if (this.autoSync) {
@@ -37,6 +46,33 @@ CloudSync.prototype = {
 
   isLoggedIn: function() {
     return !!(this.token && this.user);
+  },
+
+  // ========== 事件回调：同步完成后通知页面刷新UI ==========
+  onSync: function(cb) {
+    if (typeof cb === 'function') this._callbacks.push(cb);
+  },
+  _fireSync: function(report) {
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        try {
+          var evt;
+          try {
+            evt = new CustomEvent('cloud-sync-complete', { detail: report || {} });
+          } catch (e) {
+              // IE / old browsers fallback
+              evt = document.createEvent('CustomEvent');
+              evt.initCustomEvent('cloud-sync-complete', true, true, report || {});
+            }
+            window.dispatchEvent(evt);
+          } catch (evterr) {}
+      }
+    } catch (outerErr) {}
+    try {
+      for (var i = 0; i < this._callbacks.length; i++) {
+        try { this._callbacks[i](report); } catch (cbErr) {}
+      }
+    } catch (e) {}
   },
 
   // ==================== 认证 ====================
@@ -79,6 +115,9 @@ CloudSync.prototype = {
     });
     if (resp.error) throw new Error(resp.error);
     this._saveToken(resp.token, resp.user);
+    this._fireSync({ action: 'register', ok: true });
+    var selfr = this;
+    setTimeout(function() { selfr.smartSync().catch(function(){}); }, 500);
     return resp;
   },
 
@@ -89,13 +128,16 @@ CloudSync.prototype = {
     });
     if (resp.error) throw new Error(resp.error);
     this._saveToken(resp.token, resp.user);
+    this._fireSync({ action: 'login', ok: true });
     // 登录成功后立即同步一次，确保能看到云端作品
-    setTimeout(() => { this.smartSync().catch(() => {}); }, 500);
+    var self2 = this;
+    setTimeout(function() { self2.smartSync().catch(function(){}); }, 500);
     return resp;
   },
 
   logout: function() {
     this._clearToken();
+    this._fireSync({ action: 'logout', ok: true });
   },
 
   // ==================== Keys & Settings 同步 ====================
@@ -512,6 +554,7 @@ CloudSync.prototype = {
       report.error = e.message;
     } finally {
       this._syncing = false;
+      this._fireSync(report);
     }
     return report;
   },
@@ -544,8 +587,13 @@ CloudSync.prototype = {
           }
         }
       }
-      return await this.pushWork(_packWork(w));
+      var qsResult = await this.pushWork(_packWork(w));
+      var evt = { action: 'quickSync', ok: !qsResult.error, workId: workId, pushed: 1 };
+      try { for (var qk in qsResult) if (qsResult.hasOwnProperty(qk)) evt[qk] = qsResult[qk]; } catch(_) {}
+      this._fireSync(evt);
+      return qsResult;
     } catch(e) {
+      this._fireSync({ action: 'quickSync', ok: false, error: e.message });
       return { ok: false, error: e.message };
     }
   },

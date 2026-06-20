@@ -538,6 +538,15 @@ function saveChapter(){
   } catch(chainErr) { console.warn('[chain]', chainErr); }
   DB.saveWork(work);
   renderMemory(work);
+  // 云同步：章节保存后推送到云端
+  try {
+    if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
+      if (window.cloud._syncTimer) clearTimeout(window.cloud._syncTimer);
+      window.cloud._syncTimer = setTimeout(function() {
+        try { window.cloud.quickSync(work.id); } catch(e) {}
+      }, 2000);
+    }
+  } catch(syncErr) {}
   showToast('保存成功，记忆点已更新');
 }
 
@@ -6556,6 +6565,12 @@ function _flushEditorToWork() {
     else { ch.title = title; ch.content = content; }
     DB.saveWork(work);
     if (typeof DB.flush === 'function') DB.flush();
+    // 云同步：后台切出时确保推送到云端
+    try {
+      if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
+        try { window.cloud.quickSync(work.id); } catch(e) {}
+      }
+    } catch(e) {}
   } catch(e) {}
 }
 

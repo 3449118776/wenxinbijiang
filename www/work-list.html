@@ -223,6 +223,7 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 <div class="page-header">
   <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">&#8249;</div>
   <div class="page-title" id="global-page-title">作品管理</div>
+  <button class="header-btn" id="cloud-sync-btn-wl" style="display:none;background:#f0f0ff;color:#6366f1;border:1px solid #d0d0e0;" onclick="triggerCloudSync_wl()">☁️ <span id="cloud-sync-text-wl">同步</span></button>
   <button class="header-btn" id="header-new-btn" onclick="location.href='new-book.html'">+ 新建</button>
 </div>
 
@@ -1283,6 +1284,64 @@ window.addEventListener('DOMContentLoaded', function() {
   } else {
     goToLevel(1);
   }
+
+  // ===== 云同步：登录状态 + 事件监听 =====
+  function refreshCloudStatus_wl() {
+    try {
+      var btn = document.getElementById('cloud-sync-btn-wl');
+      if (!btn) return;
+      var cloud = window.cloud;
+      if (cloud && cloud.isLoggedIn && cloud.isLoggedIn()) {
+        btn.style.display = '';
+        var user = cloud.user || {};
+        var text = document.getElementById('cloud-sync-text-wl');
+        if (text) text.textContent = (user.nickname || user.email || '已登录');
+      } else {
+        btn.style.display = '';
+        var text = document.getElementById('cloud-sync-text-wl');
+        if (text) text.textContent = '未登录';
+      }
+    } catch(e) {}
+  }
+  window.triggerCloudSync_wl = function() {
+    try {
+      var cloud = window.cloud;
+      if (!cloud) { showToast('云同步未初始化'); return; }
+      if (!cloud.isLoggedIn()) {
+        showToast('请先在首页登录');
+        setTimeout(function() { window.location.href = 'index.html'; }, 1200);
+        return;
+      }
+      var text = document.getElementById('cloud-sync-text-wl');
+      if (text) text.textContent = '同步中...';
+      cloud.smartSync().then(function(report) {
+        var msg = '同步完成';
+        var count = 0;
+        if (report && report.pushed) count += report.pushed;
+        if (report && report.pulled) count += report.pulled;
+        if (report && report.errors) msg += '，' + report.errors + '个失败';
+        else if (count > 0) msg += '，' + count + '部作品';
+        else msg += '，无更新';
+        showToast(msg);
+      }).catch(function(e) {
+        showToast('同步失败');
+      }).finally(function() {
+        setTimeout(refreshCloudStatus_wl, 300);
+      });
+    } catch(e) {}
+  };
+  refreshCloudStatus_wl();
+  try {
+    window.addEventListener('cloud-sync-complete', function(ev) {
+      refreshCloudStatus_wl();
+      var report = (ev && ev.detail) || {};
+      if (report.pulled && report.pulled > 0) {
+        if (_currentLevel === 2) renderLevel2();
+        else if (_currentLevel === 3) renderLevel3();
+        showToast('已同步 ' + report.pulled + ' 部作品');
+      }
+    });
+  } catch(e) {}
 });
 </script>
 </body>
