@@ -669,7 +669,7 @@ if (!window.cloud) {
 
 // ===== 自动更新检查 =====
 (function() {
-  var CURRENT_VERSION = '1.0.0';
+  var CURRENT_VERSION = '2.0.0';
   var VERSION_URL = 'https://wxbj-main.pages.dev/version.json';
   
   function checkUpdate() {
