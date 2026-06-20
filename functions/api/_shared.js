@@ -1,7 +1,14 @@
 // 共用工具：JWT + KV 存储 + 密码哈希
 // Cloudflare Pages Functions 使用 Web Crypto API
 
-import bcrypt from 'bcryptjs';
+// bcryptjs 用于验证 Express 后端生成的 bcrypt 格式密码哈希
+// 如果 import 失败（如 node_modules 未部署），仅影响旧格式密码校验，PBKDF2 不受影响
+let bcrypt = null;
+try {
+  bcrypt = (await import('bcryptjs')).default;
+} catch (e) {
+  console.warn('[shared] bcryptjs 不可用，仅支持 PBKDF2 密码格式');
+}
 
 export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2_production';
 globalThis.__JWT_SECRET = JWT_SECRET;
@@ -124,6 +131,10 @@ export async function verify_password(password, storedHash) {
   }
   // bcrypt 格式（以 $2 开头）- 使用 bcryptjs 纯 JS 库验证
   if (storedHash.startsWith('$2')) {
+    if (!bcrypt) {
+      console.warn('[verify_password] bcryptjs 不可用，无法验证 bcrypt 格式密码');
+      return false;
+    }
     return bcrypt.compare(password, storedHash);
   }
   return false;
