@@ -2604,21 +2604,130 @@ window.generateArchModule = async function(opts){
       }
     }
 
-    // 3. v48: 卡片分批生成（替代自动续写，每批独立调用，天然不截断且一致性好）
+    // 3. v56: 细纲专用逐卷生成分支（细纲内容最多、对作品把控最严格）
+    // —— 无论大模型/小模型，统一改为"逐卷调用 AI"，每一卷都携带：
+    //    (a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲
+    if(module === 'detail'){
+      // 3a. 读取卷数/每卷章节数（与 buildArchCardBatchesV48 的 detail 分支保持一致的解析逻辑）
+      var userVolCount2 = 9;
+      var userChPerVol = 12;
+
+      var volInputEl3 = document.getElementById('vol-count-detail');
+      if(volInputEl3){
+        var v3 = parseInt(volInputEl3.value);
+        if(v3 >= 3 && v3 <= 20) userVolCount2 = v3;
+      }
+      var chInputEl2 = document.getElementById('ch-count-detail');
+      if(chInputEl2){
+        var c2 = parseInt(chInputEl2.value);
+        if(c2 >= 1000 && c2 <= 20000) userChPerVol = Math.max(8, Math.round(c2 / userVolCount2));
+      }
+
+      // 3b. 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
+      var actualTotalVols = userVolCount2;
+      if(work && work.outline){
+        var volMatches2 = work.outline.match(/第[一二三四五六七八九十百零〇\d]+\s*卷/g);
+        if(volMatches2 && volMatches2.length > 0) actualTotalVols = volMatches2.length;
+      }
+
+      // 3c. 从大纲中提取每一卷的核心目标（作为硬性约束）
+      var volTargets = extractOutlineTargetsV52(work);
+
+      // 3d. 逐卷生成
+      var fullDetailResult = '';
+      var prevVolDetail = '';
+      var detailAllCards = [];
+      var volTargetChars = userChPerVol * 220; // 约每章 220 字
+
+      for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
+        // 进度提示
+        var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
+        if(typeof showLoading === 'function'){
+          showLoading('正在生成章节细纲 · ' + volLabel + '（逐卷生成，每卷携带完整上下文）');
+        }
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(Math.round((vi56 - 1) / actualTotalVols * 90), '正在生成细纲 · ' + volLabel);
+        }
+
+        // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
+        var thisVolTarget = '';
+        if(volTargets && volTargets[vi56 - 1] && volTargets[vi56 - 1].goal){
+          thisVolTarget = volTargets[vi56 - 1].goal;
+        } else {
+          thisVolTarget = '（请从"全书大纲"中自行抽取本卷的核心目标，并围绕其展开）';
+        }
+
+        // 构建本卷 prompt
+        var volPrompt = buildDetailVolumePromptV52(
+          work,
+          vi56,
+          actualTotalVols,
+          thisVolTarget,
+          prevVolDetail,
+          idea,
+          opts && opts.extraHint,
+          marketResearch,
+          memoryContext,
+          userChPerVol
+        );
+
+        // 调用 AI 生成本卷
+        var volResultText = null;
+        try{
+          if(typeof callRealAPIWithFallback === 'function'){
+            volResultText = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
+          } else if(typeof callRealAPI === 'function'){
+            volResultText = await callRealAPI(volPrompt, null, {});
+          }
+        }catch(ve){
+          console.warn('细纲 ' + volLabel + ' 生成失败:', ve);
+          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
+        }
+        if(!volResultText || !volResultText.trim()){
+          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
+        }
+
+        // 组装：卷标题 + 卷内容
+        var volHeader = '【第 ' + vi56 + ' 卷 · 章节细纲】\n';
+        var volBlock = volHeader + volResultText.trim() + '\n\n';
+
+        fullDetailResult += volBlock;
+        prevVolDetail += volBlock;  // 下一卷能读到前序所有卷的完整内容
+        detailAllCards.push({ label: volLabel, content: volResultText });
+        totalChars += volResultText.length;
+
+        // 卷之间轻微节流
+        if(vi56 < actualTotalVols){
+          await new Promise(function(res56){ setTimeout(res56, 50); });
+        }
+      }
+
+      // 3e. 完成细纲：后续与通用的"写入编辑区 + 保存到作品"流程对接
+      result = fullDetailResult.trim();
+      allCards = detailAllCards;
+      useSingleShot = false;  // 让后续的 toast 提示显示自定义文本
+      batches = detailAllCards;
+    }
+
+    // 4. v48: 非 detail 模块 —— 保持原有的"大模型一次性 / 小模型分批卡片"策略
+    // 注意：如果上面进入了 detail 分支，allCards/result/batches 已经填充，下面不会再生成内容
     var taskType = 'default';
     if(module === 'world') taskType = 'world_rules';
     else if(module === 'chars') taskType = 'chars_core';
     else if(module === 'outline') taskType = 'outline_logic';
     else if(module === 'detail') taskType = 'detail_base';
 
-    // 4a. 获取卡片结构规划（大模型：仅作为结构规划注入，不拆任务；小模型：仍用于分批）
-    var batches = buildArchCardBatchesV48(module, work, idea);
-    var totalChars = 0;
-    var allCards = [];
-    var useSingleShot = isLargeContextModel();
+    // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
+    var batches = batches;       // 兼容：detail 分支已赋值，非 detail 分支重新计算
+    if(module !== 'detail'){
+      batches = buildArchCardBatchesV48(module, work, idea);
+      totalChars = 0;
+      allCards = [];
+      useSingleShot = isLargeContextModel();
+    }
 
-    // 4b. 大模型：一次性完整生成；小模型：逐卡片分批生成
-    if(useSingleShot){
+    // 4b. 大模型：一次性完整生成；小模型：逐卡片分批生成（仅非 detail 模块执行）
+    if(module !== 'detail' && useSingleShot){
       // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
       // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
       var progressLabel = '完整' + moduleName + '（一次性生成）';
@@ -2652,7 +2761,7 @@ window.generateArchModule = async function(opts){
       totalChars = result.length;
       // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
       allCards.push({ label: moduleName + '·完整生成', content: result });
-    } else {
+    } else if(module !== 'detail'){
       // 小模型：保持原分批策略（逐卡片生成，每张卡片独立调用 AI）
       for(var bi = 0; bi < batches.length; bi++){
         var card = batches[bi];
@@ -2786,7 +2895,12 @@ window.generateArchModule = async function(opts){
     }
 
     if(typeof hideLoading === 'function') hideLoading();
-    var batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
+    var batchInfo;
+    if(module === 'detail'){
+      batchInfo = '逐卷生成（共 ' + actualTotalVols + ' 卷）';
+    } else {
+      batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
+    }
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
     if(evalResult && evalResult.totalScore !== undefined){
       completionMsg += ' | 质量：' + evalResult.grade + ' ' + evalResult.totalScore + '/100';
@@ -3200,6 +3314,201 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   }
 
   prompt += '\n【开始完整输出】\n';
+  return prompt;
+}
+
+// ========== v56: 细纲专用 — 从大纲提取每一卷的核心目标（作为硬性约束）==========
+// 输入：work.outline 文本
+// 输出：Array<{ volIndex:number, volName:string, goal:string, rawBlock:string }> — 每卷一条
+// 如果提取不到，返回空数组，调用方会回退到"让 AI 自己根据大纲自由发挥"
+function extractOutlineTargetsV52(work){
+  var targets = [];
+  try{
+    var outlineText = (work && work.outline) ? work.outline : '';
+    if(!outlineText || !outlineText.trim()) return targets;
+
+    // 切分为行（保留空行作为分隔）
+    var lines = outlineText.split(/\r?\n/);
+    var currentVol = null;
+
+    for(var i = 0; i < lines.length; i++){
+      var line = lines[i].trim();
+      if(!line) continue;
+
+      // 识别卷标题行：支持"第N卷" / "第X卷"（中文数字），后面允许带括号阶段名
+      var volMatch = line.match(/^[■\*#\s【\[]*(第\s*[一二三四五六七八九十百零〇\d]+\s*卷[^【\[\n]*)/);
+      if(volMatch){
+        // 结束上一卷
+        if(currentVol){ targets.push(currentVol); }
+        currentVol = {
+          volIndex: targets.length + 1,
+          volName: volMatch[1].replace(/^[■\*#\s【\[【]+/, '').trim(),
+          rawBlock: line + '\n',
+          goal: ''
+        };
+        continue;
+      }
+
+      // 在卷内部：累积作为 rawBlock；同时尝试抓取"核心目标/核心冲突/阶段性目标"关键词行
+      if(currentVol){
+        currentVol.rawBlock += line + '\n';
+
+        // 关键词命中：这一行本身就是本卷的核心目标描述
+        var goalKeywords = ['核心目标','核心冲突','阶段性目标','本卷目标','卷目标','主线任务','【本卷'];
+        for(var ki = 0; ki < goalKeywords.length; ki++){
+          if(line.indexOf(goalKeywords[ki]) >= 0){
+            var cleaned = line.replace(/^[■\*\d\s\-\.【\[（(]+/, '').trim();
+            if(cleaned.length > 8){
+              currentVol.goal = (currentVol.goal ? currentVol.goal + '\n' : '') + cleaned;
+            }
+            break;
+          }
+        }
+      }
+    }
+    if(currentVol){ targets.push(currentVol); }
+
+    // 如果没抓到显性"核心目标"关键词，把整卷 rawBlock 作为目标（让 AI 自行从中抽取）
+    for(var ti = 0; ti < targets.length; ti++){
+      if(!targets[ti].goal || !targets[ti].goal.trim()){
+        targets[ti].goal = targets[ti].rawBlock.trim();
+      }
+    }
+
+    return targets;
+  }catch(e){
+    console.warn('[extractOutlineTargetsV52] 异常:', e);
+    return targets;
+  }
+}
+
+// ========== v56: 细纲专用 — 构建"单卷细纲"prompt ==========
+// 设计原则：细纲内容最多、对作品把控最严格，所以每一卷都独立调用 AI；
+// 但每次调用都携带：(a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲。
+// 这样即使大模型也不会在"一次性完整输出"时出现上下文断裂、伏笔遗忘、人设漂移。
+function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVolDetail, idea, extraHint, marketResearch, memoryContext, chaptersPerVol){
+  var title = (work && work.title) || '未命名作品';
+  var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+  var platform = '起点';
+  try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
+
+  chaptersPerVol = chaptersPerVol || 12;
+  var chStart = (volIndex - 1) * chaptersPerVol + 1;
+  var chEnd = volIndex * chaptersPerVol;
+
+  var prompt = '你是一位资深网文架构师，当前任务是为作品生成"第 ' + volIndex + ' / ' + totalVols + ' 卷"的章节细纲。细纲是写作时最直接的剧本，必须做到：章节编号连续、人设永不漂移、伏笔前后呼应、节奏起伏有致。\n\n';
+
+  // 1. 最高优先级：用户核心诉求
+  if(idea && idea.trim()){
+    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+  }
+
+  // 2. 一致性铁律
+  prompt += '【一致性铁律 · 违反任何一条即视为本卷生成失败】\n';
+  prompt += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未被大纲提及的核心人物\n';
+  prompt += '2. 世界观规则（力量体系、势力分布、地理名称、历史事件）必须与已有设定完全一致，不得矛盾\n';
+  prompt += '3. 章节编号必须连续，本卷从"第 ' + chStart + ' 章"开始，到"第 ' + chEnd + ' 章"结束，不得跳号、不得重复\n';
+  prompt += '4. 前文已埋的伏笔必须在后续卷中有可见的呼应；本卷新埋的伏笔必须在"爆点/悬念钩子"字段明确标注【伏笔-X】，其中 X 是预计回收的卷号\n';
+  prompt += '5. 本卷结束时必须达成大纲中为本卷定义的核心目标，不允许提前完成或拖延到下一卷\n';
+  prompt += '6. 如果前序卷的细纲已生成，本卷必须严格承接前序卷的结尾状态（人物状态、局势状态、悬念状态），不得让读者感觉到"断档"\n\n';
+
+  // 3. 作品基础信息
+  prompt += '【作品基础信息】\n';
+  prompt += '作品名称：' + title + '\n';
+  if(genre) prompt += '一级题材：' + genre + '\n';
+  prompt += '发布平台：' + platform + '\n';
+  prompt += '本卷编号：第 ' + volIndex + ' 卷（共 ' + totalVols + ' 卷）\n';
+  prompt += '本卷章节范围：第 ' + chStart + ' 章 ～ 第 ' + chEnd + ' 章（共 ' + chaptersPerVol + ' 章）\n\n';
+
+  // 4. 前置架构：世界观 + 人设（优先读 longMemory.moduleSummaries，兜底读原文）
+  prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+  var hasSumCtx = false;
+  if(typeof buildModuleSummaryContext === 'function'){
+    var sc = buildModuleSummaryContext(work, 'detail');
+    if(sc && sc.trim()){
+      prompt += sc.trim() + '\n\n';
+      hasSumCtx = true;
+    }
+  }
+  if(!hasSumCtx){
+    if(work && work.world && work.world.trim()){
+      prompt += '■ 世界观原文：\n' + smartTruncate(work.world, 4000) + '\n\n';
+    }
+    if(work && work.chars && work.chars.trim()){
+      prompt += '■ 人设原文：\n' + smartTruncate(work.chars, 4000) + '\n\n';
+    }
+  }
+
+  // 5. 全书大纲 + 本卷核心目标（硬性约束）
+  if(work && work.outline && work.outline.trim()){
+    prompt += '【📑 全书大纲 — 你生成细纲的总路线图，必须严格对齐】\n';
+    prompt += smartTruncate(work.outline, 5000) + '\n\n';
+  }
+  if(volTarget && volTarget.trim()){
+    prompt += '【🎯 本卷核心目标 — 硬性约束，本卷细纲必须围绕以下目标展开，未达成即失败】\n';
+    prompt += smartTruncate(volTarget, 2500) + '\n\n';
+  }
+
+  // 6. 2026 题材趋势 + 市场调研（非硬性）
+  var trend = getTrendHint2026(work);
+  if(trend){
+    prompt += '【2026 年题材趋势参考】\n' + smartTruncate(trend, 600) + '\n\n';
+  }
+  if(marketResearch && marketResearch.trim()){
+    prompt += '【📊 题材市场调研报告 · 灵感来源】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  }
+
+  // 7. 共享长记忆上下文
+  if(memoryContext && memoryContext.trim()){
+    prompt += '【🧠 共享长记忆上下文 — 来自其他模块和已写章节的关键信息】\n' + memoryContext + '\n\n';
+  }
+
+  // 8. ⭐ 前序卷的完整细纲（逐卷生成的核心优势：每卷都能读到前面所有章节）
+  if(prevVolDetail && prevVolDetail.trim()){
+    prompt += '【📖 前序卷完整细纲 — 第 1 卷 ～ 第 ' + (volIndex - 1) + ' 卷已生成内容，本卷必须严格承接】\n';
+    prompt += smartTruncate(prevVolDetail, 12000) + '\n\n';
+  } else if(volIndex === 1){
+    prompt += '【📖 本卷为第 1 卷 — 是全书开篇，必须完成"开局炸弹"与"金手指引入"】\n\n';
+  }
+
+  // 9. extraHint：来自"按评价加强"的修复意见
+  if(extraHint && extraHint.trim()){
+    prompt += '【★ 本次生成特别关注 — 来自编辑评价的加强意见】\n' + smartTruncate(extraHint.trim(), 1200) + '\n\n';
+  }
+
+  // 10. 本卷写作任务与格式要求
+  prompt += '【✍️ 本卷写作任务】\n';
+  prompt += '请围绕上述"本卷核心目标"，生成本卷 ' + chaptersPerVol + ' 章的章节细纲。\n\n';
+
+  prompt += '【⚠️ 章节格式 — 每章必须严格使用以下一行格式输出，不允许缺字段】\n';
+  prompt += '■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx\n\n';
+
+  prompt += '【⚠️ 字段释义与约束】\n';
+  prompt += '• 场景：不是"山里"而是"XX山脚，废弃的XX庙门口"，必须具体到能让读者看到画面\n';
+  prompt += '• 人物：必须从已有人设中挑选具体角色名，神秘人也要给一个临时代号或外部特征描述；标注谁是本章视角人物\n';
+  prompt += '• 剧情节点：必须含起承转合 2-3 个小节点（用"→"分隔）：开场状态→中途变故→章末局面；禁止出现"发生一些事"这类空泛表达\n';
+  prompt += '• 爆点/悬念钩子：章末必须让读者想翻下一章；在本字段中用【伏笔-X】标注本卷新埋的跨卷伏笔（X=预计回收的卷号），以及本卷是否回收了前序伏笔\n\n';
+
+  prompt += '【⚠️ 卷级节奏与设计要求】\n';
+  if(volIndex === 1){
+    prompt += '• 第 1-3 章为"黄金三章"：第 1 章必须完成"开局炸弹"（冲突现场 + 首句动作），第 2 章必须完成金手指第一次实质性使用 + 第一个爽点，第 3 章必须完成第一个小高潮 + 世界观爽点展示 + 卷/章钩子升级\n';
+  } else {
+    prompt += '• 本卷前 2 章必须承接上一卷的结尾悬念，不能让读者感觉到"断档"\n';
+  }
+  prompt += '• 每 3-5 章设计一个重大转折点或小高潮，在"爆点/悬念钩子"字段标注【转折】\n';
+  prompt += '• 本卷必须至少埋 2 条跨卷伏笔（用【伏笔-X】标注在爆点字段），且至少回收 1 条前序卷埋下的伏笔\n';
+  prompt += '• 本卷的情绪起伏必须明确：高低交替，整体爬坡；不允许连续 3 章高强度战斗/冲突，也不允许连续 3 章低强度日常\n';
+  prompt += '• 本卷最后一章必须设计一个"卷末钩子"，让读者忍不住点开下一卷\n';
+  prompt += '• 至少每 3 章设计 1 个"角色人设驱动的选择"——不是作者硬编，而是这个角色在这个情境下必然会做的选择\n\n';
+
+  prompt += '【⚠️ 输出格式总约束】\n';
+  prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
+  prompt += '2. 每章严格一行，格式为「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」，章节编号从 ' + chStart + ' 连续到 ' + chEnd + '\n';
+  prompt += '3. 章节之间不需要额外空行；卷与卷之间由系统拼接，你只负责本卷\n';
+  prompt += '4. 不要输出创作思路、解释说明、卷标题之外的多余文字\n';
+  prompt += '5. **目标字数：本卷细纲请输出约 ' + (chaptersPerVol * 180) + '～' + (chaptersPerVol * 260) + ' 字（即每章约 180-260 字的信息密度），充分展开，不要压缩**\n';
+
+  prompt += '\n【开始生成第 ' + volIndex + ' 卷细纲】\n';
   return prompt;
 }
 
