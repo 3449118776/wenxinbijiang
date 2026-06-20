@@ -639,6 +639,7 @@ body{display:flex;flex-direction:column;}
 var _currentLevel = 1;
 var _selectedWorkId = '';
 var _selectedModule = 'world';
+var _activeArchWorkId = '';  // 关键：_archFullContent 归属的作品ID，用于防止跨作品污染
 
 var MODULE_INFO = {
   world:   { name: '世界观', icon: '🌍', iconClass: 'world-icon', desc: '时代背景、地理、势力、力量体系' },
@@ -646,6 +647,44 @@ var MODULE_INFO = {
   outline: { name: '全书大纲', icon: '📋', iconClass: 'outline-icon', desc: '主线结构、卷章划分、转折点' },
   detail:  { name: '章节细纲', icon: '📑', iconClass: 'detail-icon', desc: '逐章场景、剧情节点、爆点设计' }
 };
+
+// ===== 防污染：切换作品时强制清除 _archFullContent 缓存 =====
+function clearArchContentCache() {
+  try {
+    _archFullContent = {};
+    if (typeof _archSemanticPages !== 'undefined') _archSemanticPages = {};
+    if (typeof _archPageMap !== 'undefined') _archPageMap = {};
+    _detailPageIdx = 0;
+    window._moduleDirty = {};
+    window._genCheckpoint = null;
+    window._lastArchFix = null;
+    // 同时清空四个 raw-* 文本框，避免显示旧作品内容
+    ['world', 'chars', 'outline', 'detail'].forEach(function(m) {
+      var el = document.getElementById('raw-' + m);
+      if (el) el.value = '';
+      var ideaEl = document.getElementById('idea-' + m);
+      if (ideaEl) ideaEl.value = '';
+    });
+  } catch(e) {}
+}
+
+// ===== 从当前作品加载模块内容到 raw-* 文本框 =====
+function loadModuleContentFromWork() {
+  var w = getCurrentWork();
+  if (!w) return;
+  ['world', 'chars', 'outline', 'detail'].forEach(function(m) {
+    var el = document.getElementById('raw-' + m);
+    if (el && w[m]) {
+      el.value = w[m];
+      // 调整高度
+      try {
+        el.style.height = 'auto';
+        el.style.height = Math.max(360, Math.min(el.scrollHeight + 24, 1800)) + 'px';
+      } catch(hE) {}
+    }
+  });
+  _activeArchWorkId = w.id;  // 标记当前激活的作品
+}
 
 // 导航到指定级别
 function goToLevel(level, opts) {
@@ -793,6 +832,9 @@ function renderLevel2() {
 function selectWork(workId) {
   _selectedWorkId = workId;
   localStorage.setItem('last_edit_work', workId);
+  // 作品切换时强制清除缓存，防止旧作品内容污染新作品
+  clearArchContentCache();
+  _activeArchWorkId = workId;
   goToLevel(3);
 }
 
@@ -840,6 +882,8 @@ function renderLevel3() {
 
 function selectModule(module) {
   _selectedModule = module;
+  // 进入模块前加载当前作品内容（防止显示其他作品内容）
+  loadModuleContentFromWork();
   goToLevel(4);
 }
 
@@ -3314,7 +3358,7 @@ window.initArchPage = function(){
   }catch(e){}
 };
 
-// ===== v48: 保存当前模块内容到作品（强一致性：同时更新raw内容 + moduleSummaries + memoryAnchors）=====
+// ===== v48: 保存当前模块内容到作品（强一致性：三层同步 + 防跨作品污染）=====
 window.saveArchModule = function(){
   try{
     var module = _selectedModule || 'world';
@@ -3322,7 +3366,23 @@ window.saveArchModule = function(){
     if(!work){ showToast('请先选择一部作品',{error:true}); return; }
     var rawEl = document.getElementById('raw-' + module);
     if(!rawEl){ showToast('保存失败',{error:true}); return; }
-    var content = _archFullContent[module] || rawEl.value || '';
+
+    // ===== 防污染：优先使用用户可见的 textarea 内容，_archFullContent 仅作为分页场景的补充 =====
+    // 仅当缓存的内容属于当前作品（通过 _activeArchWorkId 校验）时才使用
+    var content;
+    var useFullContent = _archFullContent && _archFullContent[module] && _archFullContent[module].trim()
+      && _activeArchWorkId === work.id
+      && rawEl.readOnly === true;  // 分页模式下 textarea 是只读的（显示当前页）
+    if (useFullContent) {
+      content = _archFullContent[module];
+    } else if (rawEl.value && rawEl.value.trim()) {
+      content = rawEl.value;
+    } else if (_archFullContent && _archFullContent[module] && _archFullContent[module].trim() && _activeArchWorkId === work.id) {
+      content = _archFullContent[module];
+    } else {
+      // 降级：如果用户清空了 textarea，从 work 中取回已有内容（避免误存空值）
+      content = work[module] || rawEl.value || '';
+    }
 
     // ===== 强一致性：一次保存，三层同步 =====
     // 第一层：保存原始内容
@@ -3474,10 +3534,13 @@ var _archSemanticPages = {};
 var _archFullContent = {};
 
 function getArchRawContent(module) {
-  if (_archFullContent[module]) return _archFullContent[module];
+  // 防污染：仅当缓存归属当前作品时才使用
+  var curW = getCurrentWork();
+  var curId = curW ? curW.id : '';
+  if (_archFullContent && _archFullContent[module] && _activeArchWorkId === curId) return _archFullContent[module];
   var rawEl = document.getElementById('raw-' + module);
   if (rawEl && rawEl.value.trim()) return rawEl.value.trim();
-  var work = getCurrentWork();
+  var work = curW;
   if (work && work[module]) return work[module].trim();
   return '';
 }
@@ -3554,9 +3617,16 @@ window.archDisplayNextPageV52 = function(){
 };
 window.archDisplayShowAllV52 = function(){
   var module = _selectedModule || 'world';
+  var curW = getCurrentWork();
+  var curId = curW ? curW.id : '';
   var rawEl = document.getElementById('raw-' + module);
   if (rawEl) {
-    rawEl.value = _archFullContent[module] || rawEl.value;
+    // 防污染：仅当缓存归属当前作品时使用
+    if (_archFullContent && _archFullContent[module] && _activeArchWorkId === curId) {
+      rawEl.value = _archFullContent[module];
+    } else {
+      rawEl.value = rawEl.value || (curW ? (curW[module] || '') : '');
+    }
     rawEl.readOnly = false;
     rawEl.style.height = 'auto';
     rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
@@ -3619,10 +3689,13 @@ var _detailPageSize = 5000; // 每批显示字数（细纲按段落）
 
 // 获取细纲全文（优先用全文缓存，避免分页后 textarea 只有当前批导致全文丢失）
 function getDetailContent() {
-  if (_archFullContent['detail']) return _archFullContent['detail'];
+  // 关键：仅当缓存归属当前作品时才使用，防止跨作品污染
+  var curW = getCurrentWork();
+  var curId = curW ? curW.id : '';
+  if (_archFullContent && _archFullContent['detail'] && _activeArchWorkId === curId) return _archFullContent['detail'];
   var rawEl = document.getElementById('raw-detail');
   if (rawEl && rawEl.value.trim()) return rawEl.value.trim();
-  var work = getCurrentWork();
+  var work = curW;
   if (work && work.detail) return work.detail.trim();
   return '';
 }
@@ -3825,9 +3898,16 @@ window.detailNextPage = function(){
 };
 // 细纲显示全文（退出分页，恢复可编辑）
 window.detailShowAll = function(){
+  var curW = getCurrentWork();
+  var curId = curW ? curW.id : '';
   var rawEl = document.getElementById('raw-detail');
   if (rawEl) {
-    rawEl.value = _archFullContent['detail'] || rawEl.value;
+    // 防污染：仅当缓存归属当前作品时使用
+    if (_archFullContent && _archFullContent['detail'] && _activeArchWorkId === curId) {
+      rawEl.value = _archFullContent['detail'];
+    } else {
+      rawEl.value = rawEl.value || (curW ? (curW.detail || '') : '');
+    }
     rawEl.readOnly = false;
     rawEl.style.height = 'auto';
     rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
@@ -3941,8 +4021,17 @@ window.confirmSave = function(){
     var work = getCurrentWork();
     if(!work){ showToast('无作品',{error:true}); return; }
     var rawEl = document.getElementById('raw-' + module);
-    // 分页模式下用全文缓存，非分页模式用 textarea 值
-    if(rawEl){ work[module] = _archFullContent[module] || rawEl.value || ''; }
+    // 防污染：仅当缓存归属当前作品时使用
+    if(rawEl){
+      var curId = work.id;
+      if (_archFullContent && _archFullContent[module] && _archFullContent[module].trim() && _activeArchWorkId === curId && rawEl.readOnly) {
+        work[module] = _archFullContent[module];
+      } else if (rawEl.value && rawEl.value.trim()) {
+        work[module] = rawEl.value;
+      } else {
+        work[module] = work[module] || '';
+      }
+    }
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     document.getElementById('save-confirm-modal').style.display = 'none';
     showToast('✅ 已保存并解锁');
