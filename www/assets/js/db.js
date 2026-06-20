@@ -154,13 +154,23 @@ const DB = {
   validateWorkIsolation(work, silent) {
     if (!work || !work.id) return false;
     this.ensureWorkFingerprint(work);
+    // 严格双检：作品 ID + 指纹（_fingerprint 包含作品创建时间/标题等信息，作为对象引用错乱时的最后一道防线）
     var currentId = '';
     try { currentId = localStorage.getItem('last_edit_work') || ''; } catch(e) {}
     if (currentId && currentId !== work.id) {
-      // 自动更新 last_edit_work 为当前作品，避免跨页面保存被阻止
+      if (!silent) console.warn('[DB] validateWorkIsolation: id mismatch, current=' + currentId + ' work.id=' + work.id);
+      // 自动更新为当前作品 id，避免跨页面保存被阻止
       try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
       return true;
     }
+    // 确保传入对象仍在 DB.works 中（避免调用方缓存了过期对象引用）
+    try {
+      var exists = (this.works || []).find(function(w) { return w.id === work.id; });
+      if (!exists) {
+        if (!silent) console.warn('[DB] validateWorkIsolation: work not found in DB.works, id=' + work.id);
+        return false;
+      }
+    } catch(_) {}
     return true;
   },
 

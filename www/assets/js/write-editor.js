@@ -424,6 +424,14 @@ function onWorkChange(){
   localStorage.setItem('last_edit_work',id);
   currentChapterIdx=0;
   clearWorkRuntimeCache();
+  // ===== 切换作品：强制清空所有架构参考区，避免显示旧作品内容 =====
+  try {
+    document.getElementById('ref-world').value='';
+    document.getElementById('ref-chars').value='';
+    document.getElementById('ref-outline').value='';
+    document.getElementById('ref-detail').value='';
+    document.getElementById('editor').value='';
+  } catch(_){}
   loadWork();
 }
 
@@ -4260,6 +4268,21 @@ async function startChapterPipeline() {
 
 async function aiWriteChapter(){
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
+  // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
+  var _editLockWorkId = work.id;
+  var _editLockFp = getCurrentWorkFingerprint(work);
+  function _checkStillSameWork(msg){
+    var cur = getCurrentWork();
+    if(!cur || cur.id !== _editLockWorkId){
+      if(msg) showToast('⚠️ ' + msg + '：作品已切换，已中止', 5000);
+      return false;
+    }
+    if(_editLockFp && cur._fingerprint && cur._fingerprint !== _editLockFp){
+      showToast('⚠️ 作品数据已更新，已中止当前操作', 5000);
+      return false;
+    }
+    return true;
+  }
   const content=document.getElementById('editor').value;
   const chapterIdx = currentChapterIdx || 0;
   
@@ -4299,7 +4322,9 @@ async function aiWriteChapter(){
     try {
       skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 300, true);
     } catch(skErr) { console.warn('[章纲骨架] 失败:', skErr); }
-    
+
+    if(!_checkStillSameWork('章纲骨架生成中')) return;
+
     if(skeletonResult && skeletonResult.trim()){
       var skText = skeletonResult.trim();
       var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
@@ -4336,6 +4361,9 @@ async function aiWriteChapter(){
   // v46：多AI模式时使用 callMultiAI 并行请求
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   let result = await aiCaller(prompt, null, 'write_normal', 3000); // 目标 3000 字
+
+  if(!_checkStillSameWork('正文生成中')) return;
+
   if(result){
     // ===== AI结果校验 =====
     var validationError = null;
@@ -4378,6 +4406,7 @@ async function aiWriteChapter(){
           statusBar.textContent = '✅ 补写完成（' + result.length + '字）';
         }
       } catch(e) { console.warn('[字数补写] 失败:', e); }
+      if(!_checkStillSameWork('字数补写中')) return;
     }
     if (result.length > 5000) {
       showToast('⚠️ 字数超标(' + result.length + '字)，建议手动精简。可点"重写"重新生成。', {duration:5000});
@@ -4452,6 +4481,7 @@ async function aiWriteChapter(){
           
           try {
             const fillResult = await callRealAPIWithFallback(fillPrompt, null, 'fill', 800);
+            if(!_checkStillSameWork('细纲补写中')) return;
             if (fillResult) {
               // v52: 保存AI原始（含补写），用于用户编辑学习
               ch._aiOriginal = result + '\n\n' + fillResult;
@@ -4488,6 +4518,8 @@ async function aiWriteChapter(){
       }
     }
     
+    // ===== 写入作品前最终校验：确保作品仍未被用户切换，锁定后统一保存 =====
+    if(!_checkStillSameWork('保存章节')) return;
     DB.saveWork(work);
     // 通知可撤销
     showToast('✅ 生成完成 — 不满意可点右上角 <撤销> 按钮恢复原文', 5000);

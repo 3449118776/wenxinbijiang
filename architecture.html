@@ -941,12 +941,14 @@ window.switchArchModule = function(mod) {
 function onWorkChange(id) {
   _selectedWorkId = id;
   localStorage.setItem('last_edit_work', id);
+  clearArchContentCache();  // 切换作品强制清除缓存，防止内容串档
+  _activeArchWorkId = id;
   try {
     window._moduleDirty = {};
     window._genCheckpoint = null;
     window._lastArchFix = null;
-    window._detailPage = {idx:0, size:100};
-  } catch(e) {}
+    window._detailPage = { idx: 0, size: 100 };
+  } catch (e) { }
   if (typeof initArchPage === 'function') initArchPage();
 }
 
@@ -2444,6 +2446,26 @@ window.generateArchModule = async function(opts){
       return;
     }
 
+    // ===== 关键：锁定当前作品，防止异步期间用户切换作品导致内容串档 =====
+    var _genWorkId = work.id;
+    _activeArchWorkId = _genWorkId;  // 同时锁定缓存归属
+    var _genFingerprint = (work._fingerprint || (typeof DB !== 'undefined' && DB.ensureWorkFingerprint && DB.ensureWorkFingerprint(work)) || '');
+    function _checkStillSameWork(){
+      var cur = getCurrentWork();
+      if(!cur || cur.id !== _genWorkId){
+        if(typeof hideLoading === 'function') hideLoading();
+        showToast('⚠️ 检测到作品已切换，已中止当前生成（避免内容串档）', {error:true, duration:5000});
+        return false;
+      }
+      // 指纹二次校验：防止作品对象被外部替换但 id 相同的极端场景
+      if(_genFingerprint && cur._fingerprint && cur._fingerprint !== _genFingerprint){
+        if(typeof hideLoading === 'function') hideLoading();
+        showToast('⚠️ 作品数据已更新，已中止当前生成（避免写入旧上下文）', {error:true, duration:5000});
+        return false;
+      }
+      return true;
+    }
+
     // 1. 读取用户输入的提示词（优先级最高）
     var ideaEl = document.getElementById('idea-' + module);
     var idea = ideaEl ? ideaEl.value : '';
@@ -2640,6 +2662,9 @@ window.generateArchModule = async function(opts){
       var volTargetChars = userChPerVol * 220; // 约每章 220 字
 
       for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
+        // ===== 每次卷生成前校验：作品被切换则立即中止 =====
+        if(!_checkStillSameWork()) return;
+
         // 进度提示
         var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
         if(typeof showLoading === 'function'){
@@ -2734,6 +2759,7 @@ window.generateArchModule = async function(opts){
       if(typeof showLoading === 'function'){
         showLoading('正在生成 ' + moduleName + ' · ' + progressLabel);
       }
+      if(!_checkStillSameWork()) return;
 
       var bigPrompt = buildArchSinglePromptV52(module, batches, work, idea, opts && opts.extraHint, marketResearch, memoryContext);
       var bigTarget = 0;
@@ -2752,6 +2778,7 @@ window.generateArchModule = async function(opts){
         console.warn('完整模块生成失败:', e);
         bigResult = '（生成失败，请重试）\n';
       }
+      if(!_checkStillSameWork()) return;
 
       if(!bigResult || !bigResult.trim()){
         bigResult = '（生成失败，请重试）\n';
@@ -2764,6 +2791,8 @@ window.generateArchModule = async function(opts){
     } else if(module !== 'detail'){
       // 小模型：保持原分批策略（逐卡片生成，每张卡片独立调用 AI）
       for(var bi = 0; bi < batches.length; bi++){
+        if(!_checkStillSameWork()) return;
+
         var card = batches[bi];
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
         var progressPct = Math.round((bi / batches.length) * 90);
@@ -2820,6 +2849,9 @@ window.generateArchModule = async function(opts){
       showToast('⚠️ 生成失败，请检查 API 设置后重试', {error:true, duration:4000});
       return;
     }
+
+    // ===== 写入前最终校验：如果期间切换了作品，立即中止写入 =====
+    if(!_checkStillSameWork()) return;
 
     // 5. 写入编辑区 + 保存到作品
     var rawEl = document.getElementById('raw-' + module);
@@ -4153,6 +4185,8 @@ function updateArchDisplay(module) {
   if (!rawEl) return;
   var content = getArchRawContent(module);
   if (!content) return;
+  var curW = getCurrentWork();
+  if (!curW || _activeArchWorkId !== curW.id) return;  // 作品已切换，不写入缓存
   _archFullContent[module] = content;
   var pages = splitContentIntoSemanticPages(content, module);
   _archSemanticPages[module] = pages;
@@ -4213,7 +4247,8 @@ window.archDisplayShowAllV52 = function(){
 window.archDisplayBackToPagedV52 = function(){
   var module = _selectedModule || 'world';
   var rawEl = document.getElementById('raw-' + module);
-  if (rawEl && rawEl.value.trim()) _archFullContent[module] = rawEl.value.trim();
+  var curW = getCurrentWork();
+  if (curW && _activeArchWorkId === curW.id && rawEl && rawEl.value.trim()) _archFullContent[module] = rawEl.value.trim();
   _archPageMap[module + '_page'] = 1;
   updateArchDisplay(module);
 };
@@ -4223,10 +4258,12 @@ function initArchPager(module) {
   var content = getArchRawContent(module);
   var pager = document.getElementById('arch-display-pager-' + module);
   var rawEl = document.getElementById('raw-' + module);
+  var curW = getCurrentWork();
+  var safeId = curW ? curW.id : '';
   // 先用 splitContentIntoSemanticPages 切一遍，看是否需要 >1 页
   var pages = splitContentIntoSemanticPages(content, module);
   if (pages && pages.length > 1) {
-    _archFullContent[module] = content;
+    if (_activeArchWorkId === safeId) _archFullContent[module] = content;
     _archPageMap[module + '_page'] = 1;
     updateArchDisplay(module);
   } else {
@@ -4276,6 +4313,8 @@ function getDetailContent() {
 function updateDetailDisplay() {
   var content = getDetailContent();
   if (!content) return;
+  var curW = getCurrentWork();
+  if (!curW || _activeArchWorkId !== curW.id) return;  // 作品已切换，不写入缓存
 
   // 保存全文到缓存
   _archFullContent['detail'] = content;
@@ -4356,8 +4395,10 @@ function initDetailPager() {
   var pager = document.getElementById('detail-pager');
   var rawEl = document.getElementById('raw-detail');
   var chapters = content ? parseDetailChaptersV48(content) : [];
+  var curW = getCurrentWork();
+  var safeDetId = curW ? curW.id : '';
   if (chapters.length > 10) {
-    _archFullContent['detail'] = content;
+    if (_activeArchWorkId === safeDetId) _archFullContent['detail'] = content;
     _detailPageIdx = 0;
     updateDetailDisplay();
   } else {
@@ -4374,6 +4415,8 @@ window.generateDetailForVolume = function(volNum) {
     var work = getCurrentWork();
     if (!work) { showToast('请先选择作品'); return; }
     if (!work.outline || !work.outline.trim()) { showToast('请先生成/保存大纲', { duration: 3000 }); return; }
+    var _detExpectedId = work.id;
+    _activeArchWorkId = _detExpectedId;  // 锁定：确保后续缓存写入/读取都归属本作品
 
     // 解析大纲卷数和章节分布信息
     var totalVols = 9;
@@ -4418,14 +4461,17 @@ function insertOrReplaceVolumeContent(volNum, chStart, chEnd, volumeContent, tot
   var existing = getDetailContent() || '';
   var volumeHeader = '【第 ' + volNum + ' 卷 · 第 ' + chStart + '-' + chEnd + '章】';
   var newBlock = '\n' + volumeHeader + '\n\n' + volumeContent + '\n';
+  var curW = getCurrentWork();
+  var safeInsertId = curW ? curW.id : '';
+  var _isSameWork = _activeArchWorkId && safeInsertId && _activeArchWorkId === safeInsertId;
 
   if (!existing || !existing.trim()) {
     // 之前没有细纲 - 新建
     var fullText = volumeHeader + '\n\n' + volumeContent + '\n';
-    _archFullContent['detail'] = fullText;
+    if (_isSameWork) _archFullContent['detail'] = fullText;
     if (rawEl) rawEl.value = fullText;
     var work = getCurrentWork();
-    if (work) work.detail = fullText;
+    if (work && work.id === safeInsertId) work.detail = fullText;
     return;
   }
 
@@ -4443,17 +4489,17 @@ function insertOrReplaceVolumeContent(volNum, chStart, chEnd, volumeContent, tot
     var before = existing.substring(0, idx);
     var after = nextVol >= 0 ? existing.substring(nextVol) : '';
     var replaced = before.trim() + '\n\n' + volumeHeader + '\n\n' + volumeContent + '\n\n' + after.trim();
-    _archFullContent['detail'] = replaced;
+    if (_isSameWork) _archFullContent['detail'] = replaced;
     if (rawEl) rawEl.value = replaced;
-    var work = getCurrentWork();
-    if (work) work.detail = replaced;
+    var work2 = getCurrentWork();
+    if (work2 && work2.id === safeInsertId) work2.detail = replaced;
   } else {
     // 新卷 - 追加到末尾
     var appended = existing.trim() + '\n\n' + volumeHeader + '\n\n' + volumeContent + '\n';
-    _archFullContent['detail'] = appended;
+    if (_isSameWork) _archFullContent['detail'] = appended;
     if (rawEl) rawEl.value = appended;
-    var work = getCurrentWork();
-    if (work) work.detail = appended;
+    var work3 = getCurrentWork();
+    if (work3 && work3.id === safeInsertId) work3.detail = appended;
   }
 }
 
