@@ -2097,6 +2097,9 @@ window.generateArchModule = async function(opts){
       }
     } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
 
+    // 2.6 长记忆注入前先同步架构内容到记忆（确保longMemory已初始化）
+    try { if(work && typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(syncErr) {}
+
     // 2.6 长记忆注入：提取已生成模块和已写章节的关键记忆作为生成上下文
     // 即使没有章节，也能让"生成大纲"读到"世界观+人设"的记忆，"生成细纲"读到"世界观+人设+大纲"的记忆
     var memoryContext = '';
@@ -3215,6 +3218,20 @@ function updateDetailDisplay() {
 
 // 初始化细纲翻页器
 function initDetailPager() {
+  // 同步大纲卷数到细纲输入框（如果大纲已有卷标记）
+  try {
+    var work = getCurrentWork();
+    if (work && work.outline) {
+      var volMatches = work.outline.match(/第[一二三四五六七八九十百千\d]+卷/g);
+      if (volMatches && volMatches.length > 0) {
+        var volInput = document.getElementById('vol-count-detail');
+        var volOutline = document.getElementById('vol-count-outline');
+        if (volInput) volInput.value = volMatches.length;
+        if (volOutline) volOutline.value = volMatches.length;
+      }
+    }
+  } catch(e) {}
+
   var content = getDetailContent();
   var pager = document.getElementById('detail-pager');
   var rawEl = document.getElementById('raw-detail');

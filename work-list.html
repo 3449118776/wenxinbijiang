@@ -170,6 +170,44 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 .modal-box .btns button {flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:14px;cursor:pointer;}
 .modal-box .btns button.primary {background:#ef4444;color:#fff;border-color:#ef4444;}
 
+/* 阅读预览模式 */
+.reader-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #f5f5f0;
+  z-index: 9999;
+  overflow: hidden;
+}
+.reader-overlay.active { display: flex; flex-direction: column; }
+.reader-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.reader-title { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.reader-close-btn {
+  padding: 6px 14px; border-radius: 8px; background: #f3f4f6;
+  color: #374151; border: none; font-size: 13px; cursor: pointer;
+}
+.reader-content {
+  flex: 1; overflow-y: auto; padding: 20px 16px 40px;
+  -webkit-overflow-scrolling: touch;
+}
+.reader-text {
+  max-width: 680px; margin: 0 auto; font-size: 16px; line-height: 1.9;
+  color: #333; font-family: "PingFang SC", "Microsoft YaHei", serif;
+  word-break: break-word; white-space: pre-wrap;
+}
+.reader-text .card-header {
+  font-size: 18px; font-weight: 700; color: #1a1a1a;
+  margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #6366f1;
+}
+.reader-text .card-header:first-child { margin-top: 0; }
+
 /* 回收站弹窗 */
 .modal-box .trash-list{text-align:left;font-size:14px;margin:8px 0;max-height:50vh;overflow:auto;}
 .trash-item{padding:10px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;}
@@ -274,6 +312,17 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
       <button onclick="closeDeleteModal()">取消</button>
       <button class="primary" onclick="confirmDelete()">删除</button>
     </div>
+  </div>
+</div>
+
+<!-- 阅读预览模式 -->
+<div class="reader-overlay" id="reader-overlay">
+  <div class="reader-header">
+    <div class="reader-title" id="reader-title">作品预览</div>
+    <button class="reader-close-btn" onclick="closeReader()">关闭</button>
+  </div>
+  <div class="reader-content">
+    <div class="reader-text" id="reader-text"></div>
   </div>
 </div>
 
@@ -430,6 +479,7 @@ function renderLevel2() {
     html += '</div>';
     html += '</div>';
     html += '<div class="wc-actions">';
+    html += '<button onclick="event.stopPropagation();openWorkPreview(\'' + he(w.id) + '\')">预览</button>';
     html += '<button onclick="event.stopPropagation();goWrite(\'' + he(w.id) + '\')">写作</button>';
     html += '<button onclick="event.stopPropagation();goArch(\'' + he(w.id) + '\')">架构</button>';
     html += '<button class="danger" onclick="event.stopPropagation();askDelete(\'' + he(w.id) + '\')">删除</button>';
@@ -1124,6 +1174,37 @@ function showToast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
+}
+
+// ===== 阅读预览 =====
+function openWorkPreview(workId) {
+  var w = getWorkById(workId);
+  if (!w) { showToast('作品不存在'); return; }
+  var chapters = w.chapters || [];
+  var textEl = document.getElementById('reader-text');
+  var titleEl = document.getElementById('reader-title');
+  if (!textEl || !titleEl) return;
+
+  titleEl.textContent = w.title || '作品预览';
+
+  if (chapters.length === 0) {
+    textEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px 0;">暂无章节内容</div>';
+  } else {
+    var html = '';
+    chapters.forEach(function(ch) {
+      var chTitle = ch.title || '第' + (ch.idx + 1) + '章';
+      html += '<div class="card-header">' + he(chTitle) + '</div>';
+      html += he(ch.content || '（空章节）');
+      html += '\n\n';
+    });
+    textEl.innerHTML = html;
+  }
+
+  document.getElementById('reader-overlay').classList.add('active');
+}
+
+function closeReader() {
+  document.getElementById('reader-overlay').classList.remove('active');
 }
 
 // ===== 初始化 =====

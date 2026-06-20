@@ -253,7 +253,21 @@ CloudSync.prototype = {
    * 删除云端作品
    */
   deleteWork: async function(workId) {
-    return this._fetch('/works/' + encodeURIComponent(workId), { method: 'DELETE' });
+    // 优先使用 POST /works/:id/delete（兼容所有后端版本）
+    try {
+      return await this._fetch('/works/' + encodeURIComponent(workId) + '/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+    } catch(e) {
+      // 如果404说明作品本来就不存在，不算同步失败
+      var msg = e && e.message ? String(e.message) : '';
+      if (msg.indexOf('404') >= 0 || msg.indexOf('不存在') >= 0 || msg.indexOf('not found') >= 0 || msg.indexOf('Not Found') >= 0) {
+        return { ok: true, already_deleted: true };
+      }
+      throw e;
+    }
   },
 
   // ==================== 快照 ====================

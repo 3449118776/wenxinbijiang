@@ -1126,6 +1126,37 @@ function showToast(msg) {
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
+// ===== 阅读预览 =====
+function openWorkPreview(workId) {
+  var w = getWorkById(workId);
+  if (!w) { showToast('作品不存在'); return; }
+  var chapters = w.chapters || [];
+  var textEl = document.getElementById('reader-text');
+  var titleEl = document.getElementById('reader-title');
+  if (!textEl || !titleEl) return;
+
+  titleEl.textContent = w.title || '作品预览';
+
+  if (chapters.length === 0) {
+    textEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px 0;">暂无章节内容</div>';
+  } else {
+    var html = '';
+    chapters.forEach(function(ch) {
+      var chTitle = ch.title || '第' + (ch.idx + 1) + '章';
+      html += '<div class="card-header">' + he(chTitle) + '</div>';
+      html += he(ch.content || '（空章节）');
+      html += '\n\n';
+    });
+    textEl.innerHTML = html;
+  }
+
+  document.getElementById('reader-overlay').classList.add('active');
+}
+
+function closeReader() {
+  document.getElementById('reader-overlay').classList.remove('active');
+}
+
 // ===== 初始化 =====
 window.addEventListener('DOMContentLoaded', function() {
   try { DB.init(); } catch(e) { console.error('DB init:', e); }
