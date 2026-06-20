@@ -1533,7 +1533,84 @@ function checkFullChainConsistency(work, chapterIdx, content) {
   } else {
     hits.push('章尾钩子');
   }
-  
+
+  // ===== v53: 剧情推进度检查 =====
+  var prevChapterContent = '';
+  if (work && work.chapters && chapterIdx > 0 && work.chapters[chapterIdx - 1]) {
+    prevChapterContent = work.chapters[chapterIdx - 1].content || '';
+  }
+
+  // 1. 检查主角状态是否有变化（不可逆变化检测）
+  if (prevChapterContent && prevChapterContent.length > 200) {
+    var progressionSignals = 0;
+    var totalSignals = 5;
+
+    // 信号1：主角位置/场景是否变化（从上一章场景关键词中提取）
+    var prevLocations = prevChapterContent.match(/(?:来到|离开|回到|进入|走出|前往|到达|回到|到了|穿过|登上|踏入|步入|返回|离去|出发|赶往|躲进|逃往|逃到)/g) || [];
+    var curLocations = content.match(/(?:来到|离开|回到|进入|走出|前往|到达|回到|到了|穿过|登上|踏入|步入|返回|离去|出发|赶往|躲进|逃往|逃到)/g) || [];
+    if (curLocations.length > 0 && (prevLocations.length === 0 || Math.abs(curLocations.length - prevLocations.length) > 0)) {
+      progressionSignals++;
+    }
+
+    // 信号2：冲突级别是否变化（从冲突关键词密度判断）
+    var conflictWords = ['受伤','流血','重伤','断臂','吐血','倒下','杀掉','击杀','击败','打败','压制','碾压','击退','逼退','对抗','对峙','战斗','交手','碰撞','轰','炸','裂','碎','破','溃','败','逃','死','亡','毙','葬','灭','吞噬','撕碎','碾压','统领','消灭','覆灭','灭门','屠','封','锁','禁','废','散','丧失','失去','剥夺','代价','反噬','诅咒','惩罚','制裁'];
+    var prevConflict = 0, curConflict = 0;
+    for (var cwi = 0; cwi < conflictWords.length; cwi++) {
+      if (prevChapterContent.indexOf(conflictWords[cwi]) >= 0) prevConflict++;
+      if (content.indexOf(conflictWords[cwi]) >= 0) curConflict++;
+    }
+    if (curConflict > prevConflict + 2) {
+      progressionSignals++;
+    }
+
+    // 信号3：主角认知/信息是否有变化（获得新信息）
+    var infoWords = ['发现','原来','居然','竟然','没想到','才知道','真相','秘密','隐瞒','欺骗','误会','误解','谜','疑','揭露','揭开','曝光','暴露','现身','出现','身份','隐藏','潜伏','暗藏','背后','幕后','另有','其实','真正','原来如此','怪不得','难怪','那一声','那一眼','那封信','那张纸条','那块令牌','那枚戒指','那把剑','那张地图','那个名字','那个孩子','那句话','那个眼神','那个背影','那个笑容','那个纹身','那个印记','那个标记','那个符号','那个暗号','那本日记','那本账册'];
+    var prevInfo = 0, curInfo = 0;
+    for (var iwi = 0; iwi < infoWords.length; iwi++) {
+      if (prevChapterContent.indexOf(infoWords[iwi]) >= 0) prevInfo++;
+      if (content.indexOf(infoWords[iwi]) >= 0) curInfo++;
+    }
+    if (curInfo > prevInfo) {
+      progressionSignals++;
+    }
+
+    // 信号4：关系变化
+    var relationWords = ['结盟','背叛','亏欠','喜欢','恨','信任','怀疑','决裂','保护','敌对','归顺','分开','离别','重逢','和解','道歉','原谅','拒绝','答应','默许','承诺','发誓','约定','毁约','失约','守约','靠近','疏远','拥抱','牵手','推开','挽留','留下','离开','等着','追','跑','回头','转身','背对','面对','直视','回避','躲闪','低头','沉默','开口','闭口','不说','不敢说','不想说','说不出口','说了','问','质问','反问','逼问','追问','不再问','不再说','不再等','不再看','不再想','不再念','不再」];
+    var prevRel = 0, curRel = 0;
+    for (var rwi = 0; rwi < relationWords.length; rwi++) {
+      if (prevChapterContent.indexOf(relationWords[rwi]) >= 0) prevRel++;
+      if (content.indexOf(relationWords[rwi]) >= 0) curRel++;
+    }
+    if (curRel > prevRel + 1) {
+      progressionSignals++;
+    }
+
+    // 信号5：能力/实力变化
+    var powerWords = ['突破','升级','进阶','觉醒','领悟','掌握','练成','修成','学会','提升','增长','增强','变强','变快','变准','变狠','变稳','变冷','变热','变轻','变重','变快','变慢','变亮','变暗','变强','变弱','暴涨','飙升','翻倍','倍增','蜕变','涅槃','重生','重构','重塑','新建','重建','新创','新悟','新悟','新成','新就','新得','新获','新取','新收','新入','新掌','新握','新拿','新持','新有','新获','新得','新升','新上','新进','新开','新启','新始','新出','新成','新立','新设','新定','新制','新规','新则','新法','新术','新技','新招','新式','新招','新');
+    var prevPower = 0, curPower = 0;
+    for (var pwi = 0; pwi < powerWords.length; pwi++) {
+      if (prevChapterContent.indexOf(powerWords[pwi]) >= 0) prevPower++;
+      if (content.indexOf(powerWords[pwi]) >= 0) curPower++;
+    }
+    if (curPower > prevPower + 1) {
+      progressionSignals++;
+    }
+
+    // 推进度评分
+    if (progressionSignals >= 4) {
+      hits.push('剧情推进度: 强推进(' + progressionSignals + '/' + totalSignals + ')');
+    } else if (progressionSignals >= 2) {
+      hits.push('剧情推进度: 正常推进(' + progressionSignals + '/' + totalSignals + ')');
+    } else if (progressionSignals >= 1) {
+      hits.push('剧情推进度: 弱推进(' + progressionSignals + '/' + totalSignals + ')');
+      issues.push('[v53] 剧情推进度偏低(' + progressionSignals + '/' + totalSignals + ')，本章可能原地踏步');
+      score -= 5;
+    } else {
+      issues.push('[v53] 剧情推进度严重不足(' + progressionSignals + '/' + totalSignals + ')，本章可能为水章');
+      score -= 15;
+    }
+  }
+
   score = Math.max(0, Math.min(100, score));
   return { score: score, issues: issues.slice(0, 15), hits: hits.slice(0, 15), checkedAt: Date.now(), chapterIdx: chapterIdx };
 }
@@ -2906,6 +2983,23 @@ function smartCompressArch(text, maxLen) {
     prompt += '- 差异化建议：让一个\"配角\"的观点在本章中比主角的观点更有说服力\n';
   }
   prompt += '\n';
+
+  // === v53: 剧情推进度自检 · 核心推动为最高目标 =====
+  prompt += '\n\n【⚠️⚠️⚠️ 剧情推进度自检 · 核心推动为最高目标 · 写前必读】\n';
+  prompt += '本章不是"写得好看"就行，必须"推进剧情"。写完本章后，主角的世界必须发生变化。\n\n';
+  prompt += '【水章判定标准 · 满足以下任一条件即视为水章】\n';
+  prompt += '1. 跳过本章，后续剧情不需要任何改写 → 本章没有推进任何东西\n';
+  prompt += '2. 本章结束后，主角的状态/位置/认知/关系/实力全部和上一章一样 → 原地踏步\n';
+  prompt += '3. 本章唯一的功能是"描写环境"或"展示日常" → 描写必须服务于推进\n';
+  prompt += '4. 本章只有对话没有行动，或只有行动没有后果 → 动作必须有后果\n\n';
+  prompt += '【推进度检查清单 · 写完后逐条打勾】\n';
+  prompt += '□ 主角的状态发生了不可逆变化（受伤/升级/获得新信息/失去重要物品/关系变化）\n';
+  prompt += '□ 至少一条主线被推进了（不是支线、不是日常、不是展示世界观）\n';
+  prompt += '□ 至少一条伏笔被推进或回收（给读者"原来如此"或"越来越近了"的感受）\n';
+  prompt += '□ 冲突升级了至少一级（摩擦→对立→对抗→危机→决战）\n';
+  prompt += '□ 章末钩子让读者产生了一个必须被回答的新问题\n';
+  prompt += '□ 如果这是连续第3章，必须有一个中爽点（完整打脸/关系突破/实力跃升）\n\n';
+  prompt += '【核心指令】如果以上6条中有任何一条无法打勾，请在写作前重新规划本章剧情。不要为了凑字数而写。\n';
 
   // === 一致性自检指令 ===
   prompt += '\n\n【⚠️ 输出前自检 — 必须逐条确认】\n';
