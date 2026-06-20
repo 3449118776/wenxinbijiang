@@ -2611,66 +2611,100 @@ window.generateArchModule = async function(opts){
     else if(module === 'outline') taskType = 'outline_logic';
     else if(module === 'detail') taskType = 'detail_base';
 
-    // 4a. 根据模块类型拆分卡片
+    // 4a. 获取卡片结构规划（大模型：仅作为结构规划注入，不拆任务；小模型：仍用于分批）
     var batches = buildArchCardBatchesV48(module, work, idea);
     var totalChars = 0;
     var allCards = [];
+    var useSingleShot = isLargeContextModel();
 
-    // 4b. 逐卡片生成（每张卡片独立调用 AI，上下文包含已生成内容作为一致性锚点）
-    for(var bi = 0; bi < batches.length; bi++){
-      var card = batches[bi];
-      var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-      var progressPct = Math.round((bi / batches.length) * 90); // 0-90% 留10%给完成
-
+    // 4b. 大模型：一次性完整生成；小模型：逐卡片分批生成
+    if(useSingleShot){
+      // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
+      // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
+      var progressLabel = '完整' + moduleName + '（一次性生成）';
       if(typeof showLoading === 'function'){
         showLoading('正在生成 ' + moduleName + ' · ' + progressLabel);
       }
-      if(typeof updateLoadingProgress === 'function'){
-        updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel);
+
+      var bigPrompt = buildArchSinglePromptV52(module, batches, work, idea, opts && opts.extraHint, marketResearch, memoryContext);
+      var bigTarget = 0;
+      for(var tbi = 0; tbi < batches.length; tbi++){
+        bigTarget += batches[tbi].targetChars || 1000;
       }
 
-      // 构建本卡片的 prompt：核心诉求 + 市场调研 + 记忆上下文 + 已生成内容 + 本卡片具体目标 + 评价加强提示
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
-      var cardTargetChars = card.targetChars || 800;
-
-      var cardResult = null;
+      var bigResult = null;
       try{
         if(typeof callRealAPIWithFallback === 'function'){
-          // silent=true：不在 API 层操作 loading，由本函数统一管理 loading 生命周期
-          cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+          bigResult = await callRealAPIWithFallback(bigPrompt, null, taskType, bigTarget, true);
         } else if(typeof callRealAPI === 'function'){
-          cardResult = await callRealAPI(cardPrompt, null, {});
+          bigResult = await callRealAPI(bigPrompt, null, {});
         }
       }catch(e){
-        console.warn('卡片 ' + card.label + ' 生成失败:', e);
-        cardResult = '（本卡片生成失败）\n';
+        console.warn('完整模块生成失败:', e);
+        bigResult = '（生成失败，请重试）\n';
       }
 
-      if(!cardResult || !cardResult.trim()){
-        // 某张卡片失败也不中断，后面用户可以手动补
-        cardResult = '（本卡片生成失败，请重试）\n';
+      if(!bigResult || !bigResult.trim()){
+        bigResult = '（生成失败，请重试）\n';
       }
 
-      allCards.push({ label: card.label, content: cardResult });
-      totalChars += cardResult.length;
+      result = bigResult.trim();
+      totalChars = result.length;
+      // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
+      allCards.push({ label: moduleName + '·完整生成', content: result });
+    } else {
+      // 小模型：保持原分批策略（逐卡片生成，每张卡片独立调用 AI）
+      for(var bi = 0; bi < batches.length; bi++){
+        var card = batches[bi];
+        var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+        var progressPct = Math.round((bi / batches.length) * 90);
 
-      // 卡片间极短等待，避免触发服务商 API 速率限制
-      if(bi < batches.length - 1){
-        await new Promise(function(res){ setTimeout(res, 50); });
+        if(typeof showLoading === 'function'){
+          showLoading('正在生成 ' + moduleName + ' · ' + progressLabel2);
+        }
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
+        }
+
+        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+        var cardTargetChars = card.targetChars || 800;
+
+        var cardResult = null;
+        try{
+          if(typeof callRealAPIWithFallback === 'function'){
+            cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+          } else if(typeof callRealAPI === 'function'){
+            cardResult = await callRealAPI(cardPrompt, null, {});
+          }
+        }catch(e){
+          console.warn('卡片 ' + card.label + ' 生成失败:', e);
+          cardResult = '（本卡片生成失败）\n';
+        }
+
+        if(!cardResult || !cardResult.trim()){
+          cardResult = '（本卡片生成失败，请重试）\n';
+        }
+
+        allCards.push({ label: card.label, content: cardResult });
+        totalChars += cardResult.length;
+
+        if(bi < batches.length - 1){
+          await new Promise(function(res){ setTimeout(res, 50); });
+        }
       }
+
+      // 小模型：合并所有卡片为完整结果
+      var mergedResult = '';
+      for(var ci = 0; ci < allCards.length; ci++){
+        var c = allCards[ci];
+        var header = '';
+        if(batches.length > 1){
+          header = '【' + c.label + '】\n';
+        }
+        mergedResult += header + c.content.trim() + '\n\n';
+      }
+      result = mergedResult.trim();
     }
-
-    // 4c. 合并所有卡片为完整结果
-    var result = '';
-    for(var ci = 0; ci < allCards.length; ci++){
-      var c = allCards[ci];
-      var header = '';
-      if(batches.length > 1){
-        header = '【' + c.label + '】\n';
-      }
-      result += header + c.content.trim() + '\n\n';
-    }
-    result = result.trim();
 
     if(!result || totalChars < 100){
       if(typeof hideLoading === 'function') hideLoading();
@@ -2752,7 +2786,8 @@ window.generateArchModule = async function(opts){
     }
 
     if(typeof hideLoading === 'function') hideLoading();
-    var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batches.length + ' 张卡片 · ' + result.length + '字）';
+    var batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
+    var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
     if(evalResult && evalResult.totalScore !== undefined){
       completionMsg += ' | 质量：' + evalResult.grade + ' ' + evalResult.totalScore + '/100';
       if(evalResult.totalScore < 60) completionMsg += ' ⚠️ 建议点击"评价"查看详情并修复';
@@ -3064,6 +3099,107 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   }
 
   prompt += '\n【开始生成本卡片】\n';
+  return prompt;
+}
+
+// ===== v52: 大模型一次性生成完整模块 =====
+// 不拆卡片任务，让 AI 自己内部连贯规划，避免"逐张卡片+截断摘要"导致的上下文断裂
+// 生成后直接写入 work[module]，UI 层 splitContentIntoSemanticPages 自动分页
+function buildArchSinglePromptV52(module, batches, work, idea, extraHint, marketResearch, memoryContext){
+  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+  var title = (work && work.title) || '未命名作品';
+  var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+  var platform = '起点';
+  try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
+
+  // 计算总目标字数（所有卡片之和）
+  var totalTarget = 0;
+  for(var ti = 0; ti < batches.length; ti++){
+    totalTarget += batches[ti].targetChars || 800;
+  }
+
+  var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+
+  // 用户核心诉求放在第一位，优先级最高
+  if(idea && idea.trim()){
+    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+  } else {
+    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+  }
+
+  prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
+  prompt += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
+  prompt += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
+  prompt += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
+  prompt += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须在后续承接\n';
+  prompt += '5. 你将一次性完整输出全部内容，请内部自己规划结构，避免前后重复、前后矛盾\n\n';
+
+  prompt += '【作品基础信息】\n';
+  prompt += '作品名称：' + title + '\n';
+  if(genre) prompt += '一级题材：' + genre + '\n';
+  prompt += '发布平台：' + platform + '\n\n';
+
+  // 前置架构上下文：优先使用 longMemory.moduleSummaries
+  if(module !== 'world'){
+    var sumCtx3 = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
+    if(sumCtx3 && sumCtx3.trim()){
+      prompt += sumCtx3 + '\n\n';
+    } else {
+      prompt += '【📐 临时设定参考 — 记忆精要尚未生成，本次临时注入限量原文】\n';
+      if(work && work.world && work.world.trim()){
+        prompt += '■ 世界观原文：\n' + smartTruncate(work.world, 3000) + '\n\n';
+      }
+      if(module !== 'chars' && work && work.chars && work.chars.trim()){
+        prompt += '■ 人设原文：\n' + smartTruncate(work.chars, 3000) + '\n\n';
+      }
+      if(module === 'detail' && work && work.outline && work.outline.trim()){
+        prompt += '■ 全书大纲原文：\n' + smartTruncate(work.outline, 4000) + '\n\n';
+      }
+    }
+  }
+
+  // 2026 题材趋势
+  var trend3 = getTrendHint2026(work);
+  if(trend3){
+    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend3, 600) + '\n\n';
+  }
+
+  // 市场调研
+  if(marketResearch && marketResearch.trim()){
+    prompt += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  }
+
+  // 长记忆上下文
+  if(memoryContext && memoryContext.trim()){
+    prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
+  }
+
+  // ⭐ 核心改动：把"卡片标题+focus"作为结构规划注入（告诉 AI 整体要写什么）
+  // 但不再拆分成多次调用，由 AI 自己连贯输出
+  prompt += '【📝 本次要完整输出的内容结构 — 你将一次性写完所有部分，请自己内部规划，避免重复与遗漏】\n';
+  for(var si2 = 0; si2 < batches.length; si2++){
+    var c2 = batches[si2];
+    prompt += '第' + (si2+1) + '部分 · ' + c2.label + '：' + (c2.focus || '') + '\n';
+  }
+  prompt += '\n';
+
+  // extraHint：来自"按评价加强"的修复意见
+  if(extraHint && extraHint.trim()){
+    prompt += '【★ 本次生成特别关注 — 来自编辑评价的加强意见，必须优先处理】\n' + smartTruncate(extraHint.trim(), 1200) + '\n\n';
+  }
+
+  // 一次性生成的格式与字数要求
+  prompt += '【⚠️ 输出格式与字数约束】\n';
+  prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
+  prompt += '2. 不要输出与内容无关的创作思路、解释说明\n';
+  prompt += '3. 用「【XX】」作为每一部分的大标题，用「■」标记关键子项，段落清晰\n';
+  prompt += '4. **目标总字数：整份' + moduleName + '至少 ' + totalTarget + ' 字，请充分展开细节，不要压缩内容**\n';
+  prompt += '5. 各部分之间保持人物名称、设定、风格的一致性；前文埋的设定后文必须呼应\n';
+  if(module === 'detail'){
+    prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
+  }
+
+  prompt += '\n【开始完整输出】\n';
   return prompt;
 }
 
