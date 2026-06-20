@@ -1618,7 +1618,7 @@ function checkFullChainConsistency(work, chapterIdx, content) {
 }
 
 // v54: 从章节正文中提取结构化上下文，存入记忆锚点，替代原文注入
-function extractChapterContext(content, chapterIdx) {
+function extractChapterContext(work, content, chapterIdx) {
   if (!content || content.length < 100) return null;
   var ctx = { chapterIdx: chapterIdx };
 
@@ -1663,13 +1663,32 @@ function extractChapterContext(content, chapterIdx) {
   }
 
 
+  // 6. 在场角色（从 work.chars 动态提取角色名，匹配全文出现过的角色）
   var allChars = [];
-  var charRE = /(?:林渡|萧衍|江晚|苏柔|墨渊|云澈|凤九|白泽|沈清|顾长|陆远|赵无极|秦墨|叶辰|叶凡|萧炎|林动|牧尘|周元|方平|韩立|秦羽|纪宁|孟浩|白小纯|王林|苏铭|许七安|李火旺|陈平安|宁缺|范闲|徐凤年|李淳罡|王仙芝|洪洗象|曹长卿|陈芝豹|徐骁|徐脂虎|徐渭熊|徐龙象|姜泥|南宫仆射|红薯|青鸟|黄龙士|张巨鹿|元本溪|顾剑棠|离阳|北凉|西楚|南唐|东越|北魏|西蜀|南诏|北莽|突厥|匈奴|鲜卑|羯|氐|羌|敕勒|柔然|高车|铁勒|回纥|薛延陀|契丹|女真|蒙古|满|吐蕃|南蛮|百越|闽越|南越|瓯越|骆越|滇越|哀牢|夜郎|且兰|邛都|筰都|冉駹|白马|氐|羌|戎|狄|夷|蛮|苗|瑶|畲|黎|壮|侗|傣|彝|白|哈尼|纳西|僳僳|拉祜|佤|景颇|布朗|阿昌|普米|怒|独龙|基诺|德昂|门巴|珞巴|藏|羌|回|维|哈萨克|柯尔克孜|塔吉克|乌孜别克|塔塔尔|俄|锡伯|达斡尔|鄂温克|鄂伦春|赫哲|朝鲜|满|蒙古|土|东乡|保安|撒拉|裕固|蒙|回|藏|维|壮|苗|彝|布依|侗|瑶|白|土家|哈尼|哈萨克|傣|黎|僳僳|佤|畲|高山|拉祜|水|东乡|纳西|景颇|柯尔克孜|土|达斡尔|仫佬|羌|布朗|撒拉|毛南|仡佬|锡伯|阿昌|普米|塔吉克|怒|乌孜别克|俄|鄂温克|德昂|保安|裕固|京|塔塔尔|独龙|鄂伦春|赫哲|门巴|珞巴|基诺)/g;
-  var charMatch;
-  while ((charMatch = charRE.exec(content)) !== null) {
-    var cn = charMatch[0];
-    if (allChars.indexOf(cn) === -1) allChars.push(cn);
-  }
+  try {
+    var charNames = [];
+    var charsText = (work && work.chars) ? work.chars : '';
+    if (charsText) {
+      var lines = charsText.split(/\n/);
+      for (var cl = 0; cl < lines.length; cl++) {
+        var line = lines[cl].trim();
+        if (!line) continue;
+        var nameMatch = line.match(/^[【\[]?(\S{1,6})[】\]\s：:，,]/);
+        if (nameMatch && nameMatch[1] && /[\u4e00-\u9fa5]{2,4}/.test(nameMatch[1])) {
+          charNames.push(nameMatch[1]);
+        }
+      }
+    }
+    if (charNames.length > 0) {
+      var escaped = charNames.map(function(n) { return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+      var charRE = new RegExp('(' + escaped.join('|') + ')', 'g');
+      var charMatch;
+      while ((charMatch = charRE.exec(content)) !== null) {
+        var cn = charMatch[0];
+        if (allChars.indexOf(cn) === -1) allChars.push(cn);
+      }
+    }
+  } catch(e) {}
   ctx.presentChars = allChars.slice(0, 8);
 
   return ctx;
@@ -1748,7 +1767,7 @@ function backfeedChainMemory(work, chapterIdx, content, report) {
   if (!lm.memoryAnchors) lm.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],chapterContext:[]};
   // v54: 提取章节上下文，存入记忆
   try {
-    var chCtx = extractChapterContext(content, chapterIdx);
+    var chCtx = extractChapterContext(work, content, chapterIdx);
     if (chCtx) {
       chCtx.source = '正文反哺';
       chCtx.updatedAt = Date.now();
@@ -3459,7 +3478,7 @@ function renderMemory(work) {
   if (lm && lm.memoryAnchors) {
     const anchorNames = {
       core:'核心事实', characterTags:'角色标志', relationships:'关系变化', items:'道具归属',
-      locations:'地点状态', promises:'承诺禁忌', timeline:'时间线', hooks:'爽点钩子'
+      locations:'地点状态', promises:'承诺禁忌', timeline:'时间线', hooks:'爽点钩子', chapterContext:'章节上下文'
     };
     html += '<div style="font-weight:700;color:#111827;margin-top:8px;border-top:1px solid #eee;padding-top:6px;">⭐ 核心记忆点 <span style="font-weight:normal;font-size:11px;color:#999;">(' + anchorCount + '条)</span></div>';
     Object.keys(anchorNames).forEach(function(k){
@@ -3629,7 +3648,7 @@ function getMemoryText(work, upToChapterIdx) {
     var anchors = mem.memoryAnchors;
     var anchorNames = {
       core:'核心事实', characterTags:'角色标志', relationships:'关系变化', items:'道具归属',
-      locations:'地点状态', promises:'承诺禁忌', timeline:'时间线', hooks:'爽点钩子'
+      locations:'地点状态', promises:'承诺禁忌', timeline:'时间线', hooks:'爽点钩子', chapterContext:'章节上下文'
     };
     var anchorText = '';
     Object.keys(anchorNames).forEach(function(k){
@@ -4688,6 +4707,7 @@ function initLongMemory(w) {
       promises: [],      // 承诺/禁忌/约定：后文必须兑现或避免违背（L2）
       timeline: [],      // 时间线锚点：几天后、黎明前、三年前等（L2）
       hooks: []          // 爽点钩子/未兑现期待：读者等着看的点（L3）
+      , chapterContext: [] // v54: 章节上下文 — 结构化衔接信息（L1）
     };
   }
   const a = w.longMemory.memoryAnchors;
