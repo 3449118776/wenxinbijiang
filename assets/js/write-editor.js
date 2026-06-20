@@ -2679,23 +2679,22 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   if (consBlock) prompt += consBlock + '\n';
   var chainLock = buildFullChainLock(work, chapterIdx);
   if (chainLock) prompt += chainLock + '\n';
-  // === 架构模块记忆锚点（moduleSummaries，与架构生成页共用同一套一致性锚） ===
+  // === 架构模块记忆锚点（与架构生成页使用同一套记忆精要，强一致性约束） ===
   try {
     if (work.longMemory && work.longMemory.moduleSummaries) {
       var sums = work.longMemory.moduleSummaries;
-      var sumKeys = Object.keys(sums);
-      if (sumKeys.length > 0) {
-        var sumLabels = {world:'世界观',chars:'人设',outline:'大纲',detail:'细纲'};
-        var sumBlock = '【📐 架构记忆锚点（来自架构页已生成内容，必须严格遵守）】\n';
-        var addedSum = false;
-        for (var ski = 0; ski < sumKeys.length; ski++) {
-          var sk = sumKeys[ski];
-          if (!sums[sk] || !sums[sk].trim()) continue;
-          var label = sumLabels[sk] || sk;
-          sumBlock += '■ ' + label + '：\n' + smartTruncate(sums[sk].trim(), 800) + '\n';
-          addedSum = true;
+      var keys = Object.keys(sums).filter(function(k){ return sums[k] && sums[k].trim(); });
+      if (keys.length > 0) {
+        var sumLabels2 = {world:'世界观',chars:'人设',outline:'大纲',detail:'细纲'};
+        var sumLimits2 = {world:1500,chars:1200,outline:1200,detail:1000};
+        var sumCtx = '【📐 已确立的核心设定 — AI提炼的记忆精要，必须严格遵守，不得矛盾、不得编造新的核心人物/势力/地名】\n';
+        for (var ki2 = 0; ki2 < keys.length; ki2++) {
+          var km2 = keys[ki2];
+          var label2 = sumLabels2[km2] || km2;
+          var limit2 = sumLimits2[km2] || 1000;
+          sumCtx += '【' + label2 + '】\n' + smartTruncate(sums[km2].trim(), limit2) + '\n\n';
         }
-        if (addedSum) prompt += sumBlock + '\n';
+        prompt += sumCtx.trim() + '\n';
       }
     }
   } catch(e){}

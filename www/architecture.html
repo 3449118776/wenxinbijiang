@@ -2200,10 +2200,10 @@ function buildArchMemoryContext(work, currentModule){
 // 策略：每张卡片的标题 + 首段 200字 作为"卡片锚点"；模块特定信息补充
 function extractModuleSummary(module, content, allCards){
   if(!content && (!allCards || allCards.length === 0)) return '';
-  
+
   var summary = '';
-  
-  // 1. 每张卡片：标题 + 首段 200字（AI自己写的内容，质量最高）
+
+  // 1. 优先：每张卡片：标题 + 首段 200字（AI自己写的内容，质量最高）
   if(allCards && allCards.length > 0){
     for(var si = 0; si < allCards.length; si++){
       var sc = allCards[si];
@@ -2213,64 +2213,98 @@ function extractModuleSummary(module, content, allCards){
       }
     }
   }
-  
-  // 2. 大纲：额外提取卷结构
-  if(module === 'outline' && content){
-    var volRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*/g;
-    var volMatch;
-    var volLines = [];
-    while((volMatch = volRegex.exec(content)) !== null && volLines.length < 12){
-      volLines.push(volMatch[0].trim());
+
+  // 2. 通用回退：从完整内容做结构化提取（确保手动编辑后也能重建记忆精要）
+  if(content && content.trim()){
+    if(module === 'world'){
+      var worldLines = content.split('\n');
+      var worldKp = [];
+      for(var wi2 = 0; wi2 < worldLines.length && worldKp.length < 20; wi2++){
+        var wl = worldLines[wi2].trim();
+        if(wl.length < 8) continue;
+        if(/^(第[一二三四五六七八九十百零\d]+[章节卷部篇]|【|■|★|\[|\(|【)/.test(wl)) continue;
+        if(/境界|等级|体系|规则|代价|限制|势力|阵营|地理|大陆|禁地|秘境|历史|纪元|力量|修炼|天赋|血脉|功法|法宝|丹药|灵石|阵法|符箓|妖兽|灵根|属性|神格|法则/.test(wl) && wl.length < 180){
+          worldKp.push('★ ' + wl);
+        }
+      }
+      if(worldKp.length > 0){
+        summary += '\n【世界观核心设定】\n' + worldKp.join('\n') + '\n';
+      }
+      var geoMatches = content.match(/[\u4e00-\u9fa5]{2,6}(?:大陆|域|州|城|镇|村|山脉|河流|森林|沙漠|海域|岛屿|秘境|遗迹|深渊|禁地|谷|峰|阁|殿|宫|湖|岛|原|岭|山|关|窟|潭|崖)/g);
+      if(geoMatches){
+        var seenGeo = {};
+        var geoList = [];
+        geoMatches.forEach(function(g){ if(!seenGeo[g]){ seenGeo[g]=true; geoList.push(g); }});
+        if(geoList.length > 0) summary += '\n【关键地名】\n' + geoList.slice(0, 15).join('、') + '\n';
+      }
+      var factionMatches = content.match(/[\u4e00-\u9fa5]{2,8}(?:家族|宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄|圣殿|圣地|书院|楼|坊|塔|厅|阁|台)/g);
+      if(factionMatches){
+        var seenFaction = {};
+        var factionList = [];
+        factionMatches.forEach(function(f){ if(!seenFaction[f]){ seenFaction[f]=true; factionList.push(f); }});
+        if(factionList.length > 0) summary += '\n【主要势力】\n' + factionList.slice(0, 12).join('、') + '\n';
+      }
     }
-    if(volLines.length > 0){
-      summary += '\n【卷结构】\n';
-      for(var vi = 0; vi < volLines.length; vi++){
-        summary += '★ ' + volLines[vi] + '\n';
+
+    if(module === 'outline'){
+      var volRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*/g;
+      var volMatch;
+      var volLines = [];
+      while((volMatch = volRegex.exec(content)) !== null && volLines.length < 12){
+        volLines.push(volMatch[0].trim());
+      }
+      if(volLines.length > 0){
+        summary += '\n【卷结构】\n';
+        for(var vi = 0; vi < volLines.length; vi++){
+          summary += '★ ' + volLines[vi] + '\n';
+        }
+      }
+      var plotRegex = /[■■★◆●□■]\s*([^\n]{2,80})/g;
+      var plotLines = [];
+      var pMatch;
+      while((pMatch = plotRegex.exec(content)) !== null && plotLines.length < 15){
+        var pt = pMatch[1].trim();
+        if(pt.length > 4 && pt.length < 120) plotLines.push('◆ ' + pt);
+      }
+      if(plotLines.length > 0 && volLines.length === 0){
+        summary += '\n【大纲要点】\n' + plotLines.join('\n') + '\n';
+      }
+    }
+
+    if(module === 'chars'){
+      var charRegex2 = /[■■★◆●]\s*([\u4e00-\u9fa5]{2,6})[（(]?([主角反派配角导师伙伴龙套女主男主师父长老师兄师妹管家侍女侍从管家]+)?[）)]?[^\n：]*[：:]\s*([^\n]{3,150})/g;
+      var cMatch2;
+      var charLines2 = [];
+      while((cMatch2 = charRegex2.exec(content)) !== null && charLines2.length < 15){
+        var name2 = cMatch2[1];
+        var role2 = cMatch2[2] || '';
+        var desc2 = (cMatch2[3] || '').trim().substring(0, 100);
+        charLines2.push('★ ' + name2 + (role2 ? '（' + role2 + '）' : '') + '：' + desc2);
+      }
+      if(charLines2.length > 0){
+        summary += '\n【角色清单】\n';
+        for(var ci4 = 0; ci4 < charLines2.length; ci4++){
+          summary += charLines2[ci4] + '\n';
+        }
+      }
+    }
+
+    if(module === 'detail'){
+      var chapRegex2 = /第[一二三四五六七八九十百零\d]+卷[^\n]*|■\s*第\d+章[^\n]*|★\s*[^\n]{5,80}/g;
+      var chapMatch2;
+      var chapLines2 = [];
+      while((chapMatch2 = chapRegex2.exec(content)) !== null && chapLines2.length < 30){
+        var line2 = chapMatch2[0].trim();
+        if(line2.length > 10 && line2.length < 200){
+          chapLines2.push('◆ ' + line2);
+        }
+      }
+      if(chapLines2.length > 0){
+        summary += '\n【章节结构摘要】\n' + chapLines2.join('\n') + '\n';
       }
     }
   }
-  
-  // 3. 人设：额外提取角色分层信息（姓名+角色类型）
-  if(module === 'chars' && content){
-    var charRegex = /[■■]\s*([\u4e00-\u9fa5]{2,6})[（(]?([主角反派配角导师伙伴龙套女主男主]+)?[）)]?[^：\n]*[：:]/g;
-    var cMatch;
-    var charLines = [];
-    while((cMatch = charRegex.exec(content)) !== null && charLines.length < 15){
-      var csStart = cMatch.index + cMatch[0].length;
-      var csEnd = content.indexOf('\n', csStart);
-      if(csEnd < 0) csEnd = Math.min(csStart + 150, content.length);
-      var charInfo = content.substring(csStart, csEnd).trim();
-      var charName = cMatch[1];
-      var charRole = cMatch[2] || '';
-      charLines.push('★ ' + charName + (charRole ? '（' + charRole + '）' : '') + '：' + charInfo.substring(0, 100));
-    }
-    if(charLines.length > 0){
-      summary += '\n【角色清单】\n';
-      for(var ci3 = 0; ci3 < charLines.length; ci3++){
-        summary += charLines[ci3] + '\n';
-      }
-    }
-  }
-  
-  // 4. 细纲：提取每卷的章节数和关键转折
-  if(module === 'detail' && content){
-    var chapRegex = /第[一二三四五六七八九十百零\d]+卷[^\n]*|■\s*第\d+章[^\n]*/g;
-    var chapMatch;
-    var chapLines = [];
-    while((chapMatch = chapRegex.exec(content)) !== null && chapLines.length < 30){
-      var line = chapMatch[0].trim();
-      if(line.length > 10 && line.length < 200){
-        chapLines.push(line);
-      }
-    }
-    if(chapLines.length > 0){
-      summary += '\n【章节结构摘要】\n';
-      for(var chi = 0; chi < chapLines.length; chi++){
-        summary += '★ ' + chapLines[chi] + '\n';
-      }
-    }
-  }
-  
+
   return summary.trim();
 }
 
@@ -3265,7 +3299,7 @@ window.initArchPage = function(){
   }catch(e){}
 };
 
-// ===== v48: 保存当前模块内容到作品 =====
+// ===== v48: 保存当前模块内容到作品（强一致性：同时更新raw内容 + moduleSummaries + memoryAnchors）=====
 window.saveArchModule = function(){
   try{
     var module = _selectedModule || 'world';
@@ -3274,7 +3308,20 @@ window.saveArchModule = function(){
     var rawEl = document.getElementById('raw-' + module);
     if(!rawEl){ showToast('保存失败',{error:true}); return; }
     var content = _archFullContent[module] || rawEl.value || '';
+
+    // ===== 强一致性：一次保存，三层同步 =====
     work[module] = content;
+    try {
+      if(!work.longMemory) work.longMemory = {};
+      if(!work.longMemory.moduleSummaries) work.longMemory.moduleSummaries = {};
+      var freshSum = extractModuleSummary(module, content, null);
+      if(freshSum && freshSum.trim()){
+        work.longMemory.moduleSummaries[module] = freshSum.trim();
+      }
+    } catch(e){ console.warn('[save] 记忆精要重建异常:', e); }
+    try { if(typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(e){ console.warn('[save] memoryAnchors 同步异常:', e); }
+    if(work._archStale && work._archStale[module]) delete work._archStale[module];
+
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}
     try {
@@ -3284,7 +3331,7 @@ window.saveArchModule = function(){
         _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
       }
     } catch(e){}
-    showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module) + '，正在同步云端…', {duration:2500});
+    showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module) + '（记忆精要已同步）', {duration:2500});
   }catch(e){ console.error('saveArchModule error:',e); showToast('保存失败',{error:true}); }
 };
 
