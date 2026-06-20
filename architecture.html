@@ -135,8 +135,8 @@ body{display:flex;flex-direction:column;}
 .page-count-selector input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.15);}
 .page-count-selector .count-hint{font-size:11px;color:#999;}
 
-/* 操作按钮 */
-.page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;}
+/* 操作按钮（吸顶固定，滚动时始终可见，不被 tab-bar 遮挡）*/
+.page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;position:sticky;top:52px;background:#f6f7f9;padding:8px 0 6px;z-index:50;border-bottom:1px solid #f0f0f0;margin-top:-2px;}
 .page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;}
 .page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
 
@@ -3183,12 +3183,11 @@ setTimeout(function(){
   }catch(e){}
 },2000);
 
-// ===== v52: 架构展示翻页器（真正实现内容分页）=====
+// ===== v53: 架构展示翻页器（按语义边界分页，不再硬切字数）=====
 var _archPageMap = {};
-var _archPageSize = 2000; // 每页显示字数
-var _archFullContent = {}; // 各模块全文缓存（分页时 textarea 只显示当前页，全文存这里）
+var _archSemanticPages = {};
+var _archFullContent = {};
 
-// 获取原始全文内容（优先用全文缓存，其次 textarea，最后 work 对象）
 function getArchRawContent(module) {
   if (_archFullContent[module]) return _archFullContent[module];
   var rawEl = document.getElementById('raw-' + module);
@@ -3198,42 +3197,59 @@ function getArchRawContent(module) {
   return '';
 }
 
-// 更新分页后的内容显示
+function splitContentIntoSemanticPages(content, module) {
+  if (!content) return [];
+  if (content.length <= 2500) return [content];
+  var pages = [];
+  var lines = content.split('\n');
+  var currentPage = '';
+  var pageSizeLimit = 2200;
+  var chapterRegex = /第\s*\d+\s*[章回节]/;
+  var volumeRegex = /第\s*[一二三四五六七八九十百千\d]+\s*卷/;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var isBreak = false;
+    if (module === 'detail') isBreak = chapterRegex.test(line) || /^\s*■/.test(line);
+    else if (module === 'outline') isBreak = volumeRegex.test(line) || /^\s*■/.test(line);
+    else isBreak = /^\s*■/.test(line);
+    if (isBreak && currentPage.length > pageSizeLimit) {
+      pages.push(currentPage.trim());
+      currentPage = line + '\n';
+    } else {
+      currentPage += line + '\n';
+      if (currentPage.length > pageSizeLimit + 800) {
+        pages.push(currentPage.trim());
+        currentPage = '';
+      }
+    }
+  }
+  if (currentPage.trim()) pages.push(currentPage.trim());
+  return pages;
+}
+
 function updateArchDisplay(module) {
   var rawEl = document.getElementById('raw-' + module);
   if (!rawEl) return;
   var content = getArchRawContent(module);
   if (!content) return;
-
-  // 保存全文到缓存
   _archFullContent[module] = content;
-
+  var pages = splitContentIntoSemanticPages(content, module);
+  _archSemanticPages[module] = pages;
   var key = module + '_page';
-  var totalPages = Math.ceil(content.length / _archPageSize) || 1;
+  var totalPages = pages.length || 1;
   var currentPage = Math.min(_archPageMap[key] || 1, totalPages);
   _archPageMap[key] = currentPage;
-
-  // 计算当前页的内容范围
-  var start = (currentPage - 1) * _archPageSize;
-  var end = Math.min(start + _archPageSize, content.length);
-  var pageContent = content.substring(start, end);
-
-  // 把当前页写入 textarea（只读，防止用户编辑破坏全文）
+  var pageContent = pages[currentPage - 1] || content;
   rawEl.value = pageContent;
   rawEl.readOnly = true;
-
-  // 更新分页信息
   var infoEl = document.getElementById('arch-display-info-' + module);
-  if (infoEl) infoEl.textContent = '第' + currentPage + '/' + totalPages + '页 (' + content.length + '字)';
-
-  // 显示翻页器并更新按钮状态
+  if (infoEl) infoEl.textContent = '第' + currentPage + '/' + totalPages + '页 (' + pageContent.length + '字 / 全' + content.length + '字)';
   var pager = document.getElementById('arch-display-pager-' + module);
   if (pager) {
     pager.style.display = 'flex';
-    var prevBtn = pager.querySelector('.pager-btn');
-    var nextBtn = pager.querySelectorAll('.pager-btn')[1];
-    if (prevBtn) prevBtn.disabled = currentPage <= 1;
-    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    var btns = pager.querySelectorAll('.pager-btn');
+    if (btns[0]) btns[0].disabled = currentPage <= 1;
+    if (btns[1]) btns[1].disabled = currentPage >= totalPages;
   }
 }
 
@@ -3245,53 +3261,51 @@ window.archDisplayPrevPageV52 = function(){
 };
 window.archDisplayNextPageV52 = function(){
   var module = _selectedModule || 'world';
+  var pages = _archSemanticPages[module];
+  if (!pages) { updateArchDisplay(module); return; }
   var key = module + '_page';
-  var content = getArchRawContent(module);
-  if (!content) return;
-  var totalPages = Math.ceil(content.length / _archPageSize) || 1;
-  _archPageMap[key] = Math.min(totalPages, (_archPageMap[key] || 1) + 1);
+  _archPageMap[key] = Math.min(pages.length, (_archPageMap[key] || 1) + 1);
   updateArchDisplay(module);
 };
 window.archDisplayShowAllV52 = function(){
   var module = _selectedModule || 'world';
   var rawEl = document.getElementById('raw-' + module);
   if (rawEl) {
-    // 恢复全文显示，允许编辑
     rawEl.value = _archFullContent[module] || rawEl.value;
     rawEl.readOnly = false;
     rawEl.style.height = 'auto';
     rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
   }
-  // 隐藏翻页器
   var pager = document.getElementById('arch-display-pager-' + module);
   if (pager) pager.style.display = 'none';
   _archPageMap[module + '_page'] = 1;
-  // 清除全文缓存，后续保存时以 textarea 编辑内容为准
   delete _archFullContent[module];
+  delete _archSemanticPages[module];
 };
 window.archDisplayBackToPagedV52 = function(){
   var module = _selectedModule || 'world';
-  // 重新读取 textarea 全文作为缓存（用户可能编辑过）
   var rawEl = document.getElementById('raw-' + module);
   if (rawEl && rawEl.value.trim()) _archFullContent[module] = rawEl.value.trim();
   _archPageMap[module + '_page'] = 1;
   updateArchDisplay(module);
 };
 
-// 初始化指定模块的翻页器（内容超过页大小时启用，否则隐藏）
+// 初始化指定模块的翻页器（按语义边界分页，内容超过 2500 字启用分页）
 function initArchPager(module) {
   var content = getArchRawContent(module);
   var pager = document.getElementById('arch-display-pager-' + module);
   var rawEl = document.getElementById('raw-' + module);
-  if (content && content.length > _archPageSize) {
+  // 先用 splitContentIntoSemanticPages 切一遍，看是否需要 >1 页
+  var pages = splitContentIntoSemanticPages(content, module);
+  if (pages && pages.length > 1) {
     _archFullContent[module] = content;
     _archPageMap[module + '_page'] = 1;
     updateArchDisplay(module);
   } else {
-    // 内容不长，隐藏翻页器，恢复可编辑
     if (pager) pager.style.display = 'none';
     if (rawEl) rawEl.readOnly = false;
     delete _archFullContent[module];
+    delete _archSemanticPages[module];
   }
 }
 

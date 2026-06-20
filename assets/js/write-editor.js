@@ -264,7 +264,38 @@ function toggleToolbarMenu(menuId) {
   if (!menu) return;
   var isOpen = menu.classList.contains('open');
   closeToolbarMenus();
-  if (!isOpen) menu.classList.add('open');
+  if (!isOpen) {
+    // 用 fixed 定位，避免被父容器 overflow 裁剪
+    // 弹出在按钮上方（不被 tab-bar 挡住）
+    menu.classList.add('open');
+    try {
+      var group = menu.closest('.toolbar-group');
+      if (group) {
+        var rect = group.getBoundingClientRect();
+        var menuHeight = menu.offsetHeight || 180;
+        var toolbarTop = rect.top; // toolbar 顶部在视口中的位置
+        // 优先放在按钮上方（上方空间足够）
+        var top = toolbarTop - menuHeight - 6;
+        if (top < 10) {
+          // 上方不够就放下方（按钮下方）
+          top = rect.bottom + 6;
+        }
+        // 水平位置：尽量与按钮对齐，但不超出屏幕
+        var left = rect.left;
+        var menuWidth = Math.min(menu.offsetWidth || 220, 260);
+        if (left + menuWidth > window.innerWidth - 10) {
+          left = window.innerWidth - menuWidth - 10;
+        }
+        if (left < 10) left = 10;
+        menu.style.top = top + 'px';
+        menu.style.left = left + 'px';
+        menu.style.right = 'auto';
+        menu.style.bottom = 'auto';
+        menu.style.maxWidth = menuWidth + 'px';
+        menu.style.width = 'auto';
+      }
+    } catch(e) {}
+  }
 }
 function closeToolbarMenus() {
   document.querySelectorAll('.toolbar-dropdown').forEach(function(m) { m.classList.remove('open'); });
