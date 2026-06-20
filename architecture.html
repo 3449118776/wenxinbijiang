@@ -1851,7 +1851,8 @@ function buildArchPrompt(module, idea, work, extraHint){
 function isLargeContextModel(){
   try {
     if(typeof getModelContextWindow === 'function'){
-      return getModelContextWindow() >= 100000;
+      // 用户使用大模型时降低阈值到 32K，覆盖 GPT-4o、DeepSeek、Claude、Kimi、Qwen 等主流大模型
+      return getModelContextWindow() >= 32000;
     }
   } catch(e) {}
   return false;
@@ -2109,7 +2110,10 @@ function buildArchMemoryContext(work, currentModule){
 
   var ctx = '';
   var added = 0;
-  var BUDGET = 1800;
+  // 大模型用更大的记忆预算：32K 上下文给 5000 字记忆，128K+ 给 8000 字记忆
+  var _ctxSize = 0;
+  try { if(typeof getModelContextWindow === 'function') _ctxSize = getModelContextWindow() || 0; } catch(e){}
+  var BUDGET = _ctxSize >= 128000 ? 8000 : (_ctxSize >= 32000 ? 5000 : (_ctxSize >= 16000 ? 3500 : 1800));
   function tryAdd(block){
     if(!block || added >= BUDGET) return;
     if(added + block.length > BUDGET){
@@ -2123,6 +2127,10 @@ function buildArchMemoryContext(work, currentModule){
     ctx += block;
     added += block.length;
   }
+
+  // 辅助：大模型允许更多条目
+  var _isBig = _ctxSize >= 32000;
+  var _itemMult = _isBig ? 2 : 1;
 
   // 辅助：角色分级标签
   function roleTag(a){
