@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;}
 .page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
 .page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .arch-more-wrap{position:relative;flex-shrink:0;}
-.arch-more-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.1);min-width:140px;z-index:200;overflow:hidden;}
+.arch-more-menu{display:none;position:fixed;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);min-width:150px;z-index:9999;overflow:hidden;}
 .arch-more-menu.open{display:block;}
 .arch-more-item{display:block;width:100%;padding:10px 14px;border:none;background:none;font-size:13px;color:#333;text-align:left;cursor:pointer;border-bottom:1px solid #f5f5f5;white-space:nowrap;}
 .arch-more-item:last-child{border-bottom:none;}
@@ -889,25 +889,79 @@ document.addEventListener('input', function(e){
   }
 });
 
-// 更多菜单：切换显示
+// 更多菜单：切换显示（使用 fixed 定位避免被父容器 overflow 裁剪）
 function toggleArchMenu(module) {
-  var allMenus = document.querySelectorAll('.arch-more-menu');
-  var currentMenu = document.getElementById('arch-menu-' + module);
-  for (var i = 0; i < allMenus.length; i++) {
-    if (allMenus[i] !== currentMenu) allMenus[i].classList.remove('open');
+  var menuId = 'arch-menu-' + module;
+  var menu = document.getElementById(menuId);
+  if (!menu) return;
+  var isOpen = menu.classList.contains('open');
+  closeArchMenus();
+  if (!isOpen) {
+    menu.classList.add('open');
+    try {
+      var wrap = menu.closest('.arch-more-wrap');
+      if (wrap) {
+        var rect = wrap.getBoundingClientRect();
+        var menuHeight = menu.offsetHeight || 200;
+        var menuWidth = Math.min(menu.offsetWidth || 180, 240);
+        var spaceAbove = rect.top - 60; // 上方空间（不被 app-header 遮挡）
+        var spaceBelow = window.innerHeight - rect.bottom - 10; // 下方空间
+        var top;
+        // 优先选下方（操作更自然），空间不够则选上方
+        if (spaceBelow >= menuHeight) {
+          top = rect.bottom + 4;
+        } else if (spaceAbove >= menuHeight) {
+          top = rect.top - menuHeight - 4;
+        } else {
+          // 两个方向都不够，选空间更大的
+          if (spaceBelow >= spaceAbove) {
+            top = rect.bottom + 4;
+            menuHeight = Math.min(menuHeight, spaceBelow - 4);
+          } else {
+            top = Math.max(60, rect.top - menuHeight - 4);
+            menuHeight = Math.min(menuHeight, spaceAbove);
+          }
+        }
+        // 水平位置：尽量与按钮右侧对齐，但不超出屏幕
+        var left = rect.right - menuWidth;
+        if (left < 10) left = 10;
+        if (left + menuWidth > window.innerWidth - 10) {
+          left = window.innerWidth - menuWidth - 10;
+        }
+        menu.style.top = top + 'px';
+        menu.style.left = left + 'px';
+        menu.style.right = 'auto';
+        menu.style.bottom = 'auto';
+        menu.style.maxWidth = menuWidth + 'px';
+        menu.style.width = 'auto';
+        menu.style.maxHeight = (menuHeight - 4) + 'px';
+        menu.style.overflowY = 'auto';
+      }
+    } catch (e) {}
   }
-  if (currentMenu) currentMenu.classList.toggle('open');
 }
 // 更多菜单：关闭全部
 function closeArchMenus() {
   var allMenus = document.querySelectorAll('.arch-more-menu');
   for (var i = 0; i < allMenus.length; i++) allMenus[i].classList.remove('open');
 }
-// 点击空白关闭更多菜单
+// 点击空白/滚动/调整大小 关闭更多菜单
 document.addEventListener('click', function(e) {
   var wrap = e.target.closest('.arch-more-wrap');
   if (!wrap) closeArchMenus();
 });
+(function() {
+  function _closeOnEvent() { closeArchMenus(); }
+  // 监听 app-body 的滚动（主要滚动容器）
+  document.addEventListener('DOMContentLoaded', function() {
+    var appBody = document.querySelector('.app-body');
+    if (appBody) appBody.addEventListener('scroll', _closeOnEvent);
+  });
+  // 同时监听全局滚动/调整大小（捕获阶段）
+  document.addEventListener('scroll', _closeOnEvent, true);
+  window.addEventListener('resize', _closeOnEvent);
+  window.addEventListener('orientationchange', _closeOnEvent);
+})();
 
 function he(s){return s?s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';}
 function showRMenu(){document.getElementById('rmenu').classList.add('show');}
