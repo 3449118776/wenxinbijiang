@@ -268,23 +268,28 @@ function toggleToolbarMenu(menuId) {
   closeToolbarMenus();
   if (!isOpen) {
     // 用 fixed 定位，避免被父容器 overflow 裁剪
-    // 弹出在按钮上方（不被 tab-bar 挡住）
     menu.classList.add('open');
     try {
       var group = menu.closest('.toolbar-group');
       if (group) {
         var rect = group.getBoundingClientRect();
-        var menuHeight = menu.offsetHeight || 180;
-        var toolbarTop = rect.top; // toolbar 顶部在视口中的位置
-        // 优先放在按钮上方（上方空间足够）
-        var top = toolbarTop - menuHeight - 6;
-        if (top < 10) {
-          // 上方不够就放下方（按钮下方）
+        var menuHeight = menu.offsetHeight || 200;
+        var menuWidth = Math.min(menu.offsetWidth || 220, 260);
+        var spaceAbove = rect.top - 10; // 上方可用空间（留出 padding）
+        var spaceBelow = window.innerHeight - rect.bottom - 10; // 下方可用空间
+        var top;
+        // 优先选空间更大的方向（避免被 tab-bar 遮挡）
+        if (spaceAbove >= menuHeight || spaceAbove >= spaceBelow) {
+          top = Math.max(10, rect.top - menuHeight - 6);
+        } else if (spaceBelow >= menuHeight) {
           top = rect.bottom + 6;
+        } else {
+          // 两个方向都不够，选上方（因为 tab-bar 在底部）
+          top = Math.max(10, rect.top - menuHeight - 6);
+          menuHeight = Math.min(menuHeight, spaceAbove);
         }
         // 水平位置：尽量与按钮对齐，但不超出屏幕
         var left = rect.left;
-        var menuWidth = Math.min(menu.offsetWidth || 220, 260);
         if (left + menuWidth > window.innerWidth - 10) {
           left = window.innerWidth - menuWidth - 10;
         }
@@ -295,6 +300,8 @@ function toggleToolbarMenu(menuId) {
         menu.style.bottom = 'auto';
         menu.style.maxWidth = menuWidth + 'px';
         menu.style.width = 'auto';
+        menu.style.maxHeight = (menuHeight - 4) + 'px';
+        menu.style.overflowY = 'auto';
       }
     } catch(e) {}
   }
@@ -306,6 +313,17 @@ function closeToolbarMenus() {
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.toolbar-group')) closeToolbarMenus();
 });
+// 滚动/调整大小时关闭菜单
+(function() {
+  function _closeOnEvent() { closeToolbarMenus(); }
+  document.addEventListener('DOMContentLoaded', function() {
+    var editorContent = document.querySelector('.editor-content');
+    if (editorContent) editorContent.addEventListener('scroll', _closeOnEvent);
+  });
+  document.addEventListener('scroll', _closeOnEvent, true);
+  window.addEventListener('resize', _closeOnEvent);
+  window.addEventListener('orientationchange', _closeOnEvent);
+})();
 
 // ===== 自动保存草稿 =====
 var _autoSaveTimer = null;

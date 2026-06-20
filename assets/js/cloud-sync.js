@@ -651,11 +651,39 @@ window.CloudSync = CloudSync;
 if (!window.cloud) {
   var _apiBase;
   var _protocol = (location.protocol || '').toLowerCase();
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  var _hostname = location.hostname || '';
+
+  // 检测是否为移动 App (Capacitor/WebView) 环境
+  // - Capacitor: capacitor://localhost 或 ionic://localhost
+  // - file:// 协议（旧版 WebView）
+  // - window.Capacitor / window.Ionic 对象存在
+  var _isMobileApp = (_protocol === 'capacitor:' || _protocol === 'ionic:' ||
+                      _protocol === 'file:' || window.Capacitor || window.Ionic);
+
+  // 只有当是真正的本地 HTTP 开发环境（浏览器中的 localhost）时才用本地 API
+  var _isLocalDev = ((_protocol === 'http:' || _protocol === 'https:') &&
+                     (_hostname === 'localhost' || _hostname === '127.0.0.1'));
+
+  if (_isLocalDev) {
+    // 真实本地开发（浏览器，且 hostname 是 localhost）
     _apiBase = 'http://localhost:8787/api';
+  } else if (_isMobileApp) {
+    // 移动 App：使用线上 Cloudflare Pages 地址
+    _apiBase = 'https://wxbj-main.pages.dev/api';
   } else {
-    _apiBase = (location.origin && location.origin !== 'null') ? (location.origin + '/api') : 'https://wxbj-main.pages.dev/api';
+    // 浏览器线上环境：使用当前 origin 的 /api 路径
+    _apiBase = (location.origin && location.origin !== 'null' && _protocol !== 'file:')
+      ? (location.origin + '/api')
+      : 'https://wxbj-main.pages.dev/api';
   }
+
+  // 同步状态调试：记录当前 API 地址（便于排查 App 与浏览器不同步问题）
+  try {
+    window.__cloudApiBase = _apiBase;
+    console.info('[cloud-sync] API 地址: ' + _apiBase + ' (' +
+      (_isLocalDev ? '本地开发' : _isMobileApp ? '移动App' : '浏览器线上') + ')');
+  } catch (e) {}
+
   window.cloud = new CloudSync({ apiBase: _apiBase, autoSync: true });
 }
 
