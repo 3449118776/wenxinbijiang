@@ -2165,6 +2165,94 @@ function buildWriteConsistencyBlock(work, chapterIdx) {
 }
 
 
+// ========== v57: 细纲按卷切分 + 当前卷精准提取 ==========
+// 把细纲文本按【第X卷】标记切成卷块，返回数组 [{volLabel, volPhase, body}]
+function parseDetailByVolume(work) {
+  if (!work || !work.detail || !work.detail.trim()) return [];
+  var text = work.detail;
+  var volRE = /(第\s*[一二三四五六七八九十百零〇\d]+\s*[卷部])\s*[（(]?([^）)\n]{0,10})[）)]?\s*[：:]?\s*([\s\S]*?)(?=\n[^\n]{0,20}第\s*[一二三四五六七八九十百零〇\d]+\s*[卷部]|$)/gi;
+  var result = [];
+  var m;
+  while ((m = volRE.exec(text)) !== null) {
+    var label = m[1].replace(/\s+/g, '');  // e.g. 第1卷
+    var phase = (m[2] || '').trim();
+    var body = (m[3] || '').trim();
+    if (body) result.push({ volLabel: label, volPhase: phase, body: body });
+  }
+  // 如果没切到卷，但内容存在，返回整个作为"单卷"
+  if (result.length === 0 && text.trim()) {
+    result.push({ volLabel: '第1卷', volPhase: '', body: text.trim() });
+  }
+  return result;
+}
+
+// 根据章节索引，返回当前卷的细纲内容（核心：AI 写第 N 章时，只看到本卷细纲）
+// 同时返回：本卷所属卷号、相邻几章的细纲片段（作为上下文）
+function getCurrentVolumeDetail(work, chapterIdx) {
+  var vols = parseDetailByVolume(work);
+  if (!vols.length) return { volLabel: '', volBody: '', neighbor: '', allVols: vols, currentIdx: 0 };
+
+  // 估算每卷章节数
+  var totalChapters = (work.chapters && work.chapters.length) ?
+    Math.max(work.chapters.length, (chapterIdx || 0) + 1) :
+    Math.max(30, (chapterIdx || 0) + 1);
+  var volSize = Math.max(5, Math.ceil(totalChapters / vols.length));
+  var currentVolIdx = Math.min(vols.length - 1, Math.floor((chapterIdx || 0) / volSize));
+  var current = vols[currentVolIdx];
+
+  // 前后几章的细纲片段（章节级）：从 body 中按 "第N章" 切分
+  var neighborText = '';
+  try {
+    var chStart = currentVolIdx * volSize;
+    var localIdx = (chapterIdx || 0) - chStart;  // 本卷中的第 localIdx 章
+    var chRE = /(第\s*[\d一二三四五六七八九十百]+\s*[章章节回])/g;
+    var chMatches = [];
+    var cm;
+    while ((cm = chRE.exec(current.body)) !== null) {
+      chMatches.push({ title: cm[1], start: cm.index });
+    }
+    if (chMatches.length > 0) {
+      var localChapterIdx = Math.min(chMatches.length - 1, localIdx);
+      var startIdx = Math.max(0, localChapterIdx - 1);
+      var endIdx = Math.min(chMatches.length - 1, localChapterIdx + 1);
+      var segStart = chMatches[startIdx].start;
+      var segEnd = endIdx + 1 < chMatches.length ? chMatches[endIdx + 1].start : current.body.length;
+      neighborText = current.body.substring(segStart, segEnd).trim();
+    } else {
+      // 没切到章节标题，按字符窗口拿本卷中间部分
+      var bodyLen = current.body.length;
+      var segCenter = Math.floor(bodyLen * (Math.max(0, (chapterIdx % volSize) / volSize - 0.5) + 0.5));
+      var segHalf = Math.min(2500, Math.floor(bodyLen / 2));
+      neighborText = current.body.substring(Math.max(0, segCenter - segHalf), Math.min(bodyLen, segCenter + segHalf)).trim();
+    }
+  } catch(_e) {}
+
+  return {
+    volLabel: current.volLabel + (current.volPhase ? '（' + current.volPhase + '）' : ''),
+    volBody: current.body,
+    neighbor: neighborText,
+    allVols: vols,
+    currentIdx: currentVolIdx,
+    volSize: volSize,
+    volStartChapter: currentVolIdx * volSize + 1,
+    volEndChapter: Math.min((currentVolIdx + 1) * volSize, totalChapters)
+  };
+}
+
+// 大纲按卷切分：返回当前卷所属的大纲段落
+function getCurrentOutlineVolume(work, chapterIdx) {
+  if (!work || !work.outline || !work.outline.trim()) return { volLabel: '', body: '', phase: '' };
+  var ctx = getCurrentVolumeContext(work, chapterIdx);
+  return {
+    volLabel: ctx.volumeLabel,
+    body: (ctx.currentBody || '').trim(),
+    prevVolumes: ctx.prevVolumes,
+    nextVolumeHook: ctx.nextVolumeHook
+  };
+}
+
+// ========== end v57 新增 ==========
+
 // 根据模型上下文窗口动态计算架构内容截断上限
 // 128K+ 模型：不截断，完整传架构；小模型：按比例
 function getArchTruncationLimits() {
@@ -2722,15 +2810,24 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
-  // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则） =====
-  if (work.world && work.world.length > 200) {
-    var worldText = (archLimits && work.world.length > archLimits.world) ? smartCompressArch(work.world, archLimits.world) : work.world;
-    prompt += '【世界观设定】\n' + worldText + '\n\n';
+  // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则）=====
+  // 优先级：longMemory.moduleSummaries > work.world 原文；文本上限大幅降低，避免 token 浪费
+  var worldContent = '';
+  try {
+    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.world) {
+      worldContent = work.longMemory.moduleSummaries.world.trim();
+    }
+  } catch(_e) {}
+  if (!worldContent && work.world) worldContent = work.world;
+  if (worldContent && worldContent.length > 200) {
+    // 只保留精华，不做全量注入
+    var worldInjected = worldContent.length > 3000 ? worldContent.substring(0, 3000) + '...' : worldContent;
+    prompt += '【世界观设定】\n' + worldInjected + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
     var rules = [];
     var rm;
-    while ((rm = ruleRE.exec(work.world)) !== null) {
+    while ((rm = ruleRE.exec(worldContent)) !== null) {
       var r = rm[0].trim();
       if (r.length > 20 && rules.indexOf(r) === -1 && rules.length < 4) rules.push(r);
     }
@@ -2742,9 +2839,17 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【写作时必须遵守】本章的人物行为/能力/社会反应是否符合上述规则？若不符合，是否有合理的解释或情节需要？\n\n';
     }
   }
-  if (work.chars) {
-    const charsText = (archLimits && work.chars.length > archLimits.chars) ? smartCompressArch(work.chars, archLimits.chars) : work.chars;
-    prompt += '【人物人设】\n' + charsText + '\n\n';
+  // 人物设定：优先 moduleSummaries 摘要，次选原文截断
+  var charsContent = '';
+  try {
+    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
+      charsContent = work.longMemory.moduleSummaries.chars.trim();
+    }
+  } catch(_e2) {}
+  if (!charsContent && work.chars) charsContent = work.chars;
+  if (charsContent && charsContent.length > 100) {
+    var charsInjected = charsContent.length > 2500 ? charsContent.substring(0, 2500) + '...' : charsContent;
+    prompt += '【人物人设】\n' + charsInjected + '\n\n';
   }
   
   // ===== v52: 素材库 · 从 work.materialLib 读取（AI 提取的 12 类结构化素材） =====
@@ -2818,44 +2923,96 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '2. 如果确实需要新元素，必须在细纲中事先定义\n\n';
     }
   }
-  if (work.outline) {
-    var volCtx = getCurrentVolumeContext(work, chapterIdx);
-    if (volCtx && volCtx.currentBody) {
-      // 传入完整卷大纲（2000字），让AI知道本卷要发生什么
-      prompt += '【当前卷大纲（完整）】\n' + volCtx.currentBody + '\n';
-      if (volCtx.prevVolumes) prompt += '【前卷概要】' + volCtx.prevVolumes + '\n';
-      if (volCtx.nextVolumeHook) prompt += '【下一卷钩子】' + volCtx.nextVolumeHook + '\n';
-      prompt += '\n';
-    } else {
-      const outlineText = (archLimits && work.outline.length > archLimits.outline) ? smartCompressArch(work.outline, archLimits.outline) : work.outline;
-      prompt += '【全书大纲】\n' + outlineText + '\n\n';
+  // ===== v57: 大纲按卷注入 — 不再塞入全书大纲，只注入当前卷目标 + moduleSummaries 摘要 =====
+  var outlineInjected = false;
+  // 1. 先尝试从 moduleSummaries 取大纲摘要（覆盖全书主线）
+  var outlineSum = '';
+  try {
+    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.outline) {
+      outlineSum = work.longMemory.moduleSummaries.outline.trim();
     }
+  } catch(_e3) {}
+  // 2. 再取当前卷大纲（覆盖本卷具体事件）
+  var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
+  if (outlineSum || outlineVol.body) {
+    if (outlineSum && outlineSum.length > 200) {
+      var outlineSumInjected = outlineSum.length > 2500 ? outlineSum.substring(0, 2500) + '...' : outlineSum;
+      prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSumInjected + '\n\n';
+      outlineInjected = true;
+    }
+    if (outlineVol.body && outlineVol.body.length > 100) {
+      var curVolOut = outlineVol.body.length > 3500 ? outlineVol.body.substring(0, 3500) + '...' : outlineVol.body;
+      prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
+      if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
+      if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
+      prompt += '\n';
+      outlineInjected = true;
+    }
+    // 3. 兜底：如果没切到卷，则用完整大纲但截断上限
+    if (!outlineInjected && work.outline) {
+      var fallback = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
+      prompt += '【全书大纲】\n' + fallback + '\n\n';
+    }
+  } else if (work.outline) {
+    var fallback2 = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
+    prompt += '【全书大纲】\n' + fallback2 + '\n\n';
   }
 
-  // 传细纲，截断防止token爆炸 + 按章节标题精准匹配
+  // ===== v57: 细纲按卷注入 — 只让 AI 看到本卷细纲 + 本章相邻几章 =====
+  // 好处：(a) token 用量大幅降低 (b) 聚焦本卷剧情，不易串到其他卷 (c) 仍能看到本章的具体设计
   if (work.detail) {
-    var detailText = work.detail;
-    if (archLimits && detailText.length > archLimits.detail) {
-      // 尝试找到当前章节附近的细纲
-      var idxInDetail = detailText.indexOf(chTitle);
-      if (idxInDetail >= 0) {
-        var start = Math.max(0, idxInDetail - 800);
-        var end = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.7));
-        detailText = '...(前略)\n' + detailText.substring(start, end) + '\n(后略)...';
-      } else {
-        detailText = detailText.substring(0, Math.floor(archLimits.detail * 0.8)) + '...(细纲过长已截断)';
+    var detailVol = getCurrentVolumeDetail(work, chapterIdx);
+    var hasDetail = detailVol && detailVol.volBody;
+
+    if (hasDetail) {
+      // 注入：本卷细纲全文（上限 5000 字，一卷足够）
+      var volDetailText = detailVol.volBody.length > 5000
+        ? detailVol.volBody.substring(0, 5000) + '...(本卷细纲过长，已截断)'
+        : detailVol.volBody;
+
+      prompt += '【📑 当前卷细纲：' + (detailVol.volLabel || '本卷') + '（第' + (detailVol.volStartChapter || 1) + '-' + (detailVol.volEndChapter || detailVol.volSize || '?') + '章）】\n';
+      prompt += volDetailText + '\n\n';
+
+      // 如果切到了相邻几章的片段，再强调这几章
+      if (detailVol.neighbor && detailVol.neighbor.trim()) {
+        var neighborLimit = detailVol.neighbor.length > 2500
+          ? detailVol.neighbor.substring(0, 2500) + '...'
+          : detailVol.neighbor;
+        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborLimit + '\n\n';
       }
+
+      prompt += '【核心指令 · 细纲最高优先级】\n';
+      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+      prompt += '1. 从上面的【当前卷细纲】中找到「第' + (chapterIdx + 1) + '章」或「' + chTitle + '」对应的剧情节点，【严格按那部分来写】——场景、人物、剧情节点、爆点/悬念钩子不能改动\n';
+      prompt += '2. 绝对不要写细纲中其他卷的剧情；不要提前透露后续卷的内容\n';
+      prompt += '3. 如果细纲中找不到「第' + (chapterIdx + 1) + '章」的明确标注，就顺着细纲的节奏写本卷中合适位置的一段剧情\n';
+      prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
+      prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
+      prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
+      prompt += '7. 字数控制在2000-3000字\n\n';
+    } else {
+      // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
+      var detailText = work.detail;
+      if (archLimits && detailText.length > archLimits.detail) {
+        var idxInDetail = detailText.indexOf(chTitle);
+        if (idxInDetail >= 0) {
+          var dStart = Math.max(0, idxInDetail - 1500);
+          var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
+          detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
+        } else {
+          detailText = detailText.substring(0, 3000) + '...(细纲过长已截断)';
+        }
+      } else if (detailText.length > 4000) {
+        detailText = detailText.substring(0, 4000) + '...(细纲过长已截断)';
+      }
+      prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
+      prompt += '【核心指令 · 细纲最高优先级】\n';
+      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+      prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
+      prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
+      prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
+      prompt += '4. 字数控制在2000-3000字\n\n';
     }
-    prompt += '【全书细纲】\n' + detailText + '\n\n';
-    prompt += '【核心指令·最高优先级 · 必须严格执行】\n';
-    prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
-    prompt += '1. 从全书细纲中找到「' + chTitle + '」对应的部分，【严格按照该部分剧情来写】——剧情节点、场景、人物名不能改动\n';
-    prompt += '2. 绝对不要写其他章节的剧情；不要提前透露后续章节的内容\n';
-    prompt += '3. 如果细纲中没有「' + chTitle + '」的明确标注，就写第' + (chapterIdx + 1) + '段剧情\n';
-    prompt += '4. 本章细纲中的"爆点/悬念钩子"字段是本章的结尾钩子，请务必写出来\n';
-    prompt += '5. 细纲中的"场景"字段是本章的时间地点锚点，【必须严格遵守】\n';
-    prompt += '6. 细纲中的"人物"字段是本章登场的角色名单，【角色名不准编造新角色】\n';
-    prompt += '7. 字数控制在2000-3000字\n\n';
   }
   
   // 注入longMemory上下文（替代旧的 getMemoryText）
@@ -4286,38 +4443,61 @@ async function aiWriteChapter(){
   const content=document.getElementById('editor').value;
   const chapterIdx = currentChapterIdx || 0;
   
-  // 显示API状态
+  // 显示API状态 + 本卷信息（v57: 更细致的阶段进度）
   const statusBar = document.getElementById('api-status-bar');
   const config = DB.getApiConfig();
-  
+  // 记录本卷信息，显示在状态条中
+  var _curVolInfo = null;
+  try {
+    var _v = getCurrentVolumeDetail(work, chapterIdx);
+    if (_v && _v.volLabel) {
+      _curVolInfo = _v.volLabel + '（本卷第' + (Math.max(0, (chapterIdx || 0) - _v.currentIdx * _v.volSize) + 1) + '/' + (_v.volSize || '?') + '章）';
+    }
+  } catch(_) {}
+  var _stageInfo = _curVolInfo ? '[' + _curVolInfo + ']' : '';
+
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  if (statusBar) {
+    statusBar.style.display = 'block';
+    statusBar.style.background = '#e0e7ff';
+    statusBar.style.color = '#3730a3';
+    statusBar.textContent = '🧠 ' + _stageInfo + ' 1/3 · 正在构建章节上下文…';
+  }
   let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
   // ===== 骨架生成 + AI自检：先生成章纲骨架，确认符合用户指令后再继续 =====
   var skeletonPassed = true;
   if(userCmd){
-    statusBar.style.display = 'block';
-    statusBar.style.background = '#fef3c7';
-    statusBar.style.color = '#92400e';
-    statusBar.textContent = '🧠 先生成章纲骨架，检查是否符合你的指令…';
-    
+    if(statusBar){
+      statusBar.style.display = 'block';
+      statusBar.style.background = '#fef3c7';
+      statusBar.style.color = '#92400e';
+      statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架自检（确认是否符合你的指令）…';
+    }
+
     var skeletonPrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
     skeletonPrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
     skeletonPrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
     skeletonPrompt += '【作品题材】' + getWorkGenre(work) + '\n';
     if(work.detail){
-      var detailChapters = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
-      var dIdx = chapterIdx + 1;
-      if(detailChapters.length > dIdx) skeletonPrompt += '【本章细纲】' + smartTruncate(detailChapters[dIdx], 400) + '\n';
+      // v57: 用当前卷细纲，而不是全文细纲
+      var _sd = getCurrentVolumeDetail(work, chapterIdx);
+      if (_sd && _sd.neighbor) {
+        skeletonPrompt += '【本卷细纲】' + smartTruncate(_sd.neighbor, 400) + '\n';
+      } else {
+        var detailChapters = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
+        var dIdx = chapterIdx + 1;
+        if(detailChapters.length > dIdx) skeletonPrompt += '【本章细纲】' + smartTruncate(detailChapters[dIdx], 400) + '\n';
+      }
     }
     skeletonPrompt += '\n请按以下格式输出：\n';
     skeletonPrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
     skeletonPrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
     skeletonPrompt += '【结论】\n写"通过"或"不通过"。\n';
     skeletonPrompt += '\n直接输出，不要加对话语前缀。';
-    
+
     var skeletonResult = null;
     try {
       skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 300, true);
@@ -4329,30 +4509,36 @@ async function aiWriteChapter(){
       var skText = skeletonResult.trim();
       var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
       var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
-      
+
       if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
         skeletonPassed = false;
-        statusBar.style.background = '#fef3c7';
-        statusBar.style.color = '#92400e';
-        statusBar.textContent = '⚠️ 章纲骨架自检不通过，但仍会继续生成（骨架已注入提示）';
+        if(statusBar){
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架自检不通过，但仍会继续生成（已注入修正提示）';
+        }
         showToast('⚠️ 章纲骨架与指令不完全匹配，AI已被告知问题', {duration: 4000});
       } else {
-        statusBar.style.background = '#dcfce7';
-        statusBar.style.color = '#166534';
-        statusBar.textContent = '✅ 章纲骨架通过自检，开始生成正文…';
+        if(statusBar){
+          statusBar.style.background = '#dcfce7';
+          statusBar.style.color = '#166534';
+          statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检，开始生成正文…';
+        }
       }
       // 将骨架注入 prompt 开头，作为生成指引
       prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skText + '\n\n' + prompt;
     }
   }
 
-  // 显示输入token估算
+  // 显示输入token估算 + 进入正文生成阶段
   var estTokens = Math.round(prompt.length * 1.5);
   var estTokensDisplay = estTokens >= 1000 ? (estTokens / 1000).toFixed(1) + 'k' : estTokens;
-  statusBar.style.display = 'block';
-  statusBar.style.background = '#dbeafe';
-  statusBar.style.color = '#1e40af';
-  statusBar.textContent = '🤖 正在生成「' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '」... 输入约' + estTokensDisplay + ' tokens';
+  if(statusBar){
+    statusBar.style.display = 'block';
+    statusBar.style.background = '#dbeafe';
+    statusBar.style.color = '#1e40af';
+    statusBar.textContent = '🤖 ' + _stageInfo + ' 3/3 · 正在生成「' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '」 · 输入约' + estTokensDisplay + ' tokens';
+  }
   
   // 备份旧内容
   var oldContent = content;
@@ -4384,17 +4570,18 @@ async function aiWriteChapter(){
       }
     }
     if (validationError) {
-      statusBar.style.background = '#fef3c7';
-      statusBar.style.color = '#92400e';
-      statusBar.textContent = '⚠️ ' + validationError + ' — 已保留旧内容，可点撤销恢复';
+      if(statusBar){
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '⚠️ ' + _stageInfo + ' ' + validationError + ' — 已保留旧内容';
+      }
       showToast('⚠️ ' + validationError, 5000);
-      // 不覆盖编辑器，保留旧内容
       return;
     }
-    
+
     // v55: 字数硬性校验 — 不足补写，超标警告
     if (result.length < 1500) {
-      statusBar.textContent = '⚠️ 字数不足(' + result.length + '字)，自动补写至2000+字…';
+      if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数不足(' + result.length + '字)，自动补写至2000+字…';
       showToast('字数不足，正在自动补写…', 2000);
       var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至2000字以上。\n\n';
       extendPrompt += '【已有内容】\n' + result + '\n\n';
@@ -4403,7 +4590,7 @@ async function aiWriteChapter(){
         var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 1500, true);
         if (extendResult && extendResult.length > 100) {
           result = result + '\n\n' + extendResult;
-          statusBar.textContent = '✅ 补写完成（' + result.length + '字）';
+          if(statusBar) statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 补写完成（' + result.length + '字）';
         }
       } catch(e) { console.warn('[字数补写] 失败:', e); }
       if(!_checkStillSameWork('字数补写中')) return;
@@ -4411,7 +4598,7 @@ async function aiWriteChapter(){
     if (result.length > 5000) {
       showToast('⚠️ 字数超标(' + result.length + '字)，建议手动精简。可点"重写"重新生成。', {duration:5000});
     }
-    
+
     // === v29: 质量打分 ===
     var _qReport = null;
     try {
@@ -4428,24 +4615,26 @@ async function aiWriteChapter(){
       try {
         goldenCheck = checkGoldenOpening(result, work);
         if (goldenCheck.issues.length > 0) {
-          statusBar.style.background = '#fef3c7';
-          statusBar.style.color = '#92400e';
-          statusBar.textContent = '⚠️ 黄金开头检查：' + goldenCheck.issues.join('；') + ' | 建议点"重写"重新生成';
+          if(statusBar){
+            statusBar.style.background = '#fef3c7';
+            statusBar.style.color = '#92400e';
+            statusBar.textContent = '⚠️ ' + _stageInfo + ' 黄金开头检查：' + goldenCheck.issues.slice(0,1).join('') + ' | 建议重写';
+          }
           showToast('⚠️ 黄金开头未达标：' + goldenCheck.issues.slice(0, 2).join('、') + '…', {duration:6000});
         }
-        if (_qReport) {
-          _qReport._goldenCheck = goldenCheck;
-        }
+        if (_qReport) _qReport._goldenCheck = goldenCheck;
       } catch(e) { console.warn('[黄金开头检查]', e); }
     }
 
     if (!(goldenCheck && goldenCheck.issues.length > 0)) {
-      statusBar.style.background = '#dcfce7';
-      statusBar.style.color = '#166534';
-      var _scoreTxt = _qReport ? '，质量分 ' + _qReport.score + '/100' : '';
-      statusBar.textContent = 'AI生成成功（' + result.length + '字' + _scoreTxt + '）';
-      if (_qReport && _qReport.weaknesses.length) {
-        statusBar.textContent += ' · 短板：' + _qReport.weaknesses.slice(0,2).join('、');
+      if(statusBar){
+        statusBar.style.background = '#dcfce7';
+        statusBar.style.color = '#166534';
+        var _scoreTxt = _qReport ? '，质量分 ' + _qReport.score + '/100' : '';
+        statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 已生成 ' + result.length + ' 字' + _scoreTxt;
+        if (_qReport && _qReport.weaknesses.length) {
+          statusBar.textContent += ' · 短板：' + _qReport.weaknesses.slice(0,2).join('、');
+        }
       }
     }
 
