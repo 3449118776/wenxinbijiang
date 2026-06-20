@@ -254,26 +254,22 @@ body{background:#f6f7f9;color:#333;}
 
         <div class="write-toolbar">
           <button class="write-tool accent" onclick="aiWriteChapter()">&#129302; AI写本章</button>
-          <button class="write-tool" onclick="regenerateChapter()" style="background:#fef3c7;color:#92400e;" title="重写本章，旧内容保存到历史版本">🔄 重写</button>
-          <button class="write-tool accent" onclick="startChapterPipeline()">🏭 流水线</button>
-          <button class="write-tool" id="pipeline-stop-btn" onclick="stopChapterPipeline()" style="display:none;background:#fee2e2;color:#991b1b;">⏹ 停止</button>
-          <button class="write-tool" onclick="saveChapter()">&#128190; 保存</button>
           <button class="write-tool confirm" onclick="confirmChapter()" id="confirm-btn" style="background:#10b981;color:#fff;">&#9989; 确认</button>
+          <button class="write-tool" id="pipeline-stop-btn" onclick="stopChapterPipeline()" style="display:none;background:#fee2e2;color:#991b1b;">⏹ 停止</button>
           <button class="write-tool undo" onclick="undoAiGeneration()" id="undo-btn" style="display:none;background:#fef3c7;color:#92400e;">↩ 撤销</button>
-          <!-- AI工具组 -->
-          <div class="toolbar-group">
-            <button class="write-tool" onclick="toggleToolbarMenu('ai-tools-menu')">&#10024; AI工具 ▾</button>
-            <div class="toolbar-dropdown" id="ai-tools-menu">
-              <div class="toolbar-menu-item" onclick="aiPolish();closeToolbarMenus()">&#10024; 润色</div>
-              <div class="toolbar-menu-item" onclick="aiEvaluate();closeToolbarMenus()">&#128202; 评价</div>
-              <div class="toolbar-menu-item" onclick="autoFixChapter();closeToolbarMenus()">&#128295; 自动修复</div>
-              <div class="toolbar-menu-item" onclick="checkText();closeToolbarMenus()">&#9989; 检测</div>
-            </div>
-          </div>
-          <!-- 更多工具组 -->
+          <!-- 更多工具组（合并 AI工具 + 常用操作） -->
           <div class="toolbar-group">
             <button class="write-tool" onclick="toggleToolbarMenu('more-tools-menu')">&#8943; 更多 ▾</button>
             <div class="toolbar-dropdown" id="more-tools-menu">
+              <div class="toolbar-menu-item" onclick="startChapterPipeline();closeToolbarMenus()">🏭 流水线生成</div>
+              <div class="toolbar-menu-item" onclick="regenerateChapter();closeToolbarMenus()" style="color:#92400e;">🔄 重写本章</div>
+              <div class="toolbar-menu-item" onclick="saveChapter();closeToolbarMenus()">&#128190; 保存</div>
+              <div class="toolbar-menu-separator"></div>
+              <div class="toolbar-menu-item" onclick="aiPolish();closeToolbarMenus()">&#10024; AI 润色</div>
+              <div class="toolbar-menu-item" onclick="aiEvaluate();closeToolbarMenus()">&#128202; AI 评价</div>
+              <div class="toolbar-menu-item" onclick="autoFixChapter();closeToolbarMenus()">&#128295; 自动修复</div>
+              <div class="toolbar-menu-item" onclick="checkText();closeToolbarMenus()">&#9989; 文本检测</div>
+              <div class="toolbar-menu-separator"></div>
               <div class="toolbar-menu-item" onclick="openChapterCard();closeToolbarMenus()">📖 章节卡</div>
               <div class="toolbar-menu-item" onclick="extractTpl();closeToolbarMenus()">&#128203; 提取模板</div>
               <div class="toolbar-menu-item" onclick="insertPhrase();closeToolbarMenus()">&#128172; 词句库</div>

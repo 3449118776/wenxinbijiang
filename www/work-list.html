@@ -385,6 +385,12 @@ function goToLevel(level) {
 }
 
 function handleGlobalBack() {
+  // 阅读模式打开时，先关闭
+  var overlay = document.getElementById('reader-overlay');
+  if (overlay && overlay.classList.contains('active')) {
+    closeReader();
+    return;
+  }
   if (_currentLevel > 1) goToLevel(_currentLevel - 1);
   else location.href = 'index.html';
 }
@@ -1201,11 +1207,22 @@ function openWorkPreview(workId) {
   }
 
   document.getElementById('reader-overlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeReader() {
-  document.getElementById('reader-overlay').classList.remove('active');
+  var overlay = document.getElementById('reader-overlay');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
 }
+
+// 按 ESC 关闭阅读
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var overlay = document.getElementById('reader-overlay');
+    if (overlay && overlay.classList.contains('active')) closeReader();
+  }
+});
 
 // ===== 初始化 =====
 window.addEventListener('DOMContentLoaded', function() {

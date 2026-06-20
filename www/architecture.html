@@ -136,9 +136,17 @@ body{display:flex;flex-direction:column;}
 .page-count-selector .count-hint{font-size:11px;color:#999;}
 
 /* 操作按钮（吸顶固定，滚动时始终可见，不被 tab-bar 遮挡）*/
-.page-actions{display:flex;gap:8px;margin:0 12px 10px;flex-wrap:wrap;position:sticky;top:52px;background:#f6f7f9;padding:8px 0 6px;z-index:50;border-bottom:1px solid #f0f0f0;margin-top:-2px;}
-.page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;}
-.page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
+.page-actions{display:flex;gap:6px;margin:0 12px 10px;flex-wrap:nowrap;overflow-x:auto;position:sticky;top:52px;background:#f6f7f9;padding:8px 0 6px;z-index:50;border-bottom:1px solid #f0f0f0;margin-top:-2px;-webkit-overflow-scrolling:touch;}
+.page-actions .main-btn{flex:1;min-width:80px;padding:9px 0;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-size:13px;cursor:pointer;white-space:nowrap;}
+.page-actions .sec-btn{padding:9px 12px;border-radius:8px;background:#eee;color:#666;border:none;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.arch-more-wrap{position:relative;flex-shrink:0;}
+.arch-more-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.1);min-width:140px;z-index:200;overflow:hidden;}
+.arch-more-menu.open{display:block;}
+.arch-more-item{display:block;width:100%;padding:10px 14px;border:none;background:none;font-size:13px;color:#333;text-align:left;cursor:pointer;border-bottom:1px solid #f5f5f5;white-space:nowrap;}
+.arch-more-item:last-child{border-bottom:none;}
+.arch-more-item:active{background:#f0f2ff;}
+.arch-more-item.danger{color:#ef4444;}
+.arch-more-item strong{color:#6366f1;}
 
 /* 进度条 */
 .page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
@@ -402,12 +410,17 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
-        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
-        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
-        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
-        <button class="sec-btn" onclick="openReader('world')">📖 阅读</button>
+        <div class="arch-more-wrap">
+          <button class="sec-btn" onclick="toggleArchMenu('world')">⋯ 更多</button>
+          <div class="arch-more-menu" id="arch-menu-world">
+            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+            <button class="arch-more-item" id="arch-fix-btn" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+            <button class="arch-more-item" onclick="openReader('world');closeArchMenus()">📖 阅读</button>
+            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+          </div>
+        </div>
       </div>
       <div class="module-content">
         <div class="raw-area"><textarea id="raw-world" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
@@ -431,13 +444,18 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
-        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
-        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
-        <button class="sec-btn" onclick="showRelationGraph()">👥 关系图</button>
-        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
-        <button class="sec-btn" onclick="openReader('chars')">📖 阅读</button>
+        <div class="arch-more-wrap">
+          <button class="sec-btn" onclick="toggleArchMenu('chars')">⋯ 更多</button>
+          <div class="arch-more-menu" id="arch-menu-chars">
+            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+            <button class="arch-more-item" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+            <button class="arch-more-item" onclick="showRelationGraph();closeArchMenus()">👥 关系图</button>
+            <button class="arch-more-item" onclick="openReader('chars');closeArchMenus()">📖 阅读</button>
+            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+          </div>
+        </div>
       </div>
       <div class="module-content">
         <div class="raw-area"><textarea id="raw-chars" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
@@ -466,12 +484,17 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
-        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
-        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
-        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
-        <button class="sec-btn" onclick="openReader('outline')">📖 阅读</button>
+        <div class="arch-more-wrap">
+          <button class="sec-btn" onclick="toggleArchMenu('outline')">⋯ 更多</button>
+          <div class="arch-more-menu" id="arch-menu-outline">
+            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+            <button class="arch-more-item" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+            <button class="arch-more-item" onclick="openReader('outline');closeArchMenus()">📖 阅读</button>
+            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+          </div>
+        </div>
       </div>
       <div class="module-content">
         <div class="raw-area"><textarea id="raw-outline" placeholder="AI生成内容将显示在这里..." style="min-height:360px;"></textarea></div>
@@ -500,13 +523,18 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
-        <button class="sec-btn" onclick="deleteCurrentAIGeneration()">🗑 删除生成</button>
-        <button class="sec-btn" onclick="evaluateArchModule()">📊 评价</button>
-        <button class="sec-btn" onclick="strengthenDetailOutlineV46()">🔥 细纲补强</button>
-        <button class="sec-btn" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule()">🔥 按评价加强</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
-        <button class="sec-btn" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event)"></button>
-        <button class="sec-btn" onclick="openReader('detail')">📖 阅读</button>
+        <div class="arch-more-wrap">
+          <button class="sec-btn" onclick="toggleArchMenu('detail')">⋯ 更多</button>
+          <div class="arch-more-menu" id="arch-menu-detail">
+            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+            <button class="arch-more-item" onclick="strengthenDetailOutlineV46();closeArchMenus()">🔥 细纲补强</button>
+            <button class="arch-more-item" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+            <button class="arch-more-item" onclick="openReader('detail');closeArchMenus()">📖 阅读</button>
+            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+          </div>
+        </div>
       </div>
       <div class="import-area" id="detail-import-area" style="display:none;">
         <div class="label">📥 导入已有细纲</div>
@@ -654,6 +682,24 @@ function goToLevel(level, opts) {
 
 // 全局返回
 function handleGlobalBack() {
+  // 如果阅读模式已打开，先关闭它
+  var overlay = document.getElementById('reader-overlay');
+  if (overlay && overlay.classList.contains('active')) {
+    closeReader();
+    return;
+  }
+  // 如果有其他模态框也打开（素材库/保存确认），先关闭
+  var matPanel = document.getElementById('matlib-overlay');
+  if (matPanel) {
+    matPanel.style.display = 'none';
+    var mp = document.getElementById('matlib-panel');
+    if (mp) mp.style.display = 'none';
+  }
+  var saveModal = document.getElementById('save-confirm-modal');
+  if (saveModal && saveModal.style.display !== 'none') {
+    saveModal.style.display = 'none';
+    return;
+  }
   if (_currentLevel > 1) goToLevel(_currentLevel - 1);
   else location.href = 'index.html';
 }
@@ -841,6 +887,26 @@ document.addEventListener('input', function(e){
     e.target.style.height = 'auto';
     e.target.style.height = Math.max(360, Math.min(e.target.scrollHeight + 24, 1800)) + 'px';
   }
+});
+
+// 更多菜单：切换显示
+function toggleArchMenu(module) {
+  var allMenus = document.querySelectorAll('.arch-more-menu');
+  var currentMenu = document.getElementById('arch-menu-' + module);
+  for (var i = 0; i < allMenus.length; i++) {
+    if (allMenus[i] !== currentMenu) allMenus[i].classList.remove('open');
+  }
+  if (currentMenu) currentMenu.classList.toggle('open');
+}
+// 更多菜单：关闭全部
+function closeArchMenus() {
+  var allMenus = document.querySelectorAll('.arch-more-menu');
+  for (var i = 0; i < allMenus.length; i++) allMenus[i].classList.remove('open');
+}
+// 点击空白关闭更多菜单
+document.addEventListener('click', function(e) {
+  var wrap = e.target.closest('.arch-more-wrap');
+  if (!wrap) closeArchMenus();
 });
 
 function he(s){return s?s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';}
