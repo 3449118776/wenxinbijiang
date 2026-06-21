@@ -1814,6 +1814,22 @@ function buildArchPrompt(module, idea, work, extraHint){
   tail += '- 细纲模块建议生成 **' + detailChapters + ' 章**，每章都要包含明确的冲突推进和章末钩子\n';
   tail += '- 如果你认为用户核心诉求与题材有矛盾或需要调整，请在内容末尾用"【作者备注】"单独提出建议（100 字以内）\n';
 
+  // ===== v59fix: 自动迭代指令 — AI在一次调用内完成迭代，不外部重新调用 =====
+  // 核心：告诉AI"如果评分低于9分就按评价修改，循环3次"
+  tail += '\n\n【🔥 自动迭代指令（核心机制，必须遵守）】\n';
+  tail += '你输出完整内容后，必须按照以下评分维度进行自我评价：\n';
+  tail += '1. 指令遵循（用户要求的关键元素是否全部体现）\n';
+  tail += '2. 结构完整（世界观/人设/大纲/细纲各模块是否齐全）\n';
+  tail += '3. 内容质量（代入感、冲突设计、悬念钩子是否到位）\n';
+  tail += '4. 逻辑一致（人物行为、事件发展是否自洽）\n';
+  tail += '5. 文笔表现（语言是否有AI腔、模板化表达）\n';
+  tail += '【迭代规则】如果任何维度评分低于9分，或总分低于85分，你必须：\n';
+  tail += '  ① 指出具体问题（哪个维度、什么问题）\n';
+  tail += '  ② 针对问题修改内容（精准修补，不重新生成整体）\n';
+  tail += '  ③ 重新评分，直到达到9分或用完3次迭代机会\n';
+  tail += '【输出格式】内容 → 【自我评价】评分 → 如需修改 → 【第2版内容】 → 【第2次评价】 → 如需修改 → 【第3版内容】 → 【最终评价】\n';
+  tail += '⚠️ 重要：原始用户核心诉求是基础，迭代时不得偏离。只针对问题部分精准修补，不是重新理解整体方向。\n';
+
   // 输出前提示：先估算当前输入长度，若过长则进一步压缩
   var prePrompt = '';
   var estimatedInputLen = (userBlock + head + platinumBlock + trendBlock + ctxBlock + moduleBlock + tail).length;
@@ -2928,9 +2944,9 @@ window.generateArchModule = async function(opts){
 
         var _curScore = evalResult.totalScore || 0;
 
-        // v57: 基于 QualityEngine 权威评价的精准迭代修复
-        // 分数 < 90 且迭代 < 3 次 → 按 quality.js 指出的问题点精准重写
-        if(_curScore < 90 && _iterationCount < 3){
+        // v59fix: AI已在内部完成3次迭代，外部不再重新调用。只做评分记录
+        _autoIterate = false;
+        /* // 已禁用外部迭代，统一由AI内部迭代完成
           var _iterIssues = [];
           if(evalResult.dimensions && evalResult.dimensions.length){
             for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
@@ -2965,7 +2981,7 @@ window.generateArchModule = async function(opts){
             _autoIterate = true;
             await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
           }
-        }
+        // */
 
         if(!_autoIterate){
           var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
