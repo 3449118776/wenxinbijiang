@@ -303,7 +303,25 @@
     var len = content.length;
     var dims = [];
 
-    var d1 = { name: '设定完整度', score: 6, max: 10, weight: 0.20, issues: [], strengths: [] };
+    // D0: 指令遵循（10分）
+    var userCmd = _getUserCmd();
+    var d0 = { name: '指令遵循', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (userCmd && userCmd.trim()) {
+      var cmdKeywords = userCmd.trim().replace(/[，。！？、；：""''（）【】《》]/g, ' ').split(/\s+/).filter(function(k) { return k.length >= 2; });
+      if (cmdKeywords.length > 0) {
+        var matchCount = 0, missCount = 0, missKeywords = [];
+        cmdKeywords.forEach(function(kw) {
+          if (content.indexOf(kw) >= 0) matchCount++; else { missCount++; missKeywords.push(kw); }
+        });
+        var matchRatio = matchCount / cmdKeywords.length;
+        if (matchRatio >= 0.7) { d0.score = 9; d0.strengths.push('较好遵循用户指令'); }
+        else if (matchRatio >= 0.4) { d0.score = 6; d0.issues.push('部分遵循，缺少：' + missKeywords.slice(0, 3).join('、')); }
+        else { d0.score = 3; d0.issues.push('严重偏离用户指令：' + missKeywords.slice(0, 5).join('、')); }
+      }
+    } else { d0.strengths.push('无特定指令'); }
+    dims.push(d0);
+
+    var d1 = { name: '设定完整度', score: 6, max: 10, weight: 0.18, issues: [], strengths: [] };
     if (/(力量体系|修炼体系|魔法体系|科技体系|灵气|内力|法力|魔力|基因|纳米|量子)/.test(content)) d1.strengths.push('有力量体系');
     if (/(势力|门派|家族|国家|组织|联盟|帝国|王国|公会|帮派|宗门|世家)/.test(content)) d1.strengths.push('有势力结构');
     if (!/(代价|限制|规则|约束|瓶颈|天花板|副作用|反噬|代价|缺陷|弱点|短板|克星|天敌)/.test(content)) { d1.score -= 2; d1.issues.push('缺少"代价/限制"——力量体系必须有规则和代价'); }
@@ -351,7 +369,25 @@
     var len = content.length;
     var dims = [];
 
-    var d1 = { name: '人物立体度', score: 6, max: 10, weight: 0.20, issues: [], strengths: [] };
+    // D0: 指令遵循（10分）
+    var userCmd = _getUserCmd();
+    var d0 = { name: '指令遵循', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (userCmd && userCmd.trim()) {
+      var cmdKeywords = userCmd.trim().replace(/[，。！？、；：""''（）【】《》]/g, ' ').split(/\s+/).filter(function(k) { return k.length >= 2; });
+      if (cmdKeywords.length > 0) {
+        var matchCount = 0, missCount = 0, missKeywords = [];
+        cmdKeywords.forEach(function(kw) {
+          if (content.indexOf(kw) >= 0) matchCount++; else { missCount++; missKeywords.push(kw); }
+        });
+        var matchRatio = matchCount / cmdKeywords.length;
+        if (matchRatio >= 0.7) { d0.score = 9; d0.strengths.push('较好遵循用户指令'); }
+        else if (matchRatio >= 0.4) { d0.score = 6; d0.issues.push('部分遵循，缺少：' + missKeywords.slice(0, 3).join('、')); }
+        else { d0.score = 3; d0.issues.push('严重偏离用户指令：' + missKeywords.slice(0, 5).join('、')); }
+      }
+    } else { d0.strengths.push('无特定指令'); }
+    dims.push(d0);
+
+    var d1 = { name: '人物立体度', score: 6, max: 10, weight: 0.18, issues: [], strengths: [] };
     if (/(动机|欲望|想要|追求|目标|梦想|野心|执念|信念|信仰|原则|底线|软肋|弱点|缺陷|短板|恐惧|害怕|逃避|隐藏|隐瞒|秘密|过去|往事|创伤|阴影|童年|来历)/.test(content)) d1.strengths.push('有动机/弱点/背景');
     if (/(成长|变化|改变|蜕变|觉醒|领悟|转折|醒悟|看透|放下|拿起|坚持|放弃|选择|代价|牺牲|换取|交换|交易|背叛|忠诚|信任|怀疑|试探|考验|抉择)/.test(content)) d1.strengths.push('有角色弧光空间');
     if (d1.strengths.length >= 2) d1.score = 8;
@@ -400,7 +436,25 @@
     var len = content.length;
     var dims = [];
 
-    var d1 = { name: '结构清晰', score: 6, max: 10, weight: 0.20, issues: [], strengths: [] };
+    // D0: 指令遵循（10分）
+    var userCmd = _getUserCmd();
+    var d0 = { name: '指令遵循', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (userCmd && userCmd.trim()) {
+      var cmdKeywords = userCmd.trim().replace(/[，。！？、；：""''（）【】《》]/g, ' ').split(/\s+/).filter(function(k) { return k.length >= 2; });
+      if (cmdKeywords.length > 0) {
+        var matchCount = 0, missCount = 0, missKeywords = [];
+        cmdKeywords.forEach(function(kw) {
+          if (content.indexOf(kw) >= 0) matchCount++; else { missCount++; missKeywords.push(kw); }
+        });
+        var matchRatio = matchCount / cmdKeywords.length;
+        if (matchRatio >= 0.7) { d0.score = 9; d0.strengths.push('较好遵循用户指令'); }
+        else if (matchRatio >= 0.4) { d0.score = 6; d0.issues.push('部分遵循，缺少：' + missKeywords.slice(0, 3).join('、')); }
+        else { d0.score = 3; d0.issues.push('严重偏离用户指令：' + missKeywords.slice(0, 5).join('、')); }
+      }
+    } else { d0.strengths.push('无特定指令'); }
+    dims.push(d0);
+
+    var d1 = { name: '结构清晰', score: 6, max: 10, weight: 0.18, issues: [], strengths: [] };
     var juanCount = (content.match(/第[一二三四五六七八九十\d]+卷|卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十\d]+幕/g) || []).length;
     if (juanCount >= 3) { d1.score = 9; d1.strengths.push('分卷结构清晰(' + juanCount + '卷)'); }
     else if (juanCount >= 1) { d1.score = 7; d1.strengths.push('有分卷结构'); }
@@ -444,7 +498,25 @@
     var dims = [];
     var chapterCount = (content.match(/第[\d一二三四五六七八九十百零两]+章/g) || []).length;
 
-    var d1 = { name: '章节连贯', score: 6, max: 10, weight: 0.20, issues: [], strengths: [] };
+    // D0: 指令遵循（10分）
+    var userCmd = _getUserCmd();
+    var d0 = { name: '指令遵循', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (userCmd && userCmd.trim()) {
+      var cmdKeywords = userCmd.trim().replace(/[，。！？、；：""''（）【】《》]/g, ' ').split(/\s+/).filter(function(k) { return k.length >= 2; });
+      if (cmdKeywords.length > 0) {
+        var matchCount = 0, missCount = 0, missKeywords = [];
+        cmdKeywords.forEach(function(kw) {
+          if (content.indexOf(kw) >= 0) matchCount++; else { missCount++; missKeywords.push(kw); }
+        });
+        var matchRatio = matchCount / cmdKeywords.length;
+        if (matchRatio >= 0.7) { d0.score = 9; d0.strengths.push('较好遵循用户指令'); }
+        else if (matchRatio >= 0.4) { d0.score = 6; d0.issues.push('部分遵循，缺少：' + missKeywords.slice(0, 3).join('、')); }
+        else { d0.score = 3; d0.issues.push('严重偏离用户指令：' + missKeywords.slice(0, 5).join('、')); }
+      }
+    } else { d0.strengths.push('无特定指令'); }
+    dims.push(d0);
+
+    var d1 = { name: '章节连贯', score: 6, max: 10, weight: 0.18, issues: [], strengths: [] };
     if (chapterCount >= 8) { d1.strengths.push('章节数量充足(' + chapterCount + '章)'); d1.score = 8; }
     else if (chapterCount >= 3) { d1.score = 6; d1.strengths.push('有基本章节结构'); }
     else { d1.score = 3; d1.issues.push('章节数偏少'); }
@@ -703,6 +775,11 @@
     return learnings;
   }
 
+  // 全局用户指令状态（供各模块评价函数使用）
+  var _lastUserCmd = '';
+  function _getUserCmd() { return _lastUserCmd; }
+  function _setUserCmd(cmd) { _lastUserCmd = (cmd || '').trim(); }
+
   window.QualityEngine = {
     // 新 API：5种类型独立评价
     evaluate: evaluate,
@@ -711,6 +788,9 @@
     evaluateChars: evaluateChars,
     evaluateOutline: evaluateOutline,
     evaluateDetail: evaluateDetail,
+    // 注册当前用户指令（供 D0 指令遵循维度使用）
+    setUserCmd: _setUserCmd,
+    getUserCmd: _getUserCmd,
     // 好坏标准学习指南
     getFixGuide: getFixGuide,
     // 兼容旧 API

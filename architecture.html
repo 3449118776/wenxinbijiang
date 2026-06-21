@@ -1466,6 +1466,8 @@ function getTrendHint2026(work){
 function buildArchPrompt(module, idea, work, extraHint){
   idea = idea || '';
   extraHint = extraHint || '';
+  // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
+  try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
   var title = (work && work.title) || '未命名作品';
   var genre = '';
   var plotType = '';
@@ -3178,6 +3180,9 @@ function buildArchCardBatchesV48(module, work, idea){
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
 function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+  idea = idea || '';
+  // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
+  try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
   var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
   var title = (work && work.title) || '未命名作品';
   var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
@@ -3533,10 +3538,10 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
 
   // ⭐ 新增：返回指定模块在 quality.js 中的固定评价维度名称
   function _getModuleEvalDims(module) {
-    if (module === 'world')   return ['设定完整度', '独特创新', '冲突张力', '社会结构', '叙事潜力', '篇幅合理'];
-    if (module === 'chars')   return ['人物立体度', '关系网络', '反派/对抗力', '角色差异化', '情感共鸣', '篇幅合理'];
-    if (module === 'outline') return ['结构清晰', '节奏把控', '伏笔设计', '主线清晰', '冲突递进', '商业价值'];
-    if (module === 'detail')  return ['章节连贯', '钩子密度', '信息释放', '节奏控制', '爽点分布', '可执行性'];
+    if (module === 'world')   return ['指令遵循', '设定完整度', '独特创新', '冲突张力', '社会结构', '叙事潜力', '篇幅合理'];
+    if (module === 'chars')   return ['指令遵循', '人物立体度', '关系网络', '反派/对抗力', '角色差异化', '情感共鸣', '篇幅合理'];
+    if (module === 'outline') return ['指令遵循', '结构清晰', '节奏把控', '伏笔设计', '主线清晰', '冲突递进', '商业价值'];
+    if (module === 'detail')  return ['指令遵循', '章节连贯', '钩子密度', '信息释放', '节奏控制', '爽点分布', '可执行性'];
     return ['开篇吸引力', '章尾钩子', '对话质量', '动作描写', '感官描写', '情绪张力', '节奏控制', '文笔水平', '信息密度', '剧情契合度', '角色表现', '原创性'];
   }
 
