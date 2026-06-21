@@ -4451,7 +4451,12 @@ async function aiWriteChapter(){
   try {
     var _v = getCurrentVolumeDetail(work, chapterIdx);
     if (_v && _v.volLabel) {
-      _curVolInfo = _v.volLabel + '（本卷第' + (Math.max(0, (chapterIdx || 0) - _v.currentIdx * _v.volSize) + 1) + '/' + (_v.volSize || '?') + '章）';
+      var _chInVol = (chapterIdx || 0) - (_v.currentIdx * _v.volSize) + 1;
+      if (_chInVol < 1) _chInVol = 1;
+      var _totalChInVol = (_v.volEndChapter && _v.volStartChapter)
+        ? (_v.volEndChapter - _v.volStartChapter + 1)
+        : (_v.volSize || '?');
+      _curVolInfo = _v.volLabel + '（本卷第' + _chInVol + '/' + _totalChInVol + '章）';
     }
   } catch(_) {}
   var _stageInfo = _curVolInfo ? '[' + _curVolInfo + ']' : '';
