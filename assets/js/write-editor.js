@@ -4472,6 +4472,10 @@ async function aiWriteChapter(opts){
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  // 迭代时优先从已保存的 work._lastUserCmd 取（防止用户中途清空输入框导致指令丢失）
+  if (_writeIteration > 0 && work._lastUserCmd && work._lastUserCmd.trim()) {
+    userCmd = work._lastUserCmd;
+  }
   // 保存用户指令到作品元数据，供质量评价引擎检查指令遵循度
   // 只有原始调用（非迭代）时才更新，迭代时应保留原始用户指令
   if (userCmd && !_writeIteration) {
