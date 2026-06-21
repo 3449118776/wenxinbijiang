@@ -140,6 +140,7 @@ body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
 
   function getToken(){ try{ return localStorage.getItem('wxbj_cloud_token')||''; }catch(e){ return ''; } }
   function getUser(){ try{ return JSON.parse(localStorage.getItem('wxbj_cloud_user')||'null'); }catch(e){ return null; } }
+  function he(s){ return s ? s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
   function setToken(token, user){
     try{ localStorage.setItem('wxbj_cloud_token', token); }catch(e){}
     try{ localStorage.setItem('wxbj_cloud_user', JSON.stringify(user)); }catch(e){}
@@ -312,15 +313,46 @@ body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
     var email = user ? user.email : '';
     document.getElementById('login-panel').innerHTML =
       '<h3>云端同步</h3>' +
-      '<p>已登录账号：' + email + '</p>' +
+      '<p style="font-size:12px;color:#888;margin:4px 0 12px;">账号：' + he(email || '') + '</p>' +
       '<div class="row">' +
+      '<button class="secondary" id="logout-sync-btn" onclick="doManualSync()" style="flex:2;background:#f0f2ff;color:#6366f1;font-weight:600;">🔄 双向同步</button>' +
       '<button class="secondary" onclick="toggleLoginPanel()">关闭</button>' +
+      '</div>' +
+      '<div id="sync-status" style="display:none;margin-top:10px;font-size:12px;color:#666;padding:8px;background:#f9f9f9;border-radius:8px;line-height:1.6;"></div>' +
+      '<div class="row" style="margin-top:10px">' +
       '<button class="primary" onclick="location.href=\'center.html\'">进入中枢</button>' +
       '</div>' +
       '<div class="row" style="margin-top:10px">' +
       '<button class="danger" onclick="doCloudLogout()">退出登录</button>' +
       '</div>';
   }
+
+  // 手动双向同步（本地缺的上传，云端缺的下载）
+  window.doManualSync = function(){
+    if(!window.cloud || !window.cloud.isLoggedIn()){ showToast('请先登录', {error:true}); return; }
+    var btn = document.getElementById('logout-sync-btn');
+    var statusEl = document.getElementById('sync-status');
+    if(btn){ btn.disabled = true; btn.textContent = '同步中…'; }
+    if(statusEl){ statusEl.style.display='block'; statusEl.innerHTML='正在检查本地与云端差异…'; }
+    window.cloud.smartSync().then(function(report){
+      var html = [];
+      if(report.pushed > 0) html.push('⬆️ 上传 ' + report.pushed + ' 部');
+      if(report.pulled > 0) html.push('⬇️ 下载 ' + report.pulled + ' 部');
+      if(report.deleted > 0) html.push('🗑 云端删除 ' + report.deleted + ' 部');
+      if(report.unchanged > 0) html.push('✅ 无变化 ' + report.unchanged + ' 部');
+      if(report.errors > 0) html.push('⚠️ ' + report.errors + ' 个失败');
+      if(html.length === 0) html.push('已完成');
+      var msg = html.join(' &nbsp; ');
+      if(statusEl) statusEl.innerHTML = msg;
+      if(btn){ btn.disabled = false; btn.textContent = '🔄 再次同步'; }
+      showToast('同步完成：' + msg, {duration: 3000});
+      if(report.pulled > 0) setTimeout(function(){ location.reload(); }, 1500);
+    }).catch(function(e){
+      if(statusEl) statusEl.innerHTML = '同步失败：' + (e.message || e);
+      if(btn){ btn.disabled = false; btn.textContent = '🔄 重试同步'; }
+      showToast('同步失败：' + (e.message || e), {error:true});
+    });
+  };
 
   window.doCloudLogout = function(){
     clearToken();

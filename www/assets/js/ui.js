@@ -57,9 +57,11 @@ function _applyLoadingUI(pct, text) {
     var fill = el.querySelector('.loading-progress-fill');
     var pctEl = el.querySelector('.loading-pct');
     var txtEl = el.querySelector('.loading-text');
+    var subEl = el.querySelector('.loading-subtitle');
     if (fill) fill.style.width = pct + '%';
     if (pctEl) pctEl.textContent = Math.round(pct) + '%';
     if (text && txtEl) txtEl.textContent = text;
+    if (text && subEl) subEl.textContent = text;
   }
   // 更新 architecture.html 页面内的进度条
   var progBar = document.getElementById('prog-bar');
@@ -79,6 +81,9 @@ function _ensureLoadingElement() {
     el.id = 'app-loading';
     el.innerHTML =
       '<div class="loading-content">'
+      + '<div class="loading-logo">✍️</div>'
+      + '<div class="loading-title">文心笔匠</div>'
+      + '<div class="loading-subtitle">正在准备创作环境…</div>'
       + '<div class="loading-progress-bar"><div class="loading-progress-fill" style="width:0%"></div></div>'
       + '<div class="loading-text-wrap"><span class="loading-text">加载中…</span><span class="loading-pct">0%</span></div>'
       + '</div>';
@@ -219,13 +224,19 @@ function hideLoading() {
   var s = document.createElement('style');
   s.id = 'loading-style';
   s.textContent = 
-    '#app-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.25);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.3s;pointer-events:none;}'
-    + '.loading-content{width:320px;text-align:center;background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);pointer-events:auto;}'
-    + '.loading-progress-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-bottom:12px;}'
-    + '.loading-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:4px;}'
+    '#app-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100000;transition:opacity 0.35s;pointer-events:none;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}'
+    + '.loading-content{width:300px;text-align:center;background:#fff;border-radius:20px;padding:28px 28px 24px;box-shadow:0 12px 48px rgba(99,102,241,0.18),0 2px 8px rgba(0,0,0,0.08);pointer-events:auto;border:1px solid rgba(99,102,241,0.1);}'
+    + '.loading-logo{font-size:32px;margin-bottom:16px;}'
+    + '.loading-title{font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:4px;}'
+    + '.loading-subtitle{font-size:12px;color:#9ca3af;margin-bottom:20px;}'
+    + '.loading-progress-bar{height:10px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin-bottom:14px;}'
+    + '.loading-progress-fill{height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,#6366f1,#8b5cf6,#a78bfa);background-size:200% 100%;animation:loadingShimmer 1.8s ease infinite;}'
     + '.loading-text-wrap{display:flex;justify-content:space-between;align-items:center;}'
-    + '.loading-text{font-size:13px;color:#333;}'
-    + '.loading-pct{font-size:13px;color:#6366f1;font-weight:600;min-width:40px;text-align:right;}';
+    + '.loading-text{font-size:13px;color:#6b7280;}'
+    + '.loading-pct{font-size:13px;color:#6366f1;font-weight:700;min-width:44px;text-align:right;}'
+    + '.loading-dots{font-size:13px;color:#6366f1;letter-spacing:2px;}'
+    + '@keyframes loadingShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}'
+    + '@keyframes loadingPulse{0%,100%{opacity:1}50%{opacity:0.6}}';
   document.head.appendChild(s);
 })();
 
