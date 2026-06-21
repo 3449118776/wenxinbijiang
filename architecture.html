@@ -4252,10 +4252,11 @@ window.generateWithAutoIterate = async function(opts) {
       return;
     }
     
-    var currentScore = evalResult.totalScore || 0;
-    var iterationCount = 0;
-    
-    // 第三步：迭代直到达标
+    // v59fix: generateArchModule 内部已完成3次迭代，外部不再迭代
+    // 直接跳到完成状态
+    currentScore = evalResult.totalScore || 0;
+    iterationCount = 0;
+    /* // 已禁用外部迭代，内部迭代已在 generateArchModule 中完成
     while (currentScore < targetScore && iterationCount < maxIterations) {
       iterationCount++;
       
@@ -4318,6 +4319,7 @@ window.generateWithAutoIterate = async function(opts) {
       
       currentScore = evalResult.totalScore || 0;
     }
+    // */
     
     // 完成：显示最终评价
     if (typeof updateLoadingProgress === 'function') {
