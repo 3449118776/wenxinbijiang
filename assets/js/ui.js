@@ -172,13 +172,13 @@ function resetLoading(text) {
 }
 
 window.updateLoadingProgress = function(pct, text) {
+  // 先停掉之前的虚拟推进（如果有）
+  if (_autoTimer) { clearTimeout(_autoTimer); _autoTimer = null; }
   var newTarget = Math.max(0, Math.min(100, pct));
-  // 目标比当前还小？不动（进度条只前进不倒退，避免看起来像"重跑"）
   if (newTarget < _loadingCurrent - 0.5) return;
   _loadingTarget = newTarget;
   if (text) _loadingText = text;
 
-  // 确保显示
   if (!_loadingIsVisible) {
     var el = _ensureLoadingElement();
     el.style.display = 'flex';
@@ -187,6 +187,38 @@ window.updateLoadingProgress = function(pct, text) {
   }
   _applyLoadingUI(_loadingCurrent, _loadingText);
   _startLoadingAnimIfNeeded();
+};
+
+// v58: 虚拟推进器 —— 在非流式 API 调用期间缓慢推进度条，避免长时间停在同一个数字上
+var _autoTimer = null;
+var _autoTargetPct = 0;
+window.startAutoLoadingProgress = function(targetPct, text) {
+  if (_autoTimer) { clearTimeout(_autoTimer); _autoTimer = null; }
+  _autoTargetPct = Math.max(_loadingTarget, Math.min(100, targetPct));
+  if (text) _loadingText = text;
+  if (!_loadingIsVisible) {
+    var el = _ensureLoadingElement();
+    el.style.display = 'flex';
+    el.style.opacity = '1';
+    _loadingIsVisible = true;
+  }
+  function tick() {
+    // 每 400ms 推进一小段，最终缓慢趋近 _autoTargetPct
+    var remaining = _autoTargetPct - _loadingCurrent;
+    if (remaining <= 0.2) { _autoTimer = null; return; }
+    var step = Math.max(0.3, remaining / 40); // 每次推进一点点，接近目标时减速
+    _loadingTarget = Math.min(_autoTargetPct, _loadingCurrent + step);
+    _applyLoadingUI(_loadingCurrent, _loadingText);
+    _startLoadingAnimIfNeeded();
+    _autoTimer = setTimeout(tick, 400);
+  }
+  tick();
+};
+window.stopAutoLoadingProgress = function() {
+  if (_autoTimer) { clearTimeout(_autoTimer); _autoTimer = null; }
+  // 停后让进度条动画追上当前 target（立即应用到最终位置）
+  _loadingCurrent = _loadingTarget;
+  _applyLoadingUI(_loadingCurrent, _loadingText);
 };
 
 function hideLoading() {

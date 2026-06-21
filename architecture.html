@@ -2658,8 +2658,11 @@ window.generateArchModule = async function(opts){
 
         // 进度提示（只更新百分比+文字，不再重置进度条）
         var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
-        if(typeof updateLoadingProgress === 'function'){
-          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60); // 30% → 90%
+        if(typeof startAutoLoadingProgress === 'function'){
+          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
+          startAutoLoadingProgress(Math.min(98, detPct + 8), '正在生成细纲 · ' + volLabel);
+        } else if(typeof updateLoadingProgress === 'function'){
+          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
           updateLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
         }
 
@@ -2700,6 +2703,7 @@ window.generateArchModule = async function(opts){
         if(!volResultText || !volResultText.trim()){
           volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
         }
+        if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
         // 组装：卷标题 + 卷内容
         var volHeader = '【第 ' + vi56 + ' 卷 · 章节细纲】\n';
@@ -2745,7 +2749,9 @@ window.generateArchModule = async function(opts){
       // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
       // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
       var progressLabel = '完整' + moduleName + '（一次性生成）';
-      if(typeof updateLoadingProgress === 'function'){
+      if(typeof startAutoLoadingProgress === 'function'){
+        startAutoLoadingProgress(72, '正在生成 ' + moduleName + ' · ' + progressLabel);
+      } else if(typeof updateLoadingProgress === 'function'){
         updateLoadingProgress(35, '正在生成 ' + moduleName + ' · ' + progressLabel);
       }
       if(!_checkStillSameWork()) return;
@@ -2778,6 +2784,7 @@ window.generateArchModule = async function(opts){
       if(!bigResult || !bigResult.trim()){
         bigResult = '（生成失败，请重试）\n';
       }
+      if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
       // ⭐ v57：从AI输出中提取最终内容，最终评价始终用本地 QualityEngine（quality.js），不用AI自评分
       var _parsedResult = _parseAISelfEvalOutput(bigResult.trim(), module);
@@ -2802,7 +2809,9 @@ window.generateArchModule = async function(opts){
         // 从 35% 起步，分批推进到 90%
         var progressPct = 35 + Math.round((bi / batches.length) * 55);
 
-        if(typeof updateLoadingProgress === 'function'){
+        if(typeof startAutoLoadingProgress === 'function'){
+          startAutoLoadingProgress(progressPct + 12, '正在生成 ' + moduleName + ' · ' + progressLabel2);
+        } else if(typeof updateLoadingProgress === 'function'){
           updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
         }
 
@@ -2824,6 +2833,7 @@ window.generateArchModule = async function(opts){
         if(!cardResult || !cardResult.trim()){
           cardResult = '（本卡片生成失败，请重试）\n';
         }
+        if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
         allCards.push({ label: card.label, content: cardResult });
         totalChars += cardResult.length;
@@ -3545,11 +3555,26 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     return ['开篇吸引力', '章尾钩子', '对话质量', '动作描写', '感官描写', '情绪张力', '节奏控制', '文笔水平', '信息密度', '剧情契合度', '角色表现', '原创性'];
   }
 
-  // ⭐ v57：自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
-  // 重要：最终评价由本地 quality.js 的 QualityEngine 独立运行，这里的 AI 自评只用于
-  //       让 AI 在生成过程中自我审视。AI 必须按 quality.js 维度逐一检查，不要自己定义维度。
+  // ⭐ v58：自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
+  //  核心变更：
+  //    1. "指令遵循"维度必须直接对照用户输入的提示词关键词，不满足就扣分
+  //    2. 用户指令（idea）被展开为具体关键词清单，AI 必须逐条核查
+  //    3. 最终评价仍由本地 quality.js 系统独立计算（AI自评分仅用于自我审视）
   var _selfIterHint = '';
   var _dimNames = _getModuleEvalDims(module);
+
+  // v58：提取用户提示词关键词（2字以上去重，供 AI 自评时逐条对照，缺就扣分）
+  var _userCmdKeywords = [];
+  if (idea && idea.trim()) {
+    try {
+      var _seen = {};
+      var _parts = idea.trim().replace(/[，。！？、；：""''（）【】《》—…·,\.\!\?;:\(\)\[\]<>\/\\]+/g, ' ').split(/\s+/).filter(function(k){ return k.length >= 2; });
+      for (var _pi2 = 0; _pi2 < _parts.length; _pi2++) {
+        var _pw2 = _parts[_pi2];
+        if (!_seen[_pw2]) { _seen[_pw2] = 1; _userCmdKeywords.push(_pw2); if (_userCmdKeywords.length >= 20) break; }
+      }
+    } catch(e) {}
+  }
 
   _selfIterHint += '\n\n══════════════════════════════════════\n';
   _selfIterHint += '【🔄 自评价与自修正循环（必须执行，最多3轮）】\n';
@@ -3563,7 +3588,16 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   _selfIterHint += '你必须按上述维度逐一审视你输出的内容，有问题就修改。\n\n';
 
   if (idea && idea.trim()) {
-    _selfIterHint += '【⚠️ 用户核心提示词要求 — 评价时必须检查是否满足以下要求，不满足必须扣分并在问题列表中列出】\n' + idea.trim() + '\n\n';
+    _selfIterHint += '【⚠️ 第1维度「指令遵循」— 硬性判断标准（AI不得自由发挥，必须逐条对照以下关键词）】\n';
+    _selfIterHint += '用户本次要求：\n' + idea.trim() + '\n\n';
+    if (_userCmdKeywords.length > 0) {
+      _selfIterHint += '你必须在内容中体现以下关键词/要求（满分10；缺1条扣1-2分）：\n';
+      for (var _ki = 0; _ki < _userCmdKeywords.length; _ki++) {
+        _selfIterHint += ' • ' + _userCmdKeywords[_ki] + '\n';
+      }
+      _selfIterHint += '\n';
+    }
+    _selfIterHint += '【判定规则】若内容中未出现以上关键词，或用户要求被忽略 → 该维度扣分；缺3条以上 → 直接触发第二轮修正。\n\n';
   }
   if (extraHint && extraHint.trim()) {
     _selfIterHint += '【📝 本次加强要求（来自上一轮评价意见）— 必须逐项检查是否满足】\n' + extraHint.trim() + '\n\n';
@@ -3836,12 +3870,17 @@ window.evaluateArchModule = async function(){
     if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
       if(typeof resetLoading === 'function') resetLoading('AI 评价分析中…');
       else if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(35, 'AI 评价分析中…');
+      if(typeof startAutoLoadingProgress === 'function'){
+        startAutoLoadingProgress(70, 'AI 评价分析中…');
+      } else if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(35, 'AI 评价分析中…');
+      }
       var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿。\n\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
       evalPrompt += '请列出：\n1. 3-5条具体问题（必须针对内容，不能泛泛而谈）\n';
       evalPrompt += '2. 2-3条针对性改进建议\n3. 不要超过300字，用简短犀利的编辑口吻\n';
       try{ aiReport = await callRealAPIWithFallback(evalPrompt, null, 'default'); }catch(e){ aiReport = ''; }
+      if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
       if(typeof hideLoading === 'function') hideLoading();
     }
 
@@ -3969,7 +4008,11 @@ window.strengthenDetailOutlineV46 = async function(){
         else if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
       }
       var strPct = 10 + Math.round((bi / batches.length) * 85);
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(strPct, '细纲补强中 · ' + progressLabel);
+      if(typeof startAutoLoadingProgress === 'function'){
+        startAutoLoadingProgress(Math.min(98, strPct + 12), '细纲补强中 · ' + progressLabel);
+      } else if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(strPct, '细纲补强中 · ' + progressLabel);
+      }
 
       // 构建本批的专属 prompt
       var prompt = '你是一位擅长节奏设计的资深网文编辑。请对以下章节细纲进行"全链路质量补强"，使每一章都能驱动读者想点开下一章。\n\n';
@@ -4015,6 +4058,7 @@ window.strengthenDetailOutlineV46 = async function(){
       }catch(e){ console.warn('细纲补强卡片 ' + card.label + ' 失败:', e); }
 
       if(!cardResult || !cardResult.trim()) cardResult = '（本卡片补强失败，请重试）\n';
+      if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
       allCards.push({ label: card.label, content: cardResult });
 
       // 卡片间极短等待，避免触发服务商 API 速率限制
@@ -4157,11 +4201,14 @@ window.generateWithAutoIterate = async function(opts) {
     await window.generateArchModule();
     
     // 第二步：评价生成的内容
-    if (typeof updateLoadingProgress === 'function') {
+    if(typeof startAutoLoadingProgress === 'function'){
+      startAutoLoadingProgress(42, '🔍 ' + moduleName + ' · 质量评价中…（第2步/3步）');
+    } else if(typeof updateLoadingProgress === 'function'){
       updateLoadingProgress(33, '🔍 ' + moduleName + ' · 质量评价中…（第2步/3步）');
     }
     
     var evalResult = await evaluateArchModule();
+    if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
     if (!evalResult || evalResult.totalScore === undefined) {
       showToast('评价失败，请手动检查生成内容', {error: true});
       if (typeof hideLoading === 'function') hideLoading();
@@ -4213,8 +4260,11 @@ window.generateWithAutoIterate = async function(opts) {
       } catch(e) {}
       
       // 更新进度提示
-      if (typeof updateLoadingProgress === 'function') {
-        updateLoadingProgress(Math.round((iterationCount / (maxIterations + 1)) * 100), 
+      if(typeof startAutoLoadingProgress === 'function'){
+        startAutoLoadingProgress(Math.round(60 + (iterationCount / maxIterations) * 30),
+          '🔄 ' + moduleName + ' · 第' + iterationCount + '次迭代中…（' + currentScore + '→' + targetScore + '）');
+      } else if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(Math.round((iterationCount / (maxIterations + 1)) * 100),
           '🔄 ' + moduleName + ' · 第' + iterationCount + '次迭代中…（' + currentScore + '→' + targetScore + '）');
       }
       showToast('评分 ' + currentScore + '/100，开始第 ' + iterationCount + ' 次迭代改进…', {duration: 3000});
