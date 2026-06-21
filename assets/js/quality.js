@@ -1,4 +1,4 @@
-// quality.js v53 — 5种类型独立评价引擎
+// quality.js v58 — 5种类型独立评价引擎（含D0指令遵循维度）
 // 正文 / 世界观 / 人设 / 大纲 / 细纲 — 各自独立维度，互不混淆
 // 暴露 window.QualityEngine：evaluate / evaluateText / evaluateWorld / evaluateChars / evaluateOutline / evaluateDetail
 // 兼容旧 API：score / attach / lastHints / analyzeChapter / learnFromEdit
