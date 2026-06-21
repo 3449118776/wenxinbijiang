@@ -2810,19 +2810,17 @@ window.generateArchModule = async function(opts){
         bigResult = '（生成失败，请重试）\n';
       }
 
-      // ⭐ v56：从AI自评价输出中提取最终内容和评价报告
+      // ⭐ v57：从AI输出中提取最终内容，最终评价始终用本地 QualityEngine（quality.js），不用AI自评分
       var _parsedResult = _parseAISelfEvalOutput(bigResult.trim(), module);
       result = _parsedResult.content;
       totalChars = result.length;
-      // 如果AI自带了评价结果，直接使用；否则降级到本地评价
-      var _aiEvalResult = _parsedResult.eval;
-      if(!_aiEvalResult || !_aiEvalResult.totalScore){
-        try {
-          if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-            _aiEvalResult = QualityEngine.evaluate(result, module);
-          }
-        } catch(e){}
-      }
+      // 始终用本地 quality.js 的 QualityEngine 做权威评价；AI 自评价仅保留作内部迭代参考
+      var _aiEvalResult = _parsedResult.eval; // 仅用于参考，不作为最终评价
+      try {
+        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+          _aiEvalResult = QualityEngine.evaluate(result, module);
+        }
+      } catch(e){}
       // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
       allCards.push({ label: moduleName + '·完整生成', content: result });
     } else if(module !== 'detail'){
@@ -2920,22 +2918,13 @@ window.generateArchModule = async function(opts){
       delete work._archStale[module];
     }
 
-    // v55→v56: 质量评价 — 优先使用AI内置自评价（v56新增），降级到本地QualityEngine
-    // v56: AI在单次生成中已内部自我迭代（最多3轮），外部迭代仅作为兜底
+    // v57: 质量评价 —— 最终评价始终由本地 quality.js 的 QualityEngine 决定（权威、维度固定、规则一致）
+    // AI 在生成 prompt 中的自评价仅用于 AI 内部自我审视，不作为最终评分依据
     var evalResult = null;
     var _autoIterate = false;
     try {
-      // 优先使用 AI 内置自评价结果（v56新增，从 _parseAISelfEvalOutput 解析）
-      if(_aiEvalResult && _aiEvalResult.totalScore !== undefined){
-        evalResult = _aiEvalResult;
-        if(evalResult._isAISelfEval){
-          var _aiIters = evalResult._iterations || 1;
-          if(typeof showToast === 'function'){
-            showToast('AI已内部迭代 ' + _aiIters + '/3 轮，自评 ' + evalResult.totalScore + '/100', {duration: 3000});
-          }
-        }
-      } else if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-        // 降级：没有AI自评价时，用本地QualityEngine
+      // v57: 始终用本地 QualityEngine 做权威评价
+      if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
         evalResult = QualityEngine.evaluate(result, module);
       }
 
@@ -2946,8 +2935,8 @@ window.generateArchModule = async function(opts){
 
         var _curScore = evalResult.totalScore || 0;
 
-        // v56: 外部迭代降级为兜底机制 —— 仅当 AI 内部迭代已达3轮但仍未达标 时触发
-        // 因为 v56 的生成 prompt 已内置自评价循环，AI 会在内部自我修正最多3轮
+        // v57: 基于 QualityEngine 权威评价的精准迭代修复
+        // 分数 < 90 且迭代 < 3 次 → 按 quality.js 指出的问题点精准重写
         if(_curScore < 90 && _iterationCount < 3){
           var _iterIssues = [];
           if(evalResult.dimensions && evalResult.dimensions.length){
@@ -3584,18 +3573,22 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     return ['开篇吸引力', '章尾钩子', '对话质量', '动作描写', '感官描写', '情绪张力', '节奏控制', '文笔水平', '信息密度', '剧情契合度', '角色表现', '原创性'];
   }
 
-  // ⭐ 自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
+  // ⭐ v57：自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
+  // 重要：最终评价由本地 quality.js 的 QualityEngine 独立运行，这里的 AI 自评只用于
+  //       让 AI 在生成过程中自我审视。AI 必须按 quality.js 维度逐一检查，不要自己定义维度。
   var _selfIterHint = '';
   var _dimNames = _getModuleEvalDims(module);
 
   _selfIterHint += '\n\n══════════════════════════════════════\n';
   _selfIterHint += '【🔄 自评价与自修正循环（必须执行，最多3轮）】\n';
   _selfIterHint += '══════════════════════════════════════\n\n';
-  _selfIterHint += '【评分维度表（仅此' + _dimNames.length + '个维度，顺序固定，不得增减或替换）】\n';
+  _selfIterHint += '【评分维度表（仅此' + _dimNames.length + '个维度，顺序固定，不得增减或替换 —— 来自本地 quality.js 评价系统）】\n';
   for (var _di = 0; _di < _dimNames.length; _di++) {
     _selfIterHint += (_di + 1) + '. ' + _dimNames[_di] + '\n';
   }
   _selfIterHint += '\n';
+  _selfIterHint += '【最终评价机制说明】最终评价由本地 quality.js 系统独立计算，你在此处的自评分仅用于你自己的参考。\n';
+  _selfIterHint += '你必须按上述维度逐一审视你输出的内容，有问题就修改。\n\n';
 
   if (idea && idea.trim()) {
     _selfIterHint += '【⚠️ 用户核心提示词要求 — 评价时必须检查是否满足以下要求，不满足必须扣分并在问题列表中列出】\n' + idea.trim() + '\n\n';
