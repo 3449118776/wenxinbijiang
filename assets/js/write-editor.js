@@ -4491,116 +4491,114 @@ async function aiWriteChapter(opts){
     statusBar.style.color = '#3730a3';
     statusBar.textContent = '🧠 ' + _stageInfo + ' 1/3 · 正在构建章节上下文…';
   }
-  let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
-
-  // ===== 骨架生成 + AI自检：最多3次，不通过自动重写 =====
-  // 迭代时（_writeIteration > 0）：直接复用已有骨架，避免反复重新生成浪费 token 且质量下降
-  var skeletonPassed = true;
-  var skFinalText = '';
-  if(_writeIteration > 0 && _prevSkeleton && _prevSkeleton.trim()){
-    skFinalText = _prevSkeleton;
-    skeletonPassed = true;
-  } else if(userCmd){
-    var skBasePrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
-    skBasePrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
-    skBasePrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
-    skBasePrompt += '【作品题材】' + getWorkGenre(work) + '\n';
-    if(work.detail){
-      var _sd2 = getCurrentVolumeDetail(work, chapterIdx);
-      if (_sd2 && _sd2.neighbor) {
-        skBasePrompt += '【本卷细纲】' + smartTruncate(_sd2.neighbor, 400) + '\n';
-      } else {
-        var detailChapters2 = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
-        var dIdx2 = chapterIdx + 1;
-        if(detailChapters2.length > dIdx2) skBasePrompt += '【本章细纲】' + smartTruncate(detailChapters2[dIdx2], 400) + '\n';
-      }
+  // ====== 核心优化：骨架和完整prompt只生成一次，后续迭代直接复用 ======
+  if (_writeIteration === 0) {
+    // ✅ 第1轮：构建完整骨架prompt + 生成骨架（最多3次自检）
+    if (statusBar) {
+      statusBar.style.display = 'block';
+      statusBar.style.background = '#e0e7ff';
+      statusBar.style.color = '#3730a3';
+      statusBar.textContent = '🧠 ' + _stageInfo + ' 1/3 · 正在构建章节上下文…';
     }
-    skBasePrompt += '\n请按以下格式输出：\n';
-    skBasePrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
-    skBasePrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
-    skBasePrompt += '【结论】\n写"通过"或"不通过"。\n';
-    skBasePrompt += '\n直接输出，不要加对话语前缀。';
+    prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
-    var skAttemptResult = null;
-    for(var skAt = 1; skAt <= 3; skAt++){
-      if(statusBar){
-        statusBar.style.display = 'block';
-        statusBar.style.background = '#fef3c7';
-        statusBar.style.color = '#92400e';
-        statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架（第' + skAt + '/3次）…';
+    // ===== 骨架生成 + AI自检：最多3次，不通过自动重写 =====
+    var skeletonPassed = true;
+    var skFinalText = '';
+    if(userCmd){
+      var skBasePrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
+      skBasePrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
+      skBasePrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
+      skBasePrompt += '【作品题材】' + getWorkGenre(work) + '\n';
+      if(work.detail){
+        var _sd2 = getCurrentVolumeDetail(work, chapterIdx);
+        if (_sd2 && _sd2.neighbor) {
+          skBasePrompt += '【本卷细纲】' + smartTruncate(_sd2.neighbor, 400) + '\n';
+        } else {
+          var detailChapters2 = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
+          var dIdx2 = chapterIdx + 1;
+          if(detailChapters2.length > dIdx2) skBasePrompt += '【本章细纲】' + smartTruncate(detailChapters2[dIdx2], 400) + '\n';
+        }
       }
+      skBasePrompt += '\n请按以下格式输出：\n';
+      skBasePrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
+      skBasePrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
+      skBasePrompt += '【结论】\n写"通过"或"不通过"。\n';
+      skBasePrompt += '\n直接输出，不要加对话语前缀。';
 
-      var skPromptNow = skBasePrompt;
-      if(skAttemptResult && skAttemptResult.trim()){
-        skPromptNow += '\n\n【⚠️ 上一次骨架自检不通过，请根据用户指令和以下问题重写骨架】\n' + skAttemptResult.slice(0, 400);
-      }
+      var skAttemptResult = null;
+      for(var skAt = 1; skAt <= 3; skAt++){
+        if(statusBar){
+          statusBar.style.display = 'block';
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架（第' + skAt + '/3次）…';
+        }
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(5, '🧠 骨架自检 ' + skAt + '/3…');
 
-      try {
-        var skResult = await callRealAPIWithFallback(skPromptNow, null, 'default', 300, true);
-        if(!_checkStillSameWork('章纲骨架生成中')) return;
+        var skPromptNow = skBasePrompt;
+        if(skAttemptResult && skAttemptResult.trim()){
+          skPromptNow += '\n\n【⚠️ 上一次骨架自检不通过，请根据用户指令和以下问题重写骨架】\n' + skAttemptResult.slice(0, 400);
+        }
 
-        if(skResult && skResult.trim()){
-          var skText2 = skResult.trim();
-          var conMatch = skText2.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-          var con = conMatch ? conMatch[1].trim() : '';
+        try {
+          var skResult = await callRealAPIWithFallback(skPromptNow, null, 'default', 300, true);
+          if(!_checkStillSameWork('章纲骨架生成中')) return;
 
-          if(con && (con.indexOf('不通过') >= 0 || con.indexOf('不符合') >= 0)){
-            skAttemptResult = skText2;
-            if(skAt < 3){
-              showToast('⚠️ 骨架第' + skAt + '次自检不通过，正在自动重写…', {duration: 2000});
-              continue;
+          if(skResult && skResult.trim()){
+            var skText2 = skResult.trim();
+            var conMatch = skText2.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+            var con = conMatch ? conMatch[1].trim() : '';
+
+            if(con && (con.indexOf('不通过') >= 0 || con.indexOf('不符合') >= 0)){
+              skAttemptResult = skText2;
+              if(skAt < 3){
+                showToast('⚠️ 骨架第' + skAt + '次自检不通过，正在自动重写…', {duration: 2000});
+                continue;
+              } else {
+                skeletonPassed = false;
+                skFinalText = skText2;
+                if(statusBar){
+                  statusBar.style.background = '#fef3c7';
+                  statusBar.style.color = '#92400e';
+                  statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架3次自检仍不通过，已注入修正提示继续生成';
+                }
+                break;
+              }
             } else {
-              skeletonPassed = false;
+              skeletonPassed = true;
               skFinalText = skText2;
               if(statusBar){
-                statusBar.style.background = '#fef3c7';
-                statusBar.style.color = '#92400e';
-                statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架3次自检仍不通过，已注入修正提示继续生成';
+                statusBar.style.background = '#dcfce7';
+                statusBar.style.color = '#166534';
+                statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
               }
               break;
             }
           } else {
-            skeletonPassed = true;
-            skFinalText = skText2;
-            if(statusBar){
-              statusBar.style.background = '#dcfce7';
-              statusBar.style.color = '#166534';
-              statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
-            }
-            break;
+            if(skAt === 3) break;
           }
-        } else {
-          if(skAt === 3) break;
-        }
-      } catch(skErr2) { console.warn('[章纲骨架] 失败:', skErr2); }
+        } catch(skErr2) { console.warn('[章纲骨架] 失败:', skErr2); }
+      }
     }
 
     // 注入骨架到 prompt 开头
     if(skFinalText){
       prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText + '\n\n' + prompt;
     }
+
+    // ✅ 缓存完整prompt（骨架+所有上下文），供后续迭代直接复用，不再重建
+    work._cachedChapterPrompt = prompt;
+  } else {
+    // ⚡ 第2/3轮：直接复用缓存的完整prompt，只追加改进提示
+    if (!work._cachedChapterPrompt) {
+      prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
+    } else {
+      prompt = work._cachedChapterPrompt;
+    }
   }
 
-  // ===== 质量迭代：如果是迭代重写，注入上一轮草稿 + 保留优点 + 修正问题 =====
-  // 关键修复：之前每轮都从零重写，导致好内容全丢，越写越薄；
-  // 现在把上一轮原文作为"草稿参考"注入，让 AI 在已有好内容基础上改进
-  if(_writeIteration > 0 && _writeBest && _writeBest.text && _writeBest.text.trim()){
-    var _prevDraft = _writeBest.text;
-    // 草稿不截断，确保完整性（token足够）
-    var _keepHint = '【✅ 上一轮优点必须保留】\n';
-    _keepHint += '上一轮质量评分 ' + _writeBest.score + '分，以下内容中的精彩描写、对话、冲突设计要完整保留并强化：\n';
-    _keepHint += '1. 场景描写的氛围感与细节要保留\n2. 人物对话的性格特征不能改变\n3. 已设置的伏笔和悬念钩子要延续\n4. 叙事节奏和情绪变化曲线要保留\n\n';
-    prompt = _keepHint
-      + '【📝 上一轮草稿（请在此基础上改进，不要全盘重写）】\n'
-      + _prevDraft.trim()
-      + '\n\n【🔧 本次改进方向】\n'
-      + (_writeExtraHint && _writeExtraHint.trim() ? _writeExtraHint.trim() : '重点提升：对话质量、冲突层次、章末悬念、叙事密度。')
-      + '\n\n【生成要求】\n在上一轮草稿基础上进行针对性优化，保留80%以上的好内容，只修改有问题的部分，产出更完整、更有张力的版本。字数不少于5000字。\n\n'
-      + prompt;
-  } else if(_writeExtraHint && _writeExtraHint.trim()){
-    // 没有上一轮草稿时，仍然注入改进提示
-    prompt = '【🔧 本次生成要求】\n' + _writeExtraHint.trim() + '\n\n' + prompt;
-  }
+  // ===== 质量迭代块已移到 API 调用和质量评估之后（见下方）======
 
   // 显示输入token估算 + 进入正文生成阶段
   var estTokens = Math.round(prompt.length * 1.5);
@@ -4728,6 +4726,118 @@ async function aiWriteChapter(opts){
       }
     }
 
+    // ====== 质量迭代（接续上方评价之后）：追加上一轮草稿 + 改进提示 ======
+    // 核心优化：骨架和完整prompt只生成一次；评价和迭代在API调用之后判断
+    var _currentScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
+    if (!_writeBest || _currentScore > _writeBest.score) {
+      _writeBest = { text: result, score: _currentScore };
+    }
+
+    var _cmdFollowScore = 10;
+    if (_qReport && _qReport.dimensions) {
+      for (var _df = 0; _df < _qReport.dimensions.length; _df++) {
+        if (_qReport.dimensions[_df].name === '指令遵循') {
+          _cmdFollowScore = _qReport.dimensions[_df].score;
+          break;
+        }
+      }
+    }
+
+    // 安全机制：如果本轮分数比上一轮最佳低5分以上，说明越改越差，回退
+    var _scoreDropped = _writeBest && _currentScore < _writeBest.score - 5;
+    if (_scoreDropped) {
+      result = _writeBest.text;
+    }
+
+    // 进度更新：每轮完成后推进到阶段性点
+    var _midPct = 45 + _writeIteration * 30;
+    if (typeof updateLoadingProgress === 'function') {
+      updateLoadingProgress(_midPct, '第' + (_writeIteration + 1) + '轮完成 · ' + _currentScore + '分');
+    }
+
+    // 检查是否需要继续迭代
+    var _shouldIterate = _qReport && typeof _qReport.score === 'number'
+      && _writeIteration < 3
+      && (_currentScore < 90 || _cmdFollowScore < 6)
+      && !_scoreDropped;
+
+    if (_shouldIterate) {
+      if (statusBar) {
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '🔄 自动迭代中 · 当前' + _currentScore + '分 · 第' + (_writeIteration + 1) + '/3轮 · 目标90+';
+      }
+      var _nextHint = '';
+      var _hintLines = [];
+      _hintLines.push('当前评分 ' + _currentScore + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
+      if (_qReport.dimensions && _qReport.dimensions.length) {
+        var _dimCount = 0;
+        for (var _di3 = 0; _di3 < _qReport.dimensions.length; _di3++) {
+          var _dim3 = _qReport.dimensions[_di3];
+          if (_dim3 && (_dim3.score / _dim3.max) < 0.85 && _dimCount < 3) {
+            if (_dim3.issues && _dim3.issues.length) {
+              _hintLines.push('- ' + _dim3.name + '：' + _dim3.issues.slice(0, 1).join('；'));
+              _dimCount++;
+            }
+          }
+        }
+      }
+      if (_cmdFollowScore < 6 && work._lastUserCmd) {
+        _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
+      }
+      if (_qReport.strengths && _qReport.strengths.length) {
+        _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
+      }
+      _nextHint = _hintLines.join('\n');
+      // ⚡ 递归调用：注入上一轮最佳结果（只追加到缓存prompt，不重建）
+      return aiWriteChapter({
+        _iteration: _writeIteration + 1,
+        extraHint: _nextHint,
+        _prevBest: _writeBest,
+        _prevSkeleton: skFinalText
+      });
+    }
+
+    // ===== 迭代结束：写入作品 =====
+    var _finalScore = _writeBest ? _writeBest.score : _currentScore;
+    var _finalResult = _writeBest ? _writeBest.text : result;
+    result = _finalResult;
+    if (typeof updateLoadingProgress === 'function') {
+      updateLoadingProgress(100, '✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮');
+    }
+    var _qBannerId = 'quality-banner';
+    var _oldBanner = document.getElementById(_qBannerId);
+    if (_oldBanner) _oldBanner.remove();
+    var _banner = document.createElement('div');
+    _banner.id = _qBannerId;
+    var _scoreColor = _finalScore >= 90 ? '#10b981' : _finalScore >= 75 ? '#f59e0b' : '#ef4444';
+    var _scoreBg = _finalScore >= 90 ? '#d1fae5' : _finalScore >= 75 ? '#fef3c7' : '#fee2e2';
+    var _dimsStr = '';
+    if (_qReport && _qReport.dimensions && _qReport.dimensions.length) {
+      _qReport.dimensions.forEach(function(d) {
+        var ds = Math.round((d.score / d.max) * 10);
+        var dc = ds >= 8 ? '#10b981' : ds >= 6 ? '#f59e0b' : '#ef4444';
+        _dimsStr += '<span style="display:inline-block;background:#f3f4f6;color:' + dc + ';padding:2px 10px;border-radius:10px;font-size:12px;margin:2px;font-weight:600;">' + d.name + ' ' + ds + '</span>';
+      });
+    }
+    _banner.style.cssText = 'background:' + _scoreBg + ';border-left:4px solid ' + _scoreColor + ';padding:10px 14px;margin:8px 12px;border-radius:8px;font-size:13px;line-height:1.8;';
+    _banner.innerHTML = '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      + '<span style="font-size:20px;font-weight:800;color:' + _scoreColor + ';">' + _finalScore + '</span>'
+      + '<span style="color:#374151;font-weight:600;">分 · 共' + (_writeIteration + 1) + '轮生成 · ' + result.length + '字</span>'
+      + '</div>'
+      + '<div style="margin-top:4px;">' + _dimsStr + '</div>';
+    var _editorEl = document.getElementById('editor');
+    if (_editorEl && _editorEl.parentNode) {
+      _editorEl.parentNode.insertBefore(_banner, _editorEl);
+    }
+    if (typeof hideLoading === 'function') {
+      setTimeout(function() { hideLoading(); }, 100);
+    }
+    if(!_checkStillSameWork('保存章节')) return;
+    DB.saveWork(work);
+    showToast('✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮', 6000);
+    setTimeout(function(){ showPolishRecommend(); }, 500);
+
     // ===== 正文不自动续写，保持用户可控性 =====
     document.getElementById('editor').value = result;
     // 双级备份用于撤销（保留上上次内容）
@@ -4797,91 +4907,7 @@ async function aiWriteChapter(opts){
       }
     }
     
-    // ===== 质量迭代：自动迭代（非静默，有进度更新）
-    // 关键修复：不再从零重写——注入上一轮原文作为草稿参考，让AI在好内容基础上改进
-    var _currentScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
-    // 更新最佳结果
-    if (!_writeBest || _currentScore > _writeBest.score) {
-      _writeBest = { text: result, score: _currentScore };
-    }
-
-    // 触发条件：总分<90 或 指令遵循维度<6，且迭代次数<3
-    var _cmdFollowScore = 10;
-    if (_qReport && _qReport.dimensions) {
-      for (var _df = 0; _df < _qReport.dimensions.length; _df++) {
-        if (_qReport.dimensions[_df].name === '指令遵循') {
-          _cmdFollowScore = _qReport.dimensions[_df].score;
-          break;
-        }
-      }
-    }
-
-    // 安全机制：如果本轮分数比上一轮最佳低5分以上，说明越改越差，直接回退
-    var _scoreDropped = _writeBest && _currentScore < _writeBest.score - 5;
-    if (_scoreDropped) {
-      result = _writeBest.text;
-    }
-
-    // 进度更新：每轮生成完成后推进到阶段性点
-    // 第1轮完成→45%，第2轮完成→75%，第3轮完成→95%，最终保存→100%
-    var _midPct = 45 + _writeIteration * 30;
-    if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(_midPct, '第' + (_writeIteration + 1) + '轮完成 · ' + _currentScore + '分');
-    }
-
-    // 检查是否需要继续迭代
-    var _shouldIterate = _qReport && typeof _qReport.score === 'number'
-      && _writeIteration < 3
-      && (_currentScore < 90 || _cmdFollowScore < 6)
-      && !_scoreDropped;
-
-    if (_shouldIterate) {
-      if (statusBar) {
-        statusBar.style.background = '#fef3c7';
-        statusBar.style.color = '#92400e';
-        statusBar.textContent = '🔄 自动迭代中 · 当前' + _currentScore + '分 · 第' + (_writeIteration + 1) + '/3轮 · 目标90+';
-      }
-      // 构造下一轮改进提示
-      var _nextHint = '';
-      var _hintLines = [];
-      _hintLines.push('当前评分 ' + _currentScore + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
-      if (_qReport.dimensions && _qReport.dimensions.length) {
-        var _dimCount = 0;
-        for (var _di3 = 0; _di3 < _qReport.dimensions.length; _di3++) {
-          var _dim3 = _qReport.dimensions[_di3];
-          if (_dim3 && (_dim3.score / _dim3.max) < 0.85 && _dimCount < 3) {
-            if (_dim3.issues && _dim3.issues.length) {
-              _hintLines.push('- ' + _dim3.name + '：' + _dim3.issues.slice(0, 1).join('；'));
-              _dimCount++;
-            }
-          }
-        }
-      }
-      if (_cmdFollowScore < 6 && work._lastUserCmd) {
-        _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
-      }
-      if (_qReport.strengths && _qReport.strengths.length) {
-        _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
-      }
-      _nextHint = _hintLines.join('\n');
-      // 递归调用，注入上一轮最佳结果 + 骨架，让AI在好内容基础上改进
-      return aiWriteChapter({
-        _iteration: _writeIteration + 1,
-        extraHint: _nextHint,
-        _prevBest: _writeBest,
-        _prevSkeleton: skFinalText
-      });
-    }
-
-    // ===== 迭代结束：写入作品 =====
-    // 用最佳结果（可能是回退的）
-    var _finalScore = _writeBest ? _writeBest.score : _currentScore;
-    var _finalResult = _writeBest ? _writeBest.text : result;
-    result = _finalResult;
-    if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(100, '✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮');
-    }
-    // 在 editor 上方永久显示评分和各维度得分
+    // ===== 最终保存 =====
     var _qBannerId = 'quality-banner';
     var _oldBanner = document.getElementById(_qBannerId);
     if (_oldBanner) _oldBanner.remove();
