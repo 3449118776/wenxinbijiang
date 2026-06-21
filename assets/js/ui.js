@@ -74,13 +74,27 @@ function showLoading(text, keepProgress) {
   }
   el.style.display = 'flex';
 
+  // 同时显示 architecture.html 页面内的进度条
+  var detailProg = document.getElementById('detail-progress');
+  if (detailProg) {
+    detailProg.style.display = '';
+    var progTitle = document.getElementById('prog-title');
+    if (progTitle) progTitle.textContent = _loadingText;
+    if (!keepProgress) {
+      var progBar = document.getElementById('prog-bar');
+      var progPct = document.getElementById('prog-pct');
+      if (progBar) progBar.style.width = '0%';
+      if (progPct) progPct.textContent = '0%';
+    }
+  }
+
   // 模拟进度增长（因为不确定实际进度）
   if (!keepProgress) {
     _loadingTimer = setInterval(function() {
-      if (_loadingPct < 85) {
-        // 前期加速
+      if (_loadingPct < 95) {
+        // 前期加速，接近100时由updateLoadingProgress接管
         _loadingInc = Math.random() * 3 + 1;
-        _loadingPct = Math.min(85, _loadingPct + _loadingInc);
+        _loadingPct = Math.min(95, _loadingPct + _loadingInc);
         var fill = el.querySelector('.loading-progress-fill');
         var pctEl = el.querySelector('.loading-pct');
         if (fill) fill.style.width = _loadingPct + '%';
@@ -95,36 +109,57 @@ function hideLoading() {
   // 清除可能残留的淡出定时器
   _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
   _loadingHideTimers = [];
+
+  // 完成 #app-loading 进度条
   var el = document.querySelector('#app-loading');
-  if (!el) return;
-  
-  // 完成进度条
-  var fill = el.querySelector('.loading-progress-fill');
-  var pctEl = el.querySelector('.loading-pct');
-  if (fill) fill.style.width = '100%';
-  if (pctEl) pctEl.textContent = '100%';
-  
-  var t1 = setTimeout(function() {
-    el.style.opacity = '0';
-    var t2 = setTimeout(function() {
-      if (el.style.opacity === '0') el.style.display = 'none';
-    }, 300);
-    _loadingHideTimers.push(t2);
-  }, 200);
-  _loadingHideTimers.push(t1);
+  if (el) {
+    var fill = el.querySelector('.loading-progress-fill');
+    var pctEl = el.querySelector('.loading-pct');
+    if (fill) fill.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+    var t1 = setTimeout(function() {
+      el.style.opacity = '0';
+      var t2 = setTimeout(function() {
+        if (el.style.opacity === '0') el.style.display = 'none';
+      }, 300);
+      _loadingHideTimers.push(t2);
+    }, 200);
+    _loadingHideTimers.push(t1);
+  }
+
+  // 完成 architecture.html 页面内的进度条
+  var progBar = document.getElementById('prog-bar');
+  var progPct = document.getElementById('prog-pct');
+  if (progBar) progBar.style.width = '100%';
+  if (progPct) progPct.textContent = '100%';
+  // 隐藏页面内进度条
+  var detailProg = document.getElementById('detail-progress');
+  if (detailProg) detailProg.style.display = 'none';
 }
 
 // 外部可调用：更新加载进度（0-100）
 window.updateLoadingProgress = function(pct, text) {
+  var _pct = Math.max(0, Math.min(100, pct));
+
+  // 1. 更新 #app-loading 进度条（通用居中模态框）
   var el = document.querySelector('#app-loading');
-  if (!el) return;
-  _loadingPct = Math.max(0, Math.min(100, pct));
-  var fill = el.querySelector('.loading-progress-fill');
-  var pctEl = el.querySelector('.loading-pct');
-  var txtEl = el.querySelector('.loading-text');
-  if (fill) fill.style.width = _loadingPct + '%';
-  if (pctEl) pctEl.textContent = Math.round(_loadingPct) + '%';
-  if (text && txtEl) txtEl.textContent = text;
+  if (el) {
+    _loadingPct = _pct;
+    var fill = el.querySelector('.loading-progress-fill');
+    var pctEl = el.querySelector('.loading-pct');
+    var txtEl = el.querySelector('.loading-text');
+    if (fill) fill.style.width = _pct + '%';
+    if (pctEl) pctEl.textContent = Math.round(_pct) + '%';
+    if (text && txtEl) txtEl.textContent = text;
+  }
+
+  // 2. 更新 architecture.html 页面内的进度条（#detail-progress）
+  var progBar = document.getElementById('prog-bar');
+  var progPct = document.getElementById('prog-pct');
+  var progDetail = document.getElementById('prog-detail');
+  if (progBar) progBar.style.width = _pct + '%';
+  if (progPct) progPct.textContent = Math.round(_pct) + '%';
+  if (text && progDetail) progDetail.textContent = text;
 };
 
 // 注入 loading 进度条样式（只注入一次）

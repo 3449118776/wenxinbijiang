@@ -2489,7 +2489,7 @@ window.generateArchModule = async function(opts){
     try { if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; } catch(e){}
     try {
       if(typeof showLoading === 'function') showLoading('🔍 第1步：搜索2025-2026年' + (genre || '该题材') + '市场趋势…');
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(5, '🔍 搜索题材市场趋势…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
       var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
       researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
@@ -2597,7 +2597,7 @@ window.generateArchModule = async function(opts){
       var _skFeedback = '';
       for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
         if(typeof showLoading === 'function') showLoading('🧠 第' + skAttempt + '/3次：生成' + moduleName + '骨架并自检…');
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(8, '🧠 骨架自检 ' + skAttempt + '/3…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(15, '🧠 骨架自检 ' + skAttempt + '/3…');
 
         var skPrompt = _skBasePrompt;
         if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
@@ -2690,7 +2690,7 @@ window.generateArchModule = async function(opts){
           showLoading('正在生成章节细纲 · ' + volLabel + '（逐卷生成，每卷携带完整上下文）');
         }
         if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(Math.round((vi56 - 1) / actualTotalVols * 90), '正在生成细纲 · ' + volLabel);
+          updateLoadingProgress(Math.round(vi56 / actualTotalVols * 95), '正在生成细纲 · ' + volLabel);
         }
 
         // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
@@ -2814,7 +2814,7 @@ window.generateArchModule = async function(opts){
 
         var card = batches[bi];
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-        var progressPct = Math.round((bi / batches.length) * 90);
+        var progressPct = Math.round((bi / batches.length) * 95);
 
         if(typeof showLoading === 'function'){
           showLoading('正在生成 ' + moduleName + ' · ' + progressLabel2);
@@ -2994,6 +2994,7 @@ window.generateArchModule = async function(opts){
       showToast('⚠️ ' + (modNames[module]||module) + '已更新，以下模块可能需要重新生成：' + staleNames.join('、'), {duration:6000});
     }
 
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(100, '✅ 保存完成');
     if(typeof hideLoading === 'function') hideLoading();
     var batchInfo;
     if(module === 'detail'){
