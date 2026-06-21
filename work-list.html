@@ -109,6 +109,11 @@ body {background:#f6f7f9;color:#333;display:flex;flex-direction:column;height:10
 .memory-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f9fafb;border-radius:8px;margin-bottom:6px;font-size:13px;color:#333;}
 .memory-item .mi-label{color:#6b7280;min-width:60px;font-size:12px;}
 .memory-item .mi-value{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.memory-item.expandable{cursor:pointer;}
+.memory-item.expanded{align-items:flex-start;}
+.memory-item.expanded .mi-value{white-space:pre-wrap;text-overflow:clip;line-height:1.6;font-size:12px;}
+.mi-toggle{flex-shrink:0;font-size:11px;padding:3px 8px;background:#e0e7ff;color:#4338ca;border-radius:8px;cursor:pointer;font-weight:500;}
+.mi-toggle:active{background:#c7d2fe;}
 .detect-btn{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin:12px 0;}
 .detect-btn:active{transform:scale(.98);}
 .detect-result{padding:12px 16px;background:#fff;}
@@ -646,6 +651,32 @@ function saveModuleEdit() {
 }
 
 // ===== 记忆页（三层记忆：第一层模块摘要 第二层锚点 第三层正文长记忆） =====
+// 记忆项展开/收起切换
+function toggleMemoryItem(el) {
+  var item = el.classList.contains('memory-item') ? el : el.closest('.memory-item');
+  if (!item) return;
+  var valueEl = item.querySelector('.mi-value');
+  var toggleEl = item.querySelector('.mi-toggle');
+  if (!valueEl) return;
+  var isExpanded = item.classList.toggle('expanded');
+  if (isExpanded) {
+    valueEl.textContent = valueEl.getAttribute('data-full') || valueEl.textContent;
+    if (toggleEl) toggleEl.textContent = '收起';
+  } else {
+    valueEl.textContent = valueEl.getAttribute('data-short') || valueEl.textContent;
+    if (toggleEl) toggleEl.textContent = '展开';
+  }
+}
+
+// 生成一个可展开的记忆项
+function expItem(label, shortText, fullText) {
+  var canExpand = (fullText && fullText.length > (shortText ? shortText.length : 0) + 2);
+  if (canExpand) {
+    return '<div class="memory-item expandable" onclick="toggleMemoryItem(this)"><span class="mi-label">' + label + '</span><span class="mi-value" data-short="' + he(shortText) + '" data-full="' + he(fullText) + '">' + he(shortText) + '</span><span class="mi-toggle">展开</span></div>';
+  }
+  return '<div class="memory-item"><span class="mi-label">' + label + '</span><span class="mi-value">' + he(shortText || '') + '</span></div>';
+}
+
 function renderMemoryPage() {
   document.getElementById('level4-memory').style.display = '';
   var w = getWorkById(_selectedWorkId);
@@ -675,7 +706,9 @@ function renderMemoryPage() {
   sumKeys.forEach(function(k) {
     if (summaries[k] && summaries[k].trim()) {
       hasAny = true;
-      html += '<div class="memory-item"><span class="mi-label">' + sumLabels[k] + '</span><span class="mi-value" style="white-space:pre-wrap;font-size:12px;line-height:1.5;">' + he(summaries[k].trim().substring(0, 300)) + (summaries[k].length > 300 ? '...' : '') + '</span></div>';
+      var full = summaries[k].trim();
+      var short = full.substring(0, 300) + (full.length > 300 ? '...' : '');
+      html += expItem(sumLabels[k], short, full);
     }
   });
   if (!hasAny) html += '<div class="memory-item"><span class="mi-label">状态</span><span class="mi-value" style="color:#9ca3af;">尚未生成。去架构页生成后保存，或编辑保存模块时自动重建。</span></div>';
@@ -700,12 +733,21 @@ function renderMemoryPage() {
     var arr = Array.isArray(ma[b.key]) ? ma[b.key] : [];
     if (arr.length > 0) {
       hasAnchor = true;
-      var itemsHtml = [];
-      arr.slice(0, 8).forEach(function(it) {
+      // 生成精简版
+      var shortItems = [];
+      arr.slice(0, 5).forEach(function(it) {
         var txt = (typeof it === 'string') ? it : (it.text || it.desc || it.name || JSON.stringify(it).substring(0, 60));
-        itemsHtml.push('• ' + he(txt.toString().substring(0, 80)));
+        shortItems.push('• ' + txt.toString().substring(0, 60));
       });
-      html += '<div class="memory-item"><span class="mi-label">' + b.label + '</span><span class="mi-value" style="white-space:pre-wrap;font-size:12px;line-height:1.5;">' + he(arr.length + '条：') + '\n' + itemsHtml.join('\n') + '</span></div>';
+      var shortText = arr.length + '条：\n' + shortItems.join('\n') + (arr.length > 5 ? '\n... 点击展开查看全部' : '');
+      // 生成完整版
+      var fullItems = [];
+      arr.forEach(function(it) {
+        var txt = (typeof it === 'string') ? it : (it.text || it.desc || it.name || JSON.stringify(it));
+        fullItems.push('• ' + txt.toString());
+      });
+      var fullText = arr.length + '条：\n' + fullItems.join('\n');
+      html += expItem(b.label, shortText, fullText);
     }
   });
   if (!hasAnchor) html += '<div class="memory-item"><span class="mi-label">状态</span><span class="mi-value" style="color:#9ca3af;">尚未同步。架构页编辑后保存即自动提取。</span></div>';
@@ -729,8 +771,20 @@ function renderMemoryPage() {
     html += '<div class="memory-section">';
     html += '<div class="ms-title">👤 角色状态</div>';
     (lm.charStates || []).slice(0, 12).forEach(function(c) {
-      html += '<div class="memory-item"><span class="mi-label">' + he(c.name || '?') + '</span><span class="mi-value">' + he((c.status || '').substring(0, 50)) + '</span></div>';
+      var status = c.status || '';
+      var short = status.substring(0, 60) + (status.length > 60 ? '...' : '');
+      html += expItem(he(c.name || '?'), short, status);
     });
+    // 超出12个的部分用展开显示
+    if (charCount > 12) {
+      var extraChars = (lm.charStates || []).slice(12);
+      var shortExtra = '还有 ' + extraChars.length + ' 个角色，点击展开查看';
+      var fullExtraLines = [];
+      extraChars.forEach(function(c) {
+        fullExtraLines.push((c.name || '?') + ': ' + (c.status || ''));
+      });
+      html += expItem('更多', shortExtra, fullExtraLines.join('\n'));
+    }
     html += '</div>';
   }
 
@@ -740,8 +794,18 @@ function renderMemoryPage() {
     html += '<div class="ms-title">🪝 伏笔追踪</div>';
     (lm.foreshadows || []).slice(0, 15).forEach(function(f) {
       var resolved = f.resolved ? '✅' : '⏳';
-      html += '<div class="memory-item"><span class="mi-label">' + resolved + '</span><span class="mi-value">' + he((f.desc || f.description || '').substring(0, 60)) + '</span></div>';
+      var desc = f.desc || f.description || '';
+      var short = desc.substring(0, 80) + (desc.length > 80 ? '...' : '');
+      html += expItem(resolved, short, desc);
     });
+    if (foreshadowCount > 15) {
+      var extraFs = (lm.foreshadows || []).slice(15);
+      var fullFsLines = [];
+      extraFs.forEach(function(f) {
+        fullFsLines.push((f.resolved ? '✅' : '⏳') + ' ' + (f.desc || f.description || ''));
+      });
+      html += expItem('更多', '还有 ' + extraFs.length + ' 条，点击展开查看', fullFsLines.join('\n'));
+    }
     html += '</div>';
   }
 
@@ -750,17 +814,28 @@ function renderMemoryPage() {
     html += '<div class="memory-section">';
     html += '<div class="ms-title">🧵 剧情线索</div>';
     (lm.plotThreads || []).slice(0, 15).forEach(function(t) {
-      html += '<div class="memory-item"><span class="mi-label">线索</span><span class="mi-value">' + he((t.desc || t.name || '').substring(0, 60)) + '</span></div>';
+      var desc = t.desc || t.name || '';
+      var short = desc.substring(0, 80) + (desc.length > 80 ? '...' : '');
+      html += expItem('线索', short, desc);
     });
+    if (threadCount > 15) {
+      var extraTs = (lm.plotThreads || []).slice(15);
+      var fullTsLines = [];
+      extraTs.forEach(function(t) {
+        fullTsLines.push((t.name || '线索') + ': ' + (t.desc || ''));
+      });
+      html += expItem('更多', '还有 ' + extraTs.length + ' 条，点击展开查看', fullTsLines.join('\n'));
+    }
     html += '</div>';
   }
 
   // 滚动摘要
   if (lm.rollingSummary && (typeof lm.rollingSummary === 'string' ? lm.rollingSummary.trim() : (lm.rollingSummary.recent || '').trim())) {
     var rollText = typeof lm.rollingSummary === 'string' ? lm.rollingSummary : (lm.rollingSummary.recent || '');
+    var rollShort = rollText.substring(0, 500) + (rollText.length > 500 ? '...' : '');
     html += '<div class="memory-section">';
     html += '<div class="ms-title">📝 滚动摘要</div>';
-    html += '<div style="padding:8px 12px;background:#f9fafb;border-radius:8px;font-size:12px;line-height:1.6;color:#555;">' + he(rollText.substring(0, 500)) + (rollText.length > 500 ? '...' : '') + '</div>';
+    html += expItem('全文', rollShort, rollText);
     html += '</div>';
   }
 
