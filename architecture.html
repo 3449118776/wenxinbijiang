@@ -3224,23 +3224,33 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
-  // 前置架构上下文：优先使用 longMemory.moduleSummaries（AI自己提炼的记忆精要，更准更省token）
-  // 只有当记忆精要尚未生成（首次）时，才临时注入限量原文
+  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
   if(module !== 'world'){
-    var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-    if(sumCtx && sumCtx.trim()){
-      prompt += sumCtx + '\n\n';
-    } else {
-      // 兜底：记忆精要尚未生成（首次生成），临时注入限量原文
-      prompt += '【📐 临时设定参考 — 记忆精要尚未生成，本次临时注入限量原文】\n';
+    if(module === 'detail'){
+      // 细纲是生成正文的底层基础，必须用原文确保准确完整
+      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
       if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
+        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
       }
-      if(module !== 'chars' && work && work.chars && work.chars.trim()){
-        prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
+      if(work && work.chars && work.chars.trim()){
+        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
       }
-      if(module === 'detail' && work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲摘要：\n' + smartTruncate(work.outline, 2500) + '\n\n';
+      if(work && work.outline && work.outline.trim()){
+        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+      }
+    } else {
+      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
+      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
+      if(sumCtx && sumCtx.trim()){
+        prompt += sumCtx + '\n\n';
+      } else {
+        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
+        if(work && work.world && work.world.trim()){
+          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
+        }
+        if(module !== 'chars' && work && work.chars && work.chars.trim()){
+          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
+        }
       }
     }
   }
@@ -3357,20 +3367,16 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
 
   // 前置架构上下文：优先使用 longMemory.moduleSummaries
   if(module !== 'world'){
-    var sumCtx3 = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-    if(sumCtx3 && sumCtx3.trim()){
-      prompt += sumCtx3 + '\n\n';
-    } else {
-      prompt += '【📐 临时设定参考 — 记忆精要尚未生成，本次临时注入限量原文】\n';
-      if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观原文：\n' + smartTruncate(work.world, 3000) + '\n\n';
-      }
-      if(module !== 'chars' && work && work.chars && work.chars.trim()){
-        prompt += '■ 人设原文：\n' + smartTruncate(work.chars, 3000) + '\n\n';
-      }
-      if(module === 'detail' && work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲原文：\n' + smartTruncate(work.outline, 4000) + '\n\n';
-      }
+    // 前置架构：始终用原文，确保一致性（细纲模块最关键，必须保证准确完整）
+    prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+    if(work && work.world && work.world.trim()){
+      prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+    }
+    if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+    }
+    if((module === 'detail' || module === 'outline') && work && work.outline && work.outline.trim()){
+      prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
     }
   }
 
@@ -3522,29 +3528,16 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   prompt += '本卷编号：第 ' + volIndex + ' 卷（共 ' + totalVols + ' 卷）\n';
   prompt += '本卷章节范围：第 ' + chStart + ' 章 ～ 第 ' + chEnd + ' 章（共 ' + chaptersPerVol + ' 章）\n\n';
 
-  // 4. 前置架构：世界观 + 人设（优先读 longMemory.moduleSummaries，兜底读原文）
+  // 4. 前置架构：世界观 + 人设 + 大纲 — 细纲是生成正文的底层基础，必须用原文确保准确完整
   prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-  var hasSumCtx = false;
-  if(typeof buildModuleSummaryContext === 'function'){
-    var sc = buildModuleSummaryContext(work, 'detail');
-    if(sc && sc.trim()){
-      prompt += sc.trim() + '\n\n';
-      hasSumCtx = true;
-    }
+  if(work && work.world && work.world.trim()){
+    prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
   }
-  if(!hasSumCtx){
-    if(work && work.world && work.world.trim()){
-      prompt += '■ 世界观原文：\n' + smartTruncate(work.world, 4000) + '\n\n';
-    }
-    if(work && work.chars && work.chars.trim()){
-      prompt += '■ 人设原文：\n' + smartTruncate(work.chars, 4000) + '\n\n';
-    }
+  if(work && work.chars && work.chars.trim()){
+    prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
   }
-
-  // 5. 全书大纲 + 本卷核心目标（硬性约束）
   if(work && work.outline && work.outline.trim()){
-    prompt += '【📑 全书大纲 — 你生成细纲的总路线图，必须严格对齐】\n';
-    prompt += smartTruncate(work.outline, 5000) + '\n\n';
+    prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
   }
   if(volTarget && volTarget.trim()){
     prompt += '【🎯 本卷核心目标 — 硬性约束，本卷细纲必须围绕以下目标展开，未达成即失败】\n';
