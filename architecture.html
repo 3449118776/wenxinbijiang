@@ -2596,6 +2596,7 @@ window.generateArchModule = async function(opts){
 
       var _skSucceeded = false;
       var _skFeedback = '';
+      var _aiEvalResult = null; // ⭐ v56: 存储AI内置自评价结果，供后续流程使用
       for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
         // 改用 updateLoadingProgress，保持进度连续
         var skPct = 15 + (skAttempt - 1) * 5;
@@ -2809,8 +2810,19 @@ window.generateArchModule = async function(opts){
         bigResult = '（生成失败，请重试）\n';
       }
 
-      result = bigResult.trim();
+      // ⭐ v56：从AI自评价输出中提取最终内容和评价报告
+      var _parsedResult = _parseAISelfEvalOutput(bigResult.trim(), module);
+      result = _parsedResult.content;
       totalChars = result.length;
+      // 如果AI自带了评价结果，直接使用；否则降级到本地评价
+      var _aiEvalResult = _parsedResult.eval;
+      if(!_aiEvalResult || !_aiEvalResult.totalScore){
+        try {
+          if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+            _aiEvalResult = QualityEngine.evaluate(result, module);
+          }
+        } catch(e){}
+      }
       // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
       allCards.push({ label: moduleName + '·完整生成', content: result });
     } else if(module !== 'detail'){
@@ -2908,69 +2920,78 @@ window.generateArchModule = async function(opts){
       delete work._archStale[module];
     }
 
-    // v55: 自动触发质量评价 — 分数<90分自动迭代重写，最多3次
+    // v55→v56: 质量评价 — 优先使用AI内置自评价（v56新增），降级到本地QualityEngine
+    // v56: AI在单次生成中已内部自我迭代（最多3轮），外部迭代仅作为兜底
     var evalResult = null;
     var _autoIterate = false;
     try {
-      if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+      // 优先使用 AI 内置自评价结果（v56新增，从 _parseAISelfEvalOutput 解析）
+      if(_aiEvalResult && _aiEvalResult.totalScore !== undefined){
+        evalResult = _aiEvalResult;
+        if(evalResult._isAISelfEval){
+          var _aiIters = evalResult._iterations || 1;
+          if(typeof showToast === 'function'){
+            showToast('AI已内部迭代 ' + _aiIters + '/3 轮，自评 ' + evalResult.totalScore + '/100', {duration: 3000});
+          }
+        }
+      } else if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+        // 降级：没有AI自评价时，用本地QualityEngine
         evalResult = QualityEngine.evaluate(result, module);
-        if(evalResult){
-          work._archEval = work._archEval || {};
-          work._archEval[module] = evalResult;
-          try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+      }
 
-          var _curScore = evalResult.totalScore || 0;
+      if(evalResult && evalResult.totalScore !== undefined){
+        work._archEval = work._archEval || {};
+        work._archEval[module] = evalResult;
+        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
 
-          // 自动迭代：< 90分 且 尚未迭代3次
-          if(_curScore < 90 && _iterationCount < 3){
-            // 构建加强提示：收集低分维度和问题列表
-            var _iterIssues = [];
-            if(evalResult.dimensions && evalResult.dimensions.length){
-              for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
-                var dim2 = evalResult.dimensions[_di2];
-                if(dim2.score !== undefined && dim2.max !== undefined){
-                  var _sRatio = dim2.score / dim2.max;
-                  if(_sRatio < 0.7 && dim2.issues && dim2.issues.length){
-                    _iterIssues.push('【' + dim2.name + '】' + dim2.issues.slice(0, 2).join('; '));
-                  }
+        var _curScore = evalResult.totalScore || 0;
+
+        // v56: 外部迭代降级为兜底机制 —— 仅当 AI 内部迭代已达3轮但仍未达标 时触发
+        // 因为 v56 的生成 prompt 已内置自评价循环，AI 会在内部自我修正最多3轮
+        if(_curScore < 90 && _iterationCount < 3){
+          var _iterIssues = [];
+          if(evalResult.dimensions && evalResult.dimensions.length){
+            for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
+              var dim2 = evalResult.dimensions[_di2];
+              if(dim2.score !== undefined && dim2.max !== undefined){
+                var _sRatio = dim2.score / dim2.max;
+                if(_sRatio < 0.7 && dim2.issues && dim2.issues.length){
+                  _iterIssues.push('【' + dim2.name + '】' + dim2.issues.slice(0, 2).join('; '));
                 }
               }
-            }
-            if(evalResult.issues && evalResult.issues.length){
-              evalResult.issues.slice(0, 8).forEach(function(iss){
-                if(_iterIssues.indexOf(iss) === -1) _iterIssues.push(iss);
-              });
-            }
-
-            if(_iterIssues.length > 0){
-              var _iterHint = '⚠️ 上一次生成的问题（本次必须修正）：\n';
-              for(var _ii = 0; _ii < _iterIssues.length; _ii++){
-                _iterHint += '- ' + _iterIssues[_ii] + '\n';
-              }
-              // 加上 QualityEngine 的具体改法指导
-              try{
-                if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
-                  var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
-                  if(_fg) _iterHint += '\n【具体改法参考】\n' + smartTruncate(_fg, 1500);
-                }
-              } catch(e){}
-
-              if(typeof showToast === 'function') showToast('评分 ' + _curScore + '/100（第' + (_iterationCount+1) + '次），自动迭代改进中…', {duration: 4000});
-              _autoIterate = true;
-              // 不保存当前版本，直接重新生成（带加强提示）
-              await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
             }
           }
+          if(evalResult.issues && evalResult.issues.length){
+            evalResult.issues.slice(0, 8).forEach(function(iss){
+              if(_iterIssues.indexOf(iss) === -1) _iterIssues.push(iss);
+            });
+          }
 
-          // 不迭代的情况：继续保存、显示修复按钮
-          if(!_autoIterate){
-            var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
-            var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-            if(fixBtn && evalResult){
-              fixBtn.style.display = '';
-              var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
-              fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
+          if(_iterIssues.length > 0){
+            var _iterHint = '⚠️ 生成内容问题（本次必须修正）：\n';
+            for(var _ii = 0; _ii < _iterIssues.length; _ii++){
+              _iterHint += '- ' + _iterIssues[_ii] + '\n';
             }
+            try{
+              if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
+                var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
+                if(_fg) _iterHint += '\n【具体改法参考】\n' + smartTruncate(_fg, 1500);
+              }
+            } catch(e){}
+
+            if(typeof showToast === 'function') showToast('评分 ' + _curScore + '/100（第' + (_iterationCount+1) + '次外部迭代）…', {duration: 4000});
+            _autoIterate = true;
+            await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
+          }
+        }
+
+        if(!_autoIterate){
+          var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
+          var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
+          if(fixBtn && evalResult){
+            fixBtn.style.display = '';
+            var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
+            fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
           }
         }
       }
@@ -3357,6 +3378,86 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   return prompt;
 }
 
+// ⭐ v56: 解析AI自评价输出的函数
+// AI输出格式：...内容... + 【最终内容】... + 【最终自评价报告】... + 【总分】X/100 + ...
+// 返回: { content: 最终内容字符串, eval: 评价对象 }
+function _parseAISelfEvalOutput(rawOutput, module) {
+  var result = { content: rawOutput, eval: null };
+
+  if(!rawOutput || !rawOutput.trim()) return result;
+
+  // 查找最终内容分隔符
+  var SEPARATOR = '══════════════════════════════════════';
+  var finalContentStart = rawOutput.indexOf('【最终内容】');
+  var finalEvalStart = rawOutput.indexOf('【最终自评价报告】');
+
+  if(finalContentStart !== -1 && finalEvalStart !== -1){
+    // 提取最终内容（从【最终内容】后到【最终自评价报告】前）
+    var contentStart = rawOutput.indexOf('\n', finalContentStart);
+    if(contentStart !== -1 && contentStart < finalEvalStart){
+      var finalContent = rawOutput.substring(contentStart, finalEvalStart).trim();
+      // 去除分隔符边框（如果AI在边框内）
+      finalContent = finalContent.replace(/^══════════════════════════════════════\s*/gm, '').trim();
+      if(finalContent.length > 50){
+        result.content = finalContent;
+      }
+    }
+  }
+
+  // 解析最终自评价报告
+  if(finalEvalStart !== -1){
+    var evalText = rawOutput.substring(finalEvalStart);
+    // 提取总分
+    var scoreMatch = evalText.match(/【总分】\s*(\d+)\s*/);
+    if(scoreMatch){
+      var score = parseInt(scoreMatch[1], 10);
+      result.eval = {
+        totalScore: score,
+        grade: score >= 90 ? 'S' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : 'D',
+        dimensions: [],
+        issues: [],
+        suggestions: [],
+        aiReport: evalText,
+        _isAISelfEval: true
+      };
+
+      // 提取维度评分：匹配【维度名】得分/X：理由
+      var dimRegex = /【([^】]+)】\s*得分\s*[:：]\s*(\d+)\s*[/／]\s*(\d+)\s*[:：]\s*(.+?)(?=【【|$)/g;
+      var dimMatch;
+      while((dimMatch = dimRegex.exec(evalText)) !== null){
+        result.eval.dimensions.push({
+          name: dimMatch[1].trim(),
+          score: parseInt(dimMatch[2], 10),
+          max: parseInt(dimMatch[3], 10),
+          issues: [dimMatch[4].trim()]
+        });
+      }
+
+      // 提取问题列表
+      var issueMatch = evalText.match(/【问题列表】([\s\S]*?)(?=【【|$)/);
+      if(issueMatch){
+        var issueLines = issueMatch[1].split(/[\n\d\.\、\、]/).filter(function(l){ return l.trim().length > 3; });
+        result.eval.issues = issueLines.slice(0, 8).map(function(l){ return l.trim(); });
+      }
+
+      // 提取改进建议
+      var improveMatch = evalText.match(/【主要改进】([\s\S]*?)(?=【【|$)/);
+      if(improveMatch){
+        var impLines = improveMatch[1].split(/[\n\d\.\、\、]/).filter(function(l){ return l.trim().length > 3; });
+        result.eval.suggestions = impLines.slice(0, 5).map(function(l){ return l.trim(); });
+      }
+
+      // 提取迭代次数
+      var iterMatch = evalText.match(/【迭代次数】\s*(\d+)\s*/);
+      if(iterMatch){
+        result.eval._iterations = parseInt(iterMatch[1], 10);
+      }
+    }
+  }
+
+  return result;
+}
+
 // ===== v52: 大模型一次性生成完整模块 =====
 // 不拆卡片任务，让 AI 自己内部连贯规划，避免"逐张卡片+截断摘要"导致的上下文断裂
 // 生成后直接写入 work[module]，UI 层 splitContentIntoSemanticPages 自动分页
@@ -3474,7 +3575,41 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
   }
 
-  prompt += '\n【开始完整输出】\n';
+  // ⭐ v56 新增：自评价+自修正循环 —— 让AI在单次调用中自我迭代，最多3轮
+  // 这避免了多次API调用，同时确保内容质量达标
+  var _selfIterHint = '';
+  _selfIterHint += '\n\n══════════════════════════════════════\n';
+  _selfIterHint += '【🔄 自评价与自修正循环（必须执行，最多3轮）】\n';
+  _selfIterHint += '══════════════════════════════════════\n\n';
+  _selfIterHint += '【第一轮】请直接输出完整内容，然后进行自我评价：\n';
+  _selfIterHint += '在内容末尾追加以下格式的【自评价报告】：\n';
+  _selfIterHint += '\n【自评价报告】\n';
+  _selfIterHint += '【维度1】得分/X：评价理由\n';
+  _selfIterHint += '【维度2】得分/X：评价理由\n';
+  _selfIterHint += '...（至少5个维度）\n';
+  _selfIterHint += '【总分】X/100\n';
+  _selfIterHint += '【问题列表】1. ... 2. ... 3. ...（如果有）\n';
+  _selfIterHint += '【是否需要修正】是/否\n\n';
+  _selfIterHint += '【判定规则】如果【总分】< 90 或 【是否需要修正】= 是，必须进入第二轮：\n';
+  _selfIterHint += '【第二轮】在第一轮内容基础上，精准修改【问题列表】中的每个问题，保留其他部分不变。\n';
+  _selfIterHint += '修改完成后，重新输出完整内容，并再次进行自评价（格式同上），追加在第一轮报告之后。\n';
+  _selfIterHint += '【判定规则】如果第二轮【总分】< 90，必须进入第三轮。\n';
+  _selfIterHint += '【第三轮】再次精准修改剩余问题。完成后输出完整内容 + 自评价报告。\n';
+  _selfIterHint += '【判定规则】无论第三轮分数多少，都必须输出最终内容，循环结束。\n\n';
+  _selfIterHint += '【最终输出格式】（必须严格遵守）：\n';
+  _selfIterHint += '══════════════════════════════════════\n';
+  _selfIterHint += '【最终内容】\n';
+  _selfIterHint += '（这里是你经过多轮自我修正后的最终完整内容）\n\n';
+  _selfIterHint += '【最终自评价报告】\n';
+  _selfIterHint += '【维度1】得分/X：评价理由\n';
+  _selfIterHint += '【总分】X/100\n';
+  _selfIterHint += '【主要改进】1. ... 2. ...\n';
+  _selfIterHint += '【迭代次数】N/3\n';
+  _selfIterHint += '══════════════════════════════════════\n\n';
+  _selfIterHint += '【开始输出】请立即开始，不要输出任何解释说明，直接输出内容。\n';
+
+  prompt += _selfIterHint;
+
   return prompt;
 }
 
