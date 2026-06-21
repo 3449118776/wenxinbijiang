@@ -1780,8 +1780,18 @@ function buildArchPrompt(module, idea, work, extraHint){
   }
 
   // ===== 外部强化提示（如：按评价加强时注入针对性要求）=====
+  // v59fix: 迭代时 extraHint 是"精准修补指令"，不是"新指令"——必须强调原始 idea 不可改变
   if(extraHint && extraHint.trim()){
-    moduleBlock += '\n\n【针对性加强提示 — 本次生成特别关注以下问题】\n' + extraHint.trim() + '\n';
+    if(opts.isFix){
+      // 迭代修复模式：明确告知 AI 这是"在原有基础上精准修补"，不要偏离原始指令
+      moduleBlock += '\n\n【🔥 精准修补指令 — 重要提醒】\n';
+      moduleBlock += '⚠️ 原始用户核心诉求是生成基础，**绝对不可改变或重新解读**。\n';
+      moduleBlock += '⚠️ 本次 extraHint **只是在已有内容上进行精准修补**，不要重新理解整体方向。\n';
+      moduleBlock += '⚠️ 如果修补意见与原始诉求冲突，**原始诉求优先**。\n\n';
+      moduleBlock += '【本次必须修正的问题】\n' + extraHint.trim() + '\n';
+    } else {
+      moduleBlock += '\n\n【针对性加强提示 — 本次生成特别关注以下问题】\n' + extraHint.trim() + '\n';
+    }
   }
 
   // ===== 结尾：明确输出格式要求（字数要求已全面提升，保证内容完整）=====
