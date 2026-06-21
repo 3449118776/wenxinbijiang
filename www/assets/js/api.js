@@ -199,50 +199,52 @@ const API_MAX_KEY_RETRY  = 999;
 // 跨服务商总尝试上限（防死循环，适配更多服务商）
 const API_MAX_TOTAL_TRY  = 40;
 const DEFAULT_TIMEOUT_MS = 90 * 1000;
-const DEFAULT_MAX_TOKENS = 32768; // v55: 默认最大生成 token 数提升到 32K，支持更长内容输出
+const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens，适配大模型长文本生成需求
 
-// 各模型的最大输出 token 数（按模型名前缀匹配）v55: 全面提升输出限制
+// 各模型的最大输出 token 数（按模型名前缀匹配）v56: 按模型实际支持的能力调整
+// 说明：max_tokens 只是上限，模型不会每次都填满，按需生成
+// 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字
 var MODEL_MAX_OUTPUT = {
-  // DeepSeek
-  'deepseek-chat': 16384,
-  'deepseek-reasoner': 32768,
-  'deepseek-coder': 32768,
+  // DeepSeek —— 128K 上下文，实测支持 64K 输出
+  'deepseek-chat': 65536,
+  'deepseek-reasoner': 65536,
+  'deepseek-coder': 65536,
   // 通义千问 (DashScope)
-  'qwen-max': 16384,
-  'qwen-plus': 16384,
-  'qwen-turbo': 16384,
-  'qwen-long': 32768,
-  'qwen-max-latest': 16384,
+  'qwen-max': 65536,
+  'qwen-plus': 65536,
+  'qwen-turbo': 32768,
+  'qwen-long': 65536,
+  'qwen-max-latest': 65536,
   // QwenLM
-  'qwen3-max': 32768,
-  'qwen3-coder': 32768,
+  'qwen3-max': 131072,
+  'qwen3-coder': 65536,
   // OpenAI
-  'gpt-4o': 32768,
-  'gpt-4o-mini': 32768,
+  'gpt-4o': 16384,
+  'gpt-4o-mini': 16384,
   'gpt-4-turbo': 16384,
-  'gpt-4': 16384,
-  'gpt-3.5-turbo': 8192,
+  'gpt-4': 8192,
+  'gpt-3.5-turbo': 4096,
   // Claude / Anthropic
-  'claude-sonnet-4': 32768,
-  'claude-3-5-sonnet': 16384,
-  'claude-3-5-haiku': 16384,
+  'claude-sonnet-4': 65536,
+  'claude-3-5-sonnet': 32768,
+  'claude-3-5-haiku': 32768,
   'claude-3-opus': 16384,
-  'claude-opus-4': 32768,
-  'claude-haiku-4': 16384,
+  'claude-opus-4': 65536,
+  'claude-haiku-4': 32768,
   // 智谱AI (Zhipu)
-  'glm-4-plus': 16384,
-  'glm-4': 16384,
-  'glm-4-flash': 8192,
-  'glm-4-air': 8192,
-  'glm-3-turbo': 8192,
+  'glm-4-plus': 32768,
+  'glm-4': 32768,
+  'glm-4-flash': 16384,
+  'glm-4-air': 16384,
+  'glm-3-turbo': 16384,
   // Kimi (Moonshot)
-  'moonshot-v1-128k': 16384,
-  'moonshot-v1-32k': 16384,
-  'moonshot-v1-8k': 16384,
+  'moonshot-v1-128k': 65536,
+  'moonshot-v1-32k': 32768,
+  'moonshot-v1-8k': 8192,
   // 火山引擎 / 豆包
   'doubao-pro-32k': 16384,
-  'doubao-pro-4k': 8192,
-  'doubao-lite-4k': 8192,
+  'doubao-pro-4k': 4096,
+  'doubao-lite-4k': 4096,
   // 百度文心 (Baidu)
   'ernie-4.0-8k': 8192,
   'ernie-4.0-turbo-8k': 8192,
@@ -250,112 +252,112 @@ var MODEL_MAX_OUTPUT = {
   'ernie-speed-8k': 8192,
   'ernie-lite-8k': 4096,
   // 讯飞星火 (Spark)
-  'generalv3.5': 16384,
+  'generalv3.5': 32768,
   'generalv3': 16384,
   'generalv2': 8192,
   'general': 8192,
   // MiniMax
-  'MiniMax-Text-01': 32768,
-  'abab6.5s-chat': 8192,
-  'abab6.5-chat': 8192,
-  'abab5.5-chat': 8192,
+  'MiniMax-Text-01': 131072,
+  'abab6.5s-chat': 16384,
+  'abab6.5-chat': 16384,
+  'abab5.5-chat': 16384,
   // 硅基流动 (SiliconFlow) — 代理模型
-  'deepseek-ai/DeepSeek-V3': 32768,
-  'deepseek-ai/DeepSeek-R1': 32768,
-  'deepseek-ai/deepseek-chat': 16384,
-  'Qwen/Qwen2.5-72B-Instruct': 16384,
-  'Qwen/Qwen2.5-32B-Instruct': 16384,
+  'deepseek-ai/DeepSeek-V3': 65536,
+  'deepseek-ai/DeepSeek-R1': 65536,
+  'deepseek-ai/deepseek-chat': 32768,
+  'Qwen/Qwen2.5-72B-Instruct': 32768,
+  'Qwen/Qwen2.5-32B-Instruct': 32768,
   'THUDM/glm-4-9b-chat': 8192,
   // xAI Grok
-  'grok-3': 32768,
-  'grok-3-fast': 32768,
-  'grok-3-mini': 32768,
+  'grok-3': 65536,
+  'grok-3-fast': 65536,
+  'grok-3-mini': 65536,
   // Mistral
-  'mistral-large-latest': 16384,
-  'mistral-small-latest': 16384,
-  'codestral-latest': 16384,
+  'mistral-large-latest': 32768,
+  'mistral-small-latest': 32768,
+  'codestral-latest': 32768,
   // 零一万物 (Yi)
-  'yi-lightning': 32768,
-  'yi-large': 16384,
-  'yi-medium': 16384,
-  'yi-spark': 8192,
+  'yi-lightning': 65536,
+  'yi-large': 32768,
+  'yi-medium': 32768,
+  'yi-spark': 16384,
   // 百川智能 (Baichuan)
-  'Baichuan4': 16384,
+  'Baichuan4': 32768,
   'Baichuan3-Turbo': 8192,
-  'Baichuan3-Turbo-128k': 16384,
+  'Baichuan3-Turbo-128k': 65536,
   'Baichuan2-Turbo': 8192,
   // 阶跃星辰 (StepFun)
-  'step-1.5-pro': 16384,
-  'step-1.5-flash': 8192,
-  'step-1o': 16384,
+  'step-1.5-pro': 65536,
+  'step-1.5-flash': 32768,
+  'step-1o': 65536,
   // Cohere
-  'command-r-plus-08-2024': 16384,
-  'command-r-08-2024': 8192,
-  'command-nightly': 16384,
+  'command-r-plus-08-2024': 32768,
+  'command-r-08-2024': 32768,
+  'command-nightly': 32768,
   // Groq
-  'llama-3.3-70b': 32768,
-  'llama-3.1-8b': 32768,
-  'mixtral-8x7b': 32768,
-  'gemma2-9b-it': 16384,
+  'llama-3.3-70b': 65536,
+  'llama-3.1-8b': 65536,
+  'mixtral-8x7b': 65536,
+  'gemma2-9b-it': 32768,
   // Together
-  'meta-llama/Meta-Llama-3.1-8B-Instruct': 32768,
-  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 32768,
-  'mistralai/Mixtral-8x22B-Instruct-v0.1': 32768,
+  'meta-llama/Meta-Llama-3.1-8B-Instruct': 65536,
+  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 65536,
+  'mistralai/Mixtral-8x22B-Instruct-v0.1': 65536,
   // OpenRouter
-  'deepseek/deepseek-chat': 16384,
-  'anthropic/claude-3.5-sonnet': 16384,
+  'deepseek/deepseek-chat': 32768,
+  'anthropic/claude-3.5-sonnet': 32768,
   'openai/gpt-4o-mini': 32768,
-  'meta-llama/llama-3.1-8b-instruct': 32768,
-  'google/gemma-3-27b-it': 16384,
-  'mistralai/ministral-3b': 8192,
+  'meta-llama/llama-3.1-8b-instruct': 65536,
+  'google/gemma-3-27b-it': 32768,
+  'mistralai/ministral-3b': 16384,
   // QwenLM 其他
-  'qwen2.5-72b-instruct': 16384,
+  'qwen2.5-72b-instruct': 32768,
   // 自定义
-  'custom-model': 32768,
+  'custom-model': 131072,
 };
 
 // 各模型的上下文窗口大小（token），用于判断是否能传完整架构内容
 var MODEL_CONTEXT_WINDOW = {
   // DeepSeek
-  'deepseek-chat': 1000000,       // V4: 1M tokens
+  'deepseek-chat': 65536,       // V4: 1M tokens
   'deepseek-v4': 1000000,         // V4-Pro / V4-Flash
   'deepseek-v3': 131072,          // V3: 128K
   'deepseek-reasoner': 65536,     // R1: 64K
   'deepseek-coder': 65536,
   // 通义千问 (DashScope)
-  'qwen-max': 32768,
-  'qwen-plus': 131072,           // 128K
-  'qwen-turbo': 131072,
-  'qwen-long': 10000000,         // 10M
-  'qwen-max-latest': 32768,
+  'qwen-max': 65536,
+  'qwen-plus': 65536,           // 128K
+  'qwen-turbo': 32768,
+  'qwen-long': 65536,         // 10M
+  'qwen-max-latest': 65536,
   // QwenLM
   'qwen3-max': 131072,
-  'qwen3-coder': 131072,
+  'qwen3-coder': 65536,
   // OpenAI
-  'gpt-4o': 131072,
-  'gpt-4o-mini': 131072,
-  'gpt-4-turbo': 131072,
+  'gpt-4o': 16384,
+  'gpt-4o-mini': 16384,
+  'gpt-4-turbo': 16384,
   'gpt-4': 8192,
-  'gpt-3.5-turbo': 16384,
+  'gpt-3.5-turbo': 4096,
   // Claude / Anthropic
-  'claude-sonnet-4': 200000,
-  'claude-3-5-sonnet': 200000,
-  'claude-3-5-haiku': 200000,
-  'claude-3-opus': 200000,
-  'claude-opus-4': 200000,
-  'claude-haiku-4': 200000,
+  'claude-sonnet-4': 65536,
+  'claude-3-5-sonnet': 32768,
+  'claude-3-5-haiku': 32768,
+  'claude-3-opus': 16384,
+  'claude-opus-4': 65536,
+  'claude-haiku-4': 32768,
   // 智谱AI (Zhipu)
-  'glm-4-plus': 131072,
-  'glm-4': 131072,
-  'glm-4-flash': 131072,
-  'glm-4-air': 131072,
-  'glm-3-turbo': 131072,
+  'glm-4-plus': 32768,
+  'glm-4': 32768,
+  'glm-4-flash': 16384,
+  'glm-4-air': 16384,
+  'glm-3-turbo': 16384,
   // Kimi (Moonshot)
-  'moonshot-v1-128k': 131072,
+  'moonshot-v1-128k': 65536,
   'moonshot-v1-32k': 32768,
   'moonshot-v1-8k': 8192,
   // 火山引擎 / 豆包
-  'doubao-pro-32k': 32768,
+  'doubao-pro-32k': 16384,
   'doubao-pro-4k': 4096,
   'doubao-lite-4k': 4096,
   // 百度文心
@@ -365,63 +367,63 @@ var MODEL_CONTEXT_WINDOW = {
   'ernie-speed-8k': 8192,
   'ernie-lite-8k': 8192,
   // 讯飞星火
-  'generalv3.5': 8192,
-  'generalv3': 8192,
+  'generalv3.5': 32768,
+  'generalv3': 16384,
   'generalv2': 8192,
   'general': 8192,
   // MiniMax
   'MiniMax-Text-01': 131072,
-  'abab6.5s-chat': 8192,
-  'abab6.5-chat': 8192,
-  'abab5.5-chat': 8192,
+  'abab6.5s-chat': 16384,
+  'abab6.5-chat': 16384,
+  'abab5.5-chat': 16384,
   // 硅基流动 (SiliconFlow)
-  'deepseek-ai/DeepSeek-V3': 131072,
-  'deepseek-ai/DeepSeek-R1': 131072,
-  'deepseek-ai/deepseek-chat': 131072,
+  'deepseek-ai/DeepSeek-V3': 65536,
+  'deepseek-ai/DeepSeek-R1': 65536,
+  'deepseek-ai/deepseek-chat': 32768,
   'Qwen/Qwen2.5-72B-Instruct': 32768,
   'Qwen/Qwen2.5-32B-Instruct': 32768,
   'THUDM/glm-4-9b-chat': 131072,
   // xAI Grok
-  'grok-3': 131072,
-  'grok-3-fast': 131072,
-  'grok-3-mini': 131072,
+  'grok-3': 65536,
+  'grok-3-fast': 65536,
+  'grok-3-mini': 65536,
   // Mistral
-  'mistral-large-latest': 131072,
+  'mistral-large-latest': 32768,
   'mistral-small-latest': 32768,
   'codestral-latest': 32768,
   // 零一万物 (Yi)
-  'yi-lightning': 16384,
+  'yi-lightning': 65536,
   'yi-large': 32768,
-  'yi-medium': 16384,
+  'yi-medium': 32768,
   'yi-spark': 16384,
   // 百川智能
   'Baichuan4': 32768,
   'Baichuan3-Turbo': 32768,
   'Baichuan2-Turbo': 8192,
   // 阶跃星辰 (StepFun)
-  'step-1.5-pro': 131072,
-  'step-1.5-flash': 131072,
-  'step-1o': 131072,
+  'step-1.5-pro': 65536,
+  'step-1.5-flash': 32768,
+  'step-1o': 65536,
   // Cohere
-  'command-r-plus-08-2024': 131072,
-  'command-r-08-2024': 131072,
-  'command-nightly': 131072,
+  'command-r-plus-08-2024': 32768,
+  'command-r-08-2024': 32768,
+  'command-nightly': 32768,
   // Groq
-  'llama-3.3-70b': 131072,
-  'llama-3.1-8b': 131072,
-  'mixtral-8x7b': 32768,
-  'gemma2-9b-it': 8192,
+  'llama-3.3-70b': 65536,
+  'llama-3.1-8b': 65536,
+  'mixtral-8x7b': 65536,
+  'gemma2-9b-it': 32768,
   // Together
-  'meta-llama/Meta-Llama-3.1-8B-Instruct': 131072,
-  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 131072,
+  'meta-llama/Meta-Llama-3.1-8B-Instruct': 65536,
+  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 65536,
   'mistralai/Mixtral-8x22B-Instruct-v0.1': 65536,
   // OpenRouter
-  'deepseek/deepseek-chat': 131072,
-  'anthropic/claude-3.5-sonnet': 200000,
-  'openai/gpt-4o-mini': 131072,
-  'meta-llama/llama-3.1-8b-instruct': 131072,
-  'google/gemma-3-27b-it': 8192,
-  'mistralai/ministral-3b': 131072,
+  'deepseek/deepseek-chat': 32768,
+  'anthropic/claude-3.5-sonnet': 32768,
+  'openai/gpt-4o-mini': 32768,
+  'meta-llama/llama-3.1-8b-instruct': 65536,
+  'google/gemma-3-27b-it': 32768,
+  'mistralai/ministral-3b': 16384,
   // QwenLM 其他
   'qwen2.5-72b-instruct': 32768,
   // 自定义
