@@ -4700,10 +4700,10 @@ async function aiWriteChapter(opts){
         if (missed.length > 0) {
           showToast('细纲覆盖率' + rate + '%，正在自动补写' + missed.length + '个遗漏场景...', 3000);
           const contextBefore = result.slice(-500);
-          const fillPrompt = '你是网络小说续写助手。当前为第' + (chapterIdx + 1) + '章，细纲要求包含以下场景点，但正文中遗漏了。\n\n遗漏场景点（共' + missed.length + '个）：\n' + missed.slice(0, 8).join('\n') + '\n\n【策略】\n1. 仔细阅读已有正文末尾\n2. 将遗漏场景自然地衔接到已有内容中\n3. 新写内容字数300-800字，与现有文风一致\n4. 不要重复已有叙述，直接补写缺失情节\n\n【已有正文末尾】\n' + contextBefore + '\n\n请直接输出补写段落：';
+          const fillPrompt = '你是网络小说续写助手。当前为第' + (chapterIdx + 1) + '章，细纲要求包含以下场景点，但正文中遗漏了。\n\n遗漏场景点（共' + missed.length + '个）：\n' + missed.slice(0, 8).join('\n') + '\n\n【策略】\n1. 仔细阅读已有正文末尾\n2. 将遗漏场景自然地衔接到已有内容中\n3. 新写内容字数不少于1500字，可根据情节需要扩展至3000字\n4. 不要重复已有叙述，直接补写缺失情节\n5. 每个场景点必须包含明确的冲突推进和悬念\n\n【已有正文末尾】\n' + contextBefore + '\n\n请直接输出补写段落：';
           
           try {
-            const fillResult = await callRealAPIWithFallback(fillPrompt, null, 'fill', 800);
+            const fillResult = await callRealAPIWithFallback(fillPrompt, null, 'fill', 3000);
             if(!_checkStillSameWork('细纲补写中')) return;
             if (fillResult) {
               // v52: 保存AI原始（含补写），用于用户编辑学习
