@@ -2437,6 +2437,7 @@ function buildModuleSummaryContext(work, currentModule){
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
   opts = opts || {};
+  var _iterationCount = opts._iterationCount || 0;
   try{
     var module = _selectedModule || 'world';
     var work = getCurrentWork();
@@ -2564,65 +2565,84 @@ window.generateArchModule = async function(opts){
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
 
-    // 2.7 骨架生成 + AI自检：先生成简要大纲，确认符合用户提示词后再继续
+    // 2.7 骨架生成 + AI自检：最多尝试3次，自检不通过自动重写
+    // —— 骨架是后续内容生成的基础，必须先通过
     if(idea && idea.trim()){
-      if(typeof showLoading === 'function') showLoading('🧠 第2步：生成' + moduleName + '骨架，检查是否符合你的提示词…');
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(8, '🧠 生成骨架并自检…');
-      
-      var skeletonPrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
-      skeletonPrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
-      skeletonPrompt += '【作品题材】' + (genre || '通用') + '\n';
-      
-      // 优先使用记忆精要（AI自己提炼的核心设定）
+      var _skBasePrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
+      _skBasePrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
+      _skBasePrompt += '【作品题材】' + (genre || '通用') + '\n';
       var sMem2 = work && work.longMemory && work.longMemory.moduleSummaries;
       if(sMem2 && Object.keys(sMem2).length > 0){
-        // v52: 骨架也需要完整记忆，大模型下给更长限制
         var _skBig = isLargeContextModel();
         var _skWorld = _skBig ? 3000 : 1200;
         var _skChars = _skBig ? 3000 : 1000;
         var _skOutline = _skBig ? 3000 : 1200;
-        if(sMem2.world && module !== 'world') skeletonPrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, _skWorld) + '\n\n';
-        if(sMem2.chars && module !== 'chars') skeletonPrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, _skChars) + '\n\n';
-        if(sMem2.outline && module === 'detail') skeletonPrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, _skOutline) + '\n\n';
+        if(sMem2.world && module !== 'world') _skBasePrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, _skWorld) + '\n\n';
+        if(sMem2.chars && module !== 'chars') _skBasePrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, _skChars) + '\n\n';
+        if(sMem2.outline && module === 'detail') _skBasePrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, _skOutline) + '\n\n';
       } else {
-        // 兜底：记忆精要尚未生成（首次），临时注入原文
         var _skBig2 = isLargeContextModel();
         var _skFallback = _skBig2 ? 2000 : 500;
-        if(work && work.world && module !== 'world') skeletonPrompt += '【已有世界观】' + smartTruncate(work.world, _skFallback) + '\n\n';
-        if(work && work.chars && module !== 'chars') skeletonPrompt += '【已有人设】' + smartTruncate(work.chars, _skFallback) + '\n\n';
-        if(work && work.outline && module === 'detail') skeletonPrompt += '【已有大纲】' + smartTruncate(work.outline, _skFallback) + '\n\n';
+        if(work && work.world && module !== 'world') _skBasePrompt += '【已有世界观】' + smartTruncate(work.world, _skFallback) + '\n\n';
+        if(work && work.chars && module !== 'chars') _skBasePrompt += '【已有人设】' + smartTruncate(work.chars, _skFallback) + '\n\n';
+        if(work && work.outline && module === 'detail') _skBasePrompt += '【已有大纲】' + smartTruncate(work.outline, _skFallback) + '\n\n';
       }
-      skeletonPrompt += '\n请按以下格式输出：\n';
-      skeletonPrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
-      skeletonPrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
-      skeletonPrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
-      skeletonPrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
-      skeletonPrompt += '\n直接输出，不要加对话语前缀。';
-      
-      var skeletonResult = null;
-      try {
-        if(typeof callRealAPIWithFallback === 'function'){
-          skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 400, true);
-        }
-      } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
-      
-      if(skeletonResult && skeletonResult.trim()){
-        var skText = skeletonResult.trim();
-        var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-        var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
-        
-        if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
-          // 骨架不通过，显示警告但允许继续（用户可以选择修改提示词后重试）
-          var reason = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
-          if(typeof showToast === 'function') showToast('⚠️ 骨架自检不通过：' + smartTruncate(reason, 80) + ' — 可修改提示词后重试', {duration: 6000});
-          console.warn('[骨架自检] 不通过:', reason);
-          // 仍继续生成，但把骨架作为上下文注入，让AI知道问题所在
-          marketResearch = (marketResearch || '') + '\n\n【骨架自检报告（发现问题，请修正）】\n' + skText;
+      _skBasePrompt += '\n请按以下格式输出：\n';
+      _skBasePrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
+      _skBasePrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
+      _skBasePrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
+      _skBasePrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
+      _skBasePrompt += '\n直接输出，不要加对话语前缀。';
+
+      var _skSucceeded = false;
+      var _skFeedback = '';
+      for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
+        if(typeof showLoading === 'function') showLoading('🧠 第' + skAttempt + '/3次：生成' + moduleName + '骨架并自检…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(8, '🧠 骨架自检 ' + skAttempt + '/3…');
+
+        var skPrompt = _skBasePrompt;
+        if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
+
+        var skResult = null;
+        try {
+          if(typeof callRealAPIWithFallback === 'function'){
+            skResult = await callRealAPIWithFallback(skPrompt, null, 'default', 400, true);
+          }
+        } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
+
+        if(skResult && skResult.trim()){
+          var skText = skResult.trim();
+          var conclusionMatch2 = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+          var conclusion2 = conclusionMatch2 ? conclusionMatch2[1].trim() : '';
+
+          if(conclusion2 && (conclusion2.indexOf('不通过') >= 0 || conclusion2.indexOf('不符合') >= 0)){
+            var reason2 = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
+            _skFeedback = skText;
+            if(skAttempt < 3){
+              if(typeof showToast === 'function') showToast('第' + skAttempt + '次骨架自检不通过，正在自动重写…', {duration: 3000});
+              continue;
+            } else {
+              // 最后一次仍不通过，注入警告但继续
+              if(typeof showToast === 'function') showToast('⚠️ 骨架3次自检均不通过，将按最后一版继续生成', {duration: 5000});
+              marketResearch = (marketResearch || '') + '\n\n【骨架（3次自检均不通过，建议修改提示词后重试）】\n' + skText;
+            }
+          } else {
+            // 通过
+            if(typeof showToast === 'function') showToast('✅ 骨架自检通过（第' + skAttempt + '次），开始生成…', {duration: 2000});
+            marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
+            _skSucceeded = true;
+            break;
+          }
         } else {
-          // 骨架通过，注入作为生成指引
-          if(typeof showToast === 'function') showToast('✅ 骨架自检通过，开始生成…', {duration: 1500});
-          marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
+          if(skAttempt === 3){
+            // 最后一次失败，放弃骨架
+            break;
+          }
         }
+      }
+      // 如果 _skFeedback 仍不为空但没通过，也注入到上下文中让AI知道
+      if(!_skSucceeded && _skFeedback){
+        marketResearch = (marketResearch || '') + '\n\n【骨架自检反馈（AI需自行修正）】\n' + _skFeedback;
       }
     }
 
@@ -2885,8 +2905,9 @@ window.generateArchModule = async function(opts){
       delete work._archStale[module];
     }
 
-    // v55: 自动触发质量评价
+    // v55: 自动触发质量评价 — 分数<90分自动迭代重写，最多3次
     var evalResult = null;
+    var _autoIterate = false;
     try {
       if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
         evalResult = QualityEngine.evaluate(result, module);
@@ -2894,17 +2915,65 @@ window.generateArchModule = async function(opts){
           work._archEval = work._archEval || {};
           work._archEval[module] = evalResult;
           try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-          // 显示修复按钮
-          var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
-          var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-          if(fixBtn && evalResult){
-            fixBtn.style.display = '';
-            var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
-            fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
+
+          var _curScore = evalResult.totalScore || 0;
+
+          // 自动迭代：< 90分 且 尚未迭代3次
+          if(_curScore < 90 && _iterationCount < 3){
+            // 构建加强提示：收集低分维度和问题列表
+            var _iterIssues = [];
+            if(evalResult.dimensions && evalResult.dimensions.length){
+              for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
+                var dim2 = evalResult.dimensions[_di2];
+                if(dim2.score !== undefined && dim2.max !== undefined){
+                  var _sRatio = dim2.score / dim2.max;
+                  if(_sRatio < 0.7 && dim2.issues && dim2.issues.length){
+                    _iterIssues.push('【' + dim2.name + '】' + dim2.issues.slice(0, 2).join('; '));
+                  }
+                }
+              }
+            }
+            if(evalResult.issues && evalResult.issues.length){
+              evalResult.issues.slice(0, 8).forEach(function(iss){
+                if(_iterIssues.indexOf(iss) === -1) _iterIssues.push(iss);
+              });
+            }
+
+            if(_iterIssues.length > 0){
+              var _iterHint = '⚠️ 上一次生成的问题（本次必须修正）：\n';
+              for(var _ii = 0; _ii < _iterIssues.length; _ii++){
+                _iterHint += '- ' + _iterIssues[_ii] + '\n';
+              }
+              // 加上 QualityEngine 的具体改法指导
+              try{
+                if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
+                  var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
+                  if(_fg) _iterHint += '\n【具体改法参考】\n' + smartTruncate(_fg, 1500);
+                }
+              } catch(e){}
+
+              if(typeof showToast === 'function') showToast('评分 ' + _curScore + '/100（第' + (_iterationCount+1) + '次），自动迭代改进中…', {duration: 4000});
+              _autoIterate = true;
+              // 不保存当前版本，直接重新生成（带加强提示）
+              await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
+            }
+          }
+
+          // 不迭代的情况：继续保存、显示修复按钮
+          if(!_autoIterate){
+            var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
+            var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
+            if(fixBtn && evalResult){
+              fixBtn.style.display = '';
+              var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
+              fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
+            }
           }
         }
       }
     } catch(evalErr) { console.warn('[自动评价] 异常:', evalErr); }
+
+    if(_autoIterate) return; // 已重新生成，后续 UI 由新调用处理
 
     // v55: 架构模块间一致性校验 — 标记依赖模块为"可能过期"
     var archDeps = { world: ['chars','outline','detail'], chars: ['outline','detail'], outline: ['detail'], detail: [] };
@@ -2936,6 +3005,7 @@ window.generateArchModule = async function(opts){
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
     if(evalResult && evalResult.totalScore !== undefined){
       completionMsg += ' | 质量：' + evalResult.grade + ' ' + evalResult.totalScore + '/100';
+      if(_iterationCount > 0) completionMsg += '（迭代' + (_iterationCount+1) + '次）';
       if(evalResult.totalScore < 60) completionMsg += ' ⚠️ 建议点击"评价"查看详情并修复';
     }
     showToast(completionMsg, {duration:5000});

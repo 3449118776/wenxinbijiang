@@ -4423,7 +4423,12 @@ async function startChapterPipeline() {
   }
 }
 
-async function aiWriteChapter(){
+async function aiWriteChapter(opts){
+  opts = opts || {};
+  var _writeIteration = opts._iteration || 0;
+  var _writeExtraHint = opts.extraHint || '';
+  var _writeBest = opts._prevBest || null;  // 之前的最佳结果
+
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
   var _editLockWorkId = work.id;
@@ -4472,67 +4477,93 @@ async function aiWriteChapter(){
   }
   let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
-  // ===== 骨架生成 + AI自检：先生成章纲骨架，确认符合用户指令后再继续 =====
+  // ===== 骨架生成 + AI自检：最多3次，不通过自动重写 =====
   var skeletonPassed = true;
+  var skFinalText = '';
   if(userCmd){
-    if(statusBar){
-      statusBar.style.display = 'block';
-      statusBar.style.background = '#fef3c7';
-      statusBar.style.color = '#92400e';
-      statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架自检（确认是否符合你的指令）…';
-    }
-
-    var skeletonPrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
-    skeletonPrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
-    skeletonPrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
-    skeletonPrompt += '【作品题材】' + getWorkGenre(work) + '\n';
+    var skBasePrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
+    skBasePrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
+    skBasePrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
+    skBasePrompt += '【作品题材】' + getWorkGenre(work) + '\n';
     if(work.detail){
-      // v57: 用当前卷细纲，而不是全文细纲
-      var _sd = getCurrentVolumeDetail(work, chapterIdx);
-      if (_sd && _sd.neighbor) {
-        skeletonPrompt += '【本卷细纲】' + smartTruncate(_sd.neighbor, 400) + '\n';
+      var _sd2 = getCurrentVolumeDetail(work, chapterIdx);
+      if (_sd2 && _sd2.neighbor) {
+        skBasePrompt += '【本卷细纲】' + smartTruncate(_sd2.neighbor, 400) + '\n';
       } else {
-        var detailChapters = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
-        var dIdx = chapterIdx + 1;
-        if(detailChapters.length > dIdx) skeletonPrompt += '【本章细纲】' + smartTruncate(detailChapters[dIdx], 400) + '\n';
+        var detailChapters2 = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
+        var dIdx2 = chapterIdx + 1;
+        if(detailChapters2.length > dIdx2) skBasePrompt += '【本章细纲】' + smartTruncate(detailChapters2[dIdx2], 400) + '\n';
       }
     }
-    skeletonPrompt += '\n请按以下格式输出：\n';
-    skeletonPrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
-    skeletonPrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
-    skeletonPrompt += '【结论】\n写"通过"或"不通过"。\n';
-    skeletonPrompt += '\n直接输出，不要加对话语前缀。';
+    skBasePrompt += '\n请按以下格式输出：\n';
+    skBasePrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
+    skBasePrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
+    skBasePrompt += '【结论】\n写"通过"或"不通过"。\n';
+    skBasePrompt += '\n直接输出，不要加对话语前缀。';
 
-    var skeletonResult = null;
-    try {
-      skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 300, true);
-    } catch(skErr) { console.warn('[章纲骨架] 失败:', skErr); }
-
-    if(!_checkStillSameWork('章纲骨架生成中')) return;
-
-    if(skeletonResult && skeletonResult.trim()){
-      var skText = skeletonResult.trim();
-      var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-      var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
-
-      if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
-        skeletonPassed = false;
-        if(statusBar){
-          statusBar.style.background = '#fef3c7';
-          statusBar.style.color = '#92400e';
-          statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架自检不通过，但仍会继续生成（已注入修正提示）';
-        }
-        showToast('⚠️ 章纲骨架与指令不完全匹配，AI已被告知问题', {duration: 4000});
-      } else {
-        if(statusBar){
-          statusBar.style.background = '#dcfce7';
-          statusBar.style.color = '#166534';
-          statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检，开始生成正文…';
-        }
+    var skAttemptResult = null;
+    for(var skAt = 1; skAt <= 3; skAt++){
+      if(statusBar){
+        statusBar.style.display = 'block';
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架（第' + skAt + '/3次）…';
       }
-      // 将骨架注入 prompt 开头，作为生成指引
-      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skText + '\n\n' + prompt;
+
+      var skPromptNow = skBasePrompt;
+      if(skAttemptResult && skAttemptResult.trim()){
+        skPromptNow += '\n\n【⚠️ 上一次骨架自检不通过，请根据用户指令和以下问题重写骨架】\n' + skAttemptResult.slice(0, 400);
+      }
+
+      try {
+        var skResult = await callRealAPIWithFallback(skPromptNow, null, 'default', 300, true);
+        if(!_checkStillSameWork('章纲骨架生成中')) return;
+
+        if(skResult && skResult.trim()){
+          var skText2 = skResult.trim();
+          var conMatch = skText2.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+          var con = conMatch ? conMatch[1].trim() : '';
+
+          if(con && (con.indexOf('不通过') >= 0 || con.indexOf('不符合') >= 0)){
+            skAttemptResult = skText2;
+            if(skAt < 3){
+              showToast('⚠️ 骨架第' + skAt + '次自检不通过，正在自动重写…', {duration: 2000});
+              continue;
+            } else {
+              skeletonPassed = false;
+              skFinalText = skText2;
+              if(statusBar){
+                statusBar.style.background = '#fef3c7';
+                statusBar.style.color = '#92400e';
+                statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架3次自检仍不通过，已注入修正提示继续生成';
+              }
+              break;
+            }
+          } else {
+            skeletonPassed = true;
+            skFinalText = skText2;
+            if(statusBar){
+              statusBar.style.background = '#dcfce7';
+              statusBar.style.color = '#166534';
+              statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
+            }
+            break;
+          }
+        } else {
+          if(skAt === 3) break;
+        }
+      } catch(skErr2) { console.warn('[章纲骨架] 失败:', skErr2); }
     }
+
+    // 注入骨架到 prompt 开头
+    if(skFinalText){
+      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText + '\n\n' + prompt;
+    }
+  }
+
+  // ===== 质量迭代：如果是迭代重写，注入上一次的问题加强提示 =====
+  if(_writeExtraHint && _writeExtraHint.trim()){
+    prompt = '【⚠️ 本次生成必须修正以下问题（上一次生成质量不足90分，正在迭代优化）】\n' + _writeExtraHint.trim() + '\n\n' + prompt;
   }
 
   // 显示输入token估算 + 进入正文生成阶段
