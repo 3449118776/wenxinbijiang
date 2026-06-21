@@ -632,7 +632,15 @@ function saveModuleEdit() {
   if (!textarea) return;
 
   w[_selectedModule] = textarea.value;
-  try { DB.save(); } catch(e) { console.error('Save error:', e); }
+  try { DB.saveWork(w); } catch(e) { console.error('Save error:', e); }
+  try { if (DB.flush) DB.flush(); } catch(e) {}
+  try {
+    var _c = window.cloud;
+    if (_c && _c.isLoggedIn()) {
+      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+    }
+  } catch(e) {}
   showToast('已保存');
   renderLevel3();
 }
@@ -1070,7 +1078,15 @@ function addChapter() {
   if (!w.chapters) w.chapters = [];
   var num = w.chapters.length + 1;
   w.chapters.push({title: '第' + num + '章', content: '', confirmed: false});
-  try { DB.save(); } catch(e) {}
+  try { DB.saveWork(w); } catch(e) {}
+  try { if (DB.flush) DB.flush(); } catch(e) {}
+  try {
+    var _c = window.cloud;
+    if (_c && _c.isLoggedIn()) {
+      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+    }
+  } catch(e) {}
   showToast('已添加第' + num + '章');
   renderChaptersPage();
 }
@@ -1083,7 +1099,15 @@ function moveChapter(idx, dir) {
   var temp = w.chapters[idx];
   w.chapters[idx] = w.chapters[newIdx];
   w.chapters[newIdx] = temp;
-  try { DB.save(); } catch(e) {}
+  try { DB.saveWork(w); } catch(e) {}
+  try { if (DB.flush) DB.flush(); } catch(e) {}
+  try {
+    var _c = window.cloud;
+    if (_c && _c.isLoggedIn()) {
+      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+    }
+  } catch(e) {}
   showToast('已移动');
   renderChaptersPage();
 }
@@ -1093,7 +1117,15 @@ function deleteChapter(idx) {
   if (!w || !w.chapters) return;
   if (!confirm('确定删除第' + (idx+1) + '章「' + (w.chapters[idx].title || '') + '」？')) return;
   w.chapters.splice(idx, 1);
-  try { DB.save(); } catch(e) {}
+  try { DB.saveWork(w); } catch(e) {}
+  try { if (DB.flush) DB.flush(); } catch(e) {}
+  try {
+    var _c = window.cloud;
+    if (_c && _c.isLoggedIn()) {
+      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+    }
+  } catch(e) {}
   showToast('已删除');
   renderChaptersPage();
 }
@@ -1167,18 +1199,28 @@ async function confirmDelete() {
   btns.forEach(function(b){ b.disabled = true; b.textContent = '删除中...'; });
   
   try {
+    var cloudDeleted = false;
     if (window.cloud && window.cloud.isLoggedIn()) {
       try {
         await window.cloud.deleteWork(deleteTargetId);
+        cloudDeleted = true;
       } catch(e) {
         console.warn('云端删除失败:', e);
+        // 云端删除失败，加入 _cloudDeleteList，下次 smartSync 时重试
+        try {
+          if (DB && !DB._cloudDeleteList) DB._cloudDeleteList = [];
+          if (DB && DB._cloudDeleteList.indexOf(deleteTargetId) < 0) {
+            DB._cloudDeleteList.push(deleteTargetId);
+          }
+          if (DB && DB.flush) DB.flush();
+        } catch(listErr) {}
       }
     }
     
     DB.deleteWork(deleteTargetId);
     closeDeleteModal();
     renderLevel2();
-    showToast('已删除');
+    showToast(cloudDeleted ? '已删除' : '已删除本地（云端稍后重试）');
   } finally {
     btns.forEach(function(b){ b.disabled = false; });
     document.querySelector('.btns button').textContent = '取消';
@@ -1209,6 +1251,13 @@ function openTrash() {
 function closeTrash() { document.getElementById('trash-modal').classList.remove('open'); }
 function restoreOne(id) {
   if (DB.restoreFromTrash && DB.restoreFromTrash(id)) {
+    try {
+      var _c = window.cloud;
+      if (_c && _c.isLoggedIn()) {
+        if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 1500);
+      }
+    } catch(e) {}
     showToast('已恢复');
     openTrash();
     renderLevel2();

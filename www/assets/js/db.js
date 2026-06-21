@@ -1338,6 +1338,13 @@ const DB = {
     if (idx < 0) return false;
     var w = this._trash[idx].work;
     this._trash.splice(idx, 1);
+    // 恢复后标记为脏并递增版本号，确保云端能识别为需要重新推送
+    try { this.ensureWorkFingerprint(w); } catch(e) {}
+    try {
+      var oldV = parseInt(w._version) || 0;
+      w._version = oldV + 1;
+    } catch(e) { w._version = 1; }
+    w._dirty = true;
     if (!this.works.find(function(x) { return x.id === w.id; })) this.works.push(w);
     this.flush();
     return true;
