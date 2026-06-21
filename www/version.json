@@ -1,1 +1,1 @@
-{"version":"1.0.1","versionCode":2,"build":"20260621010000","releaseNotes":"按卷细纲优化 + 免费模式修复\n- 正文写作按卷切分细纲，减少 token 浪费\n- 卷信息显示在状态条中，生成进度可视化\n- 修复 free-mode.js 文件损坏问题\n- 作品隔离机制增强\n- 记忆锚点优先架构摘要","downloadUrl":"https://wxbj-main.pages.dev/app-debug.apk"}
+{"version":"1.1.0","versionCode":3,"build":"20260621020000","releaseNotes":"架构生成 + 正文写作全面优化\n- AI内部自动完成3次迭代（架构+细纲+正文），不再外部循环调用\n- 新增剧情推进检测（避免整章写完什么都没发生）\n- 新增黄金三章检测（前3章必须有冲突/爽点/发现）\n- 禁止万能形容/空泛推进模板化表达\n- 黄金三章规则加入正文生成必选项\n- 跨模块记忆同步增强一致性\n- 静态资源缓存优化，页面加载提速","downloadUrl":"https://wxbj-main.pages.dev/app-debug.apk"}

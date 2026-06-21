@@ -246,6 +246,39 @@
     }
     dims.push(d16);
 
+    // ===== v59: 剧情推进检测 — 专治"整章写完什么都没发生" =====
+    var d17 = { name: '剧情推进', score: 10, max: 10, weight: 0.12, issues: [], strengths: [] };
+    // 正向信号：角色决策/动作/战斗/发现等明确事件推进
+    var actionVerb = /(冲|扑|斩|劈|杀|打|踢|追|逃|躲|退|撤|攻击|击败|杀死|收服|突破|斩杀|重创|击退|击伤|击伤|击杀|击散|击溃|击退|击退|袭击|偷袭|突击|突袭|强攻|围攻|包围|拦截|阻击|追击|追赶|追逐|追缉|追捕|追剿|追逼|堵截|拦击|阻截|截击)/;
+    var decisionVerb = /(决定|选择|打算|计划|决心|决意|决定了|拿定主意|打定主意|打定主意|下决心|下决心|做决定|做决策|做决定|做选择|做抉择|做决定|选定|选中|选好|选准|选妥|选好|选好|选好|选好|前往|奔向|赶赴|奔赴|前往|奔向|赶赴|奔赴|前往|奔向|赶赴|奔赴)/;
+    var discoveryVerb = /(发现|找到|寻回|找到|得到|获得|获取|取得|得知|知道|明白|懂了|原来|其实|竟然|居然|忽然|突然|就在这时|下一刻|紧接着|随后|于是|因此|所以|结果|最终|终于|于是|随后|紧接着|之后|之后便|随后就|于是就|结果|竟然|居然|原来|其实|不料|没想到|谁知|哪知|哪知|谁知|不料|没想到|谁知|哪知|竟|却|但|可是|然而|只是|不过|不料|不想|没想到|谁知|哪知|竟|却|但是|可是|然而|只是|不过|只是|不过|只是|不过|只是|不过|只是|不过|只是|不过)/;
+    var forwardSignals = 0;
+    var sentences = content.split(/[。！？\n]/);
+    for (var si = 0; si < sentences.length; si++) {
+      var s = sentences[si];
+      if (s && s.length > 5 && s.length < 150) {
+        if (actionVerb.test(s) || decisionVerb.test(s) || discoveryVerb.test(s)) forwardSignals++;
+      }
+    }
+    // 反向信号：纯描写/心理/对话但无具体事件变化
+    var stagnantSignals = countMatches(content, /(回忆|回想|想起|忆起|记忆|心中暗道|心里想|心想|内心|暗自|暗暗|自语|自言自语|对自己说|对自己道)/g);
+    // 检测：每500字至少应该有1个推进信号
+    var expectedForwards = Math.max(1, Math.floor(len / 500));
+    if (forwardSignals >= expectedForwards) {
+      d17.score = Math.min(10, 6 + Math.floor(forwardSignals / expectedForwards));
+      d17.strengths.push('有明确剧情推进(' + forwardSignals + '处)');
+    } else if (forwardSignals >= Math.max(1, expectedForwards / 2)) {
+      d17.score = 5; d17.issues.push('剧情推进信号偏少，有拖节奏嫌疑');
+    } else {
+      d17.score = 3; d17.issues.push('本章几乎无剧情推进，可能只是纯描写或回忆');
+    }
+    if (stagnantSignals >= 3 && len > 1000) {
+      d17.score -= 1;
+      d17.issues.push('心理独白/回忆过多(' + stagnantSignals + '处)，削弱事件推进感');
+    }
+    d17.score = Math.max(1, d17.score);
+    dims.push(d17);
+
     // D0: 用户指令遵循度（10分）— 检查生成内容是否遵循了用户的提示词指令
     // 提取用户指令（通过 opts 传入）
     var userCmd = (typeof work !== 'undefined' && work && work._lastUserCmd) ? work._lastUserCmd : '';
