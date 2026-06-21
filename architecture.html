@@ -2452,7 +2452,9 @@ window.generateArchModule = async function(opts){
     }
 
     // 2.5 AI分工搜索：先生成一份"题材市场调研报告"，作为生成上下文
+    // v59fix: isFix=true 时跳过市场调研，直接用已有调研结果，节省迭代时间
     var marketResearch = '';
+    if(!opts.isFix){ // 非迭代修复模式才做市场调研
     var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
     var plotType = (work && work.plotType) || (work && work.category && work.category.cat2) || '';
     var platform = '起点';
@@ -2488,6 +2490,7 @@ window.generateArchModule = async function(opts){
         if(typeof showToast === 'function') showToast('✅ 市场调研完成，开始生成…', {duration: 2000});
       }
     } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
+    } // end of if(!opts.isFix) for market research
 
     // 2.6 长记忆注入前先同步架构内容到记忆（同步所有已有模块，确保当前模块能读到其他模块的记忆锚点）
     try {
