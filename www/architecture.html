@@ -941,7 +941,7 @@ function toggleArchMenu(module, btnEl) {
     menu.classList.add('open');
     try {
       // 从按钮位置定位（按钮可能是被点击的 .sec-btn，或者从 currentTarget 得到）
-      var btn = btnEl || (window.event && window.event.currentTarget || document.querySelector('#page-' + module + ' .arch-more-wrap .sec-btn');
+      var btn = btnEl || (window.event && window.event.currentTarget) || document.querySelector('#page-' + module + ' .arch-more-wrap .sec-btn');
       if (!btn) return;
       var rect = btn.getBoundingClientRect();
       var menuHeight = menu.offsetHeight || 200;
@@ -1780,8 +1780,18 @@ function buildArchPrompt(module, idea, work, extraHint){
   }
 
   // ===== 外部强化提示（如：按评价加强时注入针对性要求）=====
+  // v59fix: 迭代时 extraHint 是"精准修补指令"，不是"新指令"——必须强调原始 idea 不可改变
   if(extraHint && extraHint.trim()){
-    moduleBlock += '\n\n【针对性加强提示 — 本次生成特别关注以下问题】\n' + extraHint.trim() + '\n';
+    if(opts.isFix){
+      // 迭代修复模式：明确告知 AI 这是"在原有基础上精准修补"，不要偏离原始指令
+      moduleBlock += '\n\n【🔥 精准修补指令 — 重要提醒】\n';
+      moduleBlock += '⚠️ 原始用户核心诉求是生成基础，**绝对不可改变或重新解读**。\n';
+      moduleBlock += '⚠️ 本次 extraHint **只是在已有内容上进行精准修补**，不要重新理解整体方向。\n';
+      moduleBlock += '⚠️ 如果修补意见与原始诉求冲突，**原始诉求优先**。\n\n';
+      moduleBlock += '【本次必须修正的问题】\n' + extraHint.trim() + '\n';
+    } else {
+      moduleBlock += '\n\n【针对性加强提示 — 本次生成特别关注以下问题】\n' + extraHint.trim() + '\n';
+    }
   }
 
   // ===== 结尾：明确输出格式要求（字数要求已全面提升，保证内容完整）=====
@@ -1803,6 +1813,29 @@ function buildArchPrompt(module, idea, work, extraHint){
   tail += '- 内容必须充实具体，避免干巴巴的条目罗列；世界观要有代入感；人设要有血有肉；大纲要有起承转合；细纲要明确到每章的冲突和悬念\n';
   tail += '- 细纲模块建议生成 **' + detailChapters + ' 章**，每章都要包含明确的冲突推进和章末钩子\n';
   tail += '- 如果你认为用户核心诉求与题材有矛盾或需要调整，请在内容末尾用"【作者备注】"单独提出建议（100 字以内）\n';
+
+  // ===== v59fix: 自动迭代指令 — 使用quality.js实际维度，AI内部完成3次迭代 =====
+  // 根据module动态设置各模块的实际维度名称
+  var _iterDimNames = {
+    world: ['D0指令遵循', 'D1设定完整度', 'D2独特创新', 'D3冲突张力', 'D4社会结构', 'D5叙事潜力', 'D6篇幅合理'],
+    chars: ['D0指令遵循', 'D1人物立体度', 'D2关系网络', 'D3反派/对抗力', 'D4角色差异化', 'D5情感共鸣', 'D6篇幅合理'],
+    outline: ['D0指令遵循', 'D1结构清晰', 'D2节奏把控', 'D3伏笔设计', 'D4主线清晰', 'D5冲突递进', 'D6篇幅合理'],
+    detail: ['D0指令遵循', 'D1章节连贯', 'D2钩子密度', 'D3信息释放', 'D4节奏控制', 'D5爽点分布', 'D6篇幅合理']
+  };
+  var _dimList = _iterDimNames[module] || _iterDimNames.world;
+  tail += '\n\n【🔥 自动迭代指令（核心机制，必须遵守）】\n';
+  tail += '你输出完整内容后，必须按照以下7个评分维度进行自我评价：\n';
+  for(var _di = 0; _di < _dimList.length; _di++){
+    tail += (_di + 1) + '. ' + _dimList[_di] + '（满分10分，低于9分必须修改）\n';
+  }
+  tail += '【迭代规则】如果任何维度低于9分，或总分低于85分，你必须：\n';
+  tail += '  ① 指出具体问题（哪个维度、多少分、什么问题）\n';
+  tail += '  ② 只针对问题部分精准修补，不重新生成整体\n';
+  tail += '  ③ 重新评分，直到所有维度≥9分或用完3次迭代机会\n';
+  tail += '【输出格式】\n';
+  tail += '=== 第1版内容 ===\n[内容]\n=== 第1次自评 ===\n[逐维度评分：维度名 分/10 理由]\n[总分/70]\n[如需修改] → 精准修补建议 → 回到第1版继续修改\n';
+  tail += '【最多3次迭代，最终输出必须包含所有维度的评分】\n';
+  tail += '⚠️ 重要：原始用户核心诉求是基础，迭代时不得偏离。只针对问题部分精准修补。\n';
 
   // 输出前提示：先估算当前输入长度，若过长则进一步压缩
   var prePrompt = '';
@@ -2452,7 +2485,9 @@ window.generateArchModule = async function(opts){
     }
 
     // 2.5 AI分工搜索：先生成一份"题材市场调研报告"，作为生成上下文
+    // v59fix: isFix=true 时跳过市场调研，直接用已有调研结果，节省迭代时间
     var marketResearch = '';
+    if(!opts.isFix){ // 非迭代修复模式才做市场调研
     var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
     var plotType = (work && work.plotType) || (work && work.category && work.category.cat2) || '';
     var platform = '起点';
@@ -2461,18 +2496,19 @@ window.generateArchModule = async function(opts){
       // 去掉重复 showLoading，改用 updateLoadingProgress — 进度条连续推进不重置
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
-      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
+      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份**严格围绕用户核心诉求**的市场调研报告。\n\n';
       researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
       if(plotType) researchPrompt += '【二级细分】' + plotType + '\n';
       researchPrompt += '【发布平台】' + platform + '\n';
-      if(idea && idea.trim()) researchPrompt += '【用户核心诉求 · 必须严格遵循】\n' + idea.trim() + '\n';
-      researchPrompt += '\n请分析以下内容（总字数控制在1500字以内）：\n';
-      researchPrompt += '1. 2025-2026年该题材最火的3-5部代表作（书名+核心卖点+为什么火）\n';
-      researchPrompt += '2. 当前读者最买单的核心元素（如：反套路、系统流、凡人流等）\n';
-      researchPrompt += '3. 该题材当前已饱和/读者厌倦的套路（避免踩坑）\n';
-      researchPrompt += '4. 2026年该题材的新趋势和机会点（差异化方向）\n';
-      researchPrompt += '5. 基于以上分析，给出3条具体的创作建议\n';
-      researchPrompt += '\n直接输出分析结果，不要加对话语前缀。';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求 · 所有推荐必须符合此诉求】\n' + idea.trim() + '\n';
+      researchPrompt += '\n⚠️ 重要：你推荐的方向必须100%符合用户核心诉求。如果市场趋势与用户诉求冲突，以用户诉求为准。\n';
+      researchPrompt += '\n请分析以下内容（总字数控制在1200字以内）：\n';
+      researchPrompt += '1. 与用户诉求【' + (idea ? idea.trim().substring(0,15) : '') + '】最匹配的代表作和核心元素（不匹配的忽略）\n';
+      researchPrompt += '2. 用户诉求方向上，读者最买单的卖点是什么\n';
+      researchPrompt += '3. 用户诉求方向上，读者已厌倦的套路（避免踩坑）\n';
+      researchPrompt += '4. 在用户诉求框架内，2026年的差异化机会点\n';
+      researchPrompt += '5. 基于以上分析，给出3条符合用户诉求的创作建议\n';
+      researchPrompt += '\n直接输出分析结果，不要加对话语前缀。违背用户诉求的方向一律跳过。';
 
       var researchResult = null;
       try {
@@ -2487,6 +2523,7 @@ window.generateArchModule = async function(opts){
         if(typeof showToast === 'function') showToast('✅ 市场调研完成，开始生成…', {duration: 2000});
       }
     } catch(mrErr) { console.warn('[市场调研] 异常:', mrErr); }
+    } // end of if(!opts.isFix) for market research
 
     // 2.6 长记忆注入前先同步架构内容到记忆（同步所有已有模块，确保当前模块能读到其他模块的记忆锚点）
     try {
@@ -2914,9 +2951,9 @@ window.generateArchModule = async function(opts){
 
         var _curScore = evalResult.totalScore || 0;
 
-        // v57: 基于 QualityEngine 权威评价的精准迭代修复
-        // 分数 < 90 且迭代 < 3 次 → 按 quality.js 指出的问题点精准重写
-        if(_curScore < 90 && _iterationCount < 3){
+        // v59fix: AI已在内部完成3次迭代，外部不再重新调用。只做评分记录
+        _autoIterate = false;
+        /* // 已禁用外部迭代，统一由AI内部迭代完成
           var _iterIssues = [];
           if(evalResult.dimensions && evalResult.dimensions.length){
             for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
@@ -2951,7 +2988,7 @@ window.generateArchModule = async function(opts){
             _autoIterate = true;
             await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
           }
-        }
+        // */
 
         if(!_autoIterate){
           var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
@@ -3269,15 +3306,15 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     }
   }
 
-  // 2026 题材趋势（精简版）
   var trend = getTrendHint2026(work);
   if(trend){
-    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 600) + '\n\n';
+    // v59: 题材趋势必须过滤，只选与用户指令相符的方向
+    prompt += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
   }
 
-  // AI分工搜索：市场调研报告（仅供参考，灵感来源，不是硬性要求）
+  // AI分工搜索：市场调研报告（必须严格基于用户指令方向，不得推荐违背指令的内容）
   if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求 · AI搜索2025-2026年市场数据】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+    prompt += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
   }
 
   // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
@@ -4215,10 +4252,11 @@ window.generateWithAutoIterate = async function(opts) {
       return;
     }
     
-    var currentScore = evalResult.totalScore || 0;
-    var iterationCount = 0;
-    
-    // 第三步：迭代直到达标
+    // v59fix: generateArchModule 内部已完成3次迭代，外部不再迭代
+    // 直接跳到完成状态
+    currentScore = evalResult.totalScore || 0;
+    iterationCount = 0;
+    /* // 已禁用外部迭代，内部迭代已在 generateArchModule 中完成
     while (currentScore < targetScore && iterationCount < maxIterations) {
       iterationCount++;
       
@@ -4281,6 +4319,7 @@ window.generateWithAutoIterate = async function(opts) {
       
       currentScore = evalResult.totalScore || 0;
     }
+    // */
     
     // 完成：显示最终评价
     if (typeof updateLoadingProgress === 'function') {
