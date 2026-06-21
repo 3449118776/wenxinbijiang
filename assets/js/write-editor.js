@@ -94,8 +94,8 @@ var PLATINUM_RULES = {
 function getPlatinumRulesHint(work){
   var keys = Object.keys(PLATINUM_RULES);
   var selected = [];
-  // 必选核心：冰山对话3条 + 禁读心 + 视角锁 + 情绪峰值 + 节奏密度 + 逻辑意外 + 地文对话 + 正文公式
-  var mustSelect = ['iceberg_dialogue', 'iceberg_micro_action', 'iceberg_answer_nonanswer', 'no_mind_reading', 'perspective_locked', 'emotion_peak', 'rhythm_grid', 'logic_surprise', 'ground_dialogue_cycle', 'chapter_formula'];
+  // 必选核心：冰山对话3条 + 禁读心 + 视角锁 + 情绪峰值 + 节奏密度 + 逻辑意外 + 地文对话 + 正文公式 + 黄金三章
+  var mustSelect = ['iceberg_dialogue', 'iceberg_micro_action', 'iceberg_answer_nonanswer', 'no_mind_reading', 'perspective_locked', 'emotion_peak', 'rhythm_grid', 'logic_surprise', 'ground_dialogue_cycle', 'chapter_formula', 'first3'];
   for(var i = 0; i < mustSelect.length; i++){
     if(PLATINUM_RULES[mustSelect[i]]) selected.push(PLATINUM_RULES[mustSelect[i]]);
   }

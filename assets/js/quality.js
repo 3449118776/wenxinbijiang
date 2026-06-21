@@ -525,6 +525,24 @@
     if (chapterCount > 0 && pipeCount >= chapterCount) { d1.score = Math.min(10, d1.score + 1); d1.strengths.push('格式规范'); }
     dims.push(d1);
 
+    // ===== v59: 黄金三章检测 — 专治"前3章没按黄金法则设计" =====
+    var d_g3 = { name: '黄金三章', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (chapterCount >= 3) {
+      // 取前3章的内容（前2000字基本覆盖前3章细纲）
+      var g3Text = content.substring(0, 2000);
+      var hasConflict = /冲突|危机|困境|绝境|追杀|威胁|压迫|生死/.test(g3Text);
+      var hasGoldfinger = /金手指|系统|外挂|天赋|血脉|觉醒|突破|晋升/.test(g3Text);
+      var hasShuangOrHigh = /爽点|打脸|碾压|逆袭|翻盘|震惊|高潮|转折|爆发|逆转|翻身/.test(g3Text);
+      if (!hasConflict) { d_g3.score -= 3; d_g3.issues.push('前3章缺少冲突/危机'); }
+      if (!hasGoldfinger) { d_g3.score -= 2; d_g3.issues.push('前3章未展示金手指/能力'); }
+      if (!hasShuangOrHigh) { d_g3.score -= 2; d_g3.issues.push('前3章缺少爽点或高潮'); }
+      if (d_g3.score >= 10) d_g3.strengths.push('黄金三章要素齐全');
+      d_g3.score = Math.max(1, d_g3.score);
+    } else {
+      d_g3.score = 5; d_g3.issues.push('章节不足3章，无法评估黄金三章');
+    }
+    dims.push(d_g3);
+
     var d2 = { name: '钩子密度', score: 5, max: 10, weight: 0.18, issues: [], strengths: [] };
     var hookCount = countMatches(content, /(原来|其实|秘密|真正|不仅|更|可|却|谁也没想到|就在这时|突然|意外|竟然|居然|反转|逆转|揭秘|真相|才发现|这才知道|才明白|终于|最终|结局|谜底|揭开|揭晓|暴露|出现|现身|降临|到来|到来之际|危险|危机|威胁|逼近|临近|将至|迫在眉睫|千钧一发|惊险|危急|紧急|紧迫|刻不容缓|争分夺秒|分秒必争|时不我待|机不可失|时不再来|错过|抓住|把握|利用|趁机|借机|乘机|趁势|顺势|趁虚而入|乘虚而入|可乘之机|有机可乘)/g);
     if (chapterCount > 0 && hookCount >= chapterCount) { d2.score = 8; d2.strengths.push('钩子密度充足'); }
