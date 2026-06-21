@@ -4431,6 +4431,8 @@ async function aiWriteChapter(opts){
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
+  // 启动进度条模拟（显示在对话框和 architecture.html 页面内）
+  if(typeof showLoading === 'function') showLoading('正在生成章节…');
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
   var _editLockWorkId = work.id;
   var _editLockFp = getCurrentWorkFingerprint(work);
@@ -4607,6 +4609,9 @@ async function aiWriteChapter(opts){
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
   // v46：多AI模式时使用 callMultiAI 并行请求
+  if (typeof updateLoadingProgress === 'function') {
+    updateLoadingProgress(25, '🤖 AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
+  }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   let result = await aiCaller(prompt, null, 'write_normal', 12000); // 目标 5000-8000 字，大模型可承受更长输出
 
@@ -4782,87 +4787,213 @@ async function aiWriteChapter(opts){
       }
     }
     
-    // ===== 质量迭代：评分不足90分 或 用户指令未遵循 且 迭代次数<3次时，自动重写优化
-    // 关键修复1：每轮都记录当前最佳结果，越写越差时自动回退
-    // 关键修复2：不再让 AI 从零重写，而是基于上一轮原文进行改进（保留优点+针对问题优化）
-    var _shouldIterate = false;
-    var _iterHintText = '';
-    // 当前轮分数
-    var _currentScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
-    // 更新最佳结果：如果本轮分数更高，或没有上一轮最佳，则本轮就是新的最佳
-    var _newBest = _writeBest;
-    if (!_writeBest || _currentScore > _writeBest.score) {
-      _newBest = { text: result, score: _currentScore };
+    // ===== 质量迭代：改为循环 + 用户确认机制
+    // 每轮生成后显示质量报告，用户选择：继续迭代 / 保存 / 重新生成
+    // 如果分数已≥90，仍显示报告让用户确认是否满意
+    var _iterationLoop = 0;
+    var _loopBest = _writeBest || null;
+    var _loopSkeleton = _prevSkeleton || skFinalText || '';
+    var _loopResult = result;
+    var _loopScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
+    var _loopHint = _writeExtraHint || '';
+    var _userChoseSave = false;
+
+    // 更新最佳结果
+    if (!_loopBest || _loopScore > _loopBest.score) {
+      _loopBest = { text: _loopResult, score: _loopScore };
     }
-    // 触发条件：总分<90 或 指令遵循维度<6（严重偏离用户要求），且迭代次数<3
-    var _cmdFollowScore = 10;
-    if (_qReport && _qReport.dimensions) {
-      for (var _df = 0; _df < _qReport.dimensions.length; _df++) {
-        if (_qReport.dimensions[_df].name === '指令遵循') {
-          _cmdFollowScore = _qReport.dimensions[_df].score;
-          break;
-        }
-      }
+
+    // 更新进度条（生成完成，进入评价阶段）
+    if (typeof updateLoadingProgress === 'function') {
+      var _basePct = 35;
+      updateLoadingProgress(_basePct, '📊 第' + (_iterationLoop + 1) + '轮生成完成，正在评价…');
     }
-    // 安全机制：如果本轮分数比上一轮最佳低5分以上，说明越改越差，直接用最佳结果，不再迭代
-    var _scoreDropped = _writeBest && _currentScore < _writeBest.score - 5;
-    if (_scoreDropped) {
-      if (statusBar) {
-        statusBar.style.background = '#fef3c7';
-        statusBar.style.color = '#92400e';
-        statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 本次迭代质量下降，回退到上一轮最佳版本（' + _writeBest.score + '分）';
-      }
-      result = _writeBest.text;
-      _currentScore = _writeBest.score;
-      // 不再继续迭代，直接保存
-    } else if (_qReport && typeof _qReport.score === 'number' && _writeIteration < 3 && (_qReport.score < 90 || _cmdFollowScore < 6)) {
-      _shouldIterate = true;
-      var _hintLines = [];
-      // 提示改为：列出需要改进的具体问题（更精准、更正面）
-      _hintLines.push('当前评分 ' + _qReport.score + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
-      // 收集具体问题（从各维度issues中提取，每维度不超过2条）
-      if (_qReport.dimensions && _qReport.dimensions.length) {
-        var _dimCount = 0;
-        for (var _di = 0; _di < _qReport.dimensions.length; _di++) {
-          var _dim = _qReport.dimensions[_di];
-          if (_dim && (_dim.score / _dim.max) < 0.85 && _dimCount < 3) {
-            if (_dim.issues && _dim.issues.length) {
-              _hintLines.push('- ' + _dim.name + '：' + _dim.issues.slice(0, 1).join('；'));
-              _dimCount++;
-            }
+
+    while (true) {
+      // 显示当前结果在编辑器
+      var _chForDisplay = work.chapters[chapterIdx] || {};
+      _chForDisplay.content = _loopResult;
+      document.getElementById('editor').value = _loopResult;
+      updateWordCount();
+
+      // 构建质量报告信息
+      var _cmdFollowScore = 10;
+      if (_qReport && _qReport.dimensions) {
+        for (var _df2 = 0; _df2 < _qReport.dimensions.length; _df2++) {
+          if (_qReport.dimensions[_df2].name === '指令遵循') {
+            _cmdFollowScore = _qReport.dimensions[_df2].score;
+            break;
           }
         }
       }
-      // 用户指令遵循度问题（如果存在）
-      if (_cmdFollowScore < 6 && work._lastUserCmd) {
-        _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
+
+      // 进度更新到评价完成
+      if (typeof updateLoadingProgress === 'function') {
+        var _evalPct = Math.min(90, 35 + _iterationLoop * 20);
+        updateLoadingProgress(_evalPct, '📊 第' + (_iterationLoop + 1) + '轮 · ' + _loopScore + '分 · 等待确认…');
       }
-      // 先列出本轮的优点（让 AI 明确知道要保留什么）
-      if (_qReport && _qReport.strengths && _qReport.strengths.length) {
-        _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
+
+      // 显示迭代确认对话框（异步等待用户选择）
+      var _userChoice = 'save';
+      if (typeof window.showIterationReviewDialog === 'function') {
+        try {
+          _userChoice = await window.showIterationReviewDialog(_qReport, _loopResult, _iterationLoop + 1, _loopBest);
+        } catch(e) {
+          console.warn('迭代对话框异常，当作保存处理:', e);
+          _userChoice = 'save';
+        }
       }
-      _iterHintText = _hintLines.join('\n');
-    }
-    
-    if (_shouldIterate) {
-      if (statusBar) {
-        statusBar.style.background = '#fef3c7';
-        statusBar.style.color = '#92400e';
-        statusBar.textContent = '🔄 ' + _stageInfo + ' · 当前' + _currentScore + '分，第' + (_writeIteration + 1) + '次迭代优化中…（保留上一轮好内容，只改问题）';
+
+      if (_userChoice === 'save') {
+        // 用户选择保存
+        _userChoseSave = true;
+        result = _loopResult;
+        break;
+      } else if (_userChoice === 'regenerate') {
+        // 用户选择重新生成：从0开始，不保留上一轮内容
+        _iterationLoop = 0;
+        _loopBest = null;
+        _loopHint = '';
+        _userChoseSave = false;
+        // 需要跳出当前循环，让外层处理"重新生成"的逻辑
+        // 重新调用自身生成（从0开始）
+        if (statusBar) {
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '🔁 用户要求重新生成…';
+        }
+        // 直接 return，让外层 handler 重新触发生成
+        return;
+      } else {
+        // 用户选择继续迭代（_userChoice === 'continue'）
+        _iterationLoop++;
+        if (_iterationLoop >= 3) {
+          // 达到最大迭代次数，自动保存
+          showToast('已达到最大迭代次数（3次），自动保存当前最佳版本', 4000);
+          _userChoseSave = true;
+          result = _loopBest ? _loopBest.text : _loopResult;
+          break;
+        }
+        // 构建下一轮迭代提示
+        var _nextHintLines = [];
+        _nextHintLines.push('当前评分 ' + _loopScore + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
+        // 收集具体问题
+        if (_qReport && _qReport.dimensions && _qReport.dimensions.length) {
+          var _dimCount = 0;
+          for (var _di2 = 0; _di2 < _qReport.dimensions.length; _di2++) {
+            var _dim2 = _qReport.dimensions[_di2];
+            if (_dim2 && (_dim2.score / _dim2.max) < 0.85 && _dimCount < 3) {
+              if (_dim2.issues && _dim2.issues.length) {
+                _nextHintLines.push('- ' + _dim2.name + '：' + _dim2.issues.slice(0, 1).join('；'));
+                _dimCount++;
+              }
+            }
+          }
+        }
+        if (_cmdFollowScore < 6 && work._lastUserCmd) {
+          _nextHintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
+        }
+        if (_qReport && _qReport.strengths && _qReport.strengths.length) {
+          _nextHintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
+        }
+        _loopHint = _nextHintLines.join('\n');
+
+        if (statusBar) {
+          statusBar.style.background = '#6366f1';
+          statusBar.style.color = '#fff';
+          statusBar.textContent = '🔄 第' + (_iterationLoop + 1) + '轮迭代中…（基于上一轮' + _loopScore + '分改进）';
+        }
+        showToast('继续第' + (_iterationLoop + 1) + '轮迭代…', 2000);
+
+        // ===== 重新构建 prompt 进行下一轮生成 =====
+        if (!_checkStillSameWork('迭代生成中')) return;
+
+        // 骨架复用（不在重新生成）
+        var _nextSkeleton = _loopSkeleton;
+
+        // 构建下一轮 prompt
+        var _nextPrompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
+        if (_nextSkeleton && _nextSkeleton.trim()) {
+          _nextPrompt = '【章纲骨架（复用上轮通过的自检骨架）】\n' + _nextSkeleton + '\n\n' + _nextPrompt;
+        }
+        // 注入上一轮草稿 + 改进提示
+        if (_loopBest && _loopBest.text && _loopBest.text.trim()) {
+          var _keepHint = '【✅ 上一轮优点必须保留（' + _loopBest.score + '分）】\n';
+          _keepHint += '1. 场景描写的氛围感与细节要保留\n2. 人物对话的性格特征不能改变\n3. 已设置的伏笔和悬念钩子要延续\n4. 叙事节奏和情绪变化曲线要保留\n\n';
+          _nextPrompt = _keepHint
+            + '【📝 上一轮草稿（请在此基础上改进，不要全盘重写）】\n'
+            + _loopBest.text.trim()
+            + '\n\n【🔧 本次改进方向】\n' + _loopHint + '\n\n在上一轮草稿基础上进行针对性优化，保留80%以上的好内容，只修改有问题的部分。字数不少于5000字。\n\n'
+            + _nextPrompt;
+        } else if (_loopHint.trim()) {
+          _nextPrompt = '【🔧 本次生成要求】\n' + _loopHint + '\n\n' + _nextPrompt;
+        }
+
+        // 更新进度
+        if (typeof updateLoadingProgress === 'function') {
+          updateLoadingProgress(35 + _iterationLoop * 20, '🤖 第' + (_iterationLoop + 1) + '轮生成中…');
+        }
+
+        // 调用 API 生成
+        var _nextResult = await (window.callMultiAI && DB.settings && DB.settings.multiAI ? window.callMultiAI : window.callRealAPIWithFallback)(_nextPrompt, null, 'write_normal', 12000);
+        if (!_nextResult) {
+          showToast('生成失败，使用上一轮最佳结果保存', 4000);
+          _userChoseSave = true;
+          result = _loopBest ? _loopBest.text : _loopResult;
+          break;
+        }
+        _loopResult = _nextResult;
+
+        // 质量评价
+        if (typeof evaluateText === 'function') {
+          try {
+            _qReport = evaluateText(_loopResult, work);
+          } catch(e) {
+            console.warn('质量评价失败:', e);
+          }
+        }
+        _loopScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
+
+        // 更新最佳
+        if (_loopScore > (_loopBest ? _loopBest.score : 0)) {
+          _loopBest = { text: _loopResult, score: _loopScore };
+        }
+
+        // 检查是否需要继续迭代（分数<90 且次数<3）
+        var _autoContinue = (_loopScore < 90 || _cmdFollowScore < 6) && _iterationLoop < 2;
+        if (!_autoContinue) {
+          // 分数已达标或达到最大次数，显示最终确认对话框
+          continue;
+        }
+        // 自动进入下一轮迭代循环（显示对话框让用户确认）
       }
-      showToast('自动迭代优化中…（' + _currentScore + '分 → 目标90+）', 3000);
-      // 关键修复：递归调用时传递上一轮最佳结果 + 骨架，让 AI 基于好内容改进
-      return aiWriteChapter({ _iteration: _writeIteration + 1, extraHint: _iterHintText, _prevBest: _newBest, _prevSkeleton: skFinalText });
     }
 
-    // ===== 写入作品前最终校验：确保作品仍未被用户切换，锁定后统一保存 =====
-    if(!_checkStillSameWork('保存章节')) return;
-    DB.saveWork(work);
-    // 通知可撤销
-    showToast('✅ 生成完成 — 不满意可点右上角 <撤销> 按钮恢复原文', 5000);
-    
-    // 触发润色推荐
-    setTimeout(function(){ showPolishRecommend(); }, 500);
+    // ===== 用户确认保存或迭代结束：写入作品 =====
+    if (_userChoseSave) {
+      // 确保用最佳结果保存
+      if (_loopBest && _loopBest.text) {
+        result = _loopBest.text;
+      }
+      if (typeof updateLoadingProgress === 'function') {
+        updateLoadingProgress(100, '✅ 生成完成');
+      }
+      if (typeof hideLoading === 'function') {
+        setTimeout(function() { hideLoading(); }, 500);
+      }
+      // ===== 写入作品前最终校验 =====
+      if (!_checkStillSameWork('保存章节')) return;
+      var _chFinal = work.chapters[chapterIdx] || {};
+      _chFinal.content = result;
+      _chFinal._quality = _qReport;
+      work.chapters[chapterIdx] = _chFinal;
+      document.getElementById('editor').value = result;
+      updateWordCount();
+      DB.saveWork(work);
+      showToast('✅ 生成完成（' + (_loopBest ? _loopBest.score : _loopScore) + '分）— 不满意可点右上角 <撤销> 按钮恢复原文', 5000);
+      setTimeout(function() { showPolishRecommend(); }, 500);
+      return;
+    }
     
   } else {
     statusBar.style.background = '#fef3c7';
@@ -6848,6 +6979,108 @@ function getCachedEval(ch, idx, work) {
   // 降级：返回空结果
   return {total:0, dimScores:{d1:0,d2:0,d3:0,d4:0,d5:0,d6:0,d7:0,d8:0,d9:0,d10:0,d11:0,d12:0}, dims:[]};
 }
+
+// ========== 迭代确认对话框：每轮迭代后显示质量报告 + 用户选择 ==========
+// 返回: 'save' | 'continue' | 'regenerate'
+window.showIterationReviewDialog = function(qReport, result, iterationNum, currentBest) {
+  return new Promise(function(resolve) {
+    // 构建评分详情 HTML
+    var scoreColor = qReport.score >= 90 ? '#10b981' : qReport.score >= 75 ? '#f59e0b' : '#ef4444';
+    var scoreBg = qReport.score >= 90 ? '#d1fae5' : qReport.score >= 75 ? '#fef3c7' : '#fee2e2';
+    var dimsHtml = '';
+    if (qReport.dimensions && qReport.dimensions.length) {
+      dimsHtml += '<div style="margin-top:12px;">';
+      qReport.dimensions.forEach(function(d) {
+        var dScore = d.score;
+        var dColor = dScore >= 8 ? '#10b981' : dScore >= 6 ? '#f59e0b' : '#ef4444';
+        var dBg = dScore >= 8 ? '#d1fae5' : dScore >= 6 ? '#fef3c7' : '#fee2e2';
+        var issuesStr = d.issues && d.issues.length ? '<span style="color:#ef4444;font-size:12px;">' + d.issues.slice(0, 2).join('；') + '</span>' : '';
+        dimsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+          + '<span style="font-size:13px;color:#374151;min-width:70px;">' + d.name + '</span>'
+          + '<span style="background:' + dBg + ';color:' + dColor + ';padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;">' + dScore + '/' + d.max + '</span>'
+          + issuesStr
+          + '</div>';
+      });
+      dimsHtml += '</div>';
+    }
+    var strengthsHtml = '';
+    if (qReport.strengths && qReport.strengths.length) {
+      strengthsHtml = '<div style="margin-top:10px;font-size:13px;color:#16a34a;">✓ ' + qReport.strengths.slice(0, 3).join('；') + '</div>';
+    }
+    var bestTag = '';
+    if (currentBest && currentBest.score && qReport.score > currentBest.score) {
+      bestTag = '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:8px;font-size:12px;margin-left:8px;">⭐ 本轮最佳</span>';
+    } else if (currentBest && currentBest.score) {
+      bestTag = '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:8px;font-size:12px;margin-left:8px;">历史最佳: ' + currentBest.score + '分</span>';
+    }
+
+    // 构建对话框 HTML
+    var overlay = document.createElement('div');
+    overlay.id = 'iter-review-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    var dialogW = Math.min(500, window.innerWidth - 32);
+    overlay.innerHTML = ''
+      + '<div style="background:#fff;border-radius:16px;width:' + dialogW + 'px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'
+      + '<!-- 标题栏 -->'
+      + '<div style="padding:20px 24px 0;font-size:18px;font-weight:700;color:#1f2937;display:flex;align-items:center;justify-content:space-between;">'
+      + '<span>📊 第' + iterationNum + '轮生成完成</span>'
+      + '<span id="iter-review-close" style="cursor:pointer;font-size:20px;color:#9ca3af;">&times;</span>'
+      + '</div>'
+      + '<!-- 总体评分 -->'
+      + '<div style="padding:16px 24px;">'
+      + '<div style="display:flex;align-items:center;">'
+      + '<div style="background:' + scoreBg + ';border-radius:12px;padding:16px 20px;display:inline-flex;align-items:center;gap:12px;">'
+      + '<span style="font-size:36px;font-weight:800;color:' + scoreColor + ';">' + qReport.score + '</span>'
+      + '<span style="font-size:14px;color:' + scoreColor + ';">/ 100分' + bestTag + '</span>'
+      + '</div>'
+      + '</div>'
+      + strengthsHtml
+      + dimsHtml
+      + '</div>'
+      + '<!-- 文本预览 -->'
+      + '<div style="padding:0 24px 16px;">'
+      + '<div style="font-size:13px;color:#6b7280;margin-bottom:8px;">正文预览（前500字）</div>'
+      + '<div style="background:#f9fafb;border-radius:10px;padding:12px;font-size:13px;color:#374151;line-height:1.6;max-height:120px;overflow:hidden;">' + result.substring(0, 500).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '...</div>'
+      + '</div>'
+      + '<!-- 操作按钮 -->'
+      + '<div style="padding:16px 24px 24px;display:flex;gap:10px;flex-wrap:wrap;">'
+      + '<button id="iter-btn-save" style="flex:1;min-width:120px;padding:12px 16px;background:#10b981;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">💾 保存当前版本</button>'
+      + '<button id="iter-btn-continue" style="flex:1;min-width:120px;padding:12px 16px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">🔄 继续迭代</button>'
+      + '<button id="iter-btn-regen" style="flex:1;min-width:120px;padding:12px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">🔁 重新生成</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    // 事件绑定
+    document.getElementById('iter-review-close').onclick = function() {
+      document.body.removeChild(overlay);
+      resolve('save'); // 关闭也当保存处理
+    };
+    document.getElementById('iter-btn-save').onclick = function() {
+      document.body.removeChild(overlay);
+      resolve('save');
+    };
+    document.getElementById('iter-btn-continue').onclick = function() {
+      document.body.removeChild(overlay);
+      resolve('continue');
+    };
+    document.getElementById('iter-btn-regen').onclick = function() {
+      document.body.removeChild(overlay);
+      resolve('regenerate');
+    };
+
+    // ESC 键关闭（当保存处理）
+    var _escHandler = function(e) {
+      if (e.key === 'Escape') {
+        document.body.removeChild(overlay);
+        document.removeEventListener('keydown', _escHandler);
+        resolve('save');
+      }
+    };
+    document.addEventListener('keydown', _escHandler);
+  });
+};
 
 // ========== 润色推荐 ==========
 
