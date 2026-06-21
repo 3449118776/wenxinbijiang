@@ -3270,15 +3270,15 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   }
 
   // 2026 题材趋势（精简版）
-  var trend = getTrendHint2026(work);
-  if(trend){
-    prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 600) + '\n\n';
-  }
+  // var trend = getTrendHint2026(work);
+  // if(trend){
+  //   prompt += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend, 600) + '\n\n';
+  // }
 
   // AI分工搜索：市场调研报告（仅供参考，灵感来源，不是硬性要求）
-  if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求 · AI搜索2025-2026年市场数据】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
-  }
+  // if(marketResearch && marketResearch.trim()){
+  //   prompt += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求 · AI搜索2025-2026年市场数据】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  // }
 
   // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
   if(memoryContext && memoryContext.trim()){
