@@ -3,6 +3,7 @@
   "appName": "文心笔匠",
   "webDir": "www",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://wxbj-main.pages.dev"
   }
 }
