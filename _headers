@@ -1,6 +1,13 @@
+# HTML: 不缓存（确保每次获取最新）
 /*.html
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+
+# 静态资源：长期缓存（JS/CSS/图片）
 /assets/*
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: max-age=31536000, immutable
+
+# 版本文件也不缓存
+/version.json
+  Cache-Control: no-cache
