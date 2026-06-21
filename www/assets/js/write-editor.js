@@ -2989,7 +2989,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
       prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
-      prompt += '7. 字数控制在2000-3000字\n\n';
+      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
     } else {
       // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
       var detailText = work.detail;
@@ -3011,7 +3011,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
       prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
-      prompt += '4. 字数控制在2000-3000字\n\n';
+      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
     }
   }
   
@@ -3046,9 +3046,9 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   
   if (existingContent && existingContent.trim()) {
     prompt += '【本章已写内容】\n' + existingContent + '\n\n';
-    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数2000-3000字。\n';
+    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。\n';
   } else {
-    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容，字数2000-3000字。';
+    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。';
     if (prevContent) prompt += '开头要承接上一章结尾。';
   }
   
@@ -3421,7 +3421,7 @@ function smartCompressArch(text, maxLen) {
   prompt += '1. 我写的是「' + chTitle + '」（第' + (chapterIdx + 1) + '章）吗？是否越界写到了下一章？\n';
   prompt += '2. 本章有明确的结尾钩子或悬念让读者想点开下一章吗？\n';
   prompt += '3. 角色名字/地名/力量体系名称与之前的设定一致吗？\n';
-  prompt += '4. 本章 2000-3000 字，开头直接进入冲突/场景，不做大段景物描写/人物介绍\n';
+  prompt += '4. 本章字数灵活控制，以剧情完整性为先（不少于3000字），开头直接进入冲突/场景，不做大段景物描写/人物介绍\n';
   prompt += '5. 没有 AI 腔（眼神一冷/瞳孔一缩/嘴角勾起/心头一颤/眉头微蹙/目光如炬/仿佛/众人震惊/心中暗道 等套路句式）\n';
   prompt += '6. 对话中 50% 以上用动作/神态/环境描写代替"XX说/XX道"\n';
   prompt += '7. 结尾是"信息差/期待感制造点"，不是"且听下回分解"这种老套句式\n';
@@ -4423,7 +4423,12 @@ async function startChapterPipeline() {
   }
 }
 
-async function aiWriteChapter(){
+async function aiWriteChapter(opts){
+  opts = opts || {};
+  var _writeIteration = opts._iteration || 0;
+  var _writeExtraHint = opts.extraHint || '';
+  var _writeBest = opts._prevBest || null;  // 之前的最佳结果
+
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
   var _editLockWorkId = work.id;
@@ -4472,67 +4477,93 @@ async function aiWriteChapter(){
   }
   let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
-  // ===== 骨架生成 + AI自检：先生成章纲骨架，确认符合用户指令后再继续 =====
+  // ===== 骨架生成 + AI自检：最多3次，不通过自动重写 =====
   var skeletonPassed = true;
+  var skFinalText = '';
   if(userCmd){
-    if(statusBar){
-      statusBar.style.display = 'block';
-      statusBar.style.background = '#fef3c7';
-      statusBar.style.color = '#92400e';
-      statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架自检（确认是否符合你的指令）…';
-    }
-
-    var skeletonPrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
-    skeletonPrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
-    skeletonPrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
-    skeletonPrompt += '【作品题材】' + getWorkGenre(work) + '\n';
+    var skBasePrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
+    skBasePrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
+    skBasePrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
+    skBasePrompt += '【作品题材】' + getWorkGenre(work) + '\n';
     if(work.detail){
-      // v57: 用当前卷细纲，而不是全文细纲
-      var _sd = getCurrentVolumeDetail(work, chapterIdx);
-      if (_sd && _sd.neighbor) {
-        skeletonPrompt += '【本卷细纲】' + smartTruncate(_sd.neighbor, 400) + '\n';
+      var _sd2 = getCurrentVolumeDetail(work, chapterIdx);
+      if (_sd2 && _sd2.neighbor) {
+        skBasePrompt += '【本卷细纲】' + smartTruncate(_sd2.neighbor, 400) + '\n';
       } else {
-        var detailChapters = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
-        var dIdx = chapterIdx + 1;
-        if(detailChapters.length > dIdx) skeletonPrompt += '【本章细纲】' + smartTruncate(detailChapters[dIdx], 400) + '\n';
+        var detailChapters2 = work.detail.split(/(?=(?:第[一二三四五六七八九十百千\d]+章|Chapter\s*\d+))/gi);
+        var dIdx2 = chapterIdx + 1;
+        if(detailChapters2.length > dIdx2) skBasePrompt += '【本章细纲】' + smartTruncate(detailChapters2[dIdx2], 400) + '\n';
       }
     }
-    skeletonPrompt += '\n请按以下格式输出：\n';
-    skeletonPrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
-    skeletonPrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
-    skeletonPrompt += '【结论】\n写"通过"或"不通过"。\n';
-    skeletonPrompt += '\n直接输出，不要加对话语前缀。';
+    skBasePrompt += '\n请按以下格式输出：\n';
+    skBasePrompt += '【章纲骨架】\n（100-200字，列出本章核心事件、冲突、结尾钩子）\n\n';
+    skBasePrompt += '【自检】\n逐条检查用户指令是否在骨架中体现。\n\n';
+    skBasePrompt += '【结论】\n写"通过"或"不通过"。\n';
+    skBasePrompt += '\n直接输出，不要加对话语前缀。';
 
-    var skeletonResult = null;
-    try {
-      skeletonResult = await callRealAPIWithFallback(skeletonPrompt, null, 'default', 300, true);
-    } catch(skErr) { console.warn('[章纲骨架] 失败:', skErr); }
-
-    if(!_checkStillSameWork('章纲骨架生成中')) return;
-
-    if(skeletonResult && skeletonResult.trim()){
-      var skText = skeletonResult.trim();
-      var conclusionMatch = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-      var conclusion = conclusionMatch ? conclusionMatch[1].trim() : '';
-
-      if(conclusion && (conclusion.indexOf('不通过') >= 0 || conclusion.indexOf('不符合') >= 0)){
-        skeletonPassed = false;
-        if(statusBar){
-          statusBar.style.background = '#fef3c7';
-          statusBar.style.color = '#92400e';
-          statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架自检不通过，但仍会继续生成（已注入修正提示）';
-        }
-        showToast('⚠️ 章纲骨架与指令不完全匹配，AI已被告知问题', {duration: 4000});
-      } else {
-        if(statusBar){
-          statusBar.style.background = '#dcfce7';
-          statusBar.style.color = '#166534';
-          statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检，开始生成正文…';
-        }
+    var skAttemptResult = null;
+    for(var skAt = 1; skAt <= 3; skAt++){
+      if(statusBar){
+        statusBar.style.display = 'block';
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '🧠 ' + _stageInfo + ' 2/3 · 章纲骨架（第' + skAt + '/3次）…';
       }
-      // 将骨架注入 prompt 开头，作为生成指引
-      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skText + '\n\n' + prompt;
+
+      var skPromptNow = skBasePrompt;
+      if(skAttemptResult && skAttemptResult.trim()){
+        skPromptNow += '\n\n【⚠️ 上一次骨架自检不通过，请根据用户指令和以下问题重写骨架】\n' + skAttemptResult.slice(0, 400);
+      }
+
+      try {
+        var skResult = await callRealAPIWithFallback(skPromptNow, null, 'default', 300, true);
+        if(!_checkStillSameWork('章纲骨架生成中')) return;
+
+        if(skResult && skResult.trim()){
+          var skText2 = skResult.trim();
+          var conMatch = skText2.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
+          var con = conMatch ? conMatch[1].trim() : '';
+
+          if(con && (con.indexOf('不通过') >= 0 || con.indexOf('不符合') >= 0)){
+            skAttemptResult = skText2;
+            if(skAt < 3){
+              showToast('⚠️ 骨架第' + skAt + '次自检不通过，正在自动重写…', {duration: 2000});
+              continue;
+            } else {
+              skeletonPassed = false;
+              skFinalText = skText2;
+              if(statusBar){
+                statusBar.style.background = '#fef3c7';
+                statusBar.style.color = '#92400e';
+                statusBar.textContent = '⚠️ ' + _stageInfo + ' 2/3 · 骨架3次自检仍不通过，已注入修正提示继续生成';
+              }
+              break;
+            }
+          } else {
+            skeletonPassed = true;
+            skFinalText = skText2;
+            if(statusBar){
+              statusBar.style.background = '#dcfce7';
+              statusBar.style.color = '#166534';
+              statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
+            }
+            break;
+          }
+        } else {
+          if(skAt === 3) break;
+        }
+      } catch(skErr2) { console.warn('[章纲骨架] 失败:', skErr2); }
     }
+
+    // 注入骨架到 prompt 开头
+    if(skFinalText){
+      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText + '\n\n' + prompt;
+    }
+  }
+
+  // ===== 质量迭代：如果是迭代重写，注入上一次的问题加强提示 =====
+  if(_writeExtraHint && _writeExtraHint.trim()){
+    prompt = '【⚠️ 本次生成必须修正以下问题（上一次生成质量不足90分，正在迭代优化）】\n' + _writeExtraHint.trim() + '\n\n' + prompt;
   }
 
   // 显示输入token估算 + 进入正文生成阶段
@@ -4551,7 +4582,7 @@ async function aiWriteChapter(){
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
   // v46：多AI模式时使用 callMultiAI 并行请求
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  let result = await aiCaller(prompt, null, 'write_normal', 3000); // 目标 3000 字
+  let result = await aiCaller(prompt, null, 'write_normal', 12000); // 目标 5000-8000 字，大模型可承受更长输出
 
   if(!_checkStillSameWork('正文生成中')) return;
 
@@ -4584,15 +4615,15 @@ async function aiWriteChapter(){
       return;
     }
 
-    // v55: 字数硬性校验 — 不足补写，超标警告
-    if (result.length < 1500) {
-      if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数不足(' + result.length + '字)，自动补写至2000+字…';
-      showToast('字数不足，正在自动补写…', 2000);
-      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至2000字以上。\n\n';
+    // 字数校验：过短时自动补写，确保章节完整性（不再限制上限）
+    if (result.length < 3000) {
+      if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数偏短(' + result.length + '字)，自动补写至完整章节…';
+      showToast('正在自动补写，确保章节完整…', 2000);
+      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至5000字以上，确保剧情完整、节奏紧凑。\n\n';
       extendPrompt += '【已有内容】\n' + result + '\n\n';
-      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写\n3. 新写内容500-1500字，使总字数达到2000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n\n请直接输出补写段落：';
+      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容3000-5000字，使总字数达到5000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
       try {
-        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 1500, true);
+        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 8000, true);
         if (extendResult && extendResult.length > 100) {
           result = result + '\n\n' + extendResult;
           if(statusBar) statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 补写完成（' + result.length + '字）';
@@ -4600,9 +4631,7 @@ async function aiWriteChapter(){
       } catch(e) { console.warn('[字数补写] 失败:', e); }
       if(!_checkStillSameWork('字数补写中')) return;
     }
-    if (result.length > 5000) {
-      showToast('⚠️ 字数超标(' + result.length + '字)，建议手动精简。可点"重写"重新生成。', {duration:5000});
-    }
+    // 不再设置字数上限，允许大模型自由输出完整内容
 
     // === v29: 质量打分 ===
     var _qReport = null;
@@ -4712,6 +4741,51 @@ async function aiWriteChapter(){
       }
     }
     
+    // ===== 质量迭代：评分不足90分且迭代次数<3次时，自动重写优化 =====
+    var _shouldIterate = false;
+    var _iterHintText = '';
+    if (_qReport && typeof _qReport.score === 'number' && _qReport.score < 90 && _writeIteration < 3) {
+      _shouldIterate = true;
+      var _hintLines = [];
+      _hintLines.push('上一次质量评分仅 ' + _qReport.score + '/100，必须以下短板全部补齐：');
+      // 收集短板维度
+      if (_qReport.weaknesses && _qReport.weaknesses.length) {
+        _hintLines.push('短板维度：' + _qReport.weaknesses.slice(0, 4).join('、'));
+      }
+      // 收集具体问题（从各维度details/issues中提取）
+      if (_qReport.dimensions && _qReport.dimensions.length) {
+        for (var _di = 0; _di < _qReport.dimensions.length; _di++) {
+          var _dim = _qReport.dimensions[_di];
+          if (_dim && (_dim.score / _dim.max) < 0.7) {
+            if (_dim.issues && _dim.issues.length) {
+              _hintLines.push('【' + _dim.name + '】问题：' + _dim.issues.slice(0, 2).join('；'));
+            }
+          }
+        }
+      }
+      // 全链路一致性问题
+      if (_chainReport && _chainReport.score < 80 && _chainReport.issues && _chainReport.issues.length) {
+        _hintLines.push('【一致性】' + _chainReport.issues.slice(0, 2).join('；'));
+      }
+      // 黄金开头问题
+      if (goldenCheck && goldenCheck.issues && goldenCheck.issues.length) {
+        _hintLines.push('【黄金开头】' + goldenCheck.issues.slice(0, 2).join('；'));
+      }
+      _hintLines.push('要求：必须全面提升叙事密度、对话质量、冲突层次和章末悬念，重新写一章完整内容，字数不少于5000字。');
+      _iterHintText = _hintLines.join('\n');
+    }
+    
+    if (_shouldIterate) {
+      if (statusBar) {
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '🔄 ' + _stageInfo + ' · 质量分仅 ' + _qReport.score + '，第' + (_writeIteration + 1) + '次迭代优化中…';
+      }
+      showToast('质量不足90分（' + _qReport.score + '），自动迭代优化…', 3000);
+      // 递归调用，注入加强提示与迭代计数
+      return aiWriteChapter({ _iteration: _writeIteration + 1, extraHint: _iterHintText });
+    }
+
     // ===== 写入作品前最终校验：确保作品仍未被用户切换，锁定后统一保存 =====
     if(!_checkStillSameWork('保存章节')) return;
     DB.saveWork(work);
@@ -5038,7 +5112,7 @@ async function sendAiCommand(){
   const fullPrompt = buildChapterPrompt(work, chapterIdx, content, cmd);
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
-  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 2000); // v48: 目标 2000 字，平衡质量与速度
+  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
   if(!result && window.ContentGenerator){
     showToast('使用本地AI生成...');
     result = window.ContentGenerator.continueStory(content, work, cmd);

@@ -4741,6 +4741,51 @@ async function aiWriteChapter(opts){
       }
     }
     
+    // ===== 质量迭代：评分不足90分且迭代次数<3次时，自动重写优化 =====
+    var _shouldIterate = false;
+    var _iterHintText = '';
+    if (_qReport && typeof _qReport.score === 'number' && _qReport.score < 90 && _writeIteration < 3) {
+      _shouldIterate = true;
+      var _hintLines = [];
+      _hintLines.push('上一次质量评分仅 ' + _qReport.score + '/100，必须以下短板全部补齐：');
+      // 收集短板维度
+      if (_qReport.weaknesses && _qReport.weaknesses.length) {
+        _hintLines.push('短板维度：' + _qReport.weaknesses.slice(0, 4).join('、'));
+      }
+      // 收集具体问题（从各维度details/issues中提取）
+      if (_qReport.dimensions && _qReport.dimensions.length) {
+        for (var _di = 0; _di < _qReport.dimensions.length; _di++) {
+          var _dim = _qReport.dimensions[_di];
+          if (_dim && (_dim.score / _dim.max) < 0.7) {
+            if (_dim.issues && _dim.issues.length) {
+              _hintLines.push('【' + _dim.name + '】问题：' + _dim.issues.slice(0, 2).join('；'));
+            }
+          }
+        }
+      }
+      // 全链路一致性问题
+      if (_chainReport && _chainReport.score < 80 && _chainReport.issues && _chainReport.issues.length) {
+        _hintLines.push('【一致性】' + _chainReport.issues.slice(0, 2).join('；'));
+      }
+      // 黄金开头问题
+      if (goldenCheck && goldenCheck.issues && goldenCheck.issues.length) {
+        _hintLines.push('【黄金开头】' + goldenCheck.issues.slice(0, 2).join('；'));
+      }
+      _hintLines.push('要求：必须全面提升叙事密度、对话质量、冲突层次和章末悬念，重新写一章完整内容，字数不少于5000字。');
+      _iterHintText = _hintLines.join('\n');
+    }
+    
+    if (_shouldIterate) {
+      if (statusBar) {
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '🔄 ' + _stageInfo + ' · 质量分仅 ' + _qReport.score + '，第' + (_writeIteration + 1) + '次迭代优化中…';
+      }
+      showToast('质量不足90分（' + _qReport.score + '），自动迭代优化…', 3000);
+      // 递归调用，注入加强提示与迭代计数
+      return aiWriteChapter({ _iteration: _writeIteration + 1, extraHint: _iterHintText });
+    }
+
     // ===== 写入作品前最终校验：确保作品仍未被用户切换，锁定后统一保存 =====
     if(!_checkStillSameWork('保存章节')) return;
     DB.saveWork(work);
