@@ -2473,10 +2473,11 @@ window.generateArchModule = async function(opts){
       saveModuleIdea(module, idea.trim());
     }
 
-    // 2. 显示进度
+    // 2. 显示进度（首次调用：从0起步）
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
     var actionLabel = opts.isFix ? '按评价重新生成' : 'AI生成';
-    if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…');
+    if(typeof resetLoading === 'function') resetLoading(actionLabel + moduleName + '中…');
+    else if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…');
     if(!idea.trim() && !opts.isFix){
       showToast('已按作品题材自动生成。你也可以在上方输入具体要求，AI 会优先按你的提示词生成。', {duration:3000});
     }
@@ -2488,7 +2489,7 @@ window.generateArchModule = async function(opts){
     var platform = '起点';
     try { if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; } catch(e){}
     try {
-      if(typeof showLoading === 'function') showLoading('🔍 第1步：搜索2025-2026年' + (genre || '该题材') + '市场趋势…');
+      // 去掉重复 showLoading，改用 updateLoadingProgress — 进度条连续推进不重置
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
       var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份简洁的市场调研报告。\n\n';
@@ -2596,8 +2597,9 @@ window.generateArchModule = async function(opts){
       var _skSucceeded = false;
       var _skFeedback = '';
       for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
-        if(typeof showLoading === 'function') showLoading('🧠 第' + skAttempt + '/3次：生成' + moduleName + '骨架并自检…');
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(15, '🧠 骨架自检 ' + skAttempt + '/3…');
+        // 改用 updateLoadingProgress，保持进度连续
+        var skPct = 15 + (skAttempt - 1) * 5;
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架自检 ' + skAttempt + '/3…');
 
         var skPrompt = _skBasePrompt;
         if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
@@ -2684,13 +2686,11 @@ window.generateArchModule = async function(opts){
         // ===== 每次卷生成前校验：作品被切换则立即中止 =====
         if(!_checkStillSameWork()) return;
 
-        // 进度提示
+        // 进度提示（只更新百分比+文字，不再重置进度条）
         var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
-        if(typeof showLoading === 'function'){
-          showLoading('正在生成章节细纲 · ' + volLabel + '（逐卷生成，每卷携带完整上下文）');
-        }
         if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(Math.round(vi56 / actualTotalVols * 95), '正在生成细纲 · ' + volLabel);
+          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60); // 30% → 90%
+          updateLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
         }
 
         // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
@@ -2775,8 +2775,8 @@ window.generateArchModule = async function(opts){
       // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
       // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
       var progressLabel = '完整' + moduleName + '（一次性生成）';
-      if(typeof showLoading === 'function'){
-        showLoading('正在生成 ' + moduleName + ' · ' + progressLabel);
+      if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(35, '正在生成 ' + moduleName + ' · ' + progressLabel);
       }
       if(!_checkStillSameWork()) return;
 
@@ -2814,11 +2814,9 @@ window.generateArchModule = async function(opts){
 
         var card = batches[bi];
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-        var progressPct = Math.round((bi / batches.length) * 95);
+        // 从 35% 起步，分批推进到 90%
+        var progressPct = 35 + Math.round((bi / batches.length) * 55);
 
-        if(typeof showLoading === 'function'){
-          showLoading('正在生成 ' + moduleName + ' · ' + progressLabel2);
-        }
         if(typeof updateLoadingProgress === 'function'){
           updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
         }
@@ -3656,7 +3654,9 @@ window.evaluateArchModule = async function(){
     // 2. AI 深度评价（可选，异步补充）
     var aiReport = '';
     if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
-      if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
+      if(typeof resetLoading === 'function') resetLoading('AI 评价分析中…');
+      else if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(35, 'AI 评价分析中…');
       var evalPrompt = '你是一位资深网文编辑。请用编辑的眼光评价以下' + moduleName + '的初稿。\n\n';
       evalPrompt += '【待评价内容】\n' + content + '\n\n';
       evalPrompt += '请列出：\n1. 3-5条具体问题（必须针对内容，不能泛泛而谈）\n';
@@ -3783,7 +3783,13 @@ window.strengthenDetailOutlineV46 = async function(){
     for(var bi = 0; bi < batches.length; bi++){
       var card = batches[bi];
       var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-      if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
+      // 第1张：从0起步；其他：继续推进
+      if(bi === 0){
+        if(typeof resetLoading === 'function') resetLoading('细纲补强中 · ' + progressLabel);
+        else if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
+      }
+      var strPct = 10 + Math.round((bi / batches.length) * 85);
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(strPct, '细纲补强中 · ' + progressLabel);
 
       // 构建本批的专属 prompt
       var prompt = '你是一位擅长节奏设计的资深网文编辑。请对以下章节细纲进行"全链路质量补强"，使每一章都能驱动读者想点开下一章。\n\n';
@@ -3914,8 +3920,10 @@ window.generateAllPipeline = async function(){
       }catch(e){}
 
       var overallPct = Math.round((i / modules.length) * 100);
-      if(typeof showLoading === 'function'){
-        showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+      // 第1个模块：从0起步；其他：保持进度连续推进
+      if(i === 0){
+        if(typeof resetLoading === 'function') resetLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+        else if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
       }
       if(typeof updateLoadingProgress === 'function'){
         updateLoadingProgress(overallPct, '🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
@@ -4632,7 +4640,9 @@ function generateArchCardSingle(module, card, idea, callback){
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
 
   var fullText = '';
-  if (typeof showLoading === 'function') showLoading('正在生成 · ' + card.label);
+  if(typeof resetLoading === 'function') resetLoading('正在生成 · ' + card.label);
+  else if(typeof showLoading === 'function') showLoading('正在生成 · ' + card.label);
+  if(typeof updateLoadingProgress === 'function') updateLoadingProgress(25, '正在生成 · ' + card.label);
 
   var apiCall = null;
   if (typeof callRealAPIWithFallback === 'function') {

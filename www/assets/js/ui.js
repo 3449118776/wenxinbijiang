@@ -35,130 +35,183 @@ function showToast(msg, opts) {
   }, duration);
 }
 
-// === Loading：进度条模式（替代 spinner）===
-var _loadingText = '';
-var _loadingPct = 0;
-var _loadingTimer = null;
-var _loadingInc = 0;
-var _loadingHideTimers = []; // hideLoading 的淡出定时器，showLoading 时需清除
-function showLoading(text, keepProgress) {
-  _loadingText = text || '加载中…';
-  if (!keepProgress) {
-    _loadingPct = 0;
-    _loadingInc = 0;
-  }
-  if (_loadingTimer && !keepProgress) clearInterval(_loadingTimer);
-  // 清除 hideLoading 留下的淡出定时器，防止 loading 被意外隐藏
-  if (_loadingHideTimers.length) {
-    _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
-    _loadingHideTimers = [];
-  }
+// === Loading：单一连续进度条（从0动画到100，永不中途重置）===
+// 核心原则：
+// 1. showLoading(text) — 如已显示只更新文字；未显示则从0起步
+// 2. updateLoadingProgress(pct, text) — 动画缓慢推进到目标百分比（不是跳变）
+// 3. hideLoading() — 先推进到100停留2秒，再淡出
+// 4. 动画由 requestAnimationFrame 驱动，easeOutCubic 缓动，视觉为缓慢填充
 
+var _loadingTarget = 0;        // 目标百分比（0-100）
+var _loadingCurrent = 0;       // 当前显示百分比（动画值）
+var _loadingText = '';
+var _loadingAnimRAF = null;    // 动画帧 id
+var _loadingHideTimers = [];   // hideLoading 的淡出定时器
+var _loadingIsVisible = false; // 当前是否显示
+var _loadingLastStepTime = 0;  // 上次动画帧时间
+
+function _applyLoadingUI(pct, text) {
+  // 更新 #app-loading
+  var el = document.querySelector('#app-loading');
+  if (el) {
+    var fill = el.querySelector('.loading-progress-fill');
+    var pctEl = el.querySelector('.loading-pct');
+    var txtEl = el.querySelector('.loading-text');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+    if (text && txtEl) txtEl.textContent = text;
+  }
+  // 更新 architecture.html 页面内的进度条
+  var progBar = document.getElementById('prog-bar');
+  var progPct = document.getElementById('prog-pct');
+  var progDetail = document.getElementById('prog-detail');
+  var progTitle = document.getElementById('prog-title');
+  if (progBar) progBar.style.width = pct + '%';
+  if (progPct) progPct.textContent = Math.round(pct) + '%';
+  if (text && progDetail) progDetail.textContent = text;
+  if (text && progTitle) progTitle.textContent = text;
+}
+
+function _ensureLoadingElement() {
   var el = document.querySelector('#app-loading');
   if (!el) {
     el = document.createElement('div');
     el.id = 'app-loading';
     el.innerHTML =
       '<div class="loading-content">'
-      + '<div class="loading-progress-bar"><div class="loading-progress-fill" id="loading-pct-bar"></div></div>'
-      + '<div class="loading-text-wrap"><span class="loading-text">' + _loadingText + '</span><span class="loading-pct">' + Math.round(_loadingPct) + '%</span></div>'
+      + '<div class="loading-progress-bar"><div class="loading-progress-fill" style="width:0%"></div></div>'
+      + '<div class="loading-text-wrap"><span class="loading-text">加载中…</span><span class="loading-pct">0%</span></div>'
       + '</div>';
     document.body.appendChild(el);
-  } else {
-    el.querySelector('.loading-text').textContent = _loadingText;
-    if (!keepProgress) {
-      el.querySelector('.loading-pct').textContent = '0%';
-      el.querySelector('.loading-progress-fill').style.width = '0%';
-    }
-    el.style.opacity = '1';
   }
-  el.style.display = 'flex';
-
-  // 同时显示 architecture.html 页面内的进度条
+  // architecture.html 页面内的进度条
   var detailProg = document.getElementById('detail-progress');
-  if (detailProg) {
-    detailProg.style.display = '';
-    var progTitle = document.getElementById('prog-title');
-    if (progTitle) progTitle.textContent = _loadingText;
-    if (!keepProgress) {
-      var progBar = document.getElementById('prog-bar');
-      var progPct = document.getElementById('prog-pct');
-      if (progBar) progBar.style.width = '0%';
-      if (progPct) progPct.textContent = '0%';
-    }
+  if (detailProg) detailProg.style.display = '';
+  return el;
+}
+
+function _tickLoadingAnim() {
+  if (!_loadingIsVisible) return;
+  var now = performance.now();
+  var dt = Math.min(100, now - _loadingLastStepTime); // 最大步长100ms，防止暂停后跳变
+  _loadingLastStepTime = now;
+
+  var diff = _loadingTarget - _loadingCurrent;
+  if (Math.abs(diff) < 0.15) {
+    _loadingCurrent = _loadingTarget;
+    _applyLoadingUI(_loadingCurrent, _loadingText);
+    _loadingAnimRAF = null;
+    return; // 到达目标，停止动画
   }
 
-  // 去掉模拟进度增长——完全由外部调用 updateLoadingProgress 控制
-  // 这样进度条按真实阶段缓慢推进到100%，用户能看到完整过程
-  if (!keepProgress) {
-    _loadingPct = 3; // 从3%起步，让用户看到有进展
-    var fill = el.querySelector('.loading-progress-fill');
-    var pctEl = el.querySelector('.loading-pct');
-    if (fill) fill.style.width = _loadingPct + '%';
-    if (pctEl) pctEl.textContent = Math.round(_loadingPct) + '%';
-  }
+  // 动画速度：每秒推进差值的 65%（接近目标时变慢）
+  // 用 easeOutCubic 风格：接近目标时推进速度递减
+  var stepRatio = 1 - Math.pow(0.001, dt / 1000); // 每秒剩余1‰
+  // 保证最小推进速度（让用户感觉到"在动"）
+  var minStep = dt / 200; // 每秒至少推进5%
+  var step = Math.max(Math.abs(diff) * stepRatio, Math.min(Math.abs(diff), minStep));
+  if (diff < 0) step = -step;
+  _loadingCurrent += step;
+  // 边界
+  if (_loadingCurrent < 0) _loadingCurrent = 0;
+  if (_loadingCurrent > 100) _loadingCurrent = 100;
+
+  _applyLoadingUI(_loadingCurrent, _loadingText);
+  _loadingAnimRAF = requestAnimationFrame(_tickLoadingAnim);
 }
+
+function _startLoadingAnimIfNeeded() {
+  if (_loadingAnimRAF) return;
+  if (Math.abs(_loadingTarget - _loadingCurrent) < 0.15) return;
+  _loadingLastStepTime = performance.now();
+  _loadingAnimRAF = requestAnimationFrame(_tickLoadingAnim);
+}
+
+function showLoading(text, keepProgress) {
+  // 清除之前的淡出定时器
+  if (_loadingHideTimers.length) {
+    _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
+    _loadingHideTimers = [];
+  }
+
+  if (text) _loadingText = text;
+
+  // 如果已经可见 → 只更新文字，保持当前进度（永不重置！）
+  if (_loadingIsVisible) {
+    _applyLoadingUI(_loadingCurrent, _loadingText);
+    return;
+  }
+
+  // 不可见 → 新建或显示，从0起步
+  _loadingIsVisible = true;
+  if (!keepProgress) {
+    _loadingCurrent = 0;
+    _loadingTarget = 0;
+  }
+  var el = _ensureLoadingElement();
+  el.style.display = 'flex';
+  el.style.opacity = '1';
+  _applyLoadingUI(_loadingCurrent, _loadingText);
+}
+
+// 显式重置到0% — 仅在用户明确开启新任务时调用
+function resetLoading(text) {
+  if (text) _loadingText = text;
+  _loadingCurrent = 0;
+  _loadingTarget = 0;
+  var el = _ensureLoadingElement();
+  el.style.display = 'flex';
+  el.style.opacity = '1';
+  _loadingIsVisible = true;
+  _applyLoadingUI(0, _loadingText);
+}
+
+window.updateLoadingProgress = function(pct, text) {
+  var newTarget = Math.max(0, Math.min(100, pct));
+  // 目标比当前还小？不动（进度条只前进不倒退，避免看起来像"重跑"）
+  if (newTarget < _loadingCurrent - 0.5) return;
+  _loadingTarget = newTarget;
+  if (text) _loadingText = text;
+
+  // 确保显示
+  if (!_loadingIsVisible) {
+    var el = _ensureLoadingElement();
+    el.style.display = 'flex';
+    el.style.opacity = '1';
+    _loadingIsVisible = true;
+  }
+  _applyLoadingUI(_loadingCurrent, _loadingText);
+  _startLoadingAnimIfNeeded();
+};
 
 function hideLoading() {
-  if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
-  // 清除可能残留的淡出定时器
-  _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
-  _loadingHideTimers = [];
-
-  // 100%停留2秒再隐藏——让用户看到完成
-  // 如果外部已经 updateLoadingProgress(100)，此处从100%开始；否则先设100%
-  var el = document.querySelector('#app-loading');
-  if (el) {
-    var fill = el.querySelector('.loading-progress-fill');
-    var pctEl = el.querySelector('.loading-pct');
-    if (fill) fill.style.width = '100%';
-    if (pctEl) pctEl.textContent = '100%';
-    var t1 = setTimeout(function() {
-      el.style.opacity = '0';
-      var t2 = setTimeout(function() {
-        if (el.style.opacity === '0') el.style.display = 'none';
-      }, 300);
-      _loadingHideTimers.push(t2);
-    }, 2000); // 2秒后再淡出——让用户看到100%
-    _loadingHideTimers.push(t1);
+  // 清除淡出定时器
+  if (_loadingHideTimers.length) {
+    _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
+    _loadingHideTimers = [];
   }
+  if (!_loadingIsVisible) return;
 
-  // architecture.html 页面内的进度条：同样停留后隐藏
-  var progBar = document.getElementById('prog-bar');
-  var progPct = document.getElementById('prog-pct');
-  if (progBar) progBar.style.width = '100%';
-  if (progPct) progPct.textContent = '100%';
-  var detailProg = document.getElementById('detail-progress');
-  if (detailProg) {
-    var t3 = setTimeout(function() { detailProg.style.display = 'none'; }, 2300);
-    _loadingHideTimers.push(t3);
-  }
+  // 先推进到100%
+  _loadingTarget = 100;
+  _applyLoadingUI(_loadingCurrent, _loadingText);
+  _startLoadingAnimIfNeeded();
+
+  // 2秒后淡出 — 让用户看到100%完成
+  var t1 = setTimeout(function() {
+    var el = document.querySelector('#app-loading');
+    if (el) el.style.opacity = '0';
+    var detailProg = document.getElementById('detail-progress');
+    if (detailProg) detailProg.style.display = 'none';
+    var t2 = setTimeout(function() {
+      var el2 = document.querySelector('#app-loading');
+      if (el2 && el2.style.opacity === '0') el2.style.display = 'none';
+      _loadingIsVisible = false;
+    }, 300);
+    _loadingHideTimers.push(t2);
+  }, 2000);
+  _loadingHideTimers.push(t1);
 }
-
-// 外部可调用：更新加载进度（0-100）
-window.updateLoadingProgress = function(pct, text) {
-  var _pct = Math.max(0, Math.min(100, pct));
-
-  // 1. 更新 #app-loading 进度条（通用居中模态框）
-  var el = document.querySelector('#app-loading');
-  if (el) {
-    _loadingPct = _pct;
-    var fill = el.querySelector('.loading-progress-fill');
-    var pctEl = el.querySelector('.loading-pct');
-    var txtEl = el.querySelector('.loading-text');
-    if (fill) fill.style.width = _pct + '%';
-    if (pctEl) pctEl.textContent = Math.round(_pct) + '%';
-    if (text && txtEl) txtEl.textContent = text;
-  }
-
-  // 2. 更新 architecture.html 页面内的进度条（#detail-progress）
-  var progBar = document.getElementById('prog-bar');
-  var progPct = document.getElementById('prog-pct');
-  var progDetail = document.getElementById('prog-detail');
-  if (progBar) progBar.style.width = _pct + '%';
-  if (progPct) progPct.textContent = Math.round(_pct) + '%';
-  if (text && progDetail) progDetail.textContent = text;
-};
 
 // 注入 loading 进度条样式（只注入一次）
 (function() {
@@ -169,7 +222,7 @@ window.updateLoadingProgress = function(pct, text) {
     '#app-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.25);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10000;transition:opacity 0.3s;pointer-events:none;}'
     + '.loading-content{width:320px;text-align:center;background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);pointer-events:auto;}'
     + '.loading-progress-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-bottom:12px;}'
-    + '.loading-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:4px;transition:width 0.2s ease;}'
+    + '.loading-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:4px;}'
     + '.loading-text-wrap{display:flex;justify-content:space-between;align-items:center;}'
     + '.loading-text{font-size:13px;color:#333;}'
     + '.loading-pct{font-size:13px;color:#6366f1;font-weight:600;min-width:40px;text-align:right;}';
@@ -247,6 +300,7 @@ function _updateProgressUI(percent, text) {
 // 挂载到全局
 window.showToast = showToast;
 window.showLoading = showLoading;
+window.resetLoading = resetLoading;
 window.hideLoading = hideLoading;
 window.showProgress = showProgress;
 window.updateProgress = updateProgress;

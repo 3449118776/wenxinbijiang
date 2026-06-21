@@ -4431,8 +4431,12 @@ async function aiWriteChapter(opts){
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
-  // 第一次调用 showLoading，启动进度条；迭代时传入 keepProgress=true 保持进度不重置
-  if(typeof showLoading === 'function') showLoading(_writeIteration > 0 ? null : '正在生成章节…', _writeIteration > 0);
+  // 第一次生成：resetLoading 从 0 起步；迭代时只更新文字，保持进度连续推进
+  if (_writeIteration === 0 && typeof resetLoading === 'function') {
+    resetLoading('正在生成章节…');
+  } else if (typeof showLoading === 'function') {
+    showLoading('第' + (_writeIteration + 1) + '轮生成中…');
+  }
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
   var _editLockWorkId = work.id;
   var _editLockFp = getCurrentWorkFingerprint(work);
@@ -4472,6 +4476,10 @@ async function aiWriteChapter(opts){
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  // 迭代时优先从已保存的 work._lastUserCmd 取（防止用户中途清空输入框导致指令丢失）
+  if (_writeIteration > 0 && work._lastUserCmd && work._lastUserCmd.trim()) {
+    userCmd = work._lastUserCmd;
+  }
   // 保存用户指令到作品元数据，供质量评价引擎检查指令遵循度
   // 只有原始调用（非迭代）时才更新，迭代时应保留原始用户指令
   if (userCmd && !_writeIteration) {
@@ -5054,7 +5062,9 @@ async function aiEvaluate(){
 
   // 2. AI 补充评价（可选）
   if(result && typeof callRealAPIWithFallback === 'function' && content.length > 100){
-    if(typeof showLoading === 'function') showLoading('AI评价分析中…');
+    if(typeof resetLoading === 'function') resetLoading('AI评价分析中…');
+    else if(typeof showLoading === 'function') showLoading('AI评价分析中…');
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(35, 'AI评价分析中…');
     var evalPrompt = '你是一位资深网文编辑。请对以下章节内容进行专业评价。\n\n';
     if(work){
       evalPrompt += '【作品】'+work.title+'\n';
@@ -7216,7 +7226,9 @@ async function aiPolishByQuality(){
   }
   if(!hint){ hint = '请优化本章的文字质量，提升写作水平'; }
   var prompt = '你是一位资深网文编辑。\n\n' + hint + '\n\n【原文】\n' + content + '\n\n【输出要求】直接给出润色后的完整章节正文，不要解释。';
-  showLoading('按建议润色中…');
+  if(typeof resetLoading === 'function') resetLoading('按建议润色中…');
+  else showLoading('按建议润色中…');
+  if(typeof updateLoadingProgress === 'function') updateLoadingProgress(30, '正在润色…');
   try {
     var r = await callRealAPIWithFallback(prompt, null, 'quality_polish', Math.max(600, Math.floor(content.length * 1.1)));
     if (r && r.length > 200) {
