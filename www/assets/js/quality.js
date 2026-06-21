@@ -246,6 +246,42 @@
     }
     dims.push(d16);
 
+    // D0: 用户指令遵循度（10分）— 检查生成内容是否遵循了用户的提示词指令
+    // 提取用户指令（通过 opts 传入）
+    var userCmd = (typeof work !== 'undefined' && work && work._lastUserCmd) ? work._lastUserCmd : '';
+    var d0 = { name: '指令遵循', score: 10, max: 10, weight: 0.15, issues: [], strengths: [] };
+    if (userCmd && userCmd.trim()) {
+      var cmdKeywords = userCmd.trim().replace(/[，。！？、；：""''（）【】《》]/g, ' ').split(/\s+/).filter(function(k) { return k.length >= 2; });
+      if (cmdKeywords.length > 0) {
+        var matchCount = 0;
+        var missCount = 0;
+        var missKeywords = [];
+        cmdKeywords.forEach(function(kw) {
+          if (content.indexOf(kw) >= 0) {
+            matchCount++;
+          } else {
+            missCount++;
+            missKeywords.push(kw);
+          }
+        });
+        var matchRatio = cmdKeywords.length > 0 ? matchCount / cmdKeywords.length : 1;
+        if (matchRatio >= 0.7) {
+          d0.score = 9;
+          d0.strengths.push('较好遵循用户指令(' + matchCount + '/' + cmdKeywords.length + '关键词匹配)');
+        } else if (matchRatio >= 0.4) {
+          d0.score = 6;
+          d0.issues.push('部分遵循用户指令，缺少关键词：' + missKeywords.slice(0, 3).join('、'));
+        } else {
+          d0.score = 3;
+          d0.issues.push('严重偏离用户指令！以下关键要求未体现：' + missKeywords.slice(0, 5).join('、'));
+        }
+      }
+    } else {
+      // 无用户指令时，该维度不扣分但也不算加分
+      d0.strengths.push('无特定指令，按通用标准评判');
+    }
+    dims.push(d0);
+
     // 汇总
     var totalScore = 0;
     dims.forEach(function(d) { totalScore += d.score * d.weight; });

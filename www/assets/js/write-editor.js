@@ -4469,6 +4469,11 @@ async function aiWriteChapter(opts){
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  // 保存用户指令到作品元数据，供质量评价引擎检查指令遵循度
+  // 只有原始调用（非迭代）时才更新，迭代时应保留原始用户指令
+  if (userCmd && !_writeIteration) {
+    work._lastUserCmd = userCmd;
+  }
   if (statusBar) {
     statusBar.style.display = 'block';
     statusBar.style.background = '#e0e7ff';
@@ -4665,7 +4670,22 @@ async function aiWriteChapter(opts){
         statusBar.style.background = '#dcfce7';
         statusBar.style.color = '#166534';
         var _scoreTxt = _qReport ? '，质量分 ' + _qReport.score + '/100' : '';
-        statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 已生成 ' + result.length + ' 字' + _scoreTxt;
+        // 显示用户指令遵循度
+        var _cmdFollowTip = '';
+        if (_qReport && _qReport.dimensions) {
+          for (var _dsi = 0; _dsi < _qReport.dimensions.length; _dsi++) {
+            if (_qReport.dimensions[_dsi].name === '指令遵循') {
+              _cmdFollowTip = '，指令遵循 ' + _qReport.dimensions[_dsi].score + '/10';
+              if (_qReport.dimensions[_dsi].score < 7) {
+                _cmdFollowTip += ' ⚠️';
+                statusBar.style.background = '#fef3c7';
+                statusBar.style.color = '#92400e';
+              }
+              break;
+            }
+          }
+        }
+        statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 已生成 ' + result.length + ' 字' + _scoreTxt + _cmdFollowTip;
         if (_qReport && _qReport.weaknesses.length) {
           statusBar.textContent += ' · 短板：' + _qReport.weaknesses.slice(0,2).join('、');
         }
@@ -4741,18 +4761,28 @@ async function aiWriteChapter(opts){
       }
     }
     
-    // ===== 质量迭代：评分不足90分且迭代次数<3次时，自动重写优化 =====
+    // ===== 质量迭代：评分不足90分 或 用户指令未遵循 且 迭代次数<3次时，自动重写优化 =====
     var _shouldIterate = false;
     var _iterHintText = '';
-    if (_qReport && typeof _qReport.score === 'number' && _qReport.score < 90 && _writeIteration < 3) {
+    // 触发条件：总分<90 或 指令遵循维度<6（严重偏离用户要求）
+    var _cmdFollowScore = 10;
+    if (_qReport && _qReport.dimensions) {
+      for (var _df = 0; _df < _qReport.dimensions.length; _df++) {
+        if (_qReport.dimensions[_df].name === '指令遵循') {
+          _cmdFollowScore = _qReport.dimensions[_df].score;
+          break;
+        }
+      }
+    }
+    if (_qReport && typeof _qReport.score === 'number' && _writeIteration < 3 && (_qReport.score < 90 || _cmdFollowScore < 6)) {
       _shouldIterate = true;
       var _hintLines = [];
-      _hintLines.push('上一次质量评分仅 ' + _qReport.score + '/100，必须以下短板全部补齐：');
+      _hintLines.push('上一次质量评分仅 ' + _qReport.score + '/100' + (_cmdFollowScore < 6 ? '（且用户指令遵循度仅' + _cmdFollowScore + '分）' : '') + '，必须以下短板全部补齐：');
       // 收集短板维度
       if (_qReport.weaknesses && _qReport.weaknesses.length) {
         _hintLines.push('短板维度：' + _qReport.weaknesses.slice(0, 4).join('、'));
       }
-      // 收集具体问题（从各维度details/issues中提取）
+      // 收集具体问题（从各维度issues中提取）
       if (_qReport.dimensions && _qReport.dimensions.length) {
         for (var _di = 0; _di < _qReport.dimensions.length; _di++) {
           var _dim = _qReport.dimensions[_di];
@@ -4770,6 +4800,10 @@ async function aiWriteChapter(opts){
       // 黄金开头问题
       if (goldenCheck && goldenCheck.issues && goldenCheck.issues.length) {
         _hintLines.push('【黄金开头】' + goldenCheck.issues.slice(0, 2).join('；'));
+      }
+      // 用户指令遵循度问题（如果存在）
+      if (_cmdFollowScore < 6 && work._lastUserCmd) {
+        _hintLines.push('【用户指令未遵循】必须严格按照用户指令生成：' + work._lastUserCmd);
       }
       _hintLines.push('要求：必须全面提升叙事密度、对话质量、冲突层次和章末悬念，重新写一章完整内容，字数不少于5000字。');
       _iterHintText = _hintLines.join('\n');
