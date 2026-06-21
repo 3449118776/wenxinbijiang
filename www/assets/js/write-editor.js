@@ -4427,7 +4427,8 @@ async function aiWriteChapter(opts){
   opts = opts || {};
   var _writeIteration = opts._iteration || 0;
   var _writeExtraHint = opts.extraHint || '';
-  var _writeBest = opts._prevBest || null;  // 之前的最佳结果
+  var _writeBest = opts._prevBest || null;  // 之前的最佳结果 {text, score}
+  var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
@@ -4483,9 +4484,13 @@ async function aiWriteChapter(opts){
   let prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
 
   // ===== 骨架生成 + AI自检：最多3次，不通过自动重写 =====
+  // 迭代时（_writeIteration > 0）：直接复用已有骨架，避免反复重新生成浪费 token 且质量下降
   var skeletonPassed = true;
   var skFinalText = '';
-  if(userCmd){
+  if(_writeIteration > 0 && _prevSkeleton && _prevSkeleton.trim()){
+    skFinalText = _prevSkeleton;
+    skeletonPassed = true;
+  } else if(userCmd){
     var skBasePrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
     skBasePrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
     skBasePrompt += '【本章标题】' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '\n';
@@ -4566,9 +4571,25 @@ async function aiWriteChapter(opts){
     }
   }
 
-  // ===== 质量迭代：如果是迭代重写，注入上一次的问题加强提示 =====
-  if(_writeExtraHint && _writeExtraHint.trim()){
-    prompt = '【⚠️ 本次生成必须修正以下问题（上一次生成质量不足90分，正在迭代优化）】\n' + _writeExtraHint.trim() + '\n\n' + prompt;
+  // ===== 质量迭代：如果是迭代重写，注入上一轮草稿 + 保留优点 + 修正问题 =====
+  // 关键修复：之前每轮都从零重写，导致好内容全丢，越写越薄；
+  // 现在把上一轮原文作为"草稿参考"注入，让 AI 在已有好内容基础上改进
+  if(_writeIteration > 0 && _writeBest && _writeBest.text && _writeBest.text.trim()){
+    var _prevDraft = _writeBest.text;
+    // 草稿不截断，确保完整性（token足够）
+    var _keepHint = '【✅ 上一轮优点必须保留】\n';
+    _keepHint += '上一轮质量评分 ' + _writeBest.score + '分，以下内容中的精彩描写、对话、冲突设计要完整保留并强化：\n';
+    _keepHint += '1. 场景描写的氛围感与细节要保留\n2. 人物对话的性格特征不能改变\n3. 已设置的伏笔和悬念钩子要延续\n4. 叙事节奏和情绪变化曲线要保留\n\n';
+    prompt = _keepHint
+      + '【📝 上一轮草稿（请在此基础上改进，不要全盘重写）】\n'
+      + _prevDraft.trim()
+      + '\n\n【🔧 本次改进方向】\n'
+      + (_writeExtraHint && _writeExtraHint.trim() ? _writeExtraHint.trim() : '重点提升：对话质量、冲突层次、章末悬念、叙事密度。')
+      + '\n\n【生成要求】\n在上一轮草稿基础上进行针对性优化，保留80%以上的好内容，只修改有问题的部分，产出更完整、更有张力的版本。字数不少于5000字。\n\n'
+      + prompt;
+  } else if(_writeExtraHint && _writeExtraHint.trim()){
+    // 没有上一轮草稿时，仍然注入改进提示
+    prompt = '【🔧 本次生成要求】\n' + _writeExtraHint.trim() + '\n\n' + prompt;
   }
 
   // 显示输入token估算 + 进入正文生成阶段
@@ -4761,10 +4782,19 @@ async function aiWriteChapter(opts){
       }
     }
     
-    // ===== 质量迭代：评分不足90分 或 用户指令未遵循 且 迭代次数<3次时，自动重写优化 =====
+    // ===== 质量迭代：评分不足90分 或 用户指令未遵循 且 迭代次数<3次时，自动重写优化
+    // 关键修复1：每轮都记录当前最佳结果，越写越差时自动回退
+    // 关键修复2：不再让 AI 从零重写，而是基于上一轮原文进行改进（保留优点+针对问题优化）
     var _shouldIterate = false;
     var _iterHintText = '';
-    // 触发条件：总分<90 或 指令遵循维度<6（严重偏离用户要求）
+    // 当前轮分数
+    var _currentScore = _qReport && typeof _qReport.score === 'number' ? _qReport.score : 0;
+    // 更新最佳结果：如果本轮分数更高，或没有上一轮最佳，则本轮就是新的最佳
+    var _newBest = _writeBest;
+    if (!_writeBest || _currentScore > _writeBest.score) {
+      _newBest = { text: result, score: _currentScore };
+    }
+    // 触发条件：总分<90 或 指令遵循维度<6（严重偏离用户要求），且迭代次数<3
     var _cmdFollowScore = 10;
     if (_qReport && _qReport.dimensions) {
       for (var _df = 0; _df < _qReport.dimensions.length; _df++) {
@@ -4774,38 +4804,43 @@ async function aiWriteChapter(opts){
         }
       }
     }
-    if (_qReport && typeof _qReport.score === 'number' && _writeIteration < 3 && (_qReport.score < 90 || _cmdFollowScore < 6)) {
+    // 安全机制：如果本轮分数比上一轮最佳低5分以上，说明越改越差，直接用最佳结果，不再迭代
+    var _scoreDropped = _writeBest && _currentScore < _writeBest.score - 5;
+    if (_scoreDropped) {
+      if (statusBar) {
+        statusBar.style.background = '#fef3c7';
+        statusBar.style.color = '#92400e';
+        statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 本次迭代质量下降，回退到上一轮最佳版本（' + _writeBest.score + '分）';
+      }
+      result = _writeBest.text;
+      _currentScore = _writeBest.score;
+      // 不再继续迭代，直接保存
+    } else if (_qReport && typeof _qReport.score === 'number' && _writeIteration < 3 && (_qReport.score < 90 || _cmdFollowScore < 6)) {
       _shouldIterate = true;
       var _hintLines = [];
-      _hintLines.push('上一次质量评分仅 ' + _qReport.score + '/100' + (_cmdFollowScore < 6 ? '（且用户指令遵循度仅' + _cmdFollowScore + '分）' : '') + '，必须以下短板全部补齐：');
-      // 收集短板维度
-      if (_qReport.weaknesses && _qReport.weaknesses.length) {
-        _hintLines.push('短板维度：' + _qReport.weaknesses.slice(0, 4).join('、'));
-      }
-      // 收集具体问题（从各维度issues中提取）
+      // 提示改为：列出需要改进的具体问题（更精准、更正面）
+      _hintLines.push('当前评分 ' + _qReport.score + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
+      // 收集具体问题（从各维度issues中提取，每维度不超过2条）
       if (_qReport.dimensions && _qReport.dimensions.length) {
+        var _dimCount = 0;
         for (var _di = 0; _di < _qReport.dimensions.length; _di++) {
           var _dim = _qReport.dimensions[_di];
-          if (_dim && (_dim.score / _dim.max) < 0.7) {
+          if (_dim && (_dim.score / _dim.max) < 0.85 && _dimCount < 3) {
             if (_dim.issues && _dim.issues.length) {
-              _hintLines.push('【' + _dim.name + '】问题：' + _dim.issues.slice(0, 2).join('；'));
+              _hintLines.push('- ' + _dim.name + '：' + _dim.issues.slice(0, 1).join('；'));
+              _dimCount++;
             }
           }
         }
       }
-      // 全链路一致性问题
-      if (_chainReport && _chainReport.score < 80 && _chainReport.issues && _chainReport.issues.length) {
-        _hintLines.push('【一致性】' + _chainReport.issues.slice(0, 2).join('；'));
-      }
-      // 黄金开头问题
-      if (goldenCheck && goldenCheck.issues && goldenCheck.issues.length) {
-        _hintLines.push('【黄金开头】' + goldenCheck.issues.slice(0, 2).join('；'));
-      }
       // 用户指令遵循度问题（如果存在）
       if (_cmdFollowScore < 6 && work._lastUserCmd) {
-        _hintLines.push('【用户指令未遵循】必须严格按照用户指令生成：' + work._lastUserCmd);
+        _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
       }
-      _hintLines.push('要求：必须全面提升叙事密度、对话质量、冲突层次和章末悬念，重新写一章完整内容，字数不少于5000字。');
+      // 先列出本轮的优点（让 AI 明确知道要保留什么）
+      if (_qReport && _qReport.strengths && _qReport.strengths.length) {
+        _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
+      }
       _iterHintText = _hintLines.join('\n');
     }
     
@@ -4813,11 +4848,11 @@ async function aiWriteChapter(opts){
       if (statusBar) {
         statusBar.style.background = '#fef3c7';
         statusBar.style.color = '#92400e';
-        statusBar.textContent = '🔄 ' + _stageInfo + ' · 质量分仅 ' + _qReport.score + '，第' + (_writeIteration + 1) + '次迭代优化中…';
+        statusBar.textContent = '🔄 ' + _stageInfo + ' · 当前' + _currentScore + '分，第' + (_writeIteration + 1) + '次迭代优化中…（保留上一轮好内容，只改问题）';
       }
-      showToast('质量不足90分（' + _qReport.score + '），自动迭代优化…', 3000);
-      // 递归调用，注入加强提示与迭代计数
-      return aiWriteChapter({ _iteration: _writeIteration + 1, extraHint: _iterHintText });
+      showToast('自动迭代优化中…（' + _currentScore + '分 → 目标90+）', 3000);
+      // 关键修复：递归调用时传递上一轮最佳结果 + 骨架，让 AI 基于好内容改进
+      return aiWriteChapter({ _iteration: _writeIteration + 1, extraHint: _iterHintText, _prevBest: _newBest, _prevSkeleton: skFinalText });
     }
 
     // ===== 写入作品前最终校验：确保作品仍未被用户切换，锁定后统一保存 =====
