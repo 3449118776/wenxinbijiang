@@ -3575,25 +3575,48 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
   }
 
-  // ⭐ v56 新增：自评价+自修正循环 —— 让AI在单次调用中自我迭代，最多3轮
-  // 这避免了多次API调用，同时确保内容质量达标
+  // ⭐ 新增：返回指定模块在 quality.js 中的固定评价维度名称
+  function _getModuleEvalDims(module) {
+    if (module === 'world')   return ['设定完整度', '独特创新', '冲突张力', '社会结构', '叙事潜力', '篇幅合理'];
+    if (module === 'chars')   return ['人物立体度', '关系网络', '反派/对抗力', '角色差异化', '情感共鸣', '篇幅合理'];
+    if (module === 'outline') return ['结构清晰', '节奏把控', '伏笔设计', '主线清晰', '冲突递进', '商业价值'];
+    if (module === 'detail')  return ['章节连贯', '钩子密度', '信息释放', '节奏控制', '爽点分布', '可执行性'];
+    return ['开篇吸引力', '章尾钩子', '对话质量', '动作描写', '感官描写', '情绪张力', '节奏控制', '文笔水平', '信息密度', '剧情契合度', '角色表现', '原创性'];
+  }
+
+  // ⭐ 自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
   var _selfIterHint = '';
+  var _dimNames = _getModuleEvalDims(module);
+
   _selfIterHint += '\n\n══════════════════════════════════════\n';
   _selfIterHint += '【🔄 自评价与自修正循环（必须执行，最多3轮）】\n';
   _selfIterHint += '══════════════════════════════════════\n\n';
-  _selfIterHint += '【第一轮】请直接输出完整内容，然后进行自我评价：\n';
-  _selfIterHint += '在内容末尾追加以下格式的【自评价报告】：\n';
-  _selfIterHint += '\n【自评价报告】\n';
-  _selfIterHint += '【维度1】得分/X：评价理由\n';
-  _selfIterHint += '【维度2】得分/X：评价理由\n';
-  _selfIterHint += '...（至少5个维度）\n';
+  _selfIterHint += '【评分维度表（仅此' + _dimNames.length + '个维度，顺序固定，不得增减或替换）】\n';
+  for (var _di = 0; _di < _dimNames.length; _di++) {
+    _selfIterHint += (_di + 1) + '. ' + _dimNames[_di] + '\n';
+  }
+  _selfIterHint += '\n';
+
+  if (idea && idea.trim()) {
+    _selfIterHint += '【⚠️ 用户核心提示词要求 — 评价时必须检查是否满足以下要求，不满足必须扣分并在问题列表中列出】\n' + idea.trim() + '\n\n';
+  }
+  if (extraHint && extraHint.trim()) {
+    _selfIterHint += '【📝 本次加强要求（来自上一轮评价意见）— 必须逐项检查是否满足】\n' + extraHint.trim() + '\n\n';
+  }
+
+  _selfIterHint += '【第一轮】请直接输出完整内容，然后按上述维度表进行自我评价：\n';
+  _selfIterHint += '在内容末尾追加以下格式的【自评价报告】：\n\n';
+  _selfIterHint += '【自评价报告】\n';
+  for (var _di2 = 0; _di2 < _dimNames.length; _di2++) {
+    _selfIterHint += '【' + _dimNames[_di2] + '】得分/10：评价理由（10字以上，说明亮点或问题）\n';
+  }
   _selfIterHint += '【总分】X/100\n';
-  _selfIterHint += '【问题列表】1. ... 2. ... 3. ...（如果有）\n';
+  _selfIterHint += '【问题列表】1. ... 2. ... 3. ...（如果有维度低于8分，必须列出具体问题）\n';
   _selfIterHint += '【是否需要修正】是/否\n\n';
-  _selfIterHint += '【判定规则】如果【总分】< 90 或 【是否需要修正】= 是，必须进入第二轮：\n';
+  _selfIterHint += '【判定规则】如果【总分】< 90 或有维度低于8分或【是否需要修正】= 是，必须进入第二轮：\n';
   _selfIterHint += '【第二轮】在第一轮内容基础上，精准修改【问题列表】中的每个问题，保留其他部分不变。\n';
   _selfIterHint += '修改完成后，重新输出完整内容，并再次进行自评价（格式同上），追加在第一轮报告之后。\n';
-  _selfIterHint += '【判定规则】如果第二轮【总分】< 90，必须进入第三轮。\n';
+  _selfIterHint += '【判定规则】如果第二轮【总分】< 90 或仍有维度低于8分，必须进入第三轮。\n';
   _selfIterHint += '【第三轮】再次精准修改剩余问题。完成后输出完整内容 + 自评价报告。\n';
   _selfIterHint += '【判定规则】无论第三轮分数多少，都必须输出最终内容，循环结束。\n\n';
   _selfIterHint += '【最终输出格式】（必须严格遵守）：\n';
@@ -3601,7 +3624,9 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   _selfIterHint += '【最终内容】\n';
   _selfIterHint += '（这里是你经过多轮自我修正后的最终完整内容）\n\n';
   _selfIterHint += '【最终自评价报告】\n';
-  _selfIterHint += '【维度1】得分/X：评价理由\n';
+  for (var _di3 = 0; _di3 < _dimNames.length; _di3++) {
+    _selfIterHint += '【' + _dimNames[_di3] + '】得分/10：评价理由\n';
+  }
   _selfIterHint += '【总分】X/100\n';
   _selfIterHint += '【主要改进】1. ... 2. ...\n';
   _selfIterHint += '【迭代次数】N/3\n';

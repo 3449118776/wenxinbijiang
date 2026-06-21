@@ -336,10 +336,10 @@
     if (d5.strengths.length === 0) { d5.score = 3; d5.issues.push('缺少故事驱动元素（秘密/预言/遗迹等）'); }
     dims.push(d5);
 
-    var d6 = { name: '设定一致性', score: 6, max: 10, weight: 0.12, issues: [], strengths: [] };
-    if (d1.strengths.length >= 2 && d3.strengths.length >= 1) d6.score = 8;
-    if (d6.score >= 8) d6.strengths.push('各设定之间有呼应和联系');
-    if (/(世界观设定|世界设定|世界规则|设定原则|设定基础|世界基础|核心规则|世界法则|核心设定)/.test(content)) d6.score = Math.min(10, d6.score + 1), d6.strengths.push('有明确的设定基础');
+    var d6 = { name: '篇幅合理', score: 7, max: 10, weight: 0.12, issues: [], strengths: [] };
+    if (len >= 600 && len <= 3000) d6.strengths.push('篇幅合理');
+    else if (len < 600) { d6.score = 4; d6.issues.push('篇幅偏短'); }
+    else { d6.score = 5; d6.issues.push('篇幅偏长'); }
     dims.push(d6);
 
     return _buildResult('world', '世界观', dims, content, len);
