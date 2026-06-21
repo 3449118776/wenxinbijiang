@@ -941,7 +941,7 @@ function toggleArchMenu(module, btnEl) {
     menu.classList.add('open');
     try {
       // 从按钮位置定位（按钮可能是被点击的 .sec-btn，或者从 currentTarget 得到）
-      var btn = btnEl || (window.event && window.event.currentTarget || document.querySelector('#page-' + module + ' .arch-more-wrap .sec-btn');
+      var btn = btnEl || (window.event && window.event.currentTarget) || document.querySelector('#page-' + module + ' .arch-more-wrap .sec-btn');
       if (!btn) return;
       var rect = btn.getBoundingClientRect();
       var menuHeight = menu.offsetHeight || 200;
