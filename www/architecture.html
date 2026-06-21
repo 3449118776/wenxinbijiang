@@ -2785,6 +2785,12 @@ window.generateArchModule = async function(opts){
       for(var tbi = 0; tbi < batches.length; tbi++){
         bigTarget += batches[tbi].targetChars || 1000;
       }
+      // ⭐ v56：当模块已有内容时，以"不低于已有内容字数 + 30%"为目标，防止迭代后内容越来越少
+      if(work && work[module] && work[module].trim()){
+        var _existingContentLen = work[module].trim().length;
+        var _adaptiveTarget = Math.floor(_existingContentLen * 1.3);
+        bigTarget = Math.max(bigTarget, _adaptiveTarget);
+      }
 
       var bigResult = null;
       try{
@@ -3222,6 +3228,23 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
+  // ⭐ v56：注入当前模块的已有内容 —— 让AI基于已有内容做迭代/加强，而不是每次从头生成
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLimit = 6000;
+    if(extraHint && extraHint.trim()){
+      prompt += '【📖 当前模块已有内容 —— 请在此基础上针对问题部分做精准修改，其他部分保持不变。不是重新生成，是迭代加强】\n';
+    } else {
+      prompt += '【📖 当前模块已有内容 —— 请在此基础上扩展、深化细节而不是推倒重来。核心设定必须保留】\n';
+    }
+    prompt += smartTruncate(work[module], _cardExistingLimit) + '\n\n';
+    prompt += '【已有内容处理原则】\n';
+    prompt += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻或改名\n';
+    prompt += '2. 已有信息不充分的部分请补充扩展，但不得替换原有内容\n';
+    prompt += '3. 前后不一致的地方以更合理的一方为准统一修正\n';
+    prompt += '4. 如果本次有"加强意见"，只针对问题部分修改，保留其他部分不变\n';
+    prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
+  }
+
   // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
   if(module !== 'world'){
     if(module === 'detail'){
@@ -3315,7 +3338,14 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
   prompt += '2. 不要输出与本卡片无关的内容（如创作思路、解释说明）\n';
   prompt += '3. 段落清晰，用「■」标记关键子项\n';
-  prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
+
+  // ⭐ v56：当有已有内容时，确保字数不低于已有内容对应部分
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLen = work[module].trim().length;
+    prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字。当前模块已有内容约 ' + _cardExistingLen + ' 字，本卡片内容不得压缩，应适当扩展细节**\n';
+  } else {
+    prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
+  }
   prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
   if(module === 'detail' && card.volume){
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
@@ -3362,6 +3392,22 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   prompt += '作品名称：' + title + '\n';
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
+
+  // ⭐ v56：注入当前模块的已有内容 —— 让AI基于已有内容做迭代/加强/修改，而不是每次重新生成
+  if(work && work[module] && work[module].trim()){
+    var _existingLimit = 8000;
+    var _existingHintLabel = extraHint && extraHint.trim()
+      ? '【📖 当前模块已有内容 —— 请在此基础上加强/修改/扩展，不要完全重新生成。保留好的部分，只针对问题部分修改】\n'
+      : '【📖 当前模块已有内容 —— 请在此基础上进一步丰富、完善、加深细节，而不是推倒重来。如果已有内容有不一致之处，请统一修正但保留核心设定】\n';
+    prompt += _existingHintLabel;
+    prompt += smartTruncate(work[module], _existingLimit) + '\n\n';
+    prompt += '【已有内容处理原则】\n';
+    prompt += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻\n';
+    prompt += '2. 已有信息不充分的部分，请补充扩展而不是替换\n';
+    prompt += '3. 前后不一致的地方以更合理的一方为准，统一修正\n';
+    prompt += '4. 空缺的部分可以新增内容，但不得与已有设定矛盾\n';
+    prompt += '5. 如果本次有"加强意见"，优先按加强意见修改对应部分，同时保留其他部分不变\n\n';
+  }
 
   // 前置架构上下文：优先使用 longMemory.moduleSummaries
   if(module !== 'world'){
@@ -3413,7 +3459,15 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
   prompt += '2. 不要输出与内容无关的创作思路、解释说明\n';
   prompt += '3. 用「【XX】」作为每一部分的大标题，用「■」标记关键子项，段落清晰\n';
-  prompt += '4. **目标总字数：整份' + moduleName + '至少 ' + totalTarget + ' 字，请充分展开细节，不要压缩内容**\n';
+
+  // ⭐ v56：当有已有内容时，字数要求以"不低于已有内容字数"为准
+  if(work && work[module] && work[module].trim()){
+    var _existingLen = work[module].trim().length;
+    var _minTarget = Math.max(totalTarget, _existingLen);
+    prompt += '4. **目标总字数：整份' + moduleName + '至少 ' + _minTarget + ' 字。当前已有内容约 ' + _existingLen + ' 字，本次输出不得少于该字数。请充分展开细节，不要压缩、不要精简**\n';
+  } else {
+    prompt += '4. **目标总字数：整份' + moduleName + '至少 ' + totalTarget + ' 字，请充分展开细节，不要压缩内容**\n';
+  }
   prompt += '5. 各部分之间保持人物名称、设定、风格的一致性；前文埋的设定后文必须呼应\n';
   if(module === 'detail'){
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
