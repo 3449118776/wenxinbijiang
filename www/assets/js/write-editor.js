@@ -4431,8 +4431,8 @@ async function aiWriteChapter(opts){
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
-  // 启动进度条模拟（显示在对话框和 architecture.html 页面内）
-  if(typeof showLoading === 'function') showLoading('正在生成章节…');
+  // 第一次调用 showLoading，启动进度条；迭代时传入 keepProgress=true 保持进度不重置
+  if(typeof showLoading === 'function') showLoading(_writeIteration > 0 ? null : '正在生成章节…', _writeIteration > 0);
   // ===== 作品锁定：记录当前作品ID，生成完成前不允许切换作品写入 =====
   var _editLockWorkId = work.id;
   var _editLockFp = getCurrentWorkFingerprint(work);
@@ -4609,8 +4609,10 @@ async function aiWriteChapter(opts){
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
   // v46：多AI模式时使用 callMultiAI 并行请求
+  // 进度按迭代轮次分段推进：第1轮 5→45%，第2轮 45→75%，第3轮 75→95%，最后100%
   if (typeof updateLoadingProgress === 'function') {
-    updateLoadingProgress(25, '🤖 AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
+    var _startPct = 5 + _writeIteration * 35;
+    updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   let result = await aiCaller(prompt, null, 'write_normal', 12000); // 目标 5000-8000 字，大模型可承受更长输出
@@ -4794,10 +4796,6 @@ async function aiWriteChapter(opts){
     if (!_writeBest || _currentScore > _writeBest.score) {
       _writeBest = { text: result, score: _currentScore };
     }
-    // 进度更新（生成完成，进入评价）
-    if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(35, '第' + (_writeIteration + 1) + '轮 · ' + _currentScore + '分');
-    }
 
     // 触发条件：总分<90 或 指令遵循维度<6，且迭代次数<3
     var _cmdFollowScore = 10;
@@ -4816,6 +4814,13 @@ async function aiWriteChapter(opts){
       result = _writeBest.text;
     }
 
+    // 进度更新：每轮生成完成后推进到阶段性点
+    // 第1轮完成→45%，第2轮完成→75%，第3轮完成→95%，最终保存→100%
+    var _midPct = 45 + _writeIteration * 30;
+    if (typeof updateLoadingProgress === 'function') {
+      updateLoadingProgress(_midPct, '第' + (_writeIteration + 1) + '轮完成 · ' + _currentScore + '分');
+    }
+
     // 检查是否需要继续迭代
     var _shouldIterate = _qReport && typeof _qReport.score === 'number'
       && _writeIteration < 3
@@ -4826,12 +4831,7 @@ async function aiWriteChapter(opts){
       if (statusBar) {
         statusBar.style.background = '#fef3c7';
         statusBar.style.color = '#92400e';
-        statusBar.textContent = '🔄 迭代优化 · 当前' + _currentScore + '分 · 第' + (_writeIteration + 1) + '/3轮';
-      }
-      showToast('自动迭代优化中…（' + _currentScore + '分 → 目标90+）', 2000);
-      // 进度更新：下一轮生成
-      if (typeof updateLoadingProgress === 'function') {
-        updateLoadingProgress(40 + _writeIteration * 20, '🔄 第' + (_writeIteration + 2) + '轮生成中…');
+        statusBar.textContent = '🔄 自动迭代中 · 当前' + _currentScore + '分 · 第' + (_writeIteration + 1) + '/3轮 · 目标90+';
       }
       // 构造下一轮改进提示
       var _nextHint = '';
@@ -4866,15 +4866,45 @@ async function aiWriteChapter(opts){
     }
 
     // ===== 迭代结束：写入作品 =====
+    // 用最佳结果（可能是回退的）
+    var _finalScore = _writeBest ? _writeBest.score : _currentScore;
+    var _finalResult = _writeBest ? _writeBest.text : result;
+    result = _finalResult;
     if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(100, '✅ 生成完成（' + _currentScore + '分）');
+      updateLoadingProgress(100, '✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮');
+    }
+    // 在 editor 上方永久显示评分和各维度得分
+    var _qBannerId = 'quality-banner';
+    var _oldBanner = document.getElementById(_qBannerId);
+    if (_oldBanner) _oldBanner.remove();
+    var _banner = document.createElement('div');
+    _banner.id = _qBannerId;
+    var _scoreColor = _finalScore >= 90 ? '#10b981' : _finalScore >= 75 ? '#f59e0b' : '#ef4444';
+    var _scoreBg = _finalScore >= 90 ? '#d1fae5' : _finalScore >= 75 ? '#fef3c7' : '#fee2e2';
+    var _dimsStr = '';
+    if (_qReport && _qReport.dimensions && _qReport.dimensions.length) {
+      _qReport.dimensions.forEach(function(d) {
+        var ds = Math.round((d.score / d.max) * 10);
+        var dc = ds >= 8 ? '#10b981' : ds >= 6 ? '#f59e0b' : '#ef4444';
+        _dimsStr += '<span style="display:inline-block;background:#f3f4f6;color:' + dc + ';padding:2px 10px;border-radius:10px;font-size:12px;margin:2px;font-weight:600;">' + d.name + ' ' + ds + '</span>';
+      });
+    }
+    _banner.style.cssText = 'background:' + _scoreBg + ';border-left:4px solid ' + _scoreColor + ';padding:10px 14px;margin:8px 12px;border-radius:8px;font-size:13px;line-height:1.8;';
+    _banner.innerHTML = '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      + '<span style="font-size:20px;font-weight:800;color:' + _scoreColor + ';">' + _finalScore + '</span>'
+      + '<span style="color:#374151;font-weight:600;">分 · 共' + (_writeIteration + 1) + '轮生成 · ' + result.length + '字</span>'
+      + '</div>'
+      + '<div style="margin-top:4px;">' + _dimsStr + '</div>';
+    var _editorEl = document.getElementById('editor');
+    if (_editorEl && _editorEl.parentNode) {
+      _editorEl.parentNode.insertBefore(_banner, _editorEl);
     }
     if (typeof hideLoading === 'function') {
-      setTimeout(function() { hideLoading(); }, 500);
+      setTimeout(function() { hideLoading(); }, 100); // 100%已在updateLoadingProgress中设置，hideLoading会在2秒后淡出
     }
     if(!_checkStillSameWork('保存章节')) return;
     DB.saveWork(work);
-    showToast('✅ 生成完成（' + _currentScore + '分）— 不满意可点右上角 <撤销> 按钮恢复原文', 5000);
+    showToast('✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮', 6000);
     setTimeout(function(){ showPolishRecommend(); }, 500);
     
   } else {

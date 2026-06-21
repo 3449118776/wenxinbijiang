@@ -88,19 +88,14 @@ function showLoading(text, keepProgress) {
     }
   }
 
-  // 模拟进度增长（因为不确定实际进度）
+  // 去掉模拟进度增长——完全由外部调用 updateLoadingProgress 控制
+  // 这样进度条按真实阶段缓慢推进到100%，用户能看到完整过程
   if (!keepProgress) {
-    _loadingTimer = setInterval(function() {
-      if (_loadingPct < 95) {
-        // 前期加速，接近100时由updateLoadingProgress接管
-        _loadingInc = Math.random() * 3 + 1;
-        _loadingPct = Math.min(95, _loadingPct + _loadingInc);
-        var fill = el.querySelector('.loading-progress-fill');
-        var pctEl = el.querySelector('.loading-pct');
-        if (fill) fill.style.width = _loadingPct + '%';
-        if (pctEl) pctEl.textContent = Math.round(_loadingPct) + '%';
-      }
-    }, 200);
+    _loadingPct = 3; // 从3%起步，让用户看到有进展
+    var fill = el.querySelector('.loading-progress-fill');
+    var pctEl = el.querySelector('.loading-pct');
+    if (fill) fill.style.width = _loadingPct + '%';
+    if (pctEl) pctEl.textContent = Math.round(_loadingPct) + '%';
   }
 }
 
@@ -110,7 +105,8 @@ function hideLoading() {
   _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
   _loadingHideTimers = [];
 
-  // 完成 #app-loading 进度条
+  // 100%停留2秒再隐藏——让用户看到完成
+  // 如果外部已经 updateLoadingProgress(100)，此处从100%开始；否则先设100%
   var el = document.querySelector('#app-loading');
   if (el) {
     var fill = el.querySelector('.loading-progress-fill');
@@ -123,18 +119,20 @@ function hideLoading() {
         if (el.style.opacity === '0') el.style.display = 'none';
       }, 300);
       _loadingHideTimers.push(t2);
-    }, 200);
+    }, 2000); // 2秒后再淡出——让用户看到100%
     _loadingHideTimers.push(t1);
   }
 
-  // 完成 architecture.html 页面内的进度条
+  // architecture.html 页面内的进度条：同样停留后隐藏
   var progBar = document.getElementById('prog-bar');
   var progPct = document.getElementById('prog-pct');
   if (progBar) progBar.style.width = '100%';
   if (progPct) progPct.textContent = '100%';
-  // 隐藏页面内进度条
   var detailProg = document.getElementById('detail-progress');
-  if (detailProg) detailProg.style.display = 'none';
+  if (detailProg) {
+    var t3 = setTimeout(function() { detailProg.style.display = 'none'; }, 2300);
+    _loadingHideTimers.push(t3);
+  }
 }
 
 // 外部可调用：更新加载进度（0-100）
