@@ -413,14 +413,7 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <div class="arch-more-wrap">
-          <button class="sec-btn" onclick="toggleArchMenu('world')">⋯ 更多</button>
-          <div class="arch-more-menu" id="arch-menu-world">
-            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
-            <button class="arch-more-item" id="arch-fix-btn" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
-            <button class="arch-more-item" onclick="openReader('world');closeArchMenus()">📖 阅读</button>
-            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
-            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
-          </div>
+          <button class="sec-btn" onclick="toggleArchMenu('world', this)">⋯ 更多</button>
         </div>
       </div>
       <div class="module-content">
@@ -447,15 +440,7 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <div class="arch-more-wrap">
-          <button class="sec-btn" onclick="toggleArchMenu('chars')">⋯ 更多</button>
-          <div class="arch-more-menu" id="arch-menu-chars">
-            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
-            <button class="arch-more-item" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
-            <button class="arch-more-item" onclick="showRelationGraph();closeArchMenus()">👥 关系图</button>
-            <button class="arch-more-item" onclick="openReader('chars');closeArchMenus()">📖 阅读</button>
-            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
-            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
-          </div>
+          <button class="sec-btn" onclick="toggleArchMenu('chars', this)">⋯ 更多</button>
         </div>
       </div>
       <div class="module-content">
@@ -487,14 +472,7 @@ body{display:flex;flex-direction:column;}
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <div class="arch-more-wrap">
-          <button class="sec-btn" onclick="toggleArchMenu('outline')">⋯ 更多</button>
-          <div class="arch-more-menu" id="arch-menu-outline">
-            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
-            <button class="arch-more-item" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
-            <button class="arch-more-item" onclick="openReader('outline');closeArchMenus()">📖 阅读</button>
-            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
-            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
-          </div>
+          <button class="sec-btn" onclick="toggleArchMenu('outline', this)">⋯ 更多</button>
         </div>
       </div>
       <div class="module-content">
@@ -535,14 +513,6 @@ body{display:flex;flex-direction:column;}
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
         <div class="arch-more-wrap">
           <button class="sec-btn" onclick="toggleArchMenu('detail')">⋯ 更多</button>
-          <div class="arch-more-menu" id="arch-menu-detail">
-            <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
-            <button class="arch-more-item" onclick="strengthenDetailOutlineV46();closeArchMenus()">🔥 细纲补强</button>
-            <button class="arch-more-item" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
-            <button class="arch-more-item" onclick="openReader('detail');closeArchMenus()">📖 阅读</button>
-            <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
-            <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
-          </div>
         </div>
       </div>
       <div class="import-area" id="detail-import-area" style="display:none;">
@@ -960,8 +930,8 @@ document.addEventListener('input', function(e){
   }
 });
 
-// 更多菜单：切换显示（使用 fixed 定位避免被父容器 overflow 裁剪）
-function toggleArchMenu(module) {
+// 更多菜单：切换显示（菜单 DOM 已挂到 body 外层，避免被 overflow 裁剪）
+function toggleArchMenu(module, btnEl) {
   var menuId = 'arch-menu-' + module;
   var menu = document.getElementById(menuId);
   if (!menu) return;
@@ -970,44 +940,41 @@ function toggleArchMenu(module) {
   if (!isOpen) {
     menu.classList.add('open');
     try {
-      var wrap = menu.closest('.arch-more-wrap');
-      if (wrap) {
-        var rect = wrap.getBoundingClientRect();
-        var menuHeight = menu.offsetHeight || 200;
-        var menuWidth = Math.min(menu.offsetWidth || 180, 240);
-        var spaceAbove = rect.top - 60; // 上方空间（不被 app-header 遮挡）
-        var spaceBelow = window.innerHeight - rect.bottom - 10; // 下方空间
-        var top;
-        // 优先选下方（操作更自然），空间不够则选上方
-        if (spaceBelow >= menuHeight) {
+      // 从按钮位置定位（按钮可能是被点击的 .sec-btn，或者从 currentTarget 得到）
+      var btn = btnEl || (window.event && window.event.currentTarget || document.querySelector('#page-' + module + ' .arch-more-wrap .sec-btn');
+      if (!btn) return;
+      var rect = btn.getBoundingClientRect();
+      var menuHeight = menu.offsetHeight || 200;
+      var menuWidth = Math.min(menu.offsetWidth || 180, 240);
+      var spaceAbove = rect.top - 60;
+      var spaceBelow = window.innerHeight - rect.bottom - 10;
+      var top;
+      if (spaceBelow >= menuHeight) {
+        top = rect.bottom + 4;
+      } else if (spaceAbove >= menuHeight) {
+        top = rect.top - menuHeight - 4;
+      } else {
+        if (spaceBelow >= spaceAbove) {
           top = rect.bottom + 4;
-        } else if (spaceAbove >= menuHeight) {
-          top = rect.top - menuHeight - 4;
+          menuHeight = Math.min(menuHeight, spaceBelow - 4);
         } else {
-          // 两个方向都不够，选空间更大的
-          if (spaceBelow >= spaceAbove) {
-            top = rect.bottom + 4;
-            menuHeight = Math.min(menuHeight, spaceBelow - 4);
-          } else {
-            top = Math.max(60, rect.top - menuHeight - 4);
-            menuHeight = Math.min(menuHeight, spaceAbove);
-          }
+          top = Math.max(60, rect.top - menuHeight - 4);
+          menuHeight = Math.min(menuHeight, spaceAbove);
         }
-        // 水平位置：尽量与按钮右侧对齐，但不超出屏幕
-        var left = rect.right - menuWidth;
-        if (left < 10) left = 10;
-        if (left + menuWidth > window.innerWidth - 10) {
-          left = window.innerWidth - menuWidth - 10;
-        }
-        menu.style.top = top + 'px';
-        menu.style.left = left + 'px';
-        menu.style.right = 'auto';
-        menu.style.bottom = 'auto';
-        menu.style.maxWidth = menuWidth + 'px';
-        menu.style.width = 'auto';
-        menu.style.maxHeight = (menuHeight - 4) + 'px';
-        menu.style.overflowY = 'auto';
       }
+      var left = rect.right - menuWidth;
+      if (left < 10) left = 10;
+      if (left + menuWidth > window.innerWidth - 10) {
+        left = window.innerWidth - menuWidth - 10;
+      }
+      menu.style.top = top + 'px';
+      menu.style.left = left + 'px';
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+      menu.style.maxWidth = menuWidth + 'px';
+      menu.style.width = 'auto';
+      menu.style.maxHeight = (menuHeight - 4) + 'px';
+      menu.style.overflowY = 'auto';
     } catch (e) {}
   }
 }
@@ -5303,5 +5270,37 @@ window.closeMaterialLib = closeMaterialLib;
 window.aiExtractMaterialLib = aiExtractMaterialLib;
 window.saveMaterialLib = saveMaterialLib;
 </script>
+
+<!-- 模块更多菜单（挂到 body 外层，避免被 overflow 裁剪）-->
+<div class="arch-more-menu" id="arch-menu-world">
+  <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+  <button class="arch-more-item" id="arch-fix-btn" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+  <button class="arch-more-item" onclick="openReader('world');closeArchMenus()">📖 阅读</button>
+  <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" id="arch-file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+  <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+</div>
+<div class="arch-more-menu" id="arch-menu-chars">
+  <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+  <button class="arch-more-item" id="arch-fix-btn-chars" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+  <button class="arch-more-item" onclick="showRelationGraph();closeArchMenus()">👥 关系图</button>
+  <button class="arch-more-item" onclick="openReader('chars');closeArchMenus()">📖 阅读</button>
+  <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+  <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+</div>
+<div class="arch-more-menu" id="arch-menu-outline">
+  <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+  <button class="arch-more-item" id="arch-fix-btn-outline" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+  <button class="arch-more-item" onclick="openReader('outline');closeArchMenus()">📖 阅读</button>
+  <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+  <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+</div>
+<div class="arch-more-menu" id="arch-menu-detail">
+  <button class="arch-more-item" onclick="evaluateArchModule();closeArchMenus()">📊 评价</button>
+  <button class="arch-more-item" onclick="strengthenDetailOutlineV46();closeArchMenus()">🔥 细纲补强</button>
+  <button class="arch-more-item" id="arch-fix-btn2" style="display:none;" onclick="fixArchModule();closeArchMenus()">🔥 按评价加强</button>
+  <button class="arch-more-item" onclick="openReader('detail');closeArchMenus()">📖 阅读</button>
+  <button class="arch-more-item" style="position:relative;overflow:hidden;">📥 导入<input type="file" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;" onchange="handleArchFileImport(event);closeArchMenus()"></button>
+  <button class="arch-more-item danger" onclick="deleteCurrentAIGeneration();closeArchMenus()">🗑 删除生成</button>
+</div>
 </body>
 </html>
