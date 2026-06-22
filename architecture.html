@@ -2764,9 +2764,10 @@ window.generateArchModule = async function(opts){
             });
           }
 
-          // v61: 构建精准修复 prompt — 补丁模式
-          // 不再要求AI输出完整内容（max_tokens限制会导致大幅删减），
-          // 改为输出补丁段落，系统自动合并到原文
+          // v61: 构建精准修复 prompt
+          // 核心修复：不再截断原文(smartTruncate→8000)，改为发送完整内容
+          // targetChars 设为原文长度，配合截断续写机制让AI输出完整内容
+          // 兜底：如果修复结果比原文短30%以上，保留原文不替换
           var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
           _fixPrompt += '【当前评分】' + _curScore + '/100\n';
           _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
