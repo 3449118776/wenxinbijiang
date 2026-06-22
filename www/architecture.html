@@ -2835,9 +2835,23 @@ window.generateArchModule = async function(opts){
 
       // 3b. 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
       var actualTotalVols = userVolCount2;
+      var chaptersPerVolume = userChPerVol;
+      
       if(work && work.outline){
         var volMatches2 = work.outline.match(/第[一二三四五六七八九十百零〇\d]+\s*卷/g);
         if(volMatches2 && volMatches2.length > 0) actualTotalVols = volMatches2.length;
+        
+        // 从大纲中提取每卷的章节数信息
+        var chCountMatches = work.outline.match(/(\d+)\s*[章回]/g);
+        if(chCountMatches && chCountMatches.length > 0){
+          var totalChaptersFromOutline = 0;
+          chCountMatches.forEach(function(m){
+            totalChaptersFromOutline += parseInt(m.match(/\d+/)[0], 10);
+          });
+          if(totalChaptersFromOutline > 0){
+            chaptersPerVolume = Math.max(5, Math.round(totalChaptersFromOutline / actualTotalVols));
+          }
+        }
       }
 
       // 3c. 从大纲中提取每一卷的核心目标（作为硬性约束）
@@ -2847,7 +2861,7 @@ window.generateArchModule = async function(opts){
       var fullDetailResult = '';
       var prevVolDetail = '';
       var detailAllCards = [];
-      var volTargetChars = userChPerVol * 400; // 约每章 400 字，更详细的细纲
+      var volTargetChars = chaptersPerVolume * 400; // 约每章 400 字，更详细的细纲
 
       for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
         // ===== 每次卷生成前校验：作品被切换则立即中止 =====
@@ -2885,21 +2899,112 @@ window.generateArchModule = async function(opts){
           opts && opts.extraHint,
           marketResearch,
           memoryContext,
-          userChPerVol
+          chaptersPerVolume
         );
 
-        // 调用 AI 生成本卷
+        // 本卷三次迭代：最多3次，每次针对性加强短板维度
         var volResultText = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            volResultText = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            volResultText = await callRealAPI(volPrompt, null, {});
+        var volBestResult = null;
+        var volBestScore = 0;
+        var volIterDone = 0;
+        var maxVolIterations = 3;
+
+        while(volIterDone < maxVolIterations){
+          var currentVolResult = null;
+          try{
+            if(typeof callRealAPIWithFallback === 'function'){
+              currentVolResult = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
+            } else if(typeof callRealAPI === 'function'){
+              currentVolResult = await callRealAPI(volPrompt, null, {});
+            }
+          }catch(ve){
+            console.warn('细纲 ' + volLabel + ' 生成失败:', ve);
+            currentVolResult = '（' + volLabel + ' 生成失败，请重试）\n';
           }
-        }catch(ve){
-          console.warn('细纲 ' + volLabel + ' 生成失败:', ve);
-          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
+          if(!currentVolResult || !currentVolResult.trim()){
+            currentVolResult = '（' + volLabel + ' 生成失败，请重试）\n';
+          }
+
+          // 评价本次生成结果，提取短板维度
+          var volEvalScore = 0;
+          var volWeakDims = [];
+          try{
+            if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+              var volEval = QualityEngine.evaluate(currentVolResult, 'detail');
+              volEvalScore = volEval.totalScore || 0;
+              if(volEval.dimensions && volEval.dimensions.length){
+                for(var _vdimI = 0; _vdimI < volEval.dimensions.length; _vdimI++){
+                  var _vdim = volEval.dimensions[_vdimI];
+                  if(_vdim.score !== undefined && _vdim.max !== undefined){
+                    var _vdimRatio = _vdim.score / _vdim.max;
+                    if(_vdimRatio < 0.9 && _vdim.name){
+                      volWeakDims.push({
+                        name: _vdim.name,
+                        score: _vdim.score,
+                        max: _vdim.max,
+                        issues: _vdim.issues || []
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }catch(volEvalE){ volEvalScore = 50; }
+
+          // 保留最高分结果
+          if(volEvalScore > volBestScore){
+            volBestResult = currentVolResult;
+            volBestScore = volEvalScore;
+          }
+
+          volIterDone++;
+
+          // 分数 >= 85 或已完成3次迭代，结束迭代
+          if(volBestScore >= 85 || volIterDone >= maxVolIterations){
+            break;
+          }
+
+          // 分数 < 85，准备下一次迭代（针对性加强短板）
+          var volIterHint = '🔥 第' + volIterDone + '次生成评分 ' + volEvalScore + '/100，以下维度需要加强：\n';
+          for(var _vwdi = 0; _vwdi < volWeakDims.length; _vwdi++){
+            var _vwd = volWeakDims[_vwdi];
+            volIterHint += '【' + _vwd.name + '】' + _vwd.score + '/' + _vwd.max + '分 — ';
+            if(_vwd.issues && _vwd.issues.length > 0){
+              volIterHint += _vwd.issues.slice(0, 2).join('; ');
+            } else {
+              volIterHint += '需要加强';
+            }
+            volIterHint += '\n';
+          }
+          volIterHint += '\n【加强要求】\n';
+          volIterHint += '1. 不要重新生成整体，只在原有基础上针对短板维度精准加强\n';
+          volIterHint += '2. 每个短板维度至少增加200字的具体内容\n';
+          volIterHint += '3. 加强后的内容必须与已有内容自然衔接，不能突兀\n';
+          volIterHint += '4. 保持原有风格和结构，只做局部增强\n';
+
+          // 更新进度条显示迭代信息
+          var volIterProgressLabel = volLabel + '（迭代' + volIterDone + '/3，加强短板）';
+          if(typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(detPct - 5 + volIterDone * 3, volIterProgressLabel);
+          }
+
+          // 更新 prompt，加入加强提示
+          volPrompt = buildDetailVolumePromptV52(
+            work,
+            vi56,
+            actualTotalVols,
+            thisVolTarget,
+            prevVolDetail,
+            idea,
+            volIterHint,
+            marketResearch,
+            memoryContext,
+            chaptersPerVolume
+          );
         }
+
+        // 使用最高分结果
+        volResultText = volBestResult || volResultText;
         if(!volResultText || !volResultText.trim()){
           volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
         }
@@ -3381,9 +3486,21 @@ function buildArchCardBatchesV48(module, work, idea){
     if(work && work.outline){
       var volMatches = work.outline.match(/第[一二三四五六七八九十\d]+卷/g);
       if(volMatches && volMatches.length > 0) volumeCount = volMatches.length;
+      
+      // 从大纲中提取章节数信息
+      var chCountMatches = work.outline.match(/(\d+)\s*[章回]/g);
+      if(chCountMatches && chCountMatches.length > 0){
+        var totalChaptersFromOutline = 0;
+        chCountMatches.forEach(function(m){
+          totalChaptersFromOutline += parseInt(m.match(/\d+/)[0], 10);
+        });
+        if(totalChaptersFromOutline > 0){
+          chaptersPerVolume = Math.max(5, Math.round(totalChaptersFromOutline / volumeCount));
+        }
+      }
     }
     
-    // 尝试从用户提示词中提取总章节数来反算每卷章数
+    // 尝试从用户提示词中提取总章节数来反算每卷章数（优先级低于大纲）
     if(idea && idea.trim()){
       var chMatch = idea.match(/(\d+)\s*[章话回]/);
       if(chMatch){
