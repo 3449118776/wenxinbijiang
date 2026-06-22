@@ -9,30 +9,34 @@
 <title>架构设计 - 四级导航版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
-html,body{width:100%;height:100dvh;overflow:hidden;background:#f6f7f9;color:#333;}
+html,body{width:100%;height:100dvh;overflow:hidden;background:#f0f2f5;color:#333;}
 body{display:flex;flex-direction:column;}
 
 /* ===== 固定顶部区域 ===== */
-.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
 
-.page-header{height:42px;display:flex;align-items:center;padding:0 16px;gap:10px;}
-.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;}
+.page-header{height:44px;display:flex;align-items:center;padding:0 16px;gap:10px;}
+.back-btn{font-size:22px;color:#1a1a1a;cursor:pointer;width:28px;transition:transform .15s;}
+.back-btn:active{transform:scale(0.85);}
 .page-title{font-size:16px;font-weight:600;flex:1;}
-.more-btn{color:#6366f1;font-size:16px;cursor:pointer;}
+.more-btn{color:#6366f1;font-size:18px;cursor:pointer;transition:transform .15s;}
+.more-btn:active{transform:scale(0.9);}
 
 .select-wrap{display:flex;align-items:center;padding:6px 16px 8px;gap:8px;}
 .select-wrap .select-label{font-size:13px;color:#666;white-space:nowrap;}
-.select-wrap select{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px;min-width:120px;background:#fff;outline:none;}
+.select-wrap select{border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;min-width:120px;background:#fff;outline:none;transition:border-color .2s;}
+.select-wrap select:focus{border-color:#6366f1;}
 
-.btn-pipeline{padding:6px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;}
-.btn-pipeline:hover{transform:scale(1.03);box-shadow:0 4px 16px rgba(99,102,241,0.4);}
-.btn-pipeline:active{transform:scale(0.97);}
+.btn-pipeline{padding:7px 16px;border:none;border-radius:22px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 10px rgba(99,102,241,0.3);transition:all .2s;}
+.btn-pipeline:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(99,102,241,0.4);}
+.btn-pipeline:active{transform:scale(0.96);}
 
 /* 架构标签 — 固定于顶部 */
 .arch-tab{display:flex;margin:0;border-top:1px solid #f0f0f0;}
-.arch-tab-item{flex:1;text-align:center;padding:10px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;}
+.arch-tab-item{flex:1;text-align:center;padding:11px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;transition:all .2s;}
+.arch-tab-item:hover{background:#f0f2ff;}
 .arch-tab-item:last-child{border-right:none;}
-.arch-tab-item.active{background:#6366f1;color:#fff;}
+.arch-tab-item.active{background:#6366f1;color:#fff;font-weight:600;}
 .arch-tab-item.finish{background:#f0fdf4;}
 .arch-tab-item.finish::after{content:"✓";position:absolute;top:2px;right:3px;font-size:9px;color:#10b981;}
 .arch-tab-item.lock{background:#f3f4f6;color:#aaa;cursor:not-allowed;}
@@ -149,18 +153,19 @@ body{display:flex;flex-direction:column;}
 .arch-more-item strong{color:#6366f1;}
 
 /* 进度条 */
-.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
-.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-.page-progress .prog-title{font-size:12px;color:#6366f1;font-weight:600;}
-.page-progress .prog-cancel{padding:2px 10px;border:1px solid #ef4444;border-radius:5px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;}
-.page-progress .prog-bg-btn{padding:2px 10px;border:1px solid #6366f1;border-radius:5px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;}
+.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
+.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.page-progress .prog-title{font-size:13px;color:#6366f1;font-weight:600;}
+.page-progress .prog-cancel{padding:3px 12px;border:1px solid #ef4444;border-radius:6px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;transition:all .15s;}
+.page-progress .prog-cancel:hover{background:#fef2f2;}
+.page-progress .prog-bg-btn{padding:3px 12px;border:1px solid #6366f1;border-radius:6px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;transition:all .15s;}
+.page-progress .prog-bg-btn:hover{background:#e0e7ff;}
 #bg-gen-indicator{transition:all 0.3s;}
-.page-progress .prog-bar-wrap{background:#eee;border-radius:8px;height:6px;overflow:hidden;}
-.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s ease;}
-.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;}
+.page-progress .prog-bar-wrap{background:#e5e7eb;border-radius:8px;height:8px;overflow:hidden;}
+.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s cubic-bezier(.4,0,.2,1);}
+.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-.page-progress .prog-bar.working{background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
-.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#999;}
+.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:#999;}
 
 /* 前置预览条 */
 .preview-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;margin:0 12px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;cursor:pointer;font-size:12px;color:#b45309;}
@@ -262,15 +267,18 @@ body{display:flex;flex-direction:column;}
 
 /* 一级：架构设计入口 */
 .level1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
-.level1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
-.level1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
-.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
-.level1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
+.level1-body .l1-icon{font-size:72px;margin-bottom:20px;line-height:1;animation:float 3s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.level1-body .l1-title{font-size:24px;font-weight:700;color:#1a1a2e;margin-bottom:10px;}
+.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.7;margin-bottom:28px;max-width:320px;}
+.level1-body .l1-start{padding:15px 44px;border:none;border-radius:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,.35);transition:all .2s;}
+.level1-body .l1-start:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(99,102,241,.45);}
 .level1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
 
 /* 二级：选择作品 */
 .level2-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
-.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.work-card{display:flex;align-items:center;gap:12px;padding:15px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,0.03);}
+.work-card:hover{background:#f8f9ff;border-color:#c7d2fe;box-shadow:0 4px 12px rgba(99,102,241,0.06);}
 .work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
 .work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
 .work-card .wc-info{flex:1;min-width:0;}
@@ -289,7 +297,8 @@ body{display:flex;flex-direction:column;}
 /* 三级：模块选择 */
 .level3-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
 .level3-work-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f2ff;border-radius:10px;margin-bottom:12px;font-size:13px;color:#6366f1;font-weight:500;}
-.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
+.module-card:hover{background:#f8f9ff;border-color:#c7d2fe;transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.08);}
 .module-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
 .module-card .mc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
 .module-card .mc-icon.world-icon{background:#eff6ff;color:#2563eb;}
@@ -2789,7 +2798,7 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext, _skeletonBlueprint);
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, opts && opts.extraHint, marketResearch, _skeletonBlueprint);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -3266,7 +3275,7 @@ function buildArchCardBatchesV48(module, work, idea){
 
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext, skeleton){
+function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResearch, skeleton){
   idea = idea || '';
   // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
   try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
@@ -3342,133 +3351,6 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
 }
 
 // ===== v52: 大模型一次性生成完整模块 =====
-// 不拆卡片任务，让 AI 自己内部连贯规划，避免"逐张卡片+截断摘要"导致的上下文断裂
-// 生成后直接写入 work[module]，UI 层 splitContentIntoSemanticPages 自动分页
-function buildArchSinglePromptV52(module, batches, work, idea, extraHint, marketResearch, memoryContext){
-  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
-  var title = (work && work.title) || '未命名作品';
-  var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
-  var platform = '起点';
-  try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
-
-  // 计算总目标字数（所有卡片之和）
-  var totalTarget = 0;
-  for(var ti = 0; ti < batches.length; ti++){
-    totalTarget += batches[ti].targetChars || 800;
-  }
-
-  // ===== 系统消息（固定前缀，跨模块共享，服务商自动缓存）=====
-  var sysMsg = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
-  sysMsg += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
-  sysMsg += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
-  sysMsg += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
-  sysMsg += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
-  sysMsg += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须在后续承接\n';
-  sysMsg += '5. 你将一次性完整输出全部内容，请内部自己规划结构，避免前后重复、前后矛盾\n\n';
-  sysMsg += '【作品基础信息】\n';
-  sysMsg += '作品名称：' + title + '\n';
-  if(genre) sysMsg += '一级题材：' + genre + '\n';
-  sysMsg += '发布平台：' + platform + '\n';
-  sysMsg += '当前模块：' + moduleName + '\n';
-
-  // ===== 用户消息1：上下文（模块特定，但共享前缀可被服务商缓存）=====
-  var ctxMsg = '';
-
-  // 用户核心诉求
-  if(idea && idea.trim()){
-    ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
-  } else {
-    ctxMsg += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
-  }
-
-  // 已有内容
-  if(work && work[module] && work[module].trim()){
-    var _existingLimit = 8000;
-    var _existingHintLabel = extraHint && extraHint.trim()
-      ? '【📖 当前模块已有内容 — 请在此基础上加强/修改/扩展，不要完全重新生成。保留好的部分，只针对问题部分修改】\n'
-      : '【📖 当前模块已有内容 — 请在此基础上进一步丰富、完善、加深细节，而不是推倒重来。如果已有内容有不一致之处，请统一修正但保留核心设定】\n';
-    ctxMsg += _existingHintLabel;
-    ctxMsg += smartTruncate(work[module], _existingLimit) + '\n\n';
-    ctxMsg += '【已有内容处理原则】\n';
-    ctxMsg += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻\n';
-    ctxMsg += '2. 已有信息不充分的部分，请补充扩展而不是替换\n';
-    ctxMsg += '3. 前后不一致的地方以更合理的一方为准，统一修正\n';
-    ctxMsg += '4. 空缺的部分可以新增内容，但不得与已有设定矛盾\n';
-    ctxMsg += '5. 如果本次有"加强意见"，优先按加强意见修改对应部分，同时保留其他部分不变\n\n';
-  }
-
-  // 前置架构上下文
-  if(module !== 'world'){
-    ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-    if(work && work.world && work.world.trim()){
-      ctxMsg += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-    }
-    if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      ctxMsg += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-    }
-    if((module === 'detail' || module === 'outline') && work && work.outline && work.outline.trim()){
-      ctxMsg += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-    }
-  }
-
-  // 2026 题材趋势
-  var trend3 = getTrendHint2026(work);
-  if(trend3){
-    ctxMsg += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend3, 600) + '\n\n';
-  }
-
-  // 市场调研
-  if(marketResearch && marketResearch.trim()){
-    ctxMsg += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
-  }
-
-  // 长记忆上下文
-  if(memoryContext && memoryContext.trim()){
-    ctxMsg += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
-  }
-
-  // ===== 用户消息2：任务（模块特定，每次变化）=====
-  var taskMsg = '';
-
-  // 结构规划
-  taskMsg += '【📝 本次要完整输出的内容结构 — 你将一次性写完所有部分，请自己内部规划，避免重复与遗漏】\n';
-  for(var si2 = 0; si2 < batches.length; si2++){
-    var c2 = batches[si2];
-    taskMsg += '第' + (si2+1) + '部分 · ' + c2.label + '：' + (c2.focus || '') + '\n';
-  }
-  taskMsg += '\n';
-
-  // 加强意见
-  if(extraHint && extraHint.trim()){
-    taskMsg += '【★ 本次生成特别关注 — 来自编辑评价的加强意见，必须优先处理】\n' + smartTruncate(extraHint.trim(), 1200) + '\n\n';
-  }
-
-  // 格式与字数要求
-  taskMsg += '【⚠️ 输出格式与字数约束】\n';
-  taskMsg += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
-  taskMsg += '2. 不要输出与内容无关的创作思路、解释说明\n';
-  taskMsg += '3. 用「【XX】」作为每一部分的大标题，用「■」标记关键子项，段落清晰\n';
-
-  if(work && work[module] && work[module].trim()){
-    var _existingLen = work[module].trim().length;
-    var _minTarget = Math.max(totalTarget, _existingLen);
-    taskMsg += '4. **目标总字数：整份' + moduleName + '至少 ' + _minTarget + ' 字。当前已有内容约 ' + _existingLen + ' 字，本次输出不得少于该字数。请充分展开细节，不要压缩、不要精简**\n';
-  } else {
-    taskMsg += '4. **目标总字数：整份' + moduleName + '至少 ' + totalTarget + ' 字，请充分展开细节，不要压缩内容**\n';
-  }
-  taskMsg += '5. 各部分之间保持人物名称、设定、风格的一致性；前文埋的设定后文必须呼应\n';
-  if(module === 'detail'){
-    taskMsg += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
-  }
-
-  // v59: 返回 messages 数组，让服务商缓存固定前缀（system + ctx 前缀）
-  return [
-    { role: 'system', content: sysMsg },
-    { role: 'user', content: ctxMsg },
-    { role: 'user', content: taskMsg }
-  ];
-}
-
 // ========== v56: 细纲专用 — 从大纲提取每一卷的核心目标（作为硬性约束）==========
 // 输入：work.outline 文本
 // 输出：Array<{ volIndex:number, volName:string, goal:string, rawBlock:string }> — 每卷一条
@@ -5067,13 +4949,11 @@ function generateArchCardSingle(module, card, idea, callback){
     }
   }
 
-  // 市场调研/记忆上下文
+  // 市场调研
   var marketResearch = '';
   try { if (typeof MarketResearchEngine !== 'undefined' && typeof MarketResearchEngine.summarize === 'function') { var mr = MarketResearchEngine.summarize(work.genre || work.category && work.category.cat1 || ''); if (mr) marketResearch = mr.substring(0, 1500); } } catch(e){}
-  var memoryContext = '';
-  try { if (typeof buildMemoryContextString === 'function') { var mctx = buildMemoryContextString(work); if (mctx) memoryContext = mctx.substring(0, 2000); } } catch(e){}
 
-  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext, '');
+  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, null, marketResearch, '');
   var cardTargetChars = card.targetChars || 3000;
 
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';

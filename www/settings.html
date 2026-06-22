@@ -9,66 +9,80 @@
 <title>文心笔匠 - 设置 v2</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
-body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;overflow:auto!important;-webkit-user-select:auto;user-select:auto;}
+body{background:#f0f2f5;color:#333;padding-bottom:78px;height:auto!important;overflow:auto!important;-webkit-user-select:auto;user-select:auto;}
 
 /* 顶部导航 */
-.page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
-.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
-.page-title{flex:1;font-size:17px;font-weight:600;text-align:center;}
+.page-header{background:#fff;height:44px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:10px;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
+.back-btn{font-size:22px;color:#1a1a1a;cursor:pointer;width:28px;display:flex;align-items:center;transition:transform .15s;}
+.back-btn:active{transform:scale(0.85);}
+.page-title{flex:1;font-size:16px;font-weight:600;text-align:center;}
 
-.settings-section{background:#fff;border-radius:12px;margin:12px 16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
-.settings-section-header{padding:12px 16px;background:#f8f9fa;font-weight:600;color:#333;border-bottom:1px solid #eee;font-size:15px;}
-.settings-item{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0f0;}
+.settings-section{background:#fff;border-radius:14px;margin:12px 16px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.05);transition:box-shadow .2s;}
+.settings-section:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+.settings-section-header{padding:14px 16px;background:linear-gradient(135deg,#f8f9fa,#f0f2ff);font-weight:600;color:#1a1a1a;border-bottom:1px solid #eee;font-size:14px;letter-spacing:0.3px;}
+.settings-item{display:flex;justify-content:space-between;align-items:center;padding:15px 16px;border-bottom:1px solid #f0f0f0;transition:background .15s;}
+.settings-item:hover{background:#fafbff;}
 .settings-item:last-child{border-bottom:none;}
-.settings-item .label{color:#333;font-size:14px;}
+.settings-item .label{color:#333;font-size:14px;font-weight:500;}
 .settings-item .value{color:#999;font-size:13px;}
-.settings-item input[type="range"]{width:120px;}
-.switch{width:48px;height:26px;background:#ccc;border-radius:13px;position:relative;cursor:pointer;transition:background 0.2s;}
+.settings-item input[type="range"]{width:120px;accent-color:#6366f1;}
+.switch{width:48px;height:26px;background:#d1d5db;border-radius:13px;position:relative;cursor:pointer;transition:background 0.25s cubic-bezier(.4,0,.2,1);}
 .switch.active{background:#6366f1;}
-.switch::after{content:'';position:absolute;width:22px;height:22px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.15);}
-.switch.active::after{left:24px;}
+.switch::after{content:'';position:absolute;width:22px;height:22px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.25s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(0,0,0,0.15);}
+.switch.active::after{left:24px;box-shadow:0 1px 4px rgba(99,102,241,0.3);}
 .api-config{padding:16px;}
-.api-config label{display:block;margin-bottom:6px;color:#666;font-size:13px;}
-.api-config select{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:14px;margin-bottom:12px;box-sizing:border-box;}
-.api-config input[type="text"]{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9f9f9;color:#999;font-size:13px;margin-bottom:12px;box-sizing:border-box;}
-.api-config button{width:100%;padding:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;}
-.api-config button:active{opacity:0.9;}
+.api-config label{display:block;margin-bottom:6px;color:#666;font-size:13px;font-weight:500;}
+.api-config select{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#333;font-size:14px;margin-bottom:12px;box-sizing:border-box;transition:border-color .2s;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.api-config select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.1);}
+.api-config input[type="text"]{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9f9f9;color:#666;font-size:13px;margin-bottom:12px;box-sizing:border-box;transition:border-color .2s;outline:none;}
+.api-config input[type="text"]:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.1);}
+.api-config button{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(99,102,241,0.25);}
+.api-config button:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(99,102,241,0.35);}
+.api-config button:active{transform:scale(0.97);}
 .key-manager{padding:16px;border-top:1px solid #f0f0f0;}
 .key-manager .key-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.key-manager .key-header h4{font-size:14px;color:#333;}
-.key-manager .key-count{font-size:12px;color:#999;background:#f0f2ff;padding:2px 8px;border-radius:10px;}
+.key-manager .key-header h4{font-size:14px;color:#333;font-weight:600;}
+.key-manager .key-count{font-size:12px;color:#6366f1;background:#f0f2ff;padding:3px 10px;border-radius:12px;font-weight:600;}
 .key-list{margin-bottom:12px;}
-.key-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f9f9fb;border-radius:8px;margin-bottom:6px;border:1px solid #eee;}
+.key-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f9f9fb;border-radius:10px;margin-bottom:6px;border:1px solid #eee;transition:all .15s;}
+.key-item:hover{background:#f0f2ff;border-color:#d4d8f0;}
 .key-item .key-text{flex:1;font-size:13px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;}
-.key-item .key-active{font-size:11px;color:#10b981;background:#ecfdf5;padding:2px 6px;border-radius:4px;white-space:nowrap;}
-.key-item .key-del{background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px;}
-.key-item .key-del:active{background:#fef2f2;}
+.key-item .key-active{font-size:11px;color:#10b981;background:#ecfdf5;padding:3px 8px;border-radius:6px;white-space:nowrap;font-weight:500;}
+.key-item .key-del{background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:all .15s;}
+.key-item .key-del:hover{background:#fef2f2;}
+.key-item .key-del:active{background:#fecaca;}
 .add-key-row{display:flex;gap:8px;margin-bottom:12px;}
-.add-key-row input,.add-key-row textarea{flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:13px;font-family:monospace;resize:vertical;line-height:1.5;}
-.add-key-row input:focus,.add-key-row textarea:focus{border-color:#6366f1;outline:none;}
-.add-key-row button{padding:10px 16px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;white-space:nowrap;}
-.add-key-row button:active{opacity:0.8;}
-.key-empty{text-align:center;padding:20px;color:#999;font-size:13px;}
-.key-empty .icon{font-size:32px;margin-bottom:8px;}
-.theme-colors{display:flex;gap:12px;flex-wrap:wrap;}
-.theme-color{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all 0.2s;}
-.theme-color.active{border-color:#333;transform:scale(1.1);}
-.data-btn{width:100%;padding:12px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#333;font-size:14px;cursor:pointer;text-align:center;}
+.add-key-row input,.add-key-row textarea{flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#333;font-size:13px;font-family:monospace;resize:vertical;line-height:1.5;transition:border-color .2s;outline:none;}
+.add-key-row input:focus,.add-key-row textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.1);}
+.add-key-row button{padding:10px 16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;box-shadow:0 2px 6px rgba(99,102,241,0.2);}
+.add-key-row button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.3);}
+.add-key-row button:active{transform:scale(0.96);}
+.key-empty{text-align:center;padding:24px;color:#999;font-size:13px;}
+.key-empty .icon{font-size:36px;margin-bottom:8px;opacity:0.5;}
+.theme-colors{display:flex;gap:14px;flex-wrap:wrap;}
+.theme-color{width:40px;height:40px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all 0.25s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+.theme-color:hover{transform:scale(1.1);box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+.theme-color.active{border-color:#1a1a1a;transform:scale(1.15);box-shadow:0 4px 14px rgba(0,0,0,0.2);}
+.data-btn{width:100%;padding:12px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#333;font-size:14px;cursor:pointer;text-align:center;transition:all .15s;font-weight:500;}
+.data-btn:hover{background:#f9fafb;border-color:#d1d5db;}
 .data-btn:last-child{margin-bottom:0;}
-.data-btn.primary{background:#6366f1;color:#fff;border-color:#6366f1;}
-.data-btn.danger{color:#ef4444;border-color:#ef4444;}
-.data-btn:active{opacity:0.9;}
-.version-info{text-align:center;padding:20px;color:#999;font-size:13px;}
-.version-info .version{font-size:16px;color:#666;margin-bottom:8px;}
+.data-btn.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;font-weight:600;box-shadow:0 2px 8px rgba(99,102,241,0.25);}
+.data-btn.primary:hover{background:linear-gradient(135deg,#4f46e5,#7c3aed);transform:translateY(-1px);box-shadow:0 4px 14px rgba(99,102,241,0.35);}
+.data-btn.danger{color:#ef4444;border-color:#fecaca;}
+.data-btn.danger:hover{background:#fef2f2;border-color:#ef4444;}
+.data-btn:active{transform:scale(0.97);}
+.version-info{text-align:center;padding:24px 20px;color:#999;font-size:13px;background:linear-gradient(180deg,#fafbff,#fff);}
+.version-info .version{font-size:17px;color:#1a1a1a;margin-bottom:6px;font-weight:600;}
 
 /* 底部导航 */
-.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;}
-.tab-item.active{color:#6366f1;}
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 8px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#999;cursor:pointer;flex:1;padding:6px 0;transition:color .15s;}
+.tab-item:hover{color:#6366f1;}
+.tab-item.active{color:#6366f1;font-weight:600;}
 .tab-icon{font-size:22px;line-height:1;}
 
 /* Toast */
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .25s;box-shadow:0 4px 16px rgba(0,0,0,0.2);}
 .toast.show{opacity:1;}
 </style>
 </head>
@@ -77,7 +91,7 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
 <!-- 顶部导航 -->
 <div class="page-header">
   <div class="back-btn" onclick="location.href='index.html'">&#8249;</div>
-  <div class="page-title">设置</div><span style="background:#ef4444;color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;">v21</span>
+  <div class="page-title">设置</div><span style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.5px;">v21</span>
   <div style="width:24px;"></div>
 </div>
 
@@ -174,19 +188,19 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
       </div>
 
       <!-- v46: 多AI协作开关 -->
-      <div style="background:#f0f4ff;border-radius:12px;padding:14px 16px;margin:10px 0;">
+      <div style="background:linear-gradient(135deg,#f0f4ff,#faf5ff);border-radius:14px;padding:16px;margin:12px 0;border:1px solid #e8ecf8;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:600;">🤖 多AI协作模式</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:#1a1a1a;">🤖 多AI协作模式</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.5;">
               开启后，写作时同时向多个AI请求，谁先返回高质量结果就用谁的，成功率更高。
               <br>额度不足时会自动切换到其他AI，并有明确提示。
             </div>
           </div>
-          <label style="position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;">
+          <label style="position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;margin-left:12px;">
             <input type="checkbox" id="multi-ai-toggle" onchange="toggleMultiAI(this.checked)" style="opacity:0;width:0;height:0;">
-            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#d1d5db;border-radius:26px;transition:.3s;">
-              <span id="multi-ai-slider" style="position:absolute;content:'';height:20px;width:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;"></span>
+            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#d1d5db;border-radius:26px;transition:background .25s cubic-bezier(.4,0,.2,1);">
+              <span id="multi-ai-slider" style="position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(0,0,0,0.15);"></span>
             </span>
           </label>
         </div>
@@ -199,15 +213,20 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
       <div style="padding:16px;">
         <button class="data-btn primary" onclick="exportAllData()">&#128228; 导出所有数据</button>
         <div style="margin-bottom:8px;">
-          <div style="font-size:13px;color:#666;margin-bottom:6px;">选择JSON备份文件导入：</div>
-          <input type="file" id="import-file" accept=".json" style="width:100%;padding:12px;border:2px dashed #6366f1;border-radius:8px;font-size:14px;color:#6366f1;background:#f0f2ff;box-sizing:border-box;">
+          <div style="font-size:13px;color:#666;margin-bottom:6px;font-weight:500;">选择JSON备份文件导入：</div>
+          <input type="file" id="import-file" accept=".json" style="width:100%;padding:14px;border:2px dashed #c7cdf0;border-radius:12px;font-size:14px;color:#6366f1;background:#f0f2ff;box-sizing:border-box;cursor:pointer;transition:all .2s;">
+          <style>
+          #import-file:hover{border-color:#6366f1;background:#eef0ff;}
+          #import-file::file-selector-button{padding:6px 14px;border-radius:6px;border:none;background:#6366f1;color:#fff;font-size:12px;cursor:pointer;margin-right:10px;transition:all .15s;}
+          #import-file::file-selector-button:hover{background:#4f46e5;}
+          </style>
         </div>
         <div style="margin-bottom:8px;">
-          <div style="background:#fff;border-radius:12px;padding:14px 16px;margin:10px 0;">
-            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">AI 请求超时</div>
-            <div style="font-size:12px;color:#6b7280;margin-bottom:10px;">大模型生成长文本时建议 60–120 秒</div>
-            <input type="range" id="api-timeout-range" min="15" max="300" step="5" oninput="setApiTimeoutSec(this.value)" style="width:100%;">
-            <div style="text-align:right;font-size:13px;color:#374151;margin-top:4px;">当前：<span id="api-timeout-label">90 秒</span></div>
+          <div style="background:#fff;border-radius:14px;padding:16px;margin:10px 0;border:1px solid #e5e7eb;">
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px;color:#1a1a1a;">⏱ AI 请求超时</div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:12px;">大模型生成长文本时建议 60–120 秒</div>
+            <input type="range" id="api-timeout-range" min="15" max="300" step="5" oninput="setApiTimeoutSec(this.value)" style="width:100%;accent-color:#6366f1;">
+            <div style="text-align:right;font-size:13px;color:#6366f1;margin-top:4px;font-weight:600;">当前：<span id="api-timeout-label">90 秒</span></div>
           </div>
         </div>
         <button class="data-btn" onclick="importFromServer()">&#128229; 加载内置测试数据</button>
@@ -218,10 +237,10 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
     <div class="settings-section">
       <div class="settings-section-header">🧭 创作中枢</div>
       <div style="padding:16px;">
-        <div style="font-size:13px;color:#666;line-height:1.6;margin-bottom:10px;">
+        <div style="font-size:13px;color:#666;line-height:1.6;margin-bottom:12px;">
           App级记忆、自动备份、全书体检、搜索、导出、正文瘦身和长篇看板已集中到一级页面。
         </div>
-        <button class="data-btn primary" onclick="location.href='center.html'">🧭 进入创作中枢</button>
+        <button class="data-btn primary" onclick="location.href='center.html'" style="font-size:15px;padding:14px;">🧭 进入创作中枢</button>
         <div id="app-memory-report" style="display:none;"></div>
       </div>
     </div>
