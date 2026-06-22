@@ -7299,21 +7299,34 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   prompt += '【作品】' + title + '\n';
   prompt += '【题材】' + genre + '\n\n';
   
-  var creativePrompts = getGenreCreativePrompts(genre);
-  if (creativePrompts && creativePrompts.world && creativePrompts.world.length > 0) {
-    prompt += '【题材创意提示词（从中选择2-3个融入世界观设计）】\n';
-    for (var ci = 0; ci < creativePrompts.world.length; ci++) {
-      prompt += (ci + 1) + '. ' + creativePrompts.world[ci] + '\n';
+  // ⚠️ 核心原则：用户输入是绝对标准，不允许模板覆盖
+  var userWorldview = userCommand || '';
+  if (userWorldview && userWorldview.length > 50) {
+    prompt += '【⚠️ 绝对标准 · 用户输入的世界观（必须100%遵守）】\n' + userWorldview + '\n\n';
+    prompt += '【核心约束】\n';
+    prompt += '1. 你必须严格遵循上述世界观设定，不得添加、修改或删除任何内容\n';
+    prompt += '2. 绝对禁止添加用户未提及的元素（如：精灵、矮人、魔法、超能力、精神力、元素力等）\n';
+    prompt += '3. 绝对禁止修改用户明确设定的规则（如："普通人最强"的世界不能出现超自然力量）\n';
+    prompt += '4. 你只能在用户设定的框架内进行补充和深化\n';
+    prompt += '5. 如果用户设定了力量上限（如"普通人的极限"），必须严格遵守\n\n';
+  } else {
+    // 只有在没有用户输入时才使用模板
+    var creativePrompts = getGenreCreativePrompts(genre);
+    if (creativePrompts && creativePrompts.world && creativePrompts.world.length > 0) {
+      prompt += '【题材创意提示词（仅作为参考）】\n';
+      for (var ci = 0; ci < creativePrompts.world.length; ci++) {
+        prompt += (ci + 1) + '. ' + creativePrompts.world[ci] + '\n';
+      }
+      prompt += '\n';
     }
-    prompt += '\n';
   }
   
   var worldviewText = userCommand || prevResult || '';
   var keywordAnalysis = analyzeWorldviewKeywords(worldviewText);
   if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析 · 自动匹配创意方向】\n';
+    prompt += '【🔍 世界观关键词分析】\n';
     prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词创意提示词（必须融入世界观设计）】\n';
+    prompt += '【关键词强化方向】\n';
     var kwIdx = 0;
     for (var kw in keywordAnalysis.prompts) {
       var kwPrompts = keywordAnalysis.prompts[kw];
@@ -7327,7 +7340,7 @@ function buildWorldPrompt(work, userCommand, prevResult) {
     prompt += '\n';
   }
   
-  prompt += '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
+  prompt += '请在严格遵循用户世界观的前提下，补充和完善以下模块：\n\n';
   prompt += '一、时代背景与历史脉络\n';
   prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
   prompt += '二、地理设定\n';
@@ -7376,14 +7389,21 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
   prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
+  prompt += '【题材】' + genre + '\n\n';
+  
+  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许大纲覆盖
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world + '\n\n';
+    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
+    prompt += '【核心约束】\n';
+    prompt += '1. 大纲必须严格遵循世界观设定\n';
+    prompt += '2. 绝对禁止添加世界观未提及的元素（如：精灵、矮人、魔法、超能力、精神力、元素力等）\n';
+    prompt += '3. 绝对禁止修改世界观明确设定的规则\n';
+    prompt += '4. 如果世界观设定了力量上限，大纲中所有战斗必须遵守\n\n';
   }
   
   var creativePrompts = getGenreCreativePrompts(genre);
   if (creativePrompts && creativePrompts.outline && creativePrompts.outline.length > 0) {
-    prompt += '【题材创意提示词（从中选择2-3个融入大纲设计）】\n';
+    prompt += '【题材创意提示词（仅作为参考，不能覆盖世界观设定）】\n';
     for (var ci = 0; ci < creativePrompts.outline.length; ci++) {
       prompt += (ci + 1) + '. ' + creativePrompts.outline[ci] + '\n';
     }
@@ -7393,9 +7413,9 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   var outlineText = world || userCommand || prevResult || '';
   var keywordAnalysis = analyzeWorldviewKeywords(outlineText);
   if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析 · 自动匹配创意方向】\n';
+    prompt += '【🔍 世界观关键词分析】\n';
     prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词创意提示词（必须融入大纲设计）】\n';
+    prompt += '【关键词强化方向】\n';
     var kwIdx = 0;
     for (var kw in keywordAnalysis.prompts) {
       var kwPrompts = keywordAnalysis.prompts[kw];
@@ -7409,7 +7429,7 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
     prompt += '\n';
   }
   
-  prompt += '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
+  prompt += '请基于世界观设计符合"普通人战争"风格的大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
   prompt += '包含以下内容：\n\n';
   prompt += '一、核心设定回顾\n';
   prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
@@ -7462,14 +7482,21 @@ function buildCharsPrompt(work, userCommand, prevResult) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
   prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
+  prompt += '【题材】' + genre + '\n\n';
+  
+  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许人设覆盖
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world + '\n\n';
+    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
+    prompt += '【核心约束】\n';
+    prompt += '1. 人物设计必须严格遵循世界观设定\n';
+    prompt += '2. 绝对禁止设计具有超自然能力的人物（如：魔法师、精灵、矮人等）\n';
+    prompt += '3. 所有角色必须是普通人，通过训练、智谋、经验获得能力\n';
+    prompt += '4. 如果世界观设定了力量上限，人物能力必须遵守\n\n';
   }
   
   var creativePrompts = getGenreCreativePrompts(genre);
   if (creativePrompts && creativePrompts.chars && creativePrompts.chars.length > 0) {
-    prompt += '【题材创意提示词（从中选择2-3个融入人物设计）】\n';
+    prompt += '【题材创意提示词（仅作为参考，不能覆盖世界观设定）】\n';
     for (var ci = 0; ci < creativePrompts.chars.length; ci++) {
       prompt += (ci + 1) + '. ' + creativePrompts.chars[ci] + '\n';
     }
@@ -7479,9 +7506,9 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   var charsText = world || userCommand || prevResult || '';
   var keywordAnalysis = analyzeWorldviewKeywords(charsText);
   if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析 · 自动匹配创意方向】\n';
+    prompt += '【🔍 世界观关键词分析】\n';
     prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词创意提示词（必须融入人物设计）】\n';
+    prompt += '【关键词强化方向】\n';
     var kwIdx = 0;
     for (var kw in keywordAnalysis.prompts) {
       var kwPrompts = keywordAnalysis.prompts[kw];
@@ -7495,7 +7522,7 @@ function buildCharsPrompt(work, userCommand, prevResult) {
     prompt += '\n';
   }
   
-  prompt += '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
+  prompt += '请基于世界观设计符合"普通人战争"风格的人物体系，包含以下内容：\n\n';
   prompt += '一、主角（详细）\n';
   prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
   prompt += '—— 人物弧光起点和终点、成长路径\n';
@@ -7984,8 +8011,14 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '【题材】' + genre + '\n';
   prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
   
+  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许细纲覆盖
   if (world && world.length > 50) {
-    prompt += '【世界观关键设定】\n' + world + '\n\n';
+    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
+    prompt += '【核心约束】\n';
+    prompt += '1. 细纲必须严格遵循世界观设定\n';
+    prompt += '2. 绝对禁止出现超自然元素（如：魔法、超能力、精灵、矮人等）\n';
+    prompt += '3. 所有战斗必须依靠策略、智谋、勇气，不能出现违背力量上限的战斗\n';
+    prompt += '4. 如果世界观设定了"普通人最强"，所有情节必须符合这一设定\n\n';
   }
   if (chars && chars.length > 50) {
     prompt += '【主要人物】\n' + chars + '\n\n';
@@ -8011,22 +8044,24 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
     }
   }
   
-  prompt += '【题材专属模板】\n';
-  prompt += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
+  // 使用普通人战争模板
+  var normalWarTemplate = getGenreDetailTemplate('普通人战争');
+  prompt += '【普通人战争题材模板】\n';
+  prompt += '本作品为"普通人战争"风格，请使用以下模板：\n\n';
   prompt += '【数字面板格式】\n';
-  prompt += genreTemplate.digitalPanel + '\n\n';
+  prompt += normalWarTemplate.digitalPanel + '\n\n';
   prompt += '【爽点类型参考】\n';
-  prompt += genreTemplate.beatTypes.join('、') + '\n\n';
+  prompt += normalWarTemplate.beatTypes.join('、') + '\n\n';
   prompt += '【情绪基调参考】\n';
-  prompt += genreTemplate.emotionTones.join('、') + '\n\n';
+  prompt += normalWarTemplate.emotionTones.join('、') + '\n\n';
   prompt += '【钩子类型参考】\n';
-  prompt += genreTemplate.hookTypes.join('、') + '\n\n';
+  prompt += normalWarTemplate.hookTypes.join('、') + '\n\n';
   prompt += '【硬节点分类参考】\n';
-  prompt += genreTemplate.hardNodeCategories.join('、') + '\n\n';
+  prompt += normalWarTemplate.hardNodeCategories.join('、') + '\n\n';
   
-  var creativePrompts = getGenreCreativePrompts(genre);
+  var creativePrompts = getGenreCreativePrompts('普通人战争');
   if (creativePrompts && creativePrompts.detail && creativePrompts.detail.length > 0) {
-    prompt += '【题材创意提示词（每章至少融入1个）】\n';
+    prompt += '【普通人战争创意提示词（每章至少融入1个）】\n';
     for (var ci = 0; ci < creativePrompts.detail.length; ci++) {
       prompt += (ci + 1) + '. ' + creativePrompts.detail[ci] + '\n';
     }
@@ -8036,9 +8071,9 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   var detailText = world || userCommand || prevResult || '';
   var keywordAnalysis = analyzeWorldviewKeywords(detailText);
   if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析 · 自动匹配创意方向】\n';
+    prompt += '【🔍 世界观关键词分析】\n';
     prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词创意提示词（每章至少融入1个）】\n';
+    prompt += '【关键词强化方向】\n';
     var kwIdx = 0;
     for (var kw in keywordAnalysis.prompts) {
       var kwPrompts = keywordAnalysis.prompts[kw];
