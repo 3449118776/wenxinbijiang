@@ -605,6 +605,7 @@ body{display:flex;flex-direction:column;}
 <script src="assets/js/speech.js"></script>
 <script src="assets/js/cards.js"></script>
 <script src="assets/js/quality.js"></script>
+<script src="assets/js/template-eval.js"></script>
 <script src="assets/js/eval-ui.js"></script>
 <script src="assets/js/architecture.js"></script>
 <script src="assets/js/engines-rag.js"></script>
@@ -2843,6 +2844,9 @@ window.generateArchModule = async function(opts){
       allCards.push({ label: card.label, content: cardResult });
       totalChars += cardResult.length;
 
+      // 模板自动入库：评分>=90自动收录
+      try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(cardResult, module, 'auto'); } catch(te){}
+
       if(bi < batches.length - 1){
         await new Promise(function(res){ setTimeout(res, 50); });
       }
@@ -4683,6 +4687,9 @@ window.generateDetailForVolume = async function(volNum) {
       
       allCards.push({ label: card.label, content: cardResult });
       totalChars += cardResult.length;
+
+      // 模板自动入库：评分>=90自动收录
+      try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(cardResult, module, 'auto'); } catch(te){}
       
       if(bi < volCards.length - 1){
         await new Promise(function(res){ setTimeout(res, 50); });
@@ -4998,7 +5005,10 @@ function generateArchCardSingle(module, card, idea, callback){
   }
 
   Promise.resolve(apiCall).then(function(text){
-    callback(text || '');
+    var result = text || '';
+    // 模板自动入库
+    try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(result, module, 'auto'); } catch(te){}
+    callback(result);
   }).catch(function(e){
     console.warn('单卡片生成失败:', e);
     callback('');

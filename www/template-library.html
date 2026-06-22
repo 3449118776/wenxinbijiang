@@ -6,64 +6,57 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>文心笔匠 - 模板库 v2</title>
+<title>文心笔匠 - 模板管理</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
 body{background:#f6f7f9;color:#333;padding-bottom:78px;}
 
-/* 顶部导航 */
 .page-header{background:#fff;height:48px;display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;gap:12px;}
 .back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;display:flex;align-items:center;}
 .page-title{flex:1;font-size:17px;font-weight:600;text-align:center;}
 .header-actions{display:flex;gap:8px;align-items:center;}
 .header-btn{padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:#6366f1;color:#fff;}
 
-/* 模板网格 */
-.tpl-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px;}
-.tpl-card{background:#fff;border-radius:14px;padding:20px 12px;cursor:pointer;transition:transform 0.2s;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.05);border:1px solid #f0f0f0;}
-.tpl-card:active{transform:scale(0.97);}
-.tpl-card .icon{font-size:32px;margin-bottom:8px;}
-.tpl-card .name{font-size:15px;font-weight:600;color:#222;}
-.tpl-card .count{font-size:12px;color:#888;margin-top:4px;}
+/* 分类tabs */
+.cat-tabs{display:flex;gap:6px;padding:12px 16px;overflow-x:auto;white-space:nowrap;background:#fff;border-bottom:1px solid #eee;}
+.cat-tab{padding:6px 14px;border-radius:16px;font-size:13px;cursor:pointer;background:#f1f5f9;color:#555;border:none;flex-shrink:0;transition:all .2s;}
+.cat-tab.active{background:#6366f1;color:#fff;}
+.cat-tab .badge{background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;}
 
 /* 模板列表 */
 .tpl-list{padding:16px;}
 .tpl-item{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #f0f0f0;}
 .tpl-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-.tpl-item-title{font-size:15px;font-weight:600;color:#222;}
-.tpl-item-tag{font-size:12px;padding:4px 10px;background:#f0f2ff;color:#6366f1;border-radius:12px;}
-.tpl-preview{font-size:13px;color:#666;line-height:1.5;max-height:80px;overflow:hidden;margin-bottom:10px;}
-.tpl-actions{display:flex;gap:8px;}
+.tpl-item-score{font-size:13px;font-weight:700;color:#6366f1;}
+.tpl-item-score.high{color:#22c55e;}
+.tpl-item-time{font-size:11px;color:#999;}
+.tpl-preview{font-size:13px;color:#666;line-height:1.5;max-height:80px;overflow:hidden;margin-bottom:10px;white-space:pre-wrap;}
+.tpl-preview.expand{max-height:none;}
+.tpl-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .tpl-actions button{padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:none;}
 .tpl-actions .primary{background:#6366f1;color:#fff;}
+.tpl-actions .danger{background:#fee2e2;color:#ef4444;}
 .tpl-actions .secondary{background:#f1f5f9;color:#333;}
-.tpl-back{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;}
-.tpl-back button{background:none;border:none;font-size:16px;color:#6366f1;cursor:pointer;}
-.tpl-back span{font-size:15px;font-weight:600;}
 
-/* 展开/收起 */
-.tpl-expand-btn{color:#6366f1;font-size:13px;cursor:pointer;padding:4px 0;margin-bottom:8px;display:inline-flex;align-items:center;gap:4px;}
-.tpl-full-content{font-size:13px;color:#333;line-height:1.6;white-space:pre-wrap;background:#f9f9fb;border-radius:8px;padding:12px;margin-bottom:10px;max-height:300px;overflow-y:auto;display:none;}
-.tpl-full-content.show{display:block;}
+/* 评价维度 */
+.eval-dims{margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px;}
+.eval-dim{font-size:11px;padding:3px 8px;background:#f0f2ff;color:#6366f1;border-radius:10px;}
 
-/* 词句库 */
-.phrase-lib{padding:16px;}
-.phrase-cat{margin-bottom:16px;background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
-.phrase-cat-title{font-size:15px;font-weight:600;color:#222;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.phrase-list{display:flex;flex-wrap:wrap;gap:8px;}
-.phrase-tag{padding:6px 12px;background:#f0f2ff;color:#6366f1;border-radius:16px;font-size:13px;cursor:pointer;transition:all 0.2s;}
-.phrase-tag:hover{background:#6366f1;color:#fff;}
-.phrase-tag:active{transform:scale(0.95);}
+/* 空状态 */
+.empty-state{text-align:center;padding:40px 16px;color:#999;}
+.empty-state .icon{font-size:48px;margin-bottom:12px;}
+.empty-state p{font-size:14px;}
 
-/* 导入弹窗 */
+/* 新增分类弹窗 */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;}
 .modal-overlay.show{display:flex;}
 .modal-content{background:#fff;border-radius:16px;padding:24px;width:85%;max-width:360px;}
 .modal-title{font-size:16px;font-weight:600;margin-bottom:16px;}
+.modal-input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;}
+.modal-input:focus{outline:none;border-color:#6366f1;}
 .modal-btn{width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:none;font-size:14px;cursor:pointer;text-align:center;}
 .modal-btn.primary{background:#6366f1;color:#fff;}
 .modal-btn.secondary{background:#f1f5f9;color:#333;}
-
 
 /* 底部导航 */
 .tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
@@ -71,255 +64,199 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;}
 .tab-item.active{color:#6366f1;}
 .tab-icon{font-size:22px;line-height:1;}
 
-/* Toast */
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
 .toast.show{opacity:1;}
 </style>
 </head>
 <body>
 
-<!-- 顶部导航 -->
 <div class="page-header">
   <div class="back-btn" onclick="location.href='index.html'">&#8249;</div>
-  <div class="page-title" id="page-title">模板库</div><span style="background:#ef4444;color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;">v21</span>
+  <div class="page-title" id="page-title">模板管理</div>
   <div class="header-actions">
-    <div class="header-btn" style="position:relative;overflow:hidden;cursor:pointer;">
-      &#128229; 导入
-      <input type="file" id="file-input" accept=".json,.md,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:50px;cursor:pointer;">
-    </div>
+    <button class="header-btn" onclick="showAddCatModal()">+ 新分类</button>
   </div>
 </div>
 
-<div id="tpl-content">
-  <div class="tpl-grid" id="tpl-grid">
-    <div class="tpl-card" onclick="showTplList('world')">
-      <div class="icon">&#127757;</div>
-      <div class="name">世界观模板</div>
-      <div class="count">5个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showTplList('chars')">
-      <div class="icon">&#128100;</div>
-      <div class="name">人物模板</div>
-      <div class="count">6个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showTplList('outline')">
-      <div class="icon">&#128203;</div>
-      <div class="name">大纲模板</div>
-      <div class="count">4个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showTplList('detail')">
-      <div class="icon">&#128221;</div>
-      <div class="name">细纲模板</div>
-      <div class="count">5个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showTplList('opening')">
-      <div class="icon">&#128214;</div>
-      <div class="name">开篇模板</div>
-      <div class="count">8个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showTplList('scene')">
-      <div class="icon">&#127916;</div>
-      <div class="name">场景模板</div>
-      <div class="count">6个模板</div>
-    </div>
-    <div class="tpl-card" onclick="showPhraseLib()">
-      <div class="icon">&#128172;</div>
-      <div class="name">词句库</div>
-      <div class="count">6大分类</div>
-    </div>
-  </div>
-</div>
-
-
+<div class="cat-tabs" id="cat-tabs"></div>
+<div id="tpl-content"><div class="empty-state"><div class="icon">📦</div><p>加载中...</p></div></div>
 
 <div class="tab-bar">
   <div class="tab-item" onclick="location.href='index.html'"><div class="tab-icon">&#127968;</div><div>首页</div></div>
-  <div class="tab-item active" onclick="location.href='architecture.html'"><div class="tab-icon">&#128295;</div><div>工具</div></div>
+  <div class="tab-item" onclick="location.href='work-list.html'"><div class="tab-icon">&#128196;</div><div>作品</div></div>
+  <div class="tab-item active"><div class="tab-icon">&#128203;</div><div>模板</div></div>
   <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">&#9881;&#65039;</div><div>设置</div></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- 新增分类弹窗 -->
+<div class="modal-overlay" id="modal-add-cat">
+  <div class="modal-content">
+    <div class="modal-title">新增模板分类</div>
+    <input class="modal-input" id="cat-name" placeholder="分类名称（如：战斗描写）">
+    <input class="modal-input" id="cat-icon" placeholder="图标（emoji，如：⚔️）">
+    <input class="modal-input" id="cat-dims" placeholder="评价维度（逗号分隔，如：招式创意,节奏控制,结果意义）">
+    <button class="modal-btn primary" onclick="doAddCat()">确认新增</button>
+    <button class="modal-btn secondary" onclick="closeModal('modal-add-cat')">取消</button>
+  </div>
+</div>
+
 <script src="assets/js/db.js"></script>
-<script src="assets/js/cloud-sync.js"></script>
-<script src="assets/js/ui.js"></script>
-<script src="assets/js/nav-helper.js"></script>
+<script src="assets/js/template-eval.js"></script>
 <script>
-// ========== 词句库数据 ==========
-var PHRASE_DATA={
-  '环境描写':['夕阳西下，余晖洒满大地','夜幕降临，繁星点点','晨雾缭绕，宛如仙境','秋风萧瑟，落叶纷飞','春雨绵绵，润物无声','夏日炎炎，蝉鸣阵阵','冬雪皑皑，银装素裹','月光如水，倾泻而下'],
-  '人物神态':['眉头紧锁，目光如炬','嘴角微扬，似笑非笑','面色苍白，毫无血色','神采奕奕，容光焕发','垂头丧气，无精打采','怒目圆睁，咬牙切齿','泪眼婆娑，楚楚可怜','泰然自若，从容不迫'],
-  '动作描写':['身形一闪，如鬼魅般消失','大步流星，气势如虹','蹑手蹑脚，小心翼翼','腾空而起，扶摇直上','猛然转身，目光如电','缓缓起身，气定神闲','飞身扑上，势不可挡','连连后退，狼狈不堪'],
-  '情绪表达':['心中一凛，暗叫不好','欣喜若狂，激动万分','心如刀绞，痛不欲生','怒火中烧，难以自制','忐忑不安，七上八下','恍然大悟，茅塞顿开','心灰意冷，万念俱灰','热血沸腾，斗志昂扬'],
-  '战斗描写':['剑光一闪，寒芒乍现','拳风呼啸，势大力沉','招式凌厉，步步紧逼','刀光剑影，杀气腾腾','以静制动，后发先至','招式精妙，出神入化','力劈华山，势不可挡','闪转腾挪，游刃有余'],
-  '对话技巧':['沉声道','冷笑道','怒喝道','轻声道','淡淡道','厉声道','缓缓道','急忙道'],
-  // === 2026新生词句 ===
-  '短剧化钩子':['他不知道的是[信息差悬念]','就在所有人都以为[预期]的时候，[反预期事件]','[某人]做了一个所有人都觉得疯狂的决定——但只有他/她知道[真实原因]','屏幕上弹出[意想不到的消息]','[人物]犹豫了一秒，然后按下了"确定"','那扇门在[时间]自动打开了','[人物]回头，看到了[不应该出现的东西]','监控录像上的时间：凌晨2:17。但[人物]记得很清楚，当时是下午'],
-  '诡异氛围':['走廊比昨天长了一点','镜子里的人动作慢了半拍','日历显示的日期是[不存在的日期]','广播在凌晨三点自己响了','电梯停在了不存在的楼层','墙上多了一扇不该有的门','所有人都闻到了[味道]，但没人能说出是什么','他/她的照片开始从相册中消失'],
-  '发疯/吐槽句':['"我受够了这个破剧情"','"你搁这儿演我呢？"','"系统，你看看这合理吗？"','"剧情是什么？能吃吗？"','"我不想走主线，我要去支线钓鱼"','"按原著我应该哭，但我不想"','"对不起，我今天的精神状态不支持演这场戏"','"请开始你的表演——我先走了"'],
-  '经营建设术语':['产能同比增长','资源缺口估算','人材梯队建设','技术瓶颈突破','贸易顺差扩大','产业链自主可控','边际成本下降','规模效应显现'],
-  '信息差句型':['[人物]没有说出来的那半句话才是关键','所有人都盯着[显眼的东西]的时候，[不起眼的东西]已经发生了变化','[人物]给出的解释合情合理——但后来发现那只是真相的30%','表面上是[A]，实际上是[B]，而真正影响结局的是大家都不知道的[C]','这件事的起因要追溯到[时间]之前——但当时没人注意到那微不足道的细节','账本上的数字不对。不是错了，是被人有意思地改了。']
-};
+'use strict';
+var currentCat = 'all';
+var toastTimer = null;
 
-// ========== 模板数据 ==========
-var TPL_DATA={
-  world:[
-    {title:'修仙世界',tag:'玄幻',content:'世界规则：\n- 修仙者通过修炼天地灵气提升修为\n- 天劫考验修士心性，渡过可得长生\n\n力量体系：\n- 凡人→练气→筑基→结丹→元婴→化神→渡劫→大乘\n\n地域划分：\n- 中州：修仙圣地\n- 东荒：妖兽横行\n- 西漠：古老遗迹\n- 南岭：草药学派\n- 北域：极寒之地\n\n主要势力：\n- 七大宗门、皇朝、隐世世家、散修联盟'},
-    {title:'都市异能',tag:'都市',content:'世界规则：\n- 部分人类觉醒异能，形成异能者群体\n- 异能分为：元素系、精神系、肉体系、特殊系\n- 异能等级：F→E→D→C→B→A→S→SS\n\n社会结构：\n- 异能管理局：官方管理机构\n- 异能学院：培养新觉醒者\n- 异能公会：自由异能者组织\n- 黑暗组织：利用异能犯罪的势力'},
-    {title:'末世废土',tag:'科幻',content:'世界背景：\n- 未知病毒爆发，人类文明崩溃\n- 幸存者建立小型聚居点\n- 丧尸、变异生物威胁人类生存\n\n力量体系：\n- 普通人：依靠武器和生存技能\n- 进化者：病毒变异获得能力\n- 控制者：可控制部分丧尸\n\n资源等级：\n- 食物、水源、武器、药品、能源'},
-    {title:'魔法世界',tag:'奇幻',content:'世界规则：\n- 魔法源自魔力源泉\n- 魔法分为：元素魔法、治愈魔法、召唤魔法、时空魔法\n\n力量体系：\n- 魔法学徒→魔法师→大魔法师→魔法大师→魔法圣者\n\n种族设定：\n- 人类：数量最多，适应性强\n- 精灵：长寿种族，擅长自然魔法\n- 矮人：擅长锻造和战斗\n- 龙族：最强种族，数量稀少'},
-    {title:'武侠江湖',tag:'武侠',content:'世界规则：\n- 以武为尊，江湖规矩\n- 各门派争夺武林盟主地位\n\n力量体系：\n- 外功：招式、兵器\n- 内功：真气、经脉\n- 境界：三流→二流→一流→顶尖→宗师→大宗师\n\n势力设定：\n- 正派：少林、武当、峨眉等\n- 邪派：血刀门、毒宗等\n- 中立：丐帮、镖局等'},
-    // === 2026新生题材模板 ===
-    {title:'规则怪谈-学生宿舍',tag:'规则怪谈',content:'副本：深夜自习室\n\n规则一：晚上十点后不得独自一人留在自习室。\n规则二：如果听到有人叫你的名字，不要回头。\n规则三：每个座位上只能坐一个人——无论你看到了什么。\n隐藏规则（需推理）：规则一和规则二存在矛盾——十点整时如果你正在独自自习，你已经违反了规则一，但起身离开就会触发规则二的"听到名字"。正确解法是：在十点前与任意一人约定"一起自习"，即使对方不在场，也算"不是独自一人"。\n\n氛围要点：\n- 日光灯的嗡嗡声在十点后变得不规则\n- 窗外走廊的脚步声每次经过的时间间隔恰好是37秒\n- 桌面上会出现不属于你的字迹'},
-    {title:'民俗灵异-古村探秘',tag:'悬疑灵异',content:'地点：西南某山村，古时称"石敢当村"\n\n核心民俗禁忌：\n- 农历七月半不得夜出，家家户户门前洒灶灰\n- 村口老槐树上挂满红布条，每根布条写一个失踪者的生辰八字\n- 每年霜降日，祠堂门从内反锁，次日才会打开——没人知道谁在里面\n\n调查线索链：\n1. 老槐树年轮显示它在1958年曾被砍倒过一次——但所有老人都说它一直在\n2. 失踪名单从1987年开始出现规律性：每三年失踪三人\n3. 灶灰的成分检测显示含有非本地矿物的放射性微量残留\n4. 祠堂地下埋着一口倒扣的棺材——棺盖朝向的不是天，是地\n\n写法要点：\n- 以调查笔记/录音为叙事载体\n- 民俗规则不说破，留给读者自己拼凑\n- 恐怖来自"规则的必然"而非"鬼怪的偶然"'},
-    {title:'发疯/癫文-穿书炮灰觉醒',tag:'发疯/癫文',content:'设定：主角穿进一本烂俗甜宠文，成为第三章就被女主踢下楼梯的倒霉炮灰\n\n觉醒后的操作：\n1. 开场第三章按原著走——真的被踢下楼梯了。但爬起来后对着系统面板做了一件所有穿书者都不会做的事：投诉。\n2. "亲爱的主人：系统提示你违反了第37章的感情线进度。""哦？，"回复：\'请提供我违规的具体条款编号和证据。\'"\n3. 原著男主深情凝视女主时，主角站在两人中间举起手机拍TikTok："家人们见证一下啊这就是传说中的对视杀。"\n4. 不按剧情去送死，而是去应聘反派公司的HR，用劳动法反制大boss\n\n核心喜剧逻辑：\n- "发疯"的本质是"用现代人的逻辑解构了言情文的荒诞"\n- 弹幕/评论/系统提示作为"第四面墙"不断介入叙事\n- 越"疯"越合理——因为原著世界本来就荒诞'},
-    {title:'经营建设-末日领地',tag:'经营建设',content:'背景：全球生态崩溃后第7年，幸存者分散在若干孤立的"绿洲"中\n\n建设目标：将一个只有37人的避难所发展成自给自足的生存基地\n\n第一阶段（前30天）：\n- 人口：37人（含技工5人、医护2人、农民4人、其他）\n- 资源缺口：净水不足（每人每天需3升，现产能每天仅80升）、食物储备仅够60天\n- 技术瓶颈：太阳能板损坏率高达40%，缺乏替代零件\n- 关键决策：是否冒险派人前往20公里外的废弃工厂寻找零件？\n\n第二阶段（第31-90天）：\n- 找到废弃工厂但遇上另一个避难所的先遣队——竞争还是合作？\n- 发现工厂地下仓库中有大量化肥和种子——但仓库建在放射物污染缓冲区边缘\n- 人口增长到58人，但新移民中有3人是已知的掠夺者线人\n\n写法要点：\n- 数据说话：每个决策前给出具体数字和约束条件\n- "坏人"不是怪物，而是现实中的系统性问题（物资分配不公、信息不对称）\n- 胜利不是"打败敌人"，而是"今年的粮食亩产增加了15%"\n- 穿插小人物故事：那个负责统计物资的老会计，他的账本里藏着所有人不知道的秘密'}],
-  chars:[
-    {title:'热血主角',tag:'主角',content:'姓名：[待定]\n年龄：18-25岁\n性格：热血、正义、不服输、有担当\n背景：普通出身，意外获得机遇\n特点：\n- 面对困难从不退缩\n- 重视友情和承诺\n- 有独特的成长轨迹\n- 常有口头禅或标志性动作\n弱点：冲动、容易被激怒、有时过于善良'},
-    {title:'冷面主角',tag:'主角',content:'姓名：[待定]\n年龄：20-30岁\n性格：冷静、理性、城府深、不轻易表露情感\n背景：有神秘过往，隐藏身份\n特点：\n- 善于分析和策划\n- 话少但每句都有分量\n- 行动果断，不留余地\n- 有独特的价值观\n弱点：难以建立信任关系、情感压抑'},
-    {title:'腹黑反派',tag:'反派',content:'姓名：[待定]\n年龄：25-40岁\n性格：阴险、多疑、权力欲强、善于伪装\n背景：有悲惨过往或野心\n特点：\n- 表面温和，内心冷酷\n- 善于利用他人\n- 有长远计划\n- 不轻易暴露真实意图\n弱点：过度自信、对某些事物有执念'},
-    {title:'天才配角',tag:'配角',content:'姓名：[待定]\n年龄：与主角相近\n性格：傲气、自信、有原则\n背景：名门出身或天赋异禀\n特点：\n- 某方面能力极强\n- 与主角形成竞争关系\n- 后期可能成为盟友\n- 有独特的骄傲底线\n弱点：骄傲导致判断失误、难以接受失败'},
-    {title:'忠诚伙伴',tag:'配角',content:'姓名：[待定]\n年龄：与主角相近\n性格：忠诚、朴实、可靠\n背景：与主角有共同经历\n特点：\n- 始终支持主角\n- 可能实力不强但关键时刻可靠\n- 有独特的技能或知识\n- 是主角的情感支撑\n弱点：可能成为主角的软肋'},
-    {title:'神秘导师',tag:'配角',content:'姓名：[待定]\n年龄：40-60岁\n性格：神秘、睿智、不苟言笑\n背景：有深厚底蕴，身份神秘\n特点：\n- 关键时刻出现指点\n- 知道很多秘密\n- 实力深不可测\n- 有独特的教导方式\n弱点：可能有自己的目的、不会完全帮助'}
-  ],
-  outline:[
-    {title:'崛起型大纲',tag:'经典',content:'第一卷：初入世界\n- 主角登场，展示初始状态\n- 遇到关键事件，获得机遇\n- 初次展现潜力，引起关注\n\n第二卷：成长历练\n- 进入新环境，结识伙伴\n- 面对挑战，提升能力\n- 发现阴谋，卷入纷争\n\n第三卷：转折突破\n- 遭遇重大挫折\n- 获得关键领悟\n- 实力突破，地位提升\n\n第四卷：巅峰对决\n- 与主要对手正面交锋\n- 解决核心矛盾\n- 达成目标，开启新篇章'},
-    {title:'复仇型大纲',tag:'经典',content:'第一卷：悲剧开端\n- 主角遭遇重大变故\n- 确立复仇目标\n- 开始隐忍积累\n\n第二卷：蛰伏成长\n- 隐藏身份，暗中提升\n- 收集情报，接近目标\n- 建立势力，布局计划\n\n第三卷：逐步反击\n- 开始执行复仇计划\n- 每次行动都有收获\n- 敌人开始察觉\n\n第四卷：最终对决\n- 与仇人正面交锋\n- 揭露真相\n- 完成复仇，寻找新方向'},
-    {title:'冒险型大纲',tag:'经典',content:'第一卷：启程\n- 主角因某种原因踏上旅程\n- 遇到第一个伙伴\n- 解决第一个危机\n\n第二卷：探索\n- 进入新区域，发现新事物\n- 遇到更多伙伴\n- 面对更大挑战\n\n第三卷：深入\n- 发现隐藏的秘密\n- 队伍内部产生矛盾\n- 解决矛盾，更加团结\n\n第四卷：终点\n- 达到目的地\n- 解决最终问题\n- 完成旅程，回归或开启新旅程'},
-    {title:'逆袭型大纲',tag:'爽文',content:'第一卷：低谷开局\n- 主角处于最差状态\n- 被所有人看不起\n- 获得改变命运的机会\n\n第二卷：初露锋芒\n- 第一次展示能力\n- 打脸看不起自己的人\n- 开始积累资源\n\n第三卷：步步高升\n- 连续成功，地位提升\n- 收服追随者\n- 与更高层次对手交锋\n\n第四卷：登顶称王\n- 达到最高地位\n- 解决所有敌人\n- 成为领域最强'}
-  ],
-  detail:[
-    {title:'番茄标准细纲模板',tag:'通用',content:'# 《作品名》第X卷·卷名 XX章细纲\n# v1.0 修正版\n\n**核心修正**：\n1. 第1章钩子修正：...\n2. 数字面板：全部对应后续章节可兑现\n3. 新增兑现链：每个钩子都有明确的回收章节\n\n---\n\n**时间跨度**：\n**卷末状态**：\n**字数预估**：XX章 × 3500–4000字 ≈ XX万字\n\n**核心修正**：\n1. 时间：\n2. 武力：\n3. 经济：\n4. 人设：\n5. 过渡：每章末尾增加时间/事件过渡骨架\n\n**收尾**：\n\n---\n\n## 第一幕：幕名（第1-XX章）\n\n### 【第1章】章名\n**情绪基调**：绝望→惊险→冷峻中的希望\n**爽点类型**：金手指展示 + 武力震撼\n**时间**：\n**地点**：\n**人物**：\n**硬节点（番茄开局炸裂）**：\n1. ...\n2. ...\n3. ...\n**【数字面板】** 人数： | 存粮： | 刀： | 棍： | 马： | 钱：\n**【番茄钩子】**\n**钩子**：\n**字数建议**：3500-4000字\n**【兑现链】**\n- → 第2章（兑现）\n\n【上帝视角·反派】\n\n**钩子**：\n\n【修改说明】\n1. ...\n2. ...'},
-    {title:'历史军事细纲模板',tag:'历史',content:'# 《汉末：凉州辞》第X卷·活着 XX章细纲\n# v1.0 Bug修正版\n\n**时间跨度**：光和六年（183年）四月至光和七年（184年）十二月\n**卷末状态**：百人私兵，粗具雏形，仍无官身，营地初成\n**字数预估**：XX章 × 3500–4000字 ≈ XX万字\n\n**核心修正**：\n1. 时间：黄巾起义节点后移至历史正确位置\n2. 武力：第1章改为智取周旋\n3. 经济：款项去重，各自独立核算\n4. 民族：冲突前置，避免全军认知倒退\n5. 过渡：每章末尾增加时间/事件过渡骨架\n6. 人设：删除家族覆灭设定\n7. 年龄：明确架空设定\n\n**收尾**：\n\n---\n\n## 第一幕：生存与起家（第1-20章）\n\n### 【第1章】最后一碗米\n**情绪基调**：绝望→惊险→冷峻中的希望\n**爽点类型**：金手指展示（先知数字）+ 武力震撼（一打七不杀）\n**时间**：光和六年四月上旬，暮色至深夜\n**地点**：城外破土屋、门槛、土坡\n**人物**：主角、张伯、反派韩三、打手六人\n**硬节点（番茄开局炸裂）**：\n1. 门板飞起，反派闯入\n2. 【金手指亮牌】主角脑中闪过数字\n3. 反派威胁收屋\n4. 主角冷静分析局势\n5. 主角出手，槊法震慑\n6. 主角放话：三日后只收死人\n7. 父亲教诲：不信人，信槊\n8. 米缸见底，月底之前要挣到钱\n9. 磨刀、验甲、数兵器\n10. 望向东边，脑中数字：十五\n11. 油灯爆灯花，暗灭\n**【数字面板】** 人数：0→19 | 存粮：0.5石 | 刀：2 | 棍：0 | 马：0 | 钱：0\n**【番茄钩子】** 天没亮透，主角站在土坡上。土坡下躺着一具女尸，怀里抱着死婴。十九个叫花子蹲在尸体旁边——这是他月底之前唯一的本钱。\n**钩子**：冻裂声，脚下的土冻裂了\n**字数建议**：3500-4000字\n**【兑现链】**\n- 反派探子回城 → 第3章发现探子（兑现）\n- "不止六人" → 第3章带30人再来（兑现）\n- 十九个叫花子 → 第2章实际收19人（兑现）\n\n【上帝视角·反派】\n\n**钩子**：\n\n【修改说明】\n1. 删除虚报数字\n2. 数字面板对应后续实际数据\n3. 新增兑现链'},
-    {title:'玄幻升级细纲模板',tag:'玄幻',content:'# 《作品名》第X卷·逆天 XX章细纲\n# v1.0 修正版\n\n**时间跨度**：\n**卷末状态**：筑基成功，宗门大比入围\n**字数预估**：XX章 × 3500–4000字 ≈ XX万字\n\n**核心修正**：\n1. 境界：第1章确认为练气三层，消除矛盾\n2. 功法：金手指来源明确，不突兀\n3. 经济：灵石收支独立核算\n4. 人设：删除多余感情线\n5. 过渡：每章末尾增加修炼进度过渡\n\n**收尾**：\n\n---\n\n## 第一幕：觉醒与入门（第1-20章）\n\n### 【第1章】废物？\n**情绪基调**：屈辱→愤怒→隐忍中的希望\n**爽点类型**：金手指觉醒 + 打脸退婚\n**时间**：\n**地点**：家族演武场、破旧小院\n**人物**：主角、父亲、退婚女、长老\n**硬节点（番茄开局炸裂）**：\n1. 演武场测试，灵根被判定为废品\n2. 退婚女当众羞辱\n3. 父亲维护，被长老压制\n4. 主角隐忍，心中发誓\n5. 回到破旧小院，发现祖传玉佩发光\n6. 【金手指亮牌】玉佩中藏有上古功法\n7. 功法自动运转，灵气汇聚\n8. 突破！练气一层！\n9. 父亲送来晚饭，主角隐瞒\n10. 夜深人静，继续修炼\n11. 脑中闪过数字：三年之约\n**【数字面板】** 境界：凡人→练气一层 | 功法：无→《上古XX诀》 | 灵石：0 | 丹药：0 | 法宝：0\n**【番茄钩子】** 三年之约。今日之辱，他日必百倍奉还。而那块玉佩中，还有更大的秘密等待揭开...\n**钩子**：玉佩深处，一道苍老的声音响起\n**字数建议**：3500-4000字\n**【兑现链】**\n- 三年之约 → 第50章履约（兑现）\n- 玉佩秘密 → 第10章揭晓（兑现）\n- 退婚女背景 → 第30章揭示（兑现）\n\n【上帝视角·退婚女】\n\n**钩子**：\n\n【修改说明】\n1. 境界体系明确\n2. 金手指来源合理\n3. 新增兑现链'},
-    {title:'都市异能细纲模板',tag:'都市',content:'# 《作品名》第X卷·崛起 XX章细纲\n# v1.0 修正版\n\n**时间跨度**：\n**卷末状态**：异能觉醒，加入特勤组\n**字数预估**：XX章 × 3500–4000字 ≈ XX万字\n\n**核心修正**：\n1. 异能：第1章确认为D级感知型\n2. 组织：特勤组架构明确\n3. 经济：任务报酬独立核算\n4. 人设：删除多余感情线\n5. 过渡：每章末尾增加异能熟练度过渡\n\n**收尾**：\n\n---\n\n## 第一幕：觉醒与入门（第1-20章）\n\n### 【第1章】车祸\n**情绪基调**：绝望→恐惧→觉醒中的震惊\n**爽点类型**：生死危机觉醒 + 异能初显\n**时间**：\n**地点**：十字路口、医院、出租屋\n**人物**：主角、肇事司机、护士、神秘人\n**硬节点（番茄开局炸裂）**：\n1. 过马路被撞，濒死体验\n2. 时间变慢，看到司机脸上的毛孔\n3. 身体自动闪避，毫发无损\n4. 路人震惊，主角自己也震惊\n5. 医院检查，各项指标正常\n6. 回到出租屋，发现能力还在\n7. 【金手指亮牌】时间感知异能觉醒\n8. 测试能力：能让周围时间变慢3秒\n9. 神秘人来访，邀请加入特勤组\n10. 主角拒绝，想先弄清楚能力\n11. 神秘人留下名片：有需要打电话\n**【数字面板】** 异能等级：D级 | 能力：时间感知（3秒） | 任务：0 | 积分：0 | 装备：无\n**【番茄钩子】** 名片背面写着一行小字："你并不是唯一一个。三天后，会有其他人来找你。"\n**钩子**：窗外，一只乌鸦正盯着他的窗户\n**字数建议**：3500-4000字\n**【兑现链】**\n- 神秘人身份 → 第5章揭晓（兑现）\n- "其他人" → 第3章出现（兑现）\n- 乌鸦监视 → 第2章解释（兑现）\n\n【上帝视角·神秘人】\n\n**钩子**：\n\n【修改说明】\n1. 异能等级体系明确\n2. 组织架构合理\n3. 新增兑现链'},
-    {title:'番茄细纲通用模板',tag:'通用',content:'【番茄小说细纲标准格式】\n\n每章必须包含以下要素：\n\n1. **情绪基调**：如"绝望→惊险→冷峻中的希望"\n2. **爽点类型**：如"金手指展示 + 武力震撼"\n3. **时间**：精确到时辰\n4. **地点**：具体场景\n5. **人物**：出场角色清单\n6. **硬节点**：15-25个具体情节点\n7. **数字面板**：可量化的资源/状态变化\n8. **番茄钩子**：章末悬念\n9. **兑现链**：钩子→回收章节\n10. **上帝视角**：反派/配角的独立视角\n11. **字数建议**：3500-4000字\n\n【写作要点】\n- 每章必须有爽点\n- 数字必须可兑现\n- 钩子必须有回收\n- 视角切换要自然\n- 对话要有潜台词'}
-  ],
-  opening:[
-    {title:'穿越开篇',tag:'穿越',content:'【穿越开篇模板】\n\n场景：主角在原世界最后一刻\n\n过渡：穿越过程，可能昏迷或清醒\n\n醒来：发现身处陌生环境\n\n认知：意识到穿越，观察周围\n\n反应：震惊、困惑、接受\n\n行动：开始探索新世界\n\n示例开头：\n"当[主角名]睁开眼睛时，发现自己躺在一片陌生的荒野上。天空的颜色不对，空气的味道也不同。他低头看着自己身上的衣服——那是他从未见过的样式。"\n\n"穿越了？他喃喃自语，随即苦笑。既然已经发生，那就接受吧。"'},
-    {title:'重生开篇',tag:'重生',content:'【重生开篇模板】\n\n场景：主角死亡或失败时刻\n\n过渡：时间回溯\n\n醒来：回到过去某个时间点\n\n认知：意识到重生，回忆前世\n\n反应：震惊→接受→规划\n\n行动：开始改变命运\n\n示例开头：\n"[主角名]猛然睁开眼睛，发现自己回到了十年前的那个早晨。阳光透过窗帘洒进来，一切都那么熟悉又陌生。"\n\n"前世的一切，那些失败、那些遗憾、那些错过的人...现在都有了弥补的机会。"'},
-    {title:'觉醒开篇',tag:'觉醒',content:'【觉醒开篇模板】\n\n场景：主角处于低谷状态\n\n触发：意外事件或刺激\n\n觉醒：能力或系统激活\n\n认知：发现自己与众不同\n\n反应：震惊→兴奋→谨慎\n\n行动：开始探索能力\n\n示例开头：\n"就在[主角名]以为自己这辈子就这样了的时候，一道奇异的光芒从天而降，直接击中了他。"\n\n"疼痛过后，他感觉到体内有什么东西在变化。一种前所未有的力量正在觉醒。"'},
-    {title:'悬念开篇',tag:'悬疑',content:'【悬念开篇模板】\n\n场景：神秘或危险的环境\n\n事件：发生不寻常的事情\n\n悬念：留下疑问\n\n引入：主角登场\n\n反应：好奇或警惕\n\n行动：开始调查\n\n示例开头：\n"深夜，[地点名]传来一声诡异的尖叫。第二天，人们发现[异常现象]。没有人知道发生了什么，但所有人都感觉到了不安。"\n\n"[主角名]站在人群中，眉头紧锁。他的直觉告诉他，这不是普通的事件。"'},
-    {title:'冲突开篇',tag:'冲突',content:'【冲突开篇模板】\n\n场景：主角处于不利地位\n\n冲突：与反派正面交锋\n\n展示：主角性格和能力\n\n转折：冲突结果\n\n引入：更大的故事背景\n\n示例开头：\n"[反派名]居高临下地看着[主角名]，嘴角带着嘲讽的笑。\'你这种人，永远不可能成功。\'"\n\n"[主角名]没有退缩。他抬起头，目光坚定：\'我会让你看到，什么叫做不可能。\'"'},
-    {title:'日常开篇',tag:'日常',content:'【日常开篇模板】\n\n场景：主角的日常生活\n\n展示：主角性格和处境\n\n暗示：即将发生改变\n\n引入：关键人物或事件\n\n过渡：从日常进入故事\n\n示例开头：\n"[主角名]像往常一样[日常行为]。这是他[时间长度]来的固定生活，平淡而稳定。"\n\n"直到今天，一个[意外事件]打破了他的日常。"'},
-    {title:'危机开篇',tag:'危机',content:'【危机开篇模板】\n\n场景：危机发生时刻\n\n危机：重大威胁或灾难\n\n反应：主角临危不乱\n\n行动：应对危机\n\n展示：主角能力\n\n示例开头：\n"警报声突然响起，整个[地点]陷入混乱。[危机描述]正在发生，所有人都在逃命。"\n\n"但[主角名]没有逃跑。相反，他逆着人群冲向危机中心。\'有人需要帮助。\'"'},
-    {title:'回忆开篇',tag:'回忆',content:'【回忆开篇模板】\n\n场景：主角回忆过去\n\n回忆：重要事件或人物\n\n情感：怀念或遗憾\n\n过渡：回到现在\n\n引入：故事开始\n\n示例开头：\n"[主角名]望着[物品或场景]，思绪飘向了[时间]前。那时候，[回忆内容]。"\n\n"如今，一切都已不同。但那段记忆，永远铭刻在他心中。"'}
-  ],
-  scene:[
-    {title:'修炼场景',tag:'修炼',content:'【修炼场景模板】\n\n环境：安静、灵气充沛之地\n\n准备：调整状态，进入修炼\n\n过程：\n- 吸收能量\n- 体内运转\n- 突破瓶颈\n\n感受：痛苦→舒适→升华\n\n结果：实力提升\n\n示例描写：\n"[主角名]盘膝而坐，开始运转[功法名]。天地灵气缓缓汇聚，进入他的经脉。起初只是涓涓细流，渐渐变成洪流。"\n\n"体内的真气越聚越多，冲击着一层层阻碍。每一次冲击都带来剧痛，但他咬牙坚持。终于，最后一层阻碍被冲破——"'},
-    {title:'战斗场景',tag:'战斗',content:'【战斗场景模板】\n\n开场：双方对峙\n\n试探：初步交锋\n\n高潮：关键招式对决\n\n转折：形势变化\n\n结局：胜负分明\n\n示例描写：\n"[对手名]率先出手，[招式描述]。[主角名]侧身躲过，随即反击。两人你来我往，招招致命。"\n\n"突然，[主角名]找到了破绽。他集中全力，施展[绝招名]。光芒闪耀，一击必中！"'},
-    {title:'谈判场景',tag:'谈判',content:'【谈判场景模板】\n\n开场：双方见面\n\n立场：各自表明态度\n\n交锋：利益博弈\n\n转折：关键筹码\n\n结局：达成协议或破裂\n\n示例描写：\n"[主角名]平静地看着[对方名]：\'我的条件很简单——[条件内容]。\'"\n\n"[对方名]冷笑：\'你以为你有资格谈条件？\'但当他看到[筹码展示]时，脸色变了。"'},
-    {title:'探险场景',tag:'探险',content:'【探险场景模板】\n\n进入：进入未知区域\n\n发现：发现异常或宝藏\n\n危机：遇到危险\n\n解决：克服困难\n\n收获：获得奖励\n\n示例描写：\n"[主角名]小心翼翼地踏入[地点名]。四周一片漆黑，只有微弱的光芒指引方向。"\n\n"突然，前方出现[发现内容]。但就在他靠近时，[危机描述]！"'},
-    {title:'社交场景',tag:'社交',content:'【社交场景模板】\n\n场合：聚会或活动\n\n人物：各方势力代表\n\n互动：交谈、试探\n\n冲突：可能发生矛盾\n\n结果：建立关系或产生敌意\n\n示例描写：\n"[主角名]走进[场合名]，立刻感受到众人的目光。有人好奇，有人警惕，有人不屑。"\n\n"他从容应对每一个试探性问题，不卑不亢。渐渐地，一些人开始对他产生兴趣。"'},
-    {title:'情感场景',tag:'情感',content:'【情感场景模板】\n\n铺垫：两人相处\n\n触发：某个事件或话语\n\n表达：情感流露\n\n回应：对方反应\n\n深化：关系更进一步\n\n示例描写：\n"[主角名]看着[对方名]，突然说出了藏在心底的话：\'[情感表达]。\'"\n\n"[对方名]愣住了，随即[回应描述]。两人之间的距离，似乎一下子消失了。"'}
-  ]
-};
-var currentCategory='';
-
-function showTplList(category){
-  currentCategory=category;
-  var data=TPL_DATA[category];
-  if(!data)return;
-  var names={world:'&#127757; 世界观模板',chars:'&#128100; 人物模板',outline:'&#128203; 大纲模板',detail:'&#128221; 细纲模板',opening:'&#128214; 开篇模板',scene:'&#127916; 场景模板'};
-  var plainNames={world:'世界观模板',chars:'人物模板',outline:'大纲模板',detail:'细纲模板',opening:'开篇模板',scene:'场景模板'};
-  document.getElementById('page-title').textContent=plainNames[category]||'模板';
-  document.getElementById('tpl-content').innerHTML='<div class="tpl-back"><button onclick="showTplGrid()">&#8249; 返回</button><span>'+names[category]+'</span></div><div class="tpl-list">'+data.map(function(item,idx){return '<div class="tpl-item"><div class="tpl-item-head"><div class="tpl-item-title">'+item.title+'</div><div class="tpl-item-tag">'+item.tag+'</div></div><div class="tpl-preview">'+item.content.substring(0,100)+'...</div><div class="tpl-expand-btn" onclick="toggleExpand(this,'+idx+')">&#9660; 展开查看</div><div class="tpl-full-content" id="tpl-content-'+idx+'"></div><div class="tpl-actions"><button class="primary" onclick="useTpl(\''+category+'\','+idx+')">&#9997; 使用</button><button class="secondary" onclick="copyTpl(\''+category+'\','+idx+')">&#128203; 复制</button></div></div>';}).join('')+'</div>';
+function showToast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
-function toggleExpand(el,idx){
-  var contentEl=document.getElementById('tpl-content-'+idx);
-  var data=TPL_DATA[currentCategory];
-  if(!contentEl||!data)return;
-  if(contentEl.classList.contains('show')){
-    contentEl.classList.remove('show');
-    el.innerHTML='&#9660; 展开查看';
-  }else{
-    contentEl.textContent=data[idx].content;
-    contentEl.classList.add('show');
-    el.innerHTML='&#9650; 收起';
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function showAddCatModal(){ document.getElementById('modal-add-cat').classList.add('show'); }
+
+function doAddCat(){
+  var name = document.getElementById('cat-name').value.trim();
+  var icon = document.getElementById('cat-icon').value.trim() || '📦';
+  var dimsRaw = document.getElementById('cat-dims').value.trim();
+  if(!name){ showToast('请输入分类名称'); return; }
+  var key = 'custom_' + Date.now();
+  var dims = null;
+  if(dimsRaw){
+    var parts = dimsRaw.split(/[,，]/);
+    dims = parts.map(function(p){ return {n: p.trim(), w: Math.round(10/parts.length)/10}; });
   }
-}
-
-function showTplGrid(){
-  document.getElementById('page-title').textContent='模板库';
-  document.getElementById('tpl-content').innerHTML='<div class="tpl-grid" id="tpl-grid"><div class="tpl-card" onclick="showTplList(\'world\')"><div class="icon">&#127757;</div><div class="name">世界观模板</div><div class="count">9个模板</div></div><div class="tpl-card" onclick="showTplList(\'chars\')"><div class="icon">&#128100;</div><div class="name">人物模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showTplList(\'outline\')"><div class="icon">&#128203;</div><div class="name">大纲模板</div><div class="count">4个模板</div></div><div class="tpl-card" onclick="showTplList(\'detail\')"><div class="icon">&#128221;</div><div class="name">细纲模板</div><div class="count">5个模板</div></div><div class="tpl-card" onclick="showTplList(\'opening\')"><div class="icon">&#128214;</div><div class="name">开篇模板</div><div class="count">8个模板</div></div><div class="tpl-card" onclick="showTplList(\'scene\')"><div class="icon">&#127916;</div><div class="name">场景模板</div><div class="count">6个模板</div></div><div class="tpl-card" onclick="showPhraseLib()"><div class="icon">&#128172;</div><div class="name">词句库</div><div class="count">11大分类</div></div></div>';
-}
-
-function showPhraseLib(){
-  document.getElementById('page-title').textContent='词句库';
-  var html='<div class="tpl-back"><button onclick="showTplGrid()">&#8249; 返回</button><span>&#128172; 词句库</span></div><div class="phrase-lib">';
-  for(var cat in PHRASE_DATA){
-    html+='<div class="phrase-cat"><div class="phrase-cat-title">'+cat+'</div><div class="phrase-list">';
-    PHRASE_DATA[cat].forEach(function(phrase){
-      html+='<span class="phrase-tag" onclick="copyPhrase(this)">'+phrase+'</span>';
-    });
-    html+='</div></div>';
+  if(typeof TemplateEval !== 'undefined' && TemplateEval.addCustomCategory){
+    TemplateEval.addCustomCategory(key, name, icon, dims);
   }
-  html+='</div>';
-  document.getElementById('tpl-content').innerHTML=html;
+  closeModal('modal-add-cat');
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-icon').value = '';
+  document.getElementById('cat-dims').value = '';
+  showToast('分类「'+name+'」已新增');
+  renderTabs();
+  renderContent('all');
 }
 
-function copyPhrase(el){
-  var text=el.textContent;
-  navigator.clipboard.writeText(text).then(function(){showToast('已复制：'+text);}).catch(function(){
-    var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('已复制：'+text);
-  });
+function renderTabs(){
+  var cats = typeof TemplateEval !== 'undefined' ? TemplateEval.getAllCategories() : {};
+  var collected = typeof TemplateEval !== 'undefined' ? TemplateEval.getCollected() : [];
+  var html = '<button class="cat-tab'+(currentCat==='all'?' active':'')+'" onclick="renderContent(\'all\')">全部<span class="badge">'+collected.length+'</span></button>';
+  for(var k in cats){
+    var c = cats[k];
+    var count = collected.filter(function(x){ return x.category===k; }).length;
+    html += '<button class="cat-tab'+(currentCat===k?' active':'')+'" onclick="renderContent(\''+k+'\')">'+c.icon+' '+c.name+(count>0?'<span class="badge">'+count+'</span>':'')+'</button>';
+  }
+  document.getElementById('cat-tabs').innerHTML = html;
 }
 
-function useTpl(category,idx){
-  var item=TPL_DATA[category][idx];
-  if(!item)return;
-  var work=DB.getWork();
-  if(!work){showToast('请先创建作品');location.href='new-book.html';return;}
-  if(category==='world'){work.world=item.content;}else if(category==='chars'){work.chars=item.content;}else if(category==='outline'){work.outline=item.content;}else if(category==='detail'){work.detail=item.content;}else{localStorage.setItem('tpl_to_use',item.content);location.href='write.html';return;}
-  DB.saveWork(work);showToast('模板已导入');location.href='architecture.html';
-}
+function renderContent(cat){
+  currentCat = cat;
+  renderTabs();
+  var collected = typeof TemplateEval !== 'undefined' ? TemplateEval.getCollected() : [];
+  var items = cat === 'all' ? collected : collected.filter(function(x){ return x.category===cat; });
+  var cats = typeof TemplateEval !== 'undefined' ? TemplateEval.getAllCategories() : {};
+  var catInfo = cats[cat];
 
-function copyTpl(category,idx){
-  var item=TPL_DATA[category][idx];
-  if(!item)return;
-  navigator.clipboard.writeText(item.content).then(function(){showToast('已复制');}).catch(function(){
-    var ta=document.createElement('textarea');ta.value=item.content;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('已复制');
-  });
-}
-
-// ========== 导入功能 ==========
-function handleFileImport(event){
-  var file=event.target.files[0];
-  if(!file){return;}
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var content=e.target.result;
-      var data=JSON.parse(content);
-      if(data.works){
-        if(confirm('将导入 '+data.works.length+' 部作品，是否继续？')){
-          DB.works=data.works;
-          if(data.apiConfig)DB.apiConfig=data.apiConfig;
-          if(data.apiKeys)DB.apiKeys=data.apiKeys;
-          if(data.settings)DB.settings=data.settings;
-          DB.save();showToast('数据导入成功');
-          setTimeout(function(){location.reload();},500);
-        }
-      }else{
-        showToast('文件格式不支持，请使用正确的备份文件');
-      }
-    }catch(err){
-      showToast('已读取文件，可在写作页面使用');
+  // 显示评价维度
+  var dimsHtml = '';
+  if(catInfo && catInfo.dims){
+    dimsHtml = '<div class="eval-dims">';
+    for(var di=0; di<catInfo.dims.length; di++){
+      dimsHtml += '<span class="eval-dim">'+catInfo.dims[di].n+' ('+Math.round(catInfo.dims[di].w*100)+'%)</span>';
     }
-  };
-  reader.readAsText(file);
-  setTimeout(function(){event.target.value='';},800);
+    dimsHtml += '</div>';
+  }
+
+  if(items.length === 0){
+    document.getElementById('tpl-content').innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无收集的模板</p><p style="font-size:12px;color:#bbb;">生成内容评分≥90分时自动入库</p></div>';
+    return;
+  }
+
+  var html = dimsHtml + '<div class="tpl-list">';
+  for(var i=0; i<items.length; i++){
+    var item = items[i];
+    var preview = (item.content||'').substring(0, 150);
+    var time = item.time ? new Date(item.time).toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    var scoreClass = item.score >= 95 ? 'high' : '';
+    html += '<div class="tpl-item">';
+    html += '<div class="tpl-item-head">';
+    html += '<span style="font-size:14px;font-weight:600;">'+ (item.icon||'') + ' ' + (item.catName||item.category) + '</span>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<span class="tpl-item-score '+scoreClass+'">'+item.score+'分</span>';
+    html += '<span class="tpl-item-time">'+time+'</span></div></div>';
+    html += '<div class="tpl-preview" id="preview-'+item.id+'">'+escHtml(preview)+(item.content.length>150?'...':'')+'</div>';
+    if(item.content.length > 150){
+      html += '<div style="font-size:12px;color:#6366f1;cursor:pointer;margin-bottom:8px;" onclick="togglePreview(\''+item.id+'\')">展开/收起</div>';
+      html += '<div style="display:none;white-space:pre-wrap;font-size:13px;color:#333;line-height:1.6;background:#f9f9fb;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;" id="full-'+item.id+'">'+escHtml(item.content)+'</div>';
+    }
+    if(item.dims && item.dims.length){
+      html += '<div class="eval-dims">';
+      for(var di=0; di<item.dims.length; di++){
+        html += '<span class="eval-dim">'+item.dims[di].name+': '+item.dims[di].score+'</span>';
+      }
+      html += '</div>';
+    }
+    html += '<div class="tpl-actions">';
+    html += '<button class="primary" onclick="copyItem(\''+item.id+'\')">📋 复制</button>';
+    html += '<button class="secondary" onclick="useItem(\''+item.id+'\')">✏️ 使用</button>';
+    html += '<button class="danger" onclick="deleteItem(\''+item.id+'\')">🗑 删除</button>';
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('tpl-content').innerHTML = html;
 }
 
-// 初始化时绑定文件导入事件
-window.addEventListener('DOMContentLoaded',function(){
-  var fi=document.getElementById('file-input');
-  if(fi){fi.addEventListener('change',handleFileImport);}
-});
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-window.addEventListener('DOMContentLoaded',function(){
-  if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; }
+function togglePreview(id){
+  var el = document.getElementById('full-'+id);
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function copyItem(id){
+  var items = typeof TemplateEval !== 'undefined' ? TemplateEval.getCollected() : [];
+  var item = items.find(function(x){ return x.id===id; });
+  if(!item) return;
+  navigator.clipboard.writeText(item.content).then(function(){ showToast('已复制'); }).catch(function(){
+    var ta = document.createElement('textarea'); ta.value = item.content; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('已复制');
+  });
+}
+
+function useItem(id){
+  var items = typeof TemplateEval !== 'undefined' ? TemplateEval.getCollected() : [];
+  var item = items.find(function(x){ return x.id===id; });
+  if(!item) return;
+  var work = typeof DB !== 'undefined' && DB.getWork ? DB.getWork() : null;
+  if(!work){ showToast('请先创建作品'); location.href='new-book.html'; return; }
+  var mod = item.category;
+  if(mod==='world') work.world = item.content;
+  else if(mod==='chars') work.chars = item.content;
+  else if(mod==='outline') work.outline = item.content;
+  else if(mod==='detail') work.detail = item.content;
+  else { localStorage.setItem('tpl_to_use', item.content); location.href='write.html'; return; }
+  if(typeof DB !== 'undefined' && DB.saveWork) DB.saveWork(work);
+  showToast('模板已导入「'+item.catName+'」');
+  location.href = 'architecture.html';
+}
+
+function deleteItem(id){
+  if(!confirm('确定删除此模板？')) return;
+  if(typeof TemplateEval !== 'undefined' && TemplateEval.removeCollected){
+    TemplateEval.removeCollected(id);
+  }
+  showToast('已删除');
+  renderContent(currentCat);
+}
+
+// 初始化
+window.addEventListener('DOMContentLoaded', function(){
+  if(typeof DB !== 'undefined' && DB.init && !DB._initialized){ DB.init(); DB._initialized = true; }
+  renderContent('all');
 });
 </script>
 </body>
