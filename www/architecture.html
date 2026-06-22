@@ -3093,6 +3093,9 @@ window.generateArchModule = async function(opts){
           if(!cardResult || !cardResult.trim()){
             cardResult = '（本卡片生成失败，请重试）\n';
           }
+          
+          // 调试日志：记录卡片生成情况
+          console.log('[架构卡片] ' + card.label + ' 生成完成，字数:', cardResult.length, '目标:', cardTargetChars);
 
           // 评价本次生成结果，提取短板维度
           var cardEvalScore = 0;
@@ -3173,6 +3176,9 @@ window.generateArchModule = async function(opts){
           await new Promise(function(res){ setTimeout(res, 50); });
         }
       }
+      
+      // 调试日志：汇总所有卡片生成情况
+      console.log('[架构模块] ' + module + ' 生成完成，卡片数:', allCards.length, '总字数:', totalChars, '各卡片:', allCards.map(function(c){ return c.label + ':' + c.content.length; }).join(' | '));
 
       // 小模型：合并所有卡片为完整结果
       var mergedResult = '';
