@@ -388,9 +388,10 @@
     dims.push(d5);
 
     var d6 = { name: '篇幅合理', score: 7, max: 10, weight: 0.12, issues: [], strengths: [] };
-    if (len >= 600 && len <= 3000) d6.strengths.push('篇幅合理');
-    else if (len < 600) { d6.score = 4; d6.issues.push('篇幅偏短'); }
-    else { d6.score = 5; d6.issues.push('篇幅偏长'); }
+    if (len >= 2000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 1000) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 600) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 4; d6.issues.push('篇幅偏短，建议至少2000字'); }
     dims.push(d6);
 
     return _buildResult('world', '世界观', dims, content, len);
@@ -456,8 +457,10 @@
     dims.push(d5);
 
     var d6 = { name: '篇幅合理', score: 7, max: 10, weight: 0.14, issues: [], strengths: [] };
-    if (len >= 400 && len <= 2000) d6.strengths.push('篇幅合理');
-    else if (len < 400) { d6.score = 4; d6.issues.push('篇幅偏短，每个人物至少200字'); }
+    if (len >= 3000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 1500) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 800) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 4; d6.issues.push('篇幅偏短，建议至少1500字'); }
     dims.push(d6);
 
     return _buildResult('chars', '人设', dims, content, len);
@@ -608,10 +611,13 @@
     dims.push(d5);
 
     var d6 = { name: '可执行性', score: 6, max: 10, weight: 0.14, issues: [], strengths: [] };
-    if (len >= 600) d6.strengths.push('篇幅充足');
-    if (chapterCount >= 5) d6.strengths.push('可支撑多章写作');
-    if (d6.strengths.length >= 2) d6.score = 8;
-    if (len < 300) { d6.score = 3; d6.issues.push('内容太短，难以指导正文写作'); }
+    if (len >= 5000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 2000) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 600) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 3; d6.issues.push('内容太短，难以指导正文写作'); }
+    if (chapterCount >= 30) d6.strengths.push('章节数量充足(' + chapterCount + '章)');
+    else if (chapterCount >= 15) d6.strengths.push('章节数量合理');
+    else if (chapterCount >= 5) d6.strengths.push('可支撑多章写作');
     dims.push(d6);
 
     return _buildResult('detail', '细纲', dims, content, len);

@@ -7474,26 +7474,39 @@ async function aiGenerateArchitecture(type, userCommand) {
   const work = getCurrentWork();
   if (!work) { showToast('请先新建或选择作品'); return; }
   
-  var prompt, taskType, targetChars;
+  work._archCache = work._archCache || {};
+  
+  var cacheKey = type + '_' + (userCommand || 'default');
+  if (work._archCache[cacheKey] && work._archCache[cacheKey].timestamp > Date.now() - 3600000) {
+    var cached = work._archCache[cacheKey];
+    showToast('🔄 使用缓存 · ' + cached.content.length + '字', 3000);
+    applyArchResult(type, work, cached.content);
+    return;
+  }
+  
+  var prompt, taskType, targetChars, minChars;
   var statusMsg = '';
   
   switch(type) {
     case 'world':
       prompt = buildWorldPrompt(work, userCommand);
       taskType = 'world_creative';
-      targetChars = 6000;
+      targetChars = 8000;
+      minChars = 2000;
       statusMsg = '正在生成世界观…';
       break;
     case 'outline':
       prompt = buildOutlinePrompt(work, userCommand);
       taskType = 'outline_logic';
-      targetChars = 12000;
+      targetChars = 15000;
+      minChars = 5000;
       statusMsg = '正在生成大纲…';
       break;
     case 'chars':
       prompt = buildCharsPrompt(work, userCommand);
       taskType = 'chars_core';
-      targetChars = 6000;
+      targetChars = 8000;
+      minChars = 2000;
       statusMsg = '正在生成人设…';
       break;
     case 'detail':
@@ -7504,7 +7517,8 @@ async function aiGenerateArchitecture(type, userCommand) {
       } catch(e) {}
       prompt = buildDetailPrompt(work, volumeIdx, userCommand);
       taskType = 'detail_base';
-      targetChars = 10000;
+      targetChars = 12000;
+      minChars = 3000;
       statusMsg = '正在生成第' + (volumeIdx + 1) + '卷细纲…';
       break;
     default:
@@ -7521,23 +7535,23 @@ async function aiGenerateArchitecture(type, userCommand) {
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
       
-      switch(type) {
-        case 'world':
-          work.world = result;
-          break;
-        case 'outline':
-          work.outline = result;
-          break;
-        case 'chars':
-          work.chars = result;
-          break;
-        case 'detail':
-          work.detail = (work.detail || '') + '\n\n' + result;
-          break;
+      if (result.length < minChars) {
+        if (statusBar) statusBar.textContent = '⚠️ ' + statusMsg.replace('正在生成', '生成中') + ' · 内容偏短(' + result.length + '字)，正在补写…';
+        var extendPrompt = '你是网文架构补全助手。以下内容不够完整，请补充完善至' + minChars + '字以上，保持结构完整、内容详实。\n\n';
+        extendPrompt += '【已有内容】\n' + result + '\n\n';
+        extendPrompt += '【要求】\n1. 保持原有结构和格式\n2. 补充缺失的细节和内容\n3. 不要重复已有内容\n4. 直接输出补写内容：';
+        try {
+          var extendResult = await callRealAPIWithFallback(extendPrompt, null, taskType, targetChars - result.length, true);
+          if (extendResult && extendResult.length > 100) {
+            result = result + '\n\n' + extendResult;
+            if(statusBar) statusBar.textContent = '✅ ' + statusMsg.replace('正在生成', '补写完成') + ' · ' + result.length + '字';
+          }
+        } catch(e) { console.warn('[架构补写] 失败:', e); }
       }
       
-      DB.saveWork(work);
-      updateArchStatus(work);
+      work._archCache[cacheKey] = { content: result, timestamp: Date.now() };
+      
+      applyArchResult(type, work, result);
       
       showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + result.length + '字', 5000);
     } else {
@@ -7549,6 +7563,25 @@ async function aiGenerateArchitecture(type, userCommand) {
   } finally {
     hideLoading();
   }
+}
+
+function applyArchResult(type, work, result) {
+  switch(type) {
+    case 'world':
+      work.world = result;
+      break;
+    case 'outline':
+      work.outline = result;
+      break;
+    case 'chars':
+      work.chars = result;
+      break;
+    case 'detail':
+      work.detail = (work.detail || '') + '\n\n' + result;
+      break;
+  }
+  DB.saveWork(work);
+  updateArchStatus(work);
 }
 
 window.aiGenerateArchitecture = aiGenerateArchitecture;
