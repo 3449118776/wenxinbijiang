@@ -1,5 +1,54 @@
 /* 文心笔匠 - AI API模块 */
 
+// ========== v59: AI 调用缓存层 ==========
+// 策略：provider + model + hash(prompt) 作为 key，命中直接返回，省 token 省延迟
+// 同时利用 messages 数组格式让服务商（DeepSeek/OpenAI）自动缓存前缀
+var _promptCache = new Map();
+var _CACHE_TTL = 30 * 60 * 1000; // 30分钟过期
+var _CACHE_MAX_SIZE = 80;
+
+function _hashPrompt(prompt) {
+  var str = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+  var hash = 5381;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function _cacheGet(provider, model, prompt) {
+  var key = provider + '|' + (model || '') + '|' + _hashPrompt(prompt);
+  var entry = _promptCache.get(key);
+  if (entry && (Date.now() - entry.time) < _CACHE_TTL) {
+    console.log('[cache] ✅ 命中 ' + provider + (model ? '/' + model : '') + ' — 省一次调用');
+    return entry.result;
+  }
+  if (entry) _promptCache.delete(key);
+  return null;
+}
+
+function _cacheSet(provider, model, prompt, result) {
+  var key = provider + '|' + (model || '') + '|' + _hashPrompt(prompt);
+  // LRU 淘汰：超过上限时删最旧的
+  if (_promptCache.size >= _CACHE_MAX_SIZE) {
+    var oldestKey = null, oldestTime = Infinity;
+    _promptCache.forEach(function(v, k) {
+      if (v.time < oldestTime) { oldestTime = v.time; oldestKey = k; }
+    });
+    if (oldestKey) _promptCache.delete(oldestKey);
+  }
+  _promptCache.set(key, { result: result, time: Date.now() });
+}
+
+// 清空缓存（切换模型/修改配置时调用）
+window.clearAICache = function() {
+  var size = _promptCache.size;
+  _promptCache.clear();
+  console.log('[cache] 已清空 ' + size + ' 条缓存');
+  if (typeof showToast === 'function') showToast('AI 缓存已清空', {duration: 1500});
+};
+
 // API服务商配置（无硬编码密钥，URL自动填充）
 const API_PROVIDERS = {
   dashscope:   { name: '通义千问',   url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', type: 'openai' },
@@ -855,6 +904,11 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   var isMsg = Array.isArray(prompt);
   let response, result = '';
 
+  // v59: 检查缓存（provider + model + hash(prompt) 作为 key）
+  var _cacheModel = model || (DEFAULT_MODELS_BY_PROVIDER[provider] || '');
+  var _cached = _cacheGet(provider, _cacheModel, prompt);
+  if (_cached) return _cached;
+
   // custom 模式：从 apiConfig 读取用户自定义的 URL 和模型名
   var targetUrl = providerConfig.url;
   var targetModel = model;
@@ -903,7 +957,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           var fdata = null;
           try { if (ftext) fdata = JSON.parse(ftext); } catch (_) {}
           if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
-            return cleanAIOutput(fdata.choices[0].message.content);
+            var _res = cleanAIOutput(fdata.choices[0].message.content);
+            _cacheSet(provider, _cacheModel, prompt, _res);
+            return _res;
           }
         } catch (err) {
           lastErr = err;
@@ -1028,7 +1084,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
     throw empty;
   }
   // v48: 统一清理 AI 对话语前缀/后缀
-  return cleanAIOutput(result);
+  var _finalRes = cleanAIOutput(result);
+  _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  return _finalRes;
 }
 
 // 单服务商调用：该服务商下的 **全部 key** 都会依次尝试

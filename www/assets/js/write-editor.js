@@ -549,9 +549,8 @@ function saveChapter(){
   // 云同步：章节保存后推送到云端
   try {
     if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
-      if (window.cloud._pushTimer) clearTimeout(window.cloud._pushTimer);
-      window.cloud._pushTimer = setTimeout(function() {
-        window.cloud._pushTimer = null;
+      if (window.cloud._syncTimer) clearTimeout(window.cloud._syncTimer);
+      window.cloud._syncTimer = setTimeout(function() {
         try { window.cloud.quickSync(work.id); } catch(e) {}
       }, 2000);
     }
@@ -896,20 +895,10 @@ function buildWritePrompt(work,content,cmd){
   prompt += getWriteConstraint(getWorkGenre(work), work) + '\n';
   var cb = buildWriteConsistencyBlock(work, typeof currentChapterIdx !== "undefined" ? currentChapterIdx : 0);
   if (cb) prompt += cb + '\n';
-  // v60: 优先使用记忆精要，省token同时让DeepSeek命中缓存
-  if (work.longMemory && work.longMemory.moduleSummaries) {
-    var sums = work.longMemory.moduleSummaries;
-    if (sums.world) prompt += '【世界观】' + sums.world + '\n';
-    if (sums.chars) prompt += '【人物人设】' + sums.chars + '\n';
-    if (sums.outline) prompt += '【全书大纲】' + sums.outline + '\n';
-    if (sums.detail) prompt += '【章节细纲】' + sums.detail + '\n';
-  } else {
-    // 降级：没有记忆精要时用原文
-    if(work.world)prompt+='【世界观】'+work.world+'\n';
-    if(work.chars)prompt+='【人物人设】'+work.chars+'\n';
-    if(work.outline)prompt+='【全书大纲】'+work.outline+'\n';
-    if(work.detail)prompt+='【章节细纲】'+work.detail+'\n';
-  }
+  if(work.world)prompt+='【世界观】'+work.world+'\n';
+  if(work.chars)prompt+='【人物人设】'+work.chars+'\n';
+  if(work.outline)prompt+='【全书大纲】'+work.outline+'\n';
+  if(work.detail)prompt+='【章节细纲】'+work.detail+'\n';
   prompt+='\n【当前内容】\n'+content+'\n\n';
   prompt+='【用户指令】'+cmd+'\n\n';
   prompt+='请严格按照上述全套架构设定生成内容，保持风格一致。';
@@ -2274,10 +2263,10 @@ function getArchTruncationLimits() {
     return null;
   }
   if (ctx >= 30000) {
-    return { world: 15000, chars: 10000, outline: 12000, detail: 12000 };
+    return { world: 50000, chars: 30000, outline: 40000, detail: 35000 };
   }
   // 8K-32K 模型
-  return { world: 8000, chars: 5000, outline: 5000, detail: 5000 };
+  return { world: 20000, chars: 15000, outline: 18000, detail: 15000 };
 }
 
 // 构建章节写作prompt
@@ -3000,21 +2989,21 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
       prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
-      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
+      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     } else {
       // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
       var detailText = work.detail;
       if (archLimits && detailText.length > archLimits.detail) {
         var idxInDetail = detailText.indexOf(chTitle);
         if (idxInDetail >= 0) {
-          var dStart = Math.max(0, idxInDetail - 1500);
+          var dStart = Math.max(0, idxInDetail - 3000);
           var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
           detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
         } else {
-          detailText = detailText.substring(0, 3000) + '...(细纲过长已截断)';
+          detailText = detailText.substring(0, 8000) + '...(细纲过长已截断)';
         }
-      } else if (detailText.length > 4000) {
-        detailText = detailText.substring(0, 4000) + '...(细纲过长已截断)';
+      } else if (detailText.length > 10000) {
+        detailText = detailText.substring(0, 10000) + '...(细纲过长已截断)';
       }
       prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
       prompt += '【核心指令 · 细纲最高优先级】\n';
@@ -3022,7 +3011,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
       prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
-      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
+      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     }
   }
   
@@ -3057,9 +3046,9 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   
   if (existingContent && existingContent.trim()) {
     prompt += '【本章已写内容】\n' + existingContent + '\n\n';
-    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。\n';
+    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字。\n';
   } else {
-    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。';
+    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容。字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字。';
     if (prevContent) prompt += '开头要承接上一章结尾。';
   }
   
@@ -4158,9 +4147,9 @@ function getMemoryText(work, upToChapterIdx) {
     }
   }
   
-  // 控制总长度，超过12000字截断
-  if (text.length > 12000) {
-    text = text.substring(0, 12000) + '\n...(记忆过长，已截断)';
+  // 控制总长度，超过50000字截断
+  if (text.length > 50000) {
+    text = text.substring(0, 50000) + '\n...(记忆过长，已截断)';
   }
   
   return text;
@@ -4359,27 +4348,10 @@ async function startChapterPipeline() {
       ensurePipelineChapters(work, n - 1);
       var idx = n - 1;
       var ch = work.chapters[idx];
-
-      // 检查缓存：前置内容没变时直接用缓存结果（不跳过章节）
-      if (!overwrite) {
-        var cacheResult = checkChapterCache(work, idx, '');
-        if (cacheResult.hitCache && cacheResult.cachedResult) {
-          // 命中缓存：直接使用缓存结果
-          ch._aiOriginal = cacheResult.cachedResult;
-          ch.content = cacheResult.cachedResult;
-          ch.wordCount = cacheResult.cachedResult.length;
-          skipped++;
-          pipelineStatus('🏭 流水线 ' + n + '/' + end + '：命中缓存（' + cacheResult.cachedResult.length + '字），已应用');
-          try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e) {}
-          continue;
-        }
-
-        // 有正文且超过100字：跳过（原有的逻辑）
-        if (ch.content && ch.content.trim().length > 100) {
-          skipped++;
-          pipelineStatus('🏭 流水线 ' + n + '/' + end + '：已有正文，已跳过');
-          continue;
-        }
+      if (!overwrite && ch.content && ch.content.trim().length > 100) {
+        skipped++;
+        pipelineStatus('🏭 流水线 ' + n + '/' + end + '：已有正文，已跳过');
+        continue;
       }
       loadChapter(idx);
       await pipelineSleep(100); // v48: 缩短章节间等待，快速切换
@@ -4439,136 +4411,6 @@ async function startChapterPipeline() {
       pipelineStatus('✅ 第' + n + '章完成，准备下一章…');
       // v48: 章节间短等待 100ms 即可，无需长等待
       if (n < end) await pipelineSleep(100);
-
-      // ===== 流水线：每10章整体评价迭代 =====
-      if (done > 0 && done % 10 === 0 && n < end) {
-        pipelineStatus('🏭 流水线 ' + done + ' 章完成，正在进行整体评价迭代…');
-        // 合并已完成的章节内容
-        var batchContent = '';
-        for (var bi = start - 1; bi < n; bi++) {
-          if (work.chapters[bi]) {
-            batchContent += work.chapters[bi].content || '';
-          }
-        }
-        // 整体评价
-        var batchEvalScore = 50;
-        var batchWeakDims = [];
-        try {
-          if (typeof QualityEngine !== 'undefined' && QualityEngine.evaluate) {
-            var batchEval = QualityEngine.evaluate(batchContent, 'detail');
-            batchEvalScore = batchEval.totalScore || 0;
-            if (batchEval.dimensions) {
-              for (var _bedi = 0; _bedi < batchEval.dimensions.length; _bedi++) {
-                var _bed = batchEval.dimensions[_bedi];
-                if (_bed.score !== undefined && _bed.max !== undefined && (_bed.score / _bed.max) < 0.9 && _bed.name) {
-                  batchWeakDims.push({ name: _bed.name, score: _bed.score, max: _bed.max, issues: _bed.issues || [] });
-                }
-              }
-            }
-          }
-        } catch(e) { console.warn('[流水线整体评价]', e); }
-
-        pipelineStatus('🏭 第' + done + '章整体评价：' + batchEvalScore + '分' + (batchWeakDims.length > 0 ? '，发现' + batchWeakDims.length + '个短板' : '，通过'));
-
-        // 如果分数<85或有问题，进行整体迭代修复
-        if (batchEvalScore < 85 || batchWeakDims.length > 0) {
-          var batchIterDone = 0;
-          var maxBatchIterations = 3;
-          var currentBatchResult = batchContent;
-
-          while (batchIterDone < maxBatchIterations) {
-            if (_chapterPipelineCancel) break;
-
-            // 构建加强提示
-            var batchIterHint = '🔥 流水线整体评价第' + (batchIterDone + 1) + '次，当前评分 ' + batchEvalScore + '/100，以下维度需要加强：\n';
-            for (var _bwi = 0; _bwi < batchWeakDims.length; _bwi++) {
-              var _bwd = batchWeakDims[_bwi];
-              batchIterHint += '【' + _bwd.name + '】' + _bwd.score + '/' + _bwd.max + '分';
-              if (_bwd.issues && _bwd.issues.length > 0) batchIterHint += ' — ' + _bwd.issues.slice(0, 2).join('; ');
-              batchIterHint += '\n';
-            }
-            batchIterHint += '\n【整体一致性检查重点】\n1. 各章之间情节是否连贯一致\n2. 人物行为逻辑是否统一\n3. 伏笔是否有埋设和回收\n4. 只针对问题精准修复，不要重新生成整体\n\n';
-
-            pipelineStatus('🏭 流水线整体修复第' + (batchIterDone + 1) + '/' + maxBatchIterations + '轮…');
-
-            // 对接下来的章节重新生成（带上加强提示）
-            var nextBatchStart = n;
-            var nextBatchEnd = Math.min(n + 10, end);
-
-            for (var ri = nextBatchStart; ri < nextBatchEnd; ri++) {
-              if (_chapterPipelineCancel) break;
-              work = getCurrentWork();
-              if (!validateCurrentWorkBeforeWrite(work)) break;
-
-              var rIdx = ri - 1;
-              ensurePipelineChapters(work, rIdx);
-              var rCh = work.chapters[rIdx];
-
-              pipelineStatus('🏭 整体修复：第' + (ri + 1) + '章…');
-              var rBefore = (rCh.content || '').length;
-
-              // 重新生成这章（带加强提示）
-              loadChapter(rIdx);
-              await pipelineSleep(100);
-
-              try {
-                await aiWriteChapter({ extraHint: batchIterHint, forceRegen: true });
-              } catch(e) {
-                console.warn('[流水线整体修复] 第' + (ri + 1) + '章失败:', e);
-              }
-
-              work = getCurrentWork();
-              rCh = work.chapters[rIdx];
-              var rAfter = rCh && rCh.content ? rCh.content.length : 0;
-
-              // 保存
-              try {
-                saveChapter();
-                if (DB.flush) DB.flush();
-              } catch(saveErr) { console.warn('[pipeline save]', saveErr); }
-
-              // 覆盖缓存
-              try { saveChapterCache(work, rIdx, rCh.content); } catch(e) {}
-
-              await pipelineSleep(50);
-            }
-
-            batchIterDone++;
-
-            // 重新评价
-            var newBatchContent = '';
-            for (var _nbi = start - 1; _nbi < nextBatchEnd; _nbi++) {
-              if (work.chapters[_nbi]) {
-                newBatchContent += work.chapters[_nbi].content || '';
-              }
-            }
-
-            try {
-              if (typeof QualityEngine !== 'undefined' && QualityEngine.evaluate) {
-                var newBatchEval = QualityEngine.evaluate(newBatchContent, 'detail');
-                batchEvalScore = newBatchEval.totalScore || 0;
-                if (newBatchEval.dimensions) {
-                  batchWeakDims = [];
-                  for (var _nbdi = 0; _nbdi < newBatchEval.dimensions.length; _nbdi++) {
-                    var _nbd = newBatchEval.dimensions[_nbdi];
-                    if (_nbd.score !== undefined && _nbd.max !== undefined && (_nbd.score / _nbd.max) < 0.9 && _nbd.name) {
-                      batchWeakDims.push({ name: _nbd.name, score: _nbd.score, max: _nbd.max, issues: _nbd.issues || [] });
-                    }
-                  }
-                }
-              }
-            } catch(e) {}
-
-            pipelineStatus('🏭 整体修复第' + batchIterDone + '轮完成：新评分 ' + batchEvalScore + '分');
-
-            // 分数>=85或无短板，结束
-            if (batchEvalScore >= 85 || batchWeakDims.length === 0) break;
-          }
-        }
-
-        pipelineStatus('🏭 整体评价迭代完成，继续流水线…');
-        await pipelineSleep(200);
-      }
     }
   } finally {
     _chapterPipelineRunning = false;
@@ -4583,190 +4425,15 @@ async function startChapterPipeline() {
   }
 }
 
-// ===== 正文生成缓存机制：基于前置内容（架构+前序章节）的hash检测 =====
-// 正文依赖：世界观、人设、大纲、细纲、前序章节
-var _chapterCacheKey = 'wxbj_chapter_cache_v2';  // localStorage key
-
-function getChapterCacheHash(content) {
-  if (!content || !content.trim()) return '';
-  var len = content.length;
-  var first = content.substring(0, 50);
-  var last = content.slice(-50);
-  var keyCount = (content.match(/[■■★◆●]/g) || []).length;
-  return len + '_' + first.charCodeAt(0) + '_' + last.charCodeAt(last.length - 1) + '_' + keyCount;
-}
-
-// 从localStorage加载章节缓存
-function loadChapterCacheFromStorage(workId) {
-  try {
-    var stored = localStorage.getItem(_chapterCacheKey);
-    if (stored) {
-      var data = JSON.parse(stored);
-      if (data && data[workId]) {
-        return data[workId];
-      }
-    }
-  } catch(e) { console.warn('[章节缓存] 读取失败:', e); }
-  return null;
-}
-
-// 保存章节缓存到localStorage
-function saveChapterCacheToStorage(workId, cache) {
-  try {
-    var stored = localStorage.getItem(_chapterCacheKey);
-    var data = stored ? JSON.parse(stored) : {};
-    data[workId] = cache;
-    // 限制存储大小，只保留最近3个作品的缓存
-    var keys = Object.keys(data);
-    if (keys.length > 3) {
-      var oldest = keys.sort(function(a, b) { return (data[a]._updatedAt || 0) - (data[b]._updatedAt || 0); })[0];
-      delete data[oldest];
-    }
-    localStorage.setItem(_chapterCacheKey, JSON.stringify(data));
-  } catch(e) { console.warn('[章节缓存] 保存失败:', e); }
-}
-
-function checkChapterCache(work, chapterIdx, userCmd) {
-  // 初始化章节缓存结构
-  if (!work._chapterCache) work._chapterCache = {};
-  if (!work._chapterCache[chapterIdx]) work._chapterCache[chapterIdx] = {};
-
-  var cache = work._chapterCache[chapterIdx];
-
-  // 从localStorage加载缓存（如果内存中没有）
-  if (!cache._updatedAt && work.id) {
-    var stored = loadChapterCacheFromStorage(work.id);
-    if (stored && stored[chapterIdx]) {
-      work._chapterCache[chapterIdx] = stored[chapterIdx];
-      cache = work._chapterCache[chapterIdx];
-    }
-  }
-
-  // 计算本次输入的hash
-  var inputHash = getChapterCacheHash((userCmd || '') + '|' + (work.genre || '') + '|' + chapterIdx);
-
-  // 检查前置依赖的hash
-  // 正文依赖：世界观、人设、大纲、细纲、前序章节
-  var deps = ['world', 'chars', 'outline', 'detail'];
-  var depHashes = {};
-  var depsChanged = false;
-
-  for (var di = 0; di < deps.length; di++) {
-    var depMod = deps[di];
-    var depContent = work[depMod] || '';
-    var currentHash = getChapterCacheHash(depContent);
-    depHashes[depMod] = currentHash;
-
-    // 检查前置内容是否变化
-    if (cache._depHashes && cache._depHashes[depMod] && cache._depHashes[depMod] !== currentHash) {
-      depsChanged = true;
-      break;
-    }
-  }
-
-  // 检查前序章节内容是否变化
-  if (!depsChanged && chapterIdx > 0 && work.chapters && work.chapters[chapterIdx - 1]) {
-    var prevContent = work.chapters[chapterIdx - 1].content || '';
-    var prevHash = getChapterCacheHash(prevContent);
-    if (cache._prevChapterHash && cache._prevChapterHash !== prevHash) {
-      depsChanged = true;
-    } else {
-      depHashes.prevChapter = prevHash;
-    }
-  }
-
-  // 检查是否命中缓存
-  var hitCache = false;
-  var cachedResult = null;
-
-  if (!depsChanged && cache._inputHash === inputHash && cache.result && cache.result.trim()) {
-    // 命中缓存：前置依赖没变 + 输入提示词没变
-    hitCache = true;
-    cachedResult = cache.result;
-
-    // 更新依赖hash
-    cache._depHashes = depHashes;
-    cache._inputHash = inputHash;
-  } else {
-    // 未命中缓存：准备重新生成
-    cache._depHashes = depHashes;
-    cache._prevChapterHash = depHashes.prevChapter;
-    cache._inputHash = inputHash;
-  }
-
-  return { hitCache: hitCache, cachedResult: cachedResult };
-}
-
-function saveChapterCache(work, chapterIdx, result) {
-  if (!work._chapterCache) work._chapterCache = {};
-  if (!work._chapterCache[chapterIdx]) work._chapterCache[chapterIdx] = {};
-
-  var cache = work._chapterCache[chapterIdx];
-
-  // 计算所有依赖的hash
-  var deps = ['world', 'chars', 'outline', 'detail'];
-  var depHashes = {};
-  for (var di = 0; di < deps.length; di++) {
-    var depMod = deps[di];
-    depHashes[depMod] = getChapterCacheHash(work[depMod] || '');
-  }
-
-  // 前序章节hash
-  if (chapterIdx > 0 && work.chapters && work.chapters[chapterIdx - 1]) {
-    depHashes.prevChapter = getChapterCacheHash(work.chapters[chapterIdx - 1].content || '');
-  }
-
-  // 保存到缓存
-  cache._depHashes = depHashes;
-  cache._prevChapterHash = depHashes.prevChapter;
-  cache.result = result;
-  cache._updatedAt = Date.now();
-
-  // 持久化到localStorage
-  if (work.id) {
-    saveChapterCacheToStorage(work.id, work._chapterCache);
-  }
-}
-
 async function aiWriteChapter(opts){
   opts = opts || {};
   var _writeIteration = opts._iteration || 0;
   var _writeExtraHint = opts.extraHint || '';
   var _writeBest = opts._prevBest || null;  // 之前的最佳结果 {text, score}
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
+  var _prevResult = opts._prevResult || '';  // 上一轮生成结果，迭代时用于增量改进
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
-
-  // ===== 正文缓存检查：前置内容没变则直接用缓存结果 =====
-  // 只有非迭代模式才检查缓存
-  var userCmd = (document.getElementById('ai-input')?.value || '').trim();
-  if (_writeIteration === 0 && !opts.forceRegen) {
-    var chapterIdx = currentChapterIdx || 0;
-    var cacheResult = checkChapterCache(work, chapterIdx, userCmd);
-    if (cacheResult.hitCache && cacheResult.cachedResult) {
-      // 命中缓存：直接使用缓存结果，跳过AI调用
-      if (typeof hideLoading === 'function') hideLoading();
-
-      var result = cacheResult.cachedResult;
-      var ch = work.chapters[chapterIdx];
-      if (ch) {
-        ch._aiOriginal = result;
-        ch.content = result;
-        ch.wordCount = result.length;
-      }
-
-      // 更新编辑器
-      var editor = document.getElementById('editor');
-      if (editor) editor.value = result;
-
-      showToast('✅ 第' + (chapterIdx + 1) + '章命中缓存（前置内容未变）· ' + result.length + '字', {duration: 4000});
-
-      // 触发保存
-      try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e) {}
-
-      return;
-    }
-  }
   // 第一次生成：resetLoading 从 0 起步；迭代时只更新文字，保持进度连续推进
   if (_writeIteration === 0 && typeof resetLoading === 'function') {
     resetLoading('正在生成章节…');
@@ -4789,6 +4456,7 @@ async function aiWriteChapter(opts){
     return true;
   }
   const content=document.getElementById('editor').value;
+  const chapterIdx = currentChapterIdx || 0;
   
   // 显示API状态 + 本卷信息（v57: 更细致的阶段进度）
   const statusBar = document.getElementById('api-status-bar');
@@ -4925,11 +4593,23 @@ async function aiWriteChapter(opts){
     // ✅ 缓存完整prompt（骨架+所有上下文），供后续迭代直接复用，不再重建
     work._cachedChapterPrompt = prompt;
   } else {
-    // ⚡ 第2/3轮：直接复用缓存的完整prompt，只追加改进提示
+    // ⚡ 第2/3轮：增量改进模式，基于上一轮结果进行优化
     if (!work._cachedChapterPrompt) {
       prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
     } else {
       prompt = work._cachedChapterPrompt;
+    }
+    // ⚡ 注入上一轮结果和改进提示，实现增量优化
+    if (_prevResult && _writeExtraHint) {
+      prompt = '【上一轮生成结果】\n' + _prevResult + '\n\n' + 
+        '【改进要求】\n' + _writeExtraHint + '\n\n' + 
+        '【优化策略】\n' + 
+        '1. 保留上一轮中做得好的部分（已在上面列出）\n' + 
+        '2. 针对问题部分进行修改和补充\n' + 
+        '3. 不要完全重写，只做必要的改进\n' + 
+        '4. 保持整体结构和叙事节奏\n' + 
+        '5. 输出完整的优化后章节内容：\n\n' + 
+        prompt;
     }
   }
 
@@ -4956,7 +4636,9 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  var result = await aiCaller(prompt, null, 'write_normal', 6000); // 目标 2500-3500 字，大模型可承受更长输出
+  // v59: 转为 messages 数组，让服务商缓存固定前缀
+  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
 
@@ -4990,14 +4672,14 @@ async function aiWriteChapter(opts){
     }
 
     // 字数校验：过短时自动补写，确保章节完整性（不再限制上限）
-    if (result.length < 1500) {
+    if (result.length < 8000) {
       if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数偏短(' + result.length + '字)，自动补写至完整章节…';
       showToast('正在自动补写，确保章节完整…', 2000);
-      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至2500字以上，确保剧情完整、节奏紧凑。\n\n';
+      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至12000字以上，确保剧情完整、节奏紧凑。\n\n';
       extendPrompt += '【已有内容】\n' + result + '\n\n';
-      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容1500-2500字，使总字数达到2500+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
+      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容4000-12000字，使总字数达到12000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
       try {
-        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 4000, true);
+        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 20000, true);
         if (extendResult && extendResult.length > 100) {
           result = result + '\n\n' + extendResult;
           if(statusBar) statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 补写完成（' + result.length + '字）';
@@ -5124,12 +4806,13 @@ async function aiWriteChapter(opts){
         _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
       }
       _nextHint = _hintLines.join('\n');
-      // ⚡ 递归调用：注入上一轮最佳结果（只追加到缓存prompt，不重建）
+      // ⚡ 递归调用：增量改进模式，传递上一轮结果供AI优化
       return aiWriteChapter({
         _iteration: _writeIteration + 1,
         extraHint: _nextHint,
         _prevBest: _writeBest,
-        _prevSkeleton: skFinalText
+        _prevSkeleton: skFinalText,
+        _prevResult: result
       });
     }
 
@@ -5190,10 +4873,7 @@ async function aiWriteChapter(opts){
     // 同步章节标题到输入框
     if(ch.title) document.getElementById('ch-title').value = ch.title;
     updateWordCount();
-
-    // 保存到正文缓存（前置内容没变时可直接复用）
-    try { saveChapterCache(work, chapterIdx, result); } catch(cacheErr) { console.warn('[正文缓存] 保存失败:', cacheErr); }
-
+    
     // 细纲覆盖率检测
     if (work.detail) {
       const detailLines = work.detail.split('\n').filter(l => l.trim().length > 5 && (l.includes('场景') || l.includes('■') || /\d+[.、]/.test(l)));
@@ -5211,14 +4891,11 @@ async function aiWriteChapter(opts){
             if(!_checkStillSameWork('细纲补写中')) return;
             if (fillResult) {
               // v52: 保存AI原始（含补写），用于用户编辑学习
-              var finalResult = result + '\n\n' + fillResult;
-              ch._aiOriginal = finalResult;
-              ch.content = finalResult;
+              ch._aiOriginal = result + '\n\n' + fillResult;
+              ch.content = result + '\n\n' + fillResult;
               document.getElementById('editor').value = ch.content;
               updateWordCount();
               showToast('自动补写完成 -- 补充了' + missed.length + '个遗漏场景点');
-              // 保存补写后的内容到缓存
-              try { saveChapterCache(work, chapterIdx, finalResult); } catch(cacheErr) { console.warn('[正文缓存] 保存失败:', cacheErr); }
             }
           } catch(e) {
             console.log('补写失败:', e);
@@ -5601,7 +5278,9 @@ async function sendAiCommand(){
   const fullPrompt = buildChapterPrompt(work, chapterIdx, content, cmd);
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
-  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
+  // v59: 转为 messages 数组
+  var _msgFullPrompt = Array.isArray(fullPrompt) ? fullPrompt : [{ role: 'user', content: fullPrompt }];
+  let result = await callRealAPIWithFallback(_msgFullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
   if(!result && window.ContentGenerator){
     showToast('使用本地AI生成...');
     result = window.ContentGenerator.continueStory(content, work, cmd);
@@ -7624,3 +7303,569 @@ async function aiPolishByQuality(){
 window.showQualityReport = showQualityReport;
 window.closeQualityReport = closeQualityReport;
 window.aiPolishByQuality = aiPolishByQuality;
+
+// ========== v58: 架构生成专用函数（世界观/大纲/人设/细纲）==========
+// 解决问题：原系统使用正文生成的通用函数，输出长度受限，迭代机制不合理
+
+function buildWorldPrompt(work, userCommand, prevResult) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮世界观】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有世界观进行深化和完善\n' +
+      '2. 补充缺失的细节，增强设定的丰富度\n' +
+      '3. 保持原有结构和核心设定不变\n' +
+      '4. 输出完整的优化后世界观内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n\n';
+  prompt += '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
+  prompt += '一、时代背景与历史脉络\n';
+  prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
+  prompt += '二、地理设定\n';
+  prompt += '—— 核心区域（3-5个）的地理特征、气候、资源分布、势力格局\n\n';
+  prompt += '三、力量体系\n';
+  prompt += '—— 力量来源、修炼路径、等级划分（5-8级）、每个等级的特征与门槛\n\n';
+  prompt += '四、社会结构\n';
+  prompt += '—— 统治阶层、权力结构、社会阶层、经济体系、文化习俗\n\n';
+  prompt += '五、核心势力\n';
+  prompt += '—— 主要势力（3-5个）的立场、目标、实力对比、相互关系\n\n';
+  prompt += '六、核心矛盾\n';
+  prompt += '—— 表面冲突、深层矛盾、即将爆发的危机、主角需要面对的挑战\n\n';
+  prompt += '七、独特设定\n';
+  prompt += '—— 这个世界最与众不同的地方、创新点、读者会记住的特色\n\n';
+  prompt += '八、信息增量规划\n';
+  prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 每个模块至少3000字，总字数不少于30000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 设定要具体、可验证，避免模糊表述\n';
+  prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
+  prompt += '5. 适合百万字长篇（1500-3000章）的世界观架构\n';
+  prompt += '6. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function buildOutlinePrompt(work, userCommand, prevResult) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮大纲】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有大纲进行深化和完善\n' +
+      '2. 补充缺失的细节，增加每卷的详细程度\n' +
+      '3. 确保卷数达到10-15卷，总章节1500+章\n' +
+      '4. 保持原有结构和核心剧情不变\n' +
+      '5. 输出完整的优化后大纲内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  if (world && world.length > 50) {
+    prompt += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
+  }
+  prompt += '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
+  prompt += '包含以下内容：\n\n';
+  prompt += '一、核心设定回顾\n';
+  prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
+  prompt += '二、全书结构规划\n';
+  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约3500字、总字数估算\n\n';
+  prompt += '三、分卷大纲（每卷详细，每卷至少500字）\n';
+  prompt += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
+  prompt += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
+  prompt += '四、核心矛盾链\n';
+  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n';
+  prompt += '—— 每卷矛盾的推进和升级\n\n';
+  prompt += '五、爽点规划\n';
+  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻、爆发时刻\n\n';
+  prompt += '六、伏笔布局\n';
+  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n';
+  prompt += '—— 长线伏笔（贯穿多卷）和短线伏笔（单卷内回收）\n\n';
+  prompt += '七、人物成长弧线\n';
+  prompt += '—— 主角和主要配角的成长路径、转折点、关键变化\n\n';
+  prompt += '八、节奏规划\n';
+  prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 总字数不少于50000字，每卷大纲至少5000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
+  prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
+  prompt += '5. 考虑百万字长篇（1500-3000章）的延展性，预留足够的剧情空间\n';
+  prompt += '6. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function buildCharsPrompt(work, userCommand, prevResult) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮人设】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有人设进行深化和完善\n' +
+      '2. 补充缺失的角色，增强人物体系的丰富度\n' +
+      '3. 增加每个角色的详细程度和记忆点\n' +
+      '4. 保持原有角色设定和关系不变\n' +
+      '5. 输出完整的优化后人设内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  if (world && world.length > 50) {
+    prompt += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
+  }
+  prompt += '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
+  prompt += '一、主角（详细）\n';
+  prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
+  prompt += '—— 人物弧光起点和终点、成长路径\n';
+  prompt += '—— 金手指/能力、使用限制、代价\n';
+  prompt += '—— 标志性动作、口头禅、独特习惯\n\n';
+  prompt += '二、女主角/重要女性角色\n';
+  prompt += '—— 姓名、年龄、身份、性格、与主角关系、角色定位\n';
+  prompt += '—— 人物成长弧线、关键时刻\n\n';
+  prompt += '三、主要反派（2-3位）\n';
+  prompt += '—— 姓名、身份、核心目标、与主角的关系、动机合理性\n';
+  prompt += '—— 能力、弱点、人物层次（不是纯粹的坏人）\n\n';
+  prompt += '四、重要配角（5-8位）\n';
+  prompt += '—— 每个人的姓名、身份、性格、作用、与主角关系\n\n';
+  prompt += '五、人物关系网\n';
+  prompt += '—— 角色之间的关系矩阵、冲突点、潜在的背叛/结盟\n\n';
+  prompt += '六、角色记忆点设计\n';
+  prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 主角部分至少5000字，每个重要角色至少2000字，总字数不少于20000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 角色要有鲜明个性，避免模板化\n';
+  prompt += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
+  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function getGenreDetailTemplate(genre) {
+  var templates = {
+    '玄幻': {
+      digitalPanel: '境界：X | 灵力：X | 法器：X | 丹药：X | 功法：X | 宗门声望：X',
+      beatTypes: ['境界突破', '法器觉醒', '炼丹成功', '功法领悟', '宗门打脸', '秘境探险', '神兽契约', '反派伏诛', '顿悟', '血脉觉醒'],
+      emotionTones: ['绝望→突破→狂喜', '隐忍→爆发→震撼', '迷茫→顿悟→坚定', '危机→逆转→霸气', '弱小→成长→强大'],
+      hookTypes: ['神秘气息降临', '禁忌功法浮现', '上古遗迹开启', '反派追杀升级', '宗门阴谋暴露', '未知强敌出现'],
+      hardNodeCategories: ['修炼突破', '资源争夺', '宗门内斗', '秘境探险', '敌人交锋', '伙伴相遇', '身世揭秘', '功法升级', '法器进阶', '危机降临']
+    },
+    '仙侠': {
+      digitalPanel: '修为：X | 道心：X | 法宝：X | 丹药：X | 道法：X | 仙缘：X',
+      beatTypes: ['悟道突破', '飞剑觉醒', '炼丹成功', '法术领悟', '仙门打脸', '秘境探险', '灵兽契约', '魔头伏诛', '渡劫', '仙缘降临'],
+      emotionTones: ['凡心→道心→超脱', '执念→顿悟→释然', '红尘→出世→入世', '逆天→顺天→改天', '求道→问道→得道'],
+      hookTypes: ['天劫降临', '仙门阴谋', '上古秘境', '魔头再现', '道心考验', '飞升契机'],
+      hardNodeCategories: ['悟道修炼', '天劫渡劫', '仙门内斗', '秘境探险', '魔头交锋', '仙缘奇遇', '身世揭秘', '道法升级', '法宝进阶', '天道考验']
+    },
+    '都市': {
+      digitalPanel: '资产：X | 人脉：X | 能力：X | 声望：X | 系统等级：X | 任务进度：X',
+      beatTypes: ['打脸逆袭', '商业奇迹', '能力觉醒', '身份曝光', '系统升级', '女神倒追', '反派破产', '权力洗牌', '黑科技曝光', '巅峰对决'],
+      emotionTones: ['平凡→崛起→巅峰', '隐忍→爆发→霸气', '落魄→逆袭→辉煌', '低调→高调→无敌', '咸鱼→大佬→传说'],
+      hookTypes: ['神秘势力出现', '系统任务更新', '隐藏身份曝光', '敌人卷土重来', '新能力解锁', '更大危机降临'],
+      hardNodeCategories: ['商业布局', '权力博弈', '能力升级', '人脉拓展', '敌人交锋', '感情发展', '身份揭秘', '系统任务', '危机应对', '势力扩张']
+    },
+    '历史': {
+      digitalPanel: '人数：X | 存粮：X | 兵力：X | 领地：X | 声望：X | 资金：X',
+      beatTypes: ['以少胜多', '计谋破敌', '招贤纳士', '城池攻防', '粮草逆袭', '政治博弈', '斩首行动', '援军赶到', '绝地翻盘', '大势逆转'],
+      emotionTones: ['绝境→谋划→破局', '弱小→发展→称霸', '蛰伏→爆发→崛起', '危机→转机→辉煌', '隐忍→反击→胜利'],
+      hookTypes: ['敌军来袭', '粮草告急', '内奸暴露', '援军动向', '战略转折', '历史拐点'],
+      hardNodeCategories: ['军事行动', '政治博弈', '经济建设', '人才招募', '城池攻防', '粮草管理', '情报收集', '战略布局', '危机应对', '势力扩张']
+    },
+    '悬疑': {
+      digitalPanel: '线索：X | 嫌疑人：X | 证据：X | 危险度：X | 真相进度：X | 信任度：X',
+      beatTypes: ['线索发现', '推理突破', '反转揭露', '嫌疑人锁定', '真相逼近', '危机解除', '伏笔回收', '身份揭穿', '密室破解', '连环杀人'],
+      emotionTones: ['平静→疑云→惊悚', '迷惑→推理→豁然', '恐惧→镇定→破局', '怀疑→验证→真相', '危险→转机→安全'],
+      hookTypes: ['新证据出现', '嫌疑人反转', '危险逼近', '真相浮现', '阴谋升级', '新案件发生'],
+      hardNodeCategories: ['线索发现', '推理分析', '证据收集', '嫌疑人审问', '危险应对', '团队协作', '真相揭露', '伏笔回收', '阴谋破解', '危机解除']
+    },
+    '言情': {
+      digitalPanel: '好感度：X | 误会：X | 情敌：X | 暧昧：X | 亲密：X | 信任：X',
+      beatTypes: ['甜蜜互动', '误会解开', '情敌打脸', '告白时刻', '亲密接触', '感情升温', '吃醋名场面', '深情告白', '危机共度', '终成眷属'],
+      emotionTones: ['初见→心动→热恋', '误会→和解→深爱', '暗恋→表白→相守', '虐心→甜蜜→圆满', '敌对→暧昧→情深'],
+      hookTypes: ['误会加深', '情敌出现', '感情危机', '秘密曝光', '虐心时刻', '甜蜜升级'],
+      hardNodeCategories: ['感情发展', '误会产生', '误会解开', '情敌交锋', '甜蜜互动', '危机共度', '秘密揭露', '身份差异', '家庭阻力', '终成眷属']
+    },
+    '科幻': {
+      digitalPanel: '科技：X | 机甲：X | 基因：X | 能源：X | 声望：X | 势力：X',
+      beatTypes: ['机甲升级', '基因进化', '科技突破', '外星接触', '虫族入侵', '星际战争', '遗迹探险', 'AI觉醒', '文明碰撞', '宇宙真相'],
+      emotionTones: ['渺小→探索→强大', '危机→科技→突破', '未知→接触→融合', '战争→和平→进化', '地球→星际→宇宙'],
+      hookTypes: ['外星信号', '虫族来袭', '遗迹开启', 'AI反叛', '新文明接触', '宇宙危机'],
+      hardNodeCategories: ['科技研发', '机甲战斗', '星际探索', '势力博弈', '虫族交锋', '遗迹探险', 'AI觉醒', '基因进化', '文明碰撞', '宇宙危机']
+    },
+    '末世': {
+      digitalPanel: '生存天数：X | 物资：X | 人数：X | 基地：X | 变异：X | 威胁：X',
+      beatTypes: ['尸潮突围', '物资抢夺', '基地建设', '变异进化', '团队合作', '强敌覆灭', '安全区建立', '幸存者救助', '丧尸进化', '人性考验'],
+      emotionTones: ['绝望→求生→希望', '恐惧→勇气→坚韧', '弱小→强大→领袖', '混乱→秩序→重建', '背叛→信任→团结'],
+      hookTypes: ['尸潮来袭', '物资告急', '内奸暴露', '强敌出现', '变异升级', '新威胁降临'],
+      hardNodeCategories: ['物资搜寻', '丧尸战斗', '基地建设', '团队管理', '强敌交锋', '幸存者救助', '变异进化', '危机应对', '势力扩张', '重建文明']
+    },
+    '武侠': {
+      digitalPanel: '内力：X | 招式：X | 兵器：X | 声望：X | 门派：X | 侠义值：X',
+      beatTypes: ['招式突破', '内力增长', '神兵出世', '门派打脸', '江湖风云', '侠义之举', '仇怨了结', '武学传承', '盟主之争', '归隐江湖'],
+      emotionTones: ['懵懂→历练→成名', '恩怨→情仇→释然', '正道→邪道→正道', '弱小→强大→侠义', '入世→出世→归真'],
+      hookTypes: ['神兵现世', '仇怨来袭', '门派阴谋', '江湖追杀', '武学秘典', '盟主之位'],
+      hardNodeCategories: ['武学修炼', '江湖争斗', '门派内斗', '仇怨了结', '侠义之举', '神兵争夺', '武学传承', '势力博弈', '危机应对', '归隐江湖']
+    },
+    '系统流': {
+      digitalPanel: '等级：X | 积分：X | 技能：X | 任务：X | 声望：X | 成就：X',
+      beatTypes: ['系统升级', '任务完成', '技能觉醒', '积分暴涨', '成就解锁', '商城兑换', '抽奖欧皇', '反派打脸', '世界任务', '隐藏奖励'],
+      emotionTones: ['平凡→系统→无敌', '新手→高手→巅峰', '弱小→成长→逆天', '任务→奖励→升级', '咸鱼→大佬→传说'],
+      hookTypes: ['新任务发布', '隐藏任务触发', '系统升级', '强敌出现', '世界事件', '终极任务'],
+      hardNodeCategories: ['任务完成', '技能升级', '商城兑换', '抽奖系统', '敌人交锋', '伙伴招募', '势力扩张', '系统升级', '世界事件', '终极挑战']
+    },
+    '规则怪谈': {
+      digitalPanel: '规则：X | 遵守：X | 违反：X | 危险：X | 理智：X | 生存：X',
+      beatTypes: ['规则发现', '规则利用', '规则违反', '恐怖降临', '危机解除', '真相逼近', '队友背叛', '隐藏规则', '逃脱成功', '循环打破'],
+      emotionTones: ['平静→诡异→恐惧', '好奇→惊悚→绝望', '理智→疯狂→清醒', '安全→危险→逃脱', '迷茫→发现→突破'],
+      hookTypes: ['新规则出现', '规则违反', '恐怖降临', '队友异常', '真相浮现', '循环继续'],
+      hardNodeCategories: ['规则探索', '规则遵守', '规则利用', '危机应对', '队友互动', '真相揭露', '理智管理', '逃脱尝试', '循环打破', '新规则发现']
+    },
+    '竞技': {
+      digitalPanel: '排名：X | 积分：X | 技能：X | 团队：X | 状态：X | 粉丝：X',
+      beatTypes: ['反杀逆袭', '极限操作', '团队配合', '战术碾压', '新人崛起', '王者归来', '冠军时刻', '伤病复出', '强敌对决', '封神之战'],
+      emotionTones: ['低谷→努力→巅峰', '平凡→崛起→传奇', '失败→反思→胜利', '紧张→冷静→爆发', '新人→强者→王者'],
+      hookTypes: ['强敌出现', '伤病危机', '战术泄露', '关键比赛', '逆袭机会', '新挑战'],
+      hardNodeCategories: ['日常训练', '比赛对决', '战术制定', '团队协作', '伤病恢复', '新人成长', '强敌交锋', '冠军争夺', '商业博弈', '退役抉择']
+    }
+  };
+  
+  for (var k in templates) {
+    if (genre.indexOf(k) >= 0) {
+      return templates[k];
+    }
+  }
+  
+  return templates['玄幻'];
+}
+
+function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var chars = work.chars || '';
+  var outline = work.outline || '';
+  var genreTemplate = getGenreDetailTemplate(genre);
+  
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮细纲】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有细纲进行深化和完善\n' +
+      '2. 补充缺失的章节，确保本卷达到72章\n' +
+      '3. 增加每章的详细程度，确保每章至少200字\n' +
+      '4. 保持原有章节结构和剧情不变\n' +
+      '5. 输出完整的优化后细纲内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  
+  if (world && world.length > 50) {
+    prompt += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
+  }
+  if (chars && chars.length > 50) {
+    prompt += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
+  }
+  if (outline && outline.length > 50) {
+    var outlineLines = outline.split('\n');
+    var volumeOutline = '';
+    var inVolume = false;
+    for (var i = 0; i < outlineLines.length; i++) {
+      var line = outlineLines[i];
+      if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
+        inVolume = true;
+      }
+      if (inVolume) {
+        volumeOutline += line + '\n';
+        if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
+          break;
+        }
+      }
+    }
+    if (volumeOutline.length > 50) {
+      prompt += '【本卷大纲】\n' + volumeOutline + '\n\n';
+    }
+  }
+  
+  prompt += '【题材专属模板】\n';
+  prompt += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
+  prompt += '【数字面板格式】\n';
+  prompt += genreTemplate.digitalPanel + '\n\n';
+  prompt += '【爽点类型参考】\n';
+  prompt += genreTemplate.beatTypes.join('、') + '\n\n';
+  prompt += '【情绪基调参考】\n';
+  prompt += genreTemplate.emotionTones.join('、') + '\n\n';
+  prompt += '【钩子类型参考】\n';
+  prompt += genreTemplate.hookTypes.join('、') + '\n\n';
+  prompt += '【硬节点分类参考】\n';
+  prompt += genreTemplate.hardNodeCategories.join('、') + '\n\n';
+  
+  prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约3500-4000字。\n\n';
+  prompt += '每章必须包含以下内容（严格按照此格式）：\n\n';
+  prompt += '### 【第N章】章节标题\n';
+  prompt += '**情绪基调**：本章的整体情绪走向（从以上参考中选择或自定义）\n';
+  prompt += '**爽点类型**：本章的核心爽点（从以上参考中选择或自定义）\n';
+  prompt += '**时间**：具体时间点\n';
+  prompt += '**地点**：本章主要发生的地点\n';
+  prompt += '**人物**：本章出场的主要角色\n';
+  prompt += '**硬节点**：\n';
+  prompt += '1. 第一个具体剧情节点\n';
+  prompt += '2. 第二个具体剧情节点\n';
+  prompt += '...\n';
+  prompt += '20. 第二十个具体剧情节点\n';
+  prompt += '**【数字面板】** ' + genreTemplate.digitalPanel.replace(/X/g, '具体数值') + '\n';
+  prompt += '**【番茄钩子】** 章末强烈的悬念或爽点，让读者必须看下一章\n';
+  prompt += '**【兑现链】**\n';
+  prompt += '- 钩子1 → 第X章回收（兑现）\n';
+  prompt += '- 钩子2 → 第Y章回收（兑现）\n';
+  prompt += '**字数建议**：4000-5000字\n\n';
+  
+  prompt += '【输出要求】\n';
+  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少300字\n';
+  prompt += '2. 总字数不少于35000字\n';
+  prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
+  prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
+  prompt += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
+  prompt += '6. 每个番茄钩子必须有明确的兑现链，标注回收章节\n';
+  prompt += '7. 每5章一个小高潮、每10章一个中高潮、每24章一个大高潮\n';
+  prompt += '8. 穿插上帝视角段落，增加故事深度\n';
+  prompt += '9. 适合百万字长篇（1500-3000章）的细纲架构\n';
+  prompt += '10. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+async function aiGenerateArchitecture(type, userCommand) {
+  const work = getCurrentWork();
+  if (!work) { showToast('请先新建或选择作品'); return; }
+  
+  work._archCache = work._archCache || {};
+  
+  var cacheKey = type + '_' + (userCommand || 'default');
+  if (work._archCache[cacheKey] && work._archCache[cacheKey].timestamp > Date.now() - 3600000) {
+    var cached = work._archCache[cacheKey];
+    showToast('🔄 使用缓存 · ' + cached.content.length + '字', 3000);
+    applyArchResult(type, work, cached.content);
+    return;
+  }
+  
+  var taskType, targetChars, minChars;
+  var statusMsg = '';
+  
+  switch(type) {
+    case 'world':
+      taskType = 'world_creative';
+      targetChars = 80000;
+      minChars = 30000;
+      statusMsg = '正在生成世界观…';
+      break;
+    case 'outline':
+      taskType = 'outline_logic';
+      targetChars = 150000;
+      minChars = 50000;
+      statusMsg = '正在生成大纲…';
+      break;
+    case 'chars':
+      taskType = 'chars_core';
+      targetChars = 60000;
+      minChars = 20000;
+      statusMsg = '正在生成人设…';
+      break;
+    case 'detail':
+      taskType = 'detail_base';
+      targetChars = 100000;
+      minChars = 35000;
+      statusMsg = '正在生成细纲…';
+      break;
+    default:
+      showToast('未知类型');
+      return;
+  }
+  
+  return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, 0, null, '');
+}
+
+async function _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration, bestResult, prevResult) {
+  var prompt;
+  var volumeIdx = 0;
+  
+  if (type === 'detail') {
+    try {
+      var volInfo = getCurrentVolumeDetail(work, currentChapterIdx || 0);
+      if (volInfo && volInfo.currentIdx !== undefined) volumeIdx = volInfo.currentIdx;
+    } catch(e) {}
+  }
+  
+  if (iteration === 0) {
+    switch(type) {
+      case 'world':
+        prompt = buildWorldPrompt(work, userCommand);
+        break;
+      case 'outline':
+        prompt = buildOutlinePrompt(work, userCommand);
+        break;
+      case 'chars':
+        prompt = buildCharsPrompt(work, userCommand);
+        break;
+      case 'detail':
+        prompt = buildDetailPrompt(work, volumeIdx, userCommand);
+        break;
+    }
+  } else {
+    switch(type) {
+      case 'world':
+        prompt = buildWorldPrompt(work, userCommand, prevResult);
+        break;
+      case 'outline':
+        prompt = buildOutlinePrompt(work, userCommand, prevResult);
+        break;
+      case 'chars':
+        prompt = buildCharsPrompt(work, userCommand, prevResult);
+        break;
+      case 'detail':
+        prompt = buildDetailPrompt(work, volumeIdx, userCommand, prevResult);
+        break;
+    }
+  }
+  
+  if (iteration === 0) {
+    if (typeof resetLoading === 'function') resetLoading(statusMsg);
+    else showLoading(statusMsg);
+  } else {
+    if (typeof resetLoading === 'function') resetLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+    else showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+  }
+  
+  try {
+    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
+    
+    if (result && result.length > 200) {
+      result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
+      
+      if (result.length < minChars) {
+        if (statusBar) statusBar.textContent = '⚠️ ' + statusMsg.replace('正在生成', '生成中') + ' · 内容偏短(' + result.length + '字)，正在补写…';
+        var extendPrompt = '你是网文架构补全助手。以下内容不够完整，请补充完善至' + minChars + '字以上，保持结构完整、内容详实。\n\n';
+        extendPrompt += '【已有内容】\n' + result + '\n\n';
+        extendPrompt += '【要求】\n1. 保持原有结构和格式\n2. 补充缺失的细节和内容\n3. 不要重复已有内容\n4. 直接输出补写内容：';
+        try {
+          var extendResult = await callRealAPIWithFallback(extendPrompt, null, taskType, targetChars - result.length, true);
+          if (extendResult && extendResult.length > 100) {
+            result = result + '\n\n' + extendResult;
+            if(statusBar) statusBar.textContent = '✅ ' + statusMsg.replace('正在生成', '补写完成') + ' · ' + result.length + '字';
+          }
+        } catch(e) { console.warn('[架构补写] 失败:', e); }
+      }
+      
+      var currentScore = 0;
+      var qReport = null;
+      if (typeof evaluateText === 'function') {
+        try {
+          qReport = evaluateText(result, type, work);
+          currentScore = qReport && typeof qReport.score === 'number' ? qReport.score : 0;
+        } catch(e) { console.warn('[架构评分] 失败:', e); }
+      }
+      
+      if (!bestResult || result.length > bestResult.length || (currentScore > 0 && currentScore > bestResult.score)) {
+        bestResult = { text: result, score: currentScore };
+      }
+      
+      if (iteration < 2 && currentScore > 0 && currentScore < 85) {
+        if (statusBar) {
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '🔄 自动迭代中 · 当前' + currentScore + '分 · 第' + (iteration + 1) + '/3轮';
+        }
+        return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration + 1, bestResult, result);
+      }
+      
+      var finalResult = bestResult ? bestResult.text : result;
+      
+      work._archCache[cacheKey] = { content: finalResult, timestamp: Date.now() };
+      
+      applyArchResult(type, work, finalResult);
+      
+      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + finalResult.length + '字 · 共' + (iteration + 1) + '轮', 5000);
+    } else {
+      showToast('⚠️ 生成内容过短，可能是API异常', 5000);
+    }
+  } catch(e) {
+    console.warn('[架构生成] 失败:', e);
+    showToast('⚠️ 生成失败：' + (e.message || '未知错误'), 5000);
+  } finally {
+    hideLoading();
+  }
+}
+
+function applyArchResult(type, work, result) {
+  switch(type) {
+    case 'world':
+      work.world = result;
+      break;
+    case 'outline':
+      work.outline = result;
+      break;
+    case 'chars':
+      work.chars = result;
+      break;
+    case 'detail':
+      work.detail = (work.detail || '') + '\n\n' + result;
+      break;
+  }
+  DB.saveWork(work);
+  updateArchStatus(work);
+}
+
+window.aiGenerateArchitecture = aiGenerateArchitecture;
+
+// ========== v58: 正文生成迭代机制优化 ==========
+// 问题：原机制输出长度受限，迭代时内容容易变短，命中率低
+// 优化：增加输出长度限制，改进迭代时的内容保持策略，保持目标分数90分
+
+function optimizeChapterGeneration() {
+  window._originalAiWriteChapter = window._originalAiWriteChapter || aiWriteChapter;
+  
+  window.aiWriteChapter = async function(opts) {
+    opts = opts || {};
+    var _writeIteration = opts._iteration || 0;
+    
+    var result = await window._originalAiWriteChapter(opts);
+    
+    if (_writeIteration > 0 && opts._prevBest && result) {
+      var currentContent = document.getElementById('editor').value || '';
+      if (currentContent.length < opts._prevBest.text.length * 0.8) {
+        result = opts._prevBest.text;
+        document.getElementById('editor').value = result;
+      }
+    }
+    
+    return result;
+  };
+}
+
+optimizeChapterGeneration();

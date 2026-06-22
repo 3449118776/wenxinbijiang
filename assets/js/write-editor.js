@@ -4636,7 +4636,9 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  let result = await aiCaller(prompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
+  // v59: 转为 messages 数组，让服务商缓存固定前缀
+  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
 
@@ -5276,7 +5278,9 @@ async function sendAiCommand(){
   const fullPrompt = buildChapterPrompt(work, chapterIdx, content, cmd);
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
-  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
+  // v59: 转为 messages 数组
+  var _msgFullPrompt = Array.isArray(fullPrompt) ? fullPrompt : [{ role: 'user', content: fullPrompt }];
+  let result = await callRealAPIWithFallback(_msgFullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
   if(!result && window.ContentGenerator){
     showToast('使用本地AI生成...');
     result = window.ContentGenerator.continueStory(content, work, cmd);

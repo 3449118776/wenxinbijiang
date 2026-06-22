@@ -1,5 +1,54 @@
 /* 文心笔匠 - AI API模块 */
 
+// ========== v59: AI 调用缓存层 ==========
+// 策略：provider + model + hash(prompt) 作为 key，命中直接返回，省 token 省延迟
+// 同时利用 messages 数组格式让服务商（DeepSeek/OpenAI）自动缓存前缀
+var _promptCache = new Map();
+var _CACHE_TTL = 30 * 60 * 1000; // 30分钟过期
+var _CACHE_MAX_SIZE = 80;
+
+function _hashPrompt(prompt) {
+  var str = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+  var hash = 5381;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function _cacheGet(provider, model, prompt) {
+  var key = provider + '|' + (model || '') + '|' + _hashPrompt(prompt);
+  var entry = _promptCache.get(key);
+  if (entry && (Date.now() - entry.time) < _CACHE_TTL) {
+    console.log('[cache] ✅ 命中 ' + provider + (model ? '/' + model : '') + ' — 省一次调用');
+    return entry.result;
+  }
+  if (entry) _promptCache.delete(key);
+  return null;
+}
+
+function _cacheSet(provider, model, prompt, result) {
+  var key = provider + '|' + (model || '') + '|' + _hashPrompt(prompt);
+  // LRU 淘汰：超过上限时删最旧的
+  if (_promptCache.size >= _CACHE_MAX_SIZE) {
+    var oldestKey = null, oldestTime = Infinity;
+    _promptCache.forEach(function(v, k) {
+      if (v.time < oldestTime) { oldestTime = v.time; oldestKey = k; }
+    });
+    if (oldestKey) _promptCache.delete(oldestKey);
+  }
+  _promptCache.set(key, { result: result, time: Date.now() });
+}
+
+// 清空缓存（切换模型/修改配置时调用）
+window.clearAICache = function() {
+  var size = _promptCache.size;
+  _promptCache.clear();
+  console.log('[cache] 已清空 ' + size + ' 条缓存');
+  if (typeof showToast === 'function') showToast('AI 缓存已清空', {duration: 1500});
+};
+
 // API服务商配置（无硬编码密钥，URL自动填充）
 const API_PROVIDERS = {
   dashscope:   { name: '通义千问',   url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', type: 'openai' },
@@ -205,12 +254,10 @@ const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens
 // 说明：max_tokens 只是上限，模型不会每次都填满，按需生成
 // 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字
 var MODEL_MAX_OUTPUT = {
-  // DeepSeek —— V4 支持 1M tokens 输出
-  'deepseek-chat': 131072,
-  'deepseek-v3': 131072,
-  'deepseek-v4': 524288,
-  'deepseek-reasoner': 131072,
-  'deepseek-coder': 131072,
+  // DeepSeek —— 128K 上下文，实测支持 64K 输出
+  'deepseek-chat': 65536,
+  'deepseek-reasoner': 65536,
+  'deepseek-coder': 65536,
   // 通义千问 (DashScope)
   'qwen-max': 65536,
   'qwen-plus': 65536,
@@ -321,9 +368,9 @@ var MODEL_MAX_OUTPUT = {
 // 各模型的上下文窗口大小（token），用于判断是否能传完整架构内容
 var MODEL_CONTEXT_WINDOW = {
   // DeepSeek
-  'deepseek-chat': 65536,       // DeepSeek-V3: 64K context
+  'deepseek-chat': 65536,       // V4: 1M tokens
+  'deepseek-v4': 1000000,         // V4-Pro / V4-Flash
   'deepseek-v3': 131072,          // V3: 128K
-  'deepseek-v4': 1000000,          // V4-Pro / V4-Flash: 1M tokens
   'deepseek-reasoner': 65536,     // R1: 64K
   'deepseek-coder': 65536,
   // 通义千问 (DashScope)
@@ -857,6 +904,11 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   var isMsg = Array.isArray(prompt);
   let response, result = '';
 
+  // v59: 检查缓存（provider + model + hash(prompt) 作为 key）
+  var _cacheModel = model || (DEFAULT_MODELS_BY_PROVIDER[provider] || '');
+  var _cached = _cacheGet(provider, _cacheModel, prompt);
+  if (_cached) return _cached;
+
   // custom 模式：从 apiConfig 读取用户自定义的 URL 和模型名
   var targetUrl = providerConfig.url;
   var targetModel = model;
@@ -905,7 +957,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           var fdata = null;
           try { if (ftext) fdata = JSON.parse(ftext); } catch (_) {}
           if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
-            return cleanAIOutput(fdata.choices[0].message.content);
+            var _res = cleanAIOutput(fdata.choices[0].message.content);
+            _cacheSet(provider, _cacheModel, prompt, _res);
+            return _res;
           }
         } catch (err) {
           lastErr = err;
@@ -1030,7 +1084,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
     throw empty;
   }
   // v48: 统一清理 AI 对话语前缀/后缀
-  return cleanAIOutput(result);
+  var _finalRes = cleanAIOutput(result);
+  _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  return _finalRes;
 }
 
 // 单服务商调用：该服务商下的 **全部 key** 都会依次尝试
@@ -1177,25 +1233,20 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
   var dynamicMaxTokens = null;
   if(targetChars && targetChars > 0){
-    // 中文约 1.5 token/字，留 50% 余量（v60: 提高余量确保长文本不被截断）
-    var charsToTokens = Math.floor(targetChars * 1.5 * 1.5);
+    // 中文约 1.5 token/字，留 30% 余量
+    var charsToTokens = Math.floor(targetChars * 1.5 * 1.3);
     // 取「字数需求」和「模型最大输出」中的较小值，确保不超模型限制
     var modelMaxTokens = getModelMaxOutputTokens();
     dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
     // 最低保底 800 token，确保至少能生成内容
     dynamicMaxTokens = Math.max(800, dynamicMaxTokens);
-    // 调试日志
-    console.log('[API调用] taskType:', taskType, 'targetChars:', targetChars, 'charsToTokens:', charsToTokens, 'modelMaxTokens:', modelMaxTokens, 'dynamicMaxTokens:', dynamicMaxTokens);
   } else {
     // 没有指定字数时，直接用模型极限
     dynamicMaxTokens = getModelMaxOutputTokens();
-    console.log('[API调用] taskType:', taskType, 'targetChars: 未指定', 'dynamicMaxTokens:', dynamicMaxTokens);
   }
   var config = DB.getApiConfig() || {};
   var userProvider = config.provider || 'deepseek';
-  var userModel = config.model || '';
   var route = TASK_ROUTE[taskType] || TASK_ROUTE['default'];
-  console.log('[API调用] 提供商:', userProvider, '模型:', userModel, '模型最大输出:', getModelMaxOutputTokens());
 
   // 构建实际尝试顺序：路由中 __user__ 替换为用户设的首选；去重；无 key 的跳过
   var seen = {};
