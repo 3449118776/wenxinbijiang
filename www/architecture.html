@@ -2969,11 +2969,11 @@ window.generateArchModule = async function(opts){
         var cardResult = null;
         var cardBestResult = null;
         var cardBestScore = 0;
-        var cardIterCount = 0;
+        var cardIterDone = 0;  // 已完成的迭代次数
         var maxCardIterations = 3; // 每张卡片最多迭代3次
 
         // 卡片级别迭代：最多3次，每次针对性加强短板维度
-        while(cardIterCount < maxCardIterations){
+        while(cardIterDone < maxCardIterations){
           try{
             if(typeof callRealAPIWithFallback === 'function'){
               cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
@@ -3022,14 +3022,15 @@ window.generateArchModule = async function(opts){
             cardBestScore = cardEvalScore;
           }
 
-          // 分数 >= 85 或已迭代3次，结束迭代
-          if(cardBestScore >= 85 || cardIterCount >= maxCardIterations - 1){
+          cardIterDone++;  // 本次迭代完成
+
+          // 分数 >= 85 或已完成3次迭代，结束迭代
+          if(cardBestScore >= 85 || cardIterDone >= maxCardIterations){
             break;
           }
 
           // 分数 < 85，准备下一次迭代（针对性加强短板）
-          cardIterCount++;
-          var cardIterHint = '🔥 第' + cardIterCount + '次生成评分 ' + cardEvalScore + '/100，以下维度需要加强：\n';
+          var cardIterHint = '🔥 第' + cardIterDone + '次生成评分 ' + cardEvalScore + '/100，以下维度需要加强：\n';
           // 列出每个短板维度及具体问题
           for(var _wdi = 0; _wdi < cardWeakDims.length; _wdi++){
             var _wd = cardWeakDims[_wdi];
@@ -3048,9 +3049,9 @@ window.generateArchModule = async function(opts){
           cardIterHint += '4. 保持原有风格和结构，只做局部增强\n';
 
           // 更新进度条显示迭代信息
-          var iterProgressLabel = progressLabel2 + '（迭代' + cardIterCount + '/3，加强短板）';
+          var iterProgressLabel = progressLabel2 + '（迭代' + cardIterDone + '/3，加强短板）';
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(progressPct - 5 + cardIterCount * 3, iterProgressLabel);
+            updateLoadingProgress(progressPct - 5 + cardIterDone * 3, iterProgressLabel);
           }
 
           cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, cardIterHint, marketResearch, memoryContext);
