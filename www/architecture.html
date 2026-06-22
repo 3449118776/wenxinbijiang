@@ -2609,6 +2609,13 @@ window.generateArchModule = async function(opts){
       return;
     }
 
+    // 1. 读取用户输入的提示词（优先级最高）—— 必须在缓存检查之前，因为缓存hash依赖idea
+    var ideaEl = document.getElementById('idea-' + module);
+    var idea = ideaEl ? ideaEl.value : '';
+    if(idea && idea.trim()){
+      saveModuleIdea(module, idea.trim());
+    }
+
     // ===== 架构模块缓存检查：前置内容没变则直接用缓存结果 =====
     // 所有模块都检查缓存（包括世界观），只有非迭代修复模式才检查（isFix=true 时强制重新生成）
     if(!opts.isFix){
@@ -2657,13 +2664,6 @@ window.generateArchModule = async function(opts){
         return false;
       }
       return true;
-    }
-
-    // 1. 读取用户输入的提示词（优先级最高）
-    var ideaEl = document.getElementById('idea-' + module);
-    var idea = ideaEl ? ideaEl.value : '';
-    if(idea && idea.trim()){
-      saveModuleIdea(module, idea.trim());
     }
 
     // 2. 显示进度（首次调用：从0起步）
