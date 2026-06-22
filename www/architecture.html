@@ -2565,6 +2565,37 @@ function saveArchCache(work, module, result) {
   }
 }
 
+function checkArchCardCache(work, module, cardLabel, prevCardsContent) {
+  if (!work._archCache) work._archCache = {};
+  if (!work._archCache[module]) work._archCache[module] = {};
+  if (!work._archCache[module]._cards) work._archCache[module]._cards = {};
+
+  var cardCache = work._archCache[module]._cards[cardLabel];
+  if (!cardCache) return { hitCache: false, cachedResult: null };
+
+  var prevHash = getArchCacheHash(prevCardsContent || '');
+  if (cardCache._prevHash === prevHash && cardCache.result && cardCache.result.trim()) {
+    return { hitCache: true, cachedResult: cardCache.result };
+  }
+  return { hitCache: false, cachedResult: null };
+}
+
+function saveArchCardCache(work, module, cardLabel, result, prevCardsContent) {
+  if (!work._archCache) work._archCache = {};
+  if (!work._archCache[module]) work._archCache[module] = {};
+  if (!work._archCache[module]._cards) work._archCache[module]._cards = {};
+
+  work._archCache[module]._cards[cardLabel] = {
+    result: result,
+    _prevHash: getArchCacheHash(prevCardsContent || ''),
+    _updatedAt: Date.now()
+  };
+
+  if (work.id) {
+    saveArchCacheToStorage(work.id, work._archCache);
+  }
+}
+
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
   opts = opts || {};
@@ -2869,16 +2900,9 @@ window.generateArchModule = async function(opts){
 
         // 进度提示（只更新百分比+文字，不再重置进度条）
         var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
-        // 进度条：从 30% 起步，逐卷推进到 95%，最后一卷完成后到 100%
-        var detPct = 30 + Math.round(vi56 / actualTotalVols * 65);
-        // 最后一卷时直接到 100%
-        if(vi56 === actualTotalVols) detPct = 100;
-
-        if(typeof startAutoLoadingProgress === 'function'){
-          startAutoLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
-        } else if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
-        }
+        var detBasePct = 30;
+        var detVolShare = 65 / actualTotalVols;
+        var detIterShare = detVolShare / maxVolIterations;
 
         // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
         var thisVolTarget = '';
@@ -2910,6 +2934,12 @@ window.generateArchModule = async function(opts){
         var maxVolIterations = 3;
 
         while(volIterDone < maxVolIterations){
+          var detPct = detBasePct + ((vi56 - 1) * detVolShare) + (volIterDone * detIterShare);
+          if(typeof startAutoLoadingProgress === 'function'){
+            startAutoLoadingProgress(Math.min(99, detPct), '正在生成细纲 · ' + volLabel + '（第' + (volIterDone+1) + '轮）');
+          } else if(typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(Math.min(99, detPct), '正在生成细纲 · ' + volLabel + '（第' + (volIterDone+1) + '轮）');
+          }
           var currentVolResult = null;
           try{
             if(typeof callRealAPIWithFallback === 'function'){
@@ -2984,8 +3014,9 @@ window.generateArchModule = async function(opts){
 
           // 更新进度条显示迭代信息
           var volIterProgressLabel = volLabel + '（迭代' + volIterDone + '/3，加强短板）';
+          var volIterPct = detBasePct + ((vi56 - 1) * detVolShare) + (volIterDone * detIterShare);
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(detPct - 5 + volIterDone * 3, volIterProgressLabel);
+            updateLoadingProgress(Math.min(99, volIterPct), volIterProgressLabel);
           }
 
           // 更新 prompt，加入加强提示
@@ -3057,7 +3088,6 @@ window.generateArchModule = async function(opts){
 
         var card = batches[bi];
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
         var cardTargetChars = card.targetChars || 800;
 
         var cardResult = null;
@@ -3069,6 +3099,28 @@ window.generateArchModule = async function(opts){
         var basePct = 35;
         var cardShare = 60 / batches.length;
         var iterShare = cardShare / maxCardIterations;
+
+        var prevCardsContent = '';
+        for(var pc = 0; pc < allCards.length; pc++){
+          prevCardsContent += allCards[pc].label + ':' + allCards[pc].content + '|';
+        }
+
+        var cardCacheResult = checkArchCardCache(work, module, card.label, prevCardsContent);
+        if(cardCacheResult.hitCache && cardCacheResult.cachedResult){
+          cardResult = cardCacheResult.cachedResult;
+          var progressPct = basePct + (bi * cardShare) + iterShare;
+          if(typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(Math.min(99, progressPct), '✅ ' + moduleName + ' · ' + progressLabel2 + '（命中缓存）');
+          }
+          allCards.push({ label: card.label, content: cardResult });
+          totalChars += cardResult.length;
+          if(bi < batches.length - 1){
+            await new Promise(function(res){ setTimeout(res, 50); });
+          }
+          continue;
+        }
+
+        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
 
         // 卡片级别迭代：最多3次，每次针对性加强短板维度
         while(cardIterDone < maxCardIterations){
@@ -3206,6 +3258,8 @@ window.generateArchModule = async function(opts){
 
         allCards.push({ label: card.label, content: cardResult });
         totalChars += cardResult.length;
+
+        try { saveArchCardCache(work, module, card.label, cardResult, prevCardsContent); } catch(cacheErr) { console.warn('[卡片缓存] 保存失败:', cacheErr); }
 
         if(bi < batches.length - 1){
           await new Promise(function(res){ setTimeout(res, 50); });
