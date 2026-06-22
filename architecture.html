@@ -5002,9 +5002,9 @@ window.generateDetailForVolume = function(volNum) {
     // 构造单个卡片只生成这一卷
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
-    var focus = '第 ' + volNum + ' 卷细纲（' + phaseLabel + '）：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chPerVol + ' 章）。\n\n⚠️ 严格遵守：本卷必须完成大纲中定义的卷目标；人物姓名、势力名、地名、力量体系与前面模块一致；每2章设计一个转折点标注【转折】；第 ' + volNum + ' 卷的章节编号必须从 ' + chStart + ' 开始连续。\n\n每章格式：■ 第N章《标题》\n场景：\n人物：出场角色 + 视角\n开场画面：\n剧情节点（含起承转合4个节点）\n对话亮点：\n爽点/虐点：\n爆点/悬念钩子：\n伏笔：标注预计回收时机\n\n【本卷专属要求】\n- 严格按照大纲第' + volNum + '卷的目标推进\n- 为本卷设计专属的悬念钩子\n- 保持角色言行与前面设定一致';
+    var focus = '第 ' + volNum + ' 卷细纲（' + phaseLabel + '）：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chPerVol + ' 章）。\n\n⚠️ 严格遵守：本卷必须完成大纲中定义的卷目标；人物姓名、势力名、地名、力量体系与前面模块一致；每2章设计一个转折点标注【转折】；第 ' + volNum + ' 卷的章节编号必须从 ' + chStart + ' 开始连续。\n\n【重要】每章细纲500字以上，写详细写完整，禁止偷工减料！\n\n每章格式：■ 第N章《标题》\n场景：\n人物：出场角色 + 视角\n开场画面：\n剧情节点（含起承转合4个节点）\n对话亮点：\n爽点/虐点：\n爆点/悬念钩子：\n伏笔：标注预计回收时机\n\n【本卷专属要求】\n- 严格按照大纲第' + volNum + '卷的目标推进\n- 为本卷设计专属的悬念钩子\n- 保持角色言行与前面设定一致';
     // v59: 修正targetChars - 每卷应该根据实际章数计算，每章至少200字细纲
-    var targetCharsForVol = Math.max(30000, chPerVol * 200);  // 至少30000字，上限根据章数
+    var targetCharsForVol = Math.max(30000, chPerVol * 500);  // 至少30000字，每章500字细纲
     var batch = { label: '第 ' + volNum + ' 卷（' + phaseLabel + '）· 细纲', targetChars: targetCharsForVol, focus: focus, volume: volNum, chapterRange: chStart + '-' + chEnd + '章' };
     generateArchCardSingle('detail', batch, idea, function(generatedText) {
       if (!generatedText || !generatedText.trim()) {
