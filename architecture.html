@@ -1814,28 +1814,7 @@ function buildArchPrompt(module, idea, work, extraHint){
   tail += '- 细纲模块建议生成 **' + detailChapters + ' 章**，每章都要包含明确的冲突推进和章末钩子\n';
   tail += '- 如果你认为用户核心诉求与题材有矛盾或需要调整，请在内容末尾用"【作者备注】"单独提出建议（100 字以内）\n';
 
-  // ===== v59fix: 自动迭代指令 — 使用quality.js实际维度，AI内部完成3次迭代 =====
-  // 根据module动态设置各模块的实际维度名称
-  var _iterDimNames = {
-    world: ['D0指令遵循', 'D1设定完整度', 'D2独特创新', 'D3冲突张力', 'D4社会结构', 'D5叙事潜力', 'D6篇幅合理'],
-    chars: ['D0指令遵循', 'D1人物立体度', 'D2关系网络', 'D3反派/对抗力', 'D4角色差异化', 'D5情感共鸣', 'D6篇幅合理'],
-    outline: ['D0指令遵循', 'D1结构清晰', 'D2节奏把控', 'D3伏笔设计', 'D4主线清晰', 'D5冲突递进', 'D6篇幅合理'],
-    detail: ['D0指令遵循', 'D1章节连贯', 'D2钩子密度', 'D3信息释放', 'D4节奏控制', 'D5爽点分布', 'D6篇幅合理']
-  };
-  var _dimList = _iterDimNames[module] || _iterDimNames.world;
-  tail += '\n\n【🔥 自动迭代指令（核心机制，必须遵守）】\n';
-  tail += '你输出完整内容后，必须按照以下7个评分维度进行自我评价：\n';
-  for(var _di = 0; _di < _dimList.length; _di++){
-    tail += (_di + 1) + '. ' + _dimList[_di] + '（满分10分，低于9分必须修改）\n';
-  }
-  tail += '【迭代规则】如果任何维度低于9分，或总分低于85分，你必须：\n';
-  tail += '  ① 指出具体问题（哪个维度、多少分、什么问题）\n';
-  tail += '  ② 只针对问题部分精准修补，不重新生成整体\n';
-  tail += '  ③ 重新评分，直到所有维度≥9分或用完3次迭代机会\n';
-  tail += '【输出格式】\n';
-  tail += '=== 第1版内容 ===\n[内容]\n=== 第1次自评 ===\n[逐维度评分：维度名 分/10 理由]\n[总分/70]\n[如需修改] → 精准修补建议 → 回到第1版继续修改\n';
-  tail += '【最多3次迭代，最终输出必须包含所有维度的评分】\n';
-  tail += '⚠️ 重要：原始用户核心诉求是基础，迭代时不得偏离。只针对问题部分精准修补。\n';
+  // v59: AI自评迭代已移除，改为外部 QualityEngine 评价 + 精准修复方案
 
   // 输出前提示：先估算当前输入长度，若过长则进一步压缩
   var prePrompt = '';
@@ -2438,7 +2417,6 @@ function buildModuleSummaryContext(work, currentModule){
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
   opts = opts || {};
-  var _iterationCount = opts._iterationCount || 0;
   try{
     var module = _selectedModule || 'world';
     var work = getCurrentWork();
@@ -2602,7 +2580,6 @@ window.generateArchModule = async function(opts){
 
       var _skSucceeded = false;
       var _skFeedback = '';
-      var _aiEvalResult = null; // ⭐ v56: 存储AI内置自评价结果，供后续流程使用
       for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
         // 改用 updateLoadingProgress，保持进度连续
         var skPct = 15 + (skAttempt - 1) * 5;
@@ -2823,17 +2800,9 @@ window.generateArchModule = async function(opts){
       }
       if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
-      // ⭐ v57：从AI输出中提取最终内容，最终评价始终用本地 QualityEngine（quality.js），不用AI自评分
-      var _parsedResult = _parseAISelfEvalOutput(bigResult.trim(), module);
-      result = _parsedResult.content;
+      // v59: 直接使用生成结果，不再解析AI自评格式
+      result = bigResult.trim();
       totalChars = result.length;
-      // 始终用本地 quality.js 的 QualityEngine 做权威评价；AI 自评价仅保留作内部迭代参考
-      var _aiEvalResult = _parsedResult.eval; // 仅用于参考，不作为最终评价
-      try {
-        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-          _aiEvalResult = QualityEngine.evaluate(result, module);
-        }
-      } catch(e){}
       // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
       allCards.push({ label: moduleName + '·完整生成', content: result });
     } else if(module !== 'detail'){
@@ -2902,7 +2871,99 @@ window.generateArchModule = async function(opts){
     // ===== 写入前最终校验：如果期间切换了作品，立即中止写入 =====
     if(!_checkStillSameWork()) return;
 
-    // 5. 写入编辑区 + 保存到作品
+    // 5. v59: 质量评价 + 精准修复（一步到位）
+    // 流程：QualityEngine评价 → 不达标则生成精准方案 → 精准修复 → 写入编辑器
+    var evalResult = null;
+    try {
+      if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(80, '🔍 ' + moduleName + ' · 质量评价中…');
+        evalResult = QualityEngine.evaluate(result, module);
+      }
+
+      if(evalResult && evalResult.totalScore !== undefined){
+        work._archEval = work._archEval || {};
+        work._archEval[module] = evalResult;
+
+        var _curScore = evalResult.totalScore || 0;
+        var _needFix = false;
+
+        // 检查是否需要修复：总分<90 或 任何维度<9
+        if(_curScore < 90){
+          _needFix = true;
+        } else if(evalResult.dimensions && evalResult.dimensions.length){
+          for(var _di = 0; _di < evalResult.dimensions.length; _di++){
+            var _d = evalResult.dimensions[_di];
+            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.9){
+              _needFix = true; break;
+            }
+          }
+        }
+
+        if(_needFix){
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(85, '🎯 ' + moduleName + ' · 生成精准修复方案…');
+
+          // 收集低分维度问题
+          var _fixIssues = [];
+          if(evalResult.dimensions && evalResult.dimensions.length){
+            for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
+              var _d2 = evalResult.dimensions[_di2];
+              if(_d2.score !== undefined && _d2.max !== undefined && (_d2.score / _d2.max) < 0.9){
+                _fixIssues.push('【' + _d2.name + ' ' + _d2.score + '/' + _d2.max + '分】' + (_d2.issues && _d2.issues.length ? _d2.issues[0] : '需提升'));
+              }
+            }
+          }
+          if(evalResult.issues && evalResult.issues.length){
+            evalResult.issues.slice(0, 5).forEach(function(iss){
+              if(_fixIssues.indexOf(iss) === -1) _fixIssues.push(iss);
+            });
+          }
+
+          // 构建精准修复 prompt
+          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
+          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
+          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
+          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
+          for(var _fi = 0; _fi < _fixIssues.length; _fi++){
+            _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
+          }
+
+          // 获取 QualityEngine 的修复指导
+          try {
+            if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
+              var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
+              if(_fg) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fg, 1500);
+            }
+          } catch(e){}
+
+          _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
+          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+          _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
+          _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
+          _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
+          _fixPrompt += '【待修复的完整内容】\n' + smartTruncate(result, 8000) + '\n\n';
+          _fixPrompt += '直接输出修复后的完整内容。不要加对话语前缀。';
+
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
+
+          var _fixResult = null;
+          try {
+            if(typeof callRealAPIWithFallback === 'function'){
+              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, result.length, true);
+            }
+          } catch(_fixErr) { console.warn('[精准修复] 失败:', _fixErr); }
+
+          if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
+            result = _fixResult.trim();
+            totalChars = result.length;
+            if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
+          } else {
+            if(typeof showToast === 'function') showToast('⚠️ 精准修复未生效，使用原始内容', {duration: 3000});
+          }
+        }
+      }
+    } catch(evalErr) { console.warn('[质量评价] 异常:', evalErr); }
+
+    // 6. 写入编辑区 + 保存到作品
     var rawEl = document.getElementById('raw-' + module);
     if(rawEl){
       rawEl.value = result;
@@ -2934,76 +2995,6 @@ window.generateArchModule = async function(opts){
       delete work._archStale[module];
     }
 
-    // v57: 质量评价 —— 最终评价始终由本地 quality.js 的 QualityEngine 决定（权威、维度固定、规则一致）
-    // AI 在生成 prompt 中的自评价仅用于 AI 内部自我审视，不作为最终评分依据
-    var evalResult = null;
-    var _autoIterate = false;
-    try {
-      // v57: 始终用本地 QualityEngine 做权威评价
-      if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-        evalResult = QualityEngine.evaluate(result, module);
-      }
-
-      if(evalResult && evalResult.totalScore !== undefined){
-        work._archEval = work._archEval || {};
-        work._archEval[module] = evalResult;
-        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-
-        var _curScore = evalResult.totalScore || 0;
-
-        // v59fix: AI已在内部完成3次迭代，外部不再重新调用。只做评分记录
-        _autoIterate = false;
-        /* // 已禁用外部迭代，统一由AI内部迭代完成
-          var _iterIssues = [];
-          if(evalResult.dimensions && evalResult.dimensions.length){
-            for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
-              var dim2 = evalResult.dimensions[_di2];
-              if(dim2.score !== undefined && dim2.max !== undefined){
-                var _sRatio = dim2.score / dim2.max;
-                if(_sRatio < 0.7 && dim2.issues && dim2.issues.length){
-                  _iterIssues.push('【' + dim2.name + '】' + dim2.issues.slice(0, 2).join('; '));
-                }
-              }
-            }
-          }
-          if(evalResult.issues && evalResult.issues.length){
-            evalResult.issues.slice(0, 8).forEach(function(iss){
-              if(_iterIssues.indexOf(iss) === -1) _iterIssues.push(iss);
-            });
-          }
-
-          if(_iterIssues.length > 0){
-            var _iterHint = '⚠️ 生成内容问题（本次必须修正）：\n';
-            for(var _ii = 0; _ii < _iterIssues.length; _ii++){
-              _iterHint += '- ' + _iterIssues[_ii] + '\n';
-            }
-            try{
-              if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
-                var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
-                if(_fg) _iterHint += '\n【具体改法参考】\n' + smartTruncate(_fg, 1500);
-              }
-            } catch(e){}
-
-            if(typeof showToast === 'function') showToast('评分 ' + _curScore + '/100（第' + (_iterationCount+1) + '次外部迭代）…', {duration: 4000});
-            _autoIterate = true;
-            await window.generateArchModule({ extraHint: _iterHint, _iterationCount: _iterationCount + 1, isFix: true });
-          }
-        // */
-
-        if(!_autoIterate){
-          var fixBtnIds = { world: 'arch-fix-btn', chars: 'arch-fix-btn-chars', outline: 'arch-fix-btn-outline', detail: 'arch-fix-btn2' };
-          var fixBtn = document.getElementById(fixBtnIds[module] || 'arch-fix-btn');
-          if(fixBtn && evalResult){
-            fixBtn.style.display = '';
-            var issueCount = (evalResult.issues && evalResult.issues.length) || 0;
-            fixBtn.textContent = '🔥 按评价加强' + (issueCount > 0 ? '（' + issueCount + '个问题）' : '');
-          }
-        }
-      }
-    } catch(evalErr) { console.warn('[自动评价] 异常:', evalErr); }
-
-    if(_autoIterate) return; // 已重新生成，后续 UI 由新调用处理
-
     // v55: 架构模块间一致性校验 — 标记依赖模块为"可能过期"
     var archDeps = { world: ['chars','outline','detail'], chars: ['outline','detail'], outline: ['detail'], detail: [] };
     var staleMods = [];
@@ -3033,11 +3024,6 @@ window.generateArchModule = async function(opts){
       batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
     }
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
-    if(evalResult && evalResult.totalScore !== undefined){
-      completionMsg += ' | 质量：' + evalResult.grade + ' ' + evalResult.totalScore + '/100';
-      if(_iterationCount > 0) completionMsg += '（迭代' + (_iterationCount+1) + '次）';
-      if(evalResult.totalScore < 60) completionMsg += ' ⚠️ 建议点击"评价"查看详情并修复';
-    }
     showToast(completionMsg, {duration:5000});
   } catch(err){
     if(typeof hideLoading === 'function') hideLoading();
@@ -3384,86 +3370,6 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
 
   prompt += '\n【开始生成本卡片】\n';
   return prompt;
-}
-
-// ⭐ v56: 解析AI自评价输出的函数
-// AI输出格式：...内容... + 【最终内容】... + 【最终自评价报告】... + 【总分】X/100 + ...
-// 返回: { content: 最终内容字符串, eval: 评价对象 }
-function _parseAISelfEvalOutput(rawOutput, module) {
-  var result = { content: rawOutput, eval: null };
-
-  if(!rawOutput || !rawOutput.trim()) return result;
-
-  // 查找最终内容分隔符
-  var SEPARATOR = '══════════════════════════════════════';
-  var finalContentStart = rawOutput.indexOf('【最终内容】');
-  var finalEvalStart = rawOutput.indexOf('【最终自评价报告】');
-
-  if(finalContentStart !== -1 && finalEvalStart !== -1){
-    // 提取最终内容（从【最终内容】后到【最终自评价报告】前）
-    var contentStart = rawOutput.indexOf('\n', finalContentStart);
-    if(contentStart !== -1 && contentStart < finalEvalStart){
-      var finalContent = rawOutput.substring(contentStart, finalEvalStart).trim();
-      // 去除分隔符边框（如果AI在边框内）
-      finalContent = finalContent.replace(/^══════════════════════════════════════\s*/gm, '').trim();
-      if(finalContent.length > 50){
-        result.content = finalContent;
-      }
-    }
-  }
-
-  // 解析最终自评价报告
-  if(finalEvalStart !== -1){
-    var evalText = rawOutput.substring(finalEvalStart);
-    // 提取总分
-    var scoreMatch = evalText.match(/【总分】\s*(\d+)\s*/);
-    if(scoreMatch){
-      var score = parseInt(scoreMatch[1], 10);
-      result.eval = {
-        totalScore: score,
-        grade: score >= 90 ? 'S' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : 'D',
-        dimensions: [],
-        issues: [],
-        suggestions: [],
-        aiReport: evalText,
-        _isAISelfEval: true
-      };
-
-      // 提取维度评分：匹配【维度名】得分/X：理由
-      var dimRegex = /【([^】]+)】\s*得分\s*[:：]\s*(\d+)\s*[/／]\s*(\d+)\s*[:：]\s*(.+?)(?=【【|$)/g;
-      var dimMatch;
-      while((dimMatch = dimRegex.exec(evalText)) !== null){
-        result.eval.dimensions.push({
-          name: dimMatch[1].trim(),
-          score: parseInt(dimMatch[2], 10),
-          max: parseInt(dimMatch[3], 10),
-          issues: [dimMatch[4].trim()]
-        });
-      }
-
-      // 提取问题列表
-      var issueMatch = evalText.match(/【问题列表】([\s\S]*?)(?=【【|$)/);
-      if(issueMatch){
-        var issueLines = issueMatch[1].split(/[\n\d\.\、\、]/).filter(function(l){ return l.trim().length > 3; });
-        result.eval.issues = issueLines.slice(0, 8).map(function(l){ return l.trim(); });
-      }
-
-      // 提取改进建议
-      var improveMatch = evalText.match(/【主要改进】([\s\S]*?)(?=【【|$)/);
-      if(improveMatch){
-        var impLines = improveMatch[1].split(/[\n\d\.\、\、]/).filter(function(l){ return l.trim().length > 3; });
-        result.eval.suggestions = impLines.slice(0, 5).map(function(l){ return l.trim(); });
-      }
-
-      // 提取迭代次数
-      var iterMatch = evalText.match(/【迭代次数】\s*(\d+)\s*/);
-      if(iterMatch){
-        result.eval._iterations = parseInt(iterMatch[1], 10);
-      }
-    }
-  }
-
-  return result;
 }
 
 // ===== v52: 大模型一次性生成完整模块 =====
@@ -4202,230 +4108,6 @@ window.generateAllPipeline = async function(){
     if(typeof hideLoading === 'function') hideLoading();
     console.error('generateAllPipeline error:', err);
     showToast('流水线生成异常：' + (err && err.message ? err.message : err));
-  }
-};
-
-// ========== v55: 一键生成+评价迭代（骨架→评价→迭代→直到90分）==========
-// 核心流程：生成 → 评价 → 不达标则迭代 → 循环直到90分或达到最大迭代次数
-window.generateWithAutoIterate = async function(opts) {
-  opts = opts || {};
-  var module = opts.module || _selectedModule || 'world';
-  var targetScore = opts.targetScore || 90; // 目标分数，默认90分
-  var maxIterations = opts.maxIterations || 3; // 最大迭代次数，默认3次
-  
-  var moduleNames = {world:'世界观', chars:'人物人设', outline:'全书大纲', detail:'章节细纲'};
-  var moduleName = moduleNames[module] || module;
-  
-  try {
-    var work = getCurrentWork();
-    if (!work) {
-      showToast('请先选择一部作品');
-      goToLevel(2);
-      return;
-    }
-    
-    _selectedModule = module;
-    
-    // 显示总进度
-    if (typeof showLoading === 'function') {
-      showLoading('🎯 ' + moduleName + ' · 智能生成+迭代中…');
-    }
-    
-    // 第一步：生成骨架内容
-    if (typeof resetLoading === 'function') {
-      resetLoading('📝 ' + moduleName + ' · 生成骨架中…（第1步/3步）');
-    }
-    await window.generateArchModule();
-    
-    // 第二步：评价生成的内容
-    if(typeof startAutoLoadingProgress === 'function'){
-      startAutoLoadingProgress(42, '🔍 ' + moduleName + ' · 质量评价中…（第2步/3步）');
-    } else if(typeof updateLoadingProgress === 'function'){
-      updateLoadingProgress(33, '🔍 ' + moduleName + ' · 质量评价中…（第2步/3步）');
-    }
-    
-    var evalResult = await evaluateArchModule();
-    if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
-    if (!evalResult || evalResult.totalScore === undefined) {
-      showToast('评价失败，请手动检查生成内容', {error: true});
-      if (typeof hideLoading === 'function') hideLoading();
-      return;
-    }
-    
-    // v59fix: generateArchModule 内部已完成3次迭代，外部不再迭代
-    // 直接跳到完成状态
-    currentScore = evalResult.totalScore || 0;
-    iterationCount = 0;
-    /* // 已禁用外部迭代，内部迭代已在 generateArchModule 中完成
-    while (currentScore < targetScore && iterationCount < maxIterations) {
-      iterationCount++;
-      
-      // 构建迭代提示：基于评价结果
-      var iterIssues = [];
-      if (evalResult.dimensions && evalResult.dimensions.length) {
-        for (var di = 0; di < evalResult.dimensions.length; di++) {
-          var dim = evalResult.dimensions[di];
-          if (dim.score !== undefined && dim.max !== undefined) {
-            var ratio = dim.score / dim.max;
-            if (ratio < 0.7 && dim.issues && dim.issues.length) {
-              iterIssues.push('【' + dim.name + '（' + dim.score + '/' + dim.max + '分）】' + dim.issues.slice(0, 2).join('; '));
-            }
-          }
-        }
-      }
-      if (evalResult.issues && evalResult.issues.length) {
-        evalResult.issues.slice(0, 5).forEach(function(iss) {
-          if (iterIssues.indexOf(iss) === -1) iterIssues.push(iss);
-        });
-      }
-      
-      if (iterIssues.length === 0) {
-        // 没有明确问题但分数不够，继续迭代
-        iterIssues.push('当前分数 ' + currentScore + '，未达到目标分数 ' + targetScore + '，请全面提升质量');
-      }
-      
-      var iterHint = '⚠️ 第 ' + iterationCount + ' 次迭代 · 当前评分 ' + currentScore + '/100 · 必须解决的问题：\n';
-      iterIssues.forEach(function(issue) {
-        iterHint += '- ' + issue + '\n';
-      });
-      
-      // 获取 QualityEngine 的修复指导
-      try {
-        if (typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions) {
-          var fixGuide = QualityEngine.getFixGuide(evalResult.dimensions);
-          if (fixGuide) iterHint += '\n【具体改进指导】\n' + fixGuide;
-        }
-      } catch(e) {}
-      
-      // 更新进度提示
-      if(typeof startAutoLoadingProgress === 'function'){
-        startAutoLoadingProgress(Math.round(60 + (iterationCount / maxIterations) * 30),
-          '🔄 ' + moduleName + ' · 第' + iterationCount + '次迭代中…（' + currentScore + '→' + targetScore + '）');
-      } else if(typeof updateLoadingProgress === 'function'){
-        updateLoadingProgress(Math.round((iterationCount / (maxIterations + 1)) * 100),
-          '🔄 ' + moduleName + ' · 第' + iterationCount + '次迭代中…（' + currentScore + '→' + targetScore + '）');
-      }
-      showToast('评分 ' + currentScore + '/100，开始第 ' + iterationCount + ' 次迭代改进…', {duration: 3000});
-      
-      // 按评价重新生成
-      await window.generateArchModule({ extraHint: iterHint, _iterationCount: iterationCount, isFix: true });
-      
-      // 重新评价
-      evalResult = await evaluateArchModule();
-      if (!evalResult || evalResult.totalScore === undefined) {
-        showToast('第' + iterationCount + '次迭代评价失败', {error: true});
-        break;
-      }
-      
-      currentScore = evalResult.totalScore || 0;
-    }
-    // */
-    
-    // 完成：显示最终评价
-    if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(100, '✅ ' + moduleName + ' · 完成（' + currentScore + '分）');
-    }
-    if (typeof hideLoading === 'function') hideLoading();
-    
-    // 显示最终评价卡片
-    if (evalResult) {
-      if (typeof EvalUI !== 'undefined' && EvalUI.show) {
-        evalResult.moduleName = moduleName;
-        EvalUI.show(evalResult, function() {
-          // 修复回调
-          window.fixArchModule && window.fixArchModule();
-        });
-      }
-    }
-    
-    var resultMsg = moduleName + ' · 智能生成完成';
-    if (currentScore >= targetScore) {
-      resultMsg += '（达到目标 ' + targetScore + ' 分！）';
-      showToast('🎉 ' + resultMsg, {duration: 4000});
-    } else {
-      resultMsg += '（当前 ' + currentScore + ' 分，已迭代 ' + iterationCount + ' 次）';
-      showToast('⚠️ ' + resultMsg + '，可继续手动优化', {duration: 4000});
-    }
-    
-    return { 
-      ok: true, 
-      module: module, 
-      finalScore: currentScore, 
-      iterations: iterationCount,
-      targetReached: currentScore >= targetScore
-    };
-    
-  } catch(err) {
-    if (typeof hideLoading === 'function') hideLoading();
-    console.error('generateWithAutoIterate error:', err);
-    showToast('智能生成异常：' + (err && err.message ? err.message : err), {error: true});
-    return { ok: false, error: err.message };
-  }
-};
-
-// 流水线版本：依次生成+迭代每个模块
-window.generatePipelineWithIterate = async function(opts) {
-  opts = opts || {};
-  var targetScore = opts.targetScore || 85; // 流水线目标分数略低（85分）
-  var maxIterations = opts.maxIterations || 2; // 流水线迭代次数更少
-  
-  var modules = ['world', 'chars', 'outline', 'detail'];
-  var moduleNames = ['世界观', '人物人设', '全书大纲', '章节细纲'];
-  
-  try {
-    var work = getCurrentWork();
-    if (!work) {
-      showToast('请先选择一部作品');
-      goToLevel(2);
-      return;
-    }
-    
-    var results = [];
-    
-    for (var i = 0; i < modules.length; i++) {
-      var module = modules[i];
-      var moduleName = moduleNames[i];
-      var overallPct = Math.round((i / modules.length) * 100);
-      
-      _selectedModule = module;
-      
-      // 切换到对应 tab
-      try {
-        var pages = document.querySelectorAll('.module-page');
-        pages.forEach(function(p) { p.classList.remove('current'); });
-        var target = document.getElementById('page-' + module);
-        if (target) target.classList.add('current');
-      } catch(e) {}
-      
-      if (typeof updateLoadingProgress === 'function') {
-        updateLoadingProgress(overallPct, '🚀 流水线 · ' + moduleName + ' · 智能生成中…');
-      }
-      
-      var result = await window.generateWithAutoIterate({
-        module: module,
-        targetScore: targetScore,
-        maxIterations: maxIterations
-      });
-      
-      results.push(result);
-    }
-    
-    if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(100, '✅ 流水线完成');
-    }
-    if (typeof hideLoading === 'function') hideLoading();
-    
-    // 汇总结果
-    var successCount = results.filter(function(r) { return r && r.ok; }).length;
-    showToast('🎉 流水线完成！' + successCount + '/' + modules.length + ' 个模块生成成功', {duration: 4000});
-    
-    return { ok: true, results: results };
-    
-  } catch(err) {
-    if (typeof hideLoading === 'function') hideLoading();
-    console.error('generatePipelineWithIterate error:', err);
-    showToast('流水线生成异常：' + (err && err.message ? err.message : err), {error: true});
-    return { ok: false, error: err.message };
   }
 };
 
