@@ -2756,8 +2756,9 @@ window.generateArchModule = async function(opts){
       allCards = [];
     }
 
-    // 4b. 逐卡片分批生成（所有非 detail 模块执行）+ QualityEngine 评价 + 精准修复
+    // 4b. 逐卡片分批生成（仅非 detail 模块执行；detail 模块已在上面逐卷生成完毕）
     // v60: 移除一次性生成，按卡片生成后走评价→方案→修复流程
+    if(module !== 'detail'){
     for(var bi = 0; bi < batches.length; bi++){
       if(!_checkStillSameWork()) return;
 
@@ -2834,6 +2835,7 @@ window.generateArchModule = async function(opts){
         await new Promise(function(res){ setTimeout(res, 50); });
       }
     }
+    } // end of if(module !== 'detail') - 细纲已在逐卷分支生成完毕
 
     // 合并所有卡片为完整结果
     var mergedResult = '';
