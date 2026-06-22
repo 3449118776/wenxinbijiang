@@ -7341,11 +7341,12 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   prompt += '八、信息增量规划\n';
   prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 每个模块至少200字，总字数不少于4000字\n';
+  prompt += '1. 每个模块至少800字，总字数不少于10000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 设定要具体、可验证，避免模糊表述\n';
   prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
-  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  prompt += '5. 适合百万字长篇（1500-3000章）的世界观架构\n';
+  prompt += '6. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -7396,11 +7397,11 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   prompt += '八、节奏规划\n';
   prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 总字数不少于8000字，每卷大纲至少500字\n';
+  prompt += '1. 总字数不少于20000字，每卷大纲至少1500字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
   prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
-  prompt += '5. 考虑百万字长篇的延展性，预留足够的剧情空间\n';
+  prompt += '5. 考虑百万字长篇（1500-3000章）的延展性，预留足够的剧情空间\n';
   prompt += '6. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
@@ -7449,10 +7450,10 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   prompt += '六、角色记忆点设计\n';
   prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 主角部分至少500字，每个重要角色至少200字，总字数不少于4000字\n';
+  prompt += '1. 主角部分至少1500字，每个重要角色至少500字，总字数不少于8000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 角色要有鲜明个性，避免模板化\n';
-  prompt += '4. 考虑角色在剧情中的作用和发展\n';
+  prompt += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
   prompt += '5. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
@@ -7521,13 +7522,14 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '  爆点/悬念钩子：章末的悬念或爽点，让读者想看下一章\n\n';
   
   prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计150章细纲，前30章详细写出每章内容，后续章节按阶段（每30章）给出详细阶段规划\n';
-  prompt += '2. 前30章每章至少150字，总字数不少于8000字\n';
+  prompt += '1. 本卷设计150章细纲，前50章详细写出每章内容（每章至少200字），后续章节按阶段（每25章）给出详细阶段规划\n';
+  prompt += '2. 总字数不少于12000字\n';
   prompt += '3. 结构清晰，使用标题分隔，分阶段输出（如：第一阶段、第二阶段等）\n';
   prompt += '4. 每个章节要有明确的冲突和推进\n';
   prompt += '5. 确保前后章节衔接自然，伏笔有安排\n';
   prompt += '6. 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n';
-  prompt += '7. 直接输出完整内容，不要加对话语前缀';
+  prompt += '7. 适合百万字长篇（1500-3000章）的细纲架构\n';
+  prompt += '8. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -7551,26 +7553,26 @@ async function aiGenerateArchitecture(type, userCommand) {
   switch(type) {
     case 'world':
       taskType = 'world_creative';
-      targetChars = 10000;
-      minChars = 3000;
+      targetChars = 30000;
+      minChars = 10000;
       statusMsg = '正在生成世界观…';
       break;
     case 'outline':
       taskType = 'outline_logic';
-      targetChars = 18000;
-      minChars = 6000;
+      targetChars = 50000;
+      minChars = 20000;
       statusMsg = '正在生成大纲…';
       break;
     case 'chars':
       taskType = 'chars_core';
-      targetChars = 10000;
-      minChars = 3000;
+      targetChars = 25000;
+      minChars = 8000;
       statusMsg = '正在生成人设…';
       break;
     case 'detail':
       taskType = 'detail_base';
-      targetChars = 15000;
-      minChars = 4000;
+      targetChars = 35000;
+      minChars = 12000;
       statusMsg = '正在生成细纲…';
       break;
     default:
