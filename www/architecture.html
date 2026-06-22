@@ -2767,7 +2767,7 @@ window.generateArchModule = async function(opts){
       
       // 计算当前卡片在整个批次中的进度位置
       var cardProgress = (bi + 1) / batches.length; // 0~1
-      progressPct = 30 + Math.round(cardProgress * 58); // 30%~88%
+      progressPct = 30 + Math.round(cardProgress * 45); // 30%~75%，留空间给评价和修复
       
       // 细纲模块：显示卷·卡序号
       if(module === 'detail' && card.volume){
