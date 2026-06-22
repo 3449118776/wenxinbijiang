@@ -7372,276 +7372,143 @@ window.aiPolishByQuality = aiPolishByQuality;
 // ========== v58: 架构生成专用函数（世界观/大纲/人设/细纲）==========
 // 解决问题：原系统使用正文生成的通用函数，输出长度受限，迭代机制不合理
 
-function buildWorldPrompt(work, userCommand, prevResult) {
+// v59: 添加iteration参数，实现分批生成
+function buildWorldPrompt(work, userCommand, iteration, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var prompt = '';
+  iteration = iteration || 0;
   
-  if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮世界观】\n' + prevResult + '\n\n' +
-      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
-      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的设定和创意，不要因为重新生成而丢失\n' +
-      '2. 【补充缺失】检查每个模块是否有遗漏的关键信息，补充完整\n' +
-      '3. 【深化细节】在已有基础上增加更具体的设定，让世界更加生动\n' +
-      '4. 【增强逻辑】确保设定之间逻辑自洽，修正可能存在的矛盾\n' +
-      '5. 【扩展创意】参考创意提示词，在不改变核心设定的前提下增加新的创意元素\n' +
-      '6. 【完整输出】输出优化后的完整世界观内容，不要只输出修改部分：\n\n';
-  }
-  
-  prompt += '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
-  if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
-  }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n\n';
-  
-  // ⚠️ 核心原则：用户输入是绝对标准，不允许模板覆盖
-  var userWorldview = userCommand || '';
-  if (userWorldview && userWorldview.length > 50) {
-    prompt += '【⚠️ 绝对标准 · 用户输入的世界观（必须100%遵守）】\n' + userWorldview + '\n\n';
-    prompt += '【核心约束】\n';
-    prompt += '1. 你必须严格遵循上述世界观设定，不得添加、修改或删除任何内容\n';
-    prompt += '2. 绝对禁止添加用户未提及的元素（如：精灵、矮人、魔法、超能力、精神力、元素力等）\n';
-    prompt += '3. 绝对禁止修改用户明确设定的规则（如："普通人最强"的世界不能出现超自然力量）\n';
-    prompt += '4. 你只能在用户设定的框架内进行补充和深化\n';
-    prompt += '5. 如果用户设定了力量上限（如"普通人的极限"），必须严格遵守\n\n';
+  // v59: 第0轮生成核心框架，后续轮次扩展
+  if (iteration === 0) {
+    // 核心框架生成
+    prompt += '你是一位顶级网文世界观架构师。\n\n';
+    if (userCommand && userCommand.trim()) {
+      prompt += '【⚠️ 用户指令（最高优先级）】\n' + userCommand.trim() + '\n\n';
+    }
+    prompt += '【作品】' + title + ' | 【题材】' + genre + '\n\n';
+    
+    var userWorldview = userCommand || '';
+    if (userWorldview && userWorldview.length > 50) {
+      prompt += '【⚠️ 用户设定（必须100%遵守）】\n' + userWorldview + '\n\n';
+      prompt += '【约束】禁止添加：精灵、矮人、魔法、超能力等用户未提及元素\n\n';
+    }
+    
+    var keywordAnalysis = analyzeWorldviewKeywords(userWorldview);
+    if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
+      prompt += '【关键词】' + keywordAnalysis.keywords.join('、') + '\n\n';
+    }
+    
+    // v59: 分配模块给不同轮次
+    prompt += '【本轮任务】生成世界观核心框架，包含：\n';
+    prompt += '一、时代背景与历史脉络（详细展开，包含3个以上历史阶段）\n';
+    prompt += '二、地理设定（3-5个核心区域详细描述）\n';
+    prompt += '三、力量体系（普通人体系的等级、训练、限制）\n\n';
+    prompt += '【要求】每项至少5000字，总计15000+字，直接输出完整内容\n';
+  } else if (iteration === 1) {
+    // 扩展社会与势力
+    prompt += '【已有内容】\n' + (prevResult || '') + '\n\n';
+    prompt += '【扩展任务】继续生成世界观，包含：\n';
+    prompt += '四、社会结构（阶层、统治、文化习俗）\n';
+    prompt += '五、核心势力（3-5个势力的详细设定）\n';
+    prompt += '六、核心矛盾（表面冲突+深层矛盾）\n\n';
+    prompt += '【要求】每项至少5000字，总计15000+字，直接输出新增内容\n';
   } else {
-    // 只有在没有用户输入时才使用模板
-    var creativePrompts = getGenreCreativePrompts(genre);
-    if (creativePrompts && creativePrompts.world && creativePrompts.world.length > 0) {
-      prompt += '【题材创意提示词（仅作为参考）】\n';
-      for (var ci = 0; ci < creativePrompts.world.length; ci++) {
-        prompt += (ci + 1) + '. ' + creativePrompts.world[ci] + '\n';
-      }
-      prompt += '\n';
-    }
+    // 最终扩展独特设定
+    prompt += '【已有内容】\n' + (prevResult || '') + '\n\n';
+    prompt += '【最终扩展】继续生成世界观，包含：\n';
+    prompt += '七、独特设定（创新点、特色）\n';
+    prompt += '八、信息增量规划（各卷揭示节奏）\n';
+    prompt += '九、更多细节补充（使世界观更丰满）\n\n';
+    prompt += '【要求】总计10000+字，直接输出新增内容\n';
   }
   
-  var worldviewText = userCommand || prevResult || '';
-  var keywordAnalysis = analyzeWorldviewKeywords(worldviewText);
-  if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析】\n';
-    prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词强化方向】\n';
-    var kwIdx = 0;
-    for (var kw in keywordAnalysis.prompts) {
-      var kwPrompts = keywordAnalysis.prompts[kw];
-      if (kwPrompts.world && kwPrompts.world.length > 0) {
-        for (var kwi = 0; kwi < kwPrompts.world.length; kwi++) {
-          kwIdx++;
-          prompt += kwIdx + '. [' + kw + '] ' + kwPrompts.world[kwi] + '\n';
-        }
-      }
-    }
-    prompt += '\n';
-  }
-  
-  prompt += '请在严格遵循用户世界观的前提下，补充和完善以下模块：\n\n';
-  prompt += '一、时代背景与历史脉络\n';
-  prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
-  prompt += '二、地理设定\n';
-  prompt += '—— 核心区域（3-5个）的地理特征、气候、资源分布、势力格局\n\n';
-  prompt += '三、力量体系\n';
-  prompt += '—— 力量来源、修炼路径、等级划分（5-8级）、每个等级的特征与门槛\n\n';
-  prompt += '四、社会结构\n';
-  prompt += '—— 统治阶层、权力结构、社会阶层、经济体系、文化习俗\n\n';
-  prompt += '五、核心势力\n';
-  prompt += '—— 主要势力（3-5个）的立场、目标、实力对比、相互关系\n\n';
-  prompt += '六、核心矛盾\n';
-  prompt += '—— 表面冲突、深层矛盾、即将爆发的危机、主角需要面对的挑战\n\n';
-  prompt += '七、独特设定\n';
-  prompt += '—— 这个世界最与众不同的地方、创新点、读者会记住的特色\n\n';
-  prompt += '八、信息增量规划\n';
-  prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 每个模块至少15000字，总字数不少于200000字（20万字）\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 设定要具体、可验证，避免模糊表述\n';
-  prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
-  prompt += '5. 适合百万字长篇（1500-3000章）的世界观架构\n';
-  prompt += '6. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
-function buildOutlinePrompt(work, userCommand, prevResult) {
+// v59: 添加iteration参数
+function buildOutlinePrompt(work, userCommand, iteration, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
   var prompt = '';
+  iteration = iteration || 0;
   
-  if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮大纲】\n' + prevResult + '\n\n' +
-      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
-      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的剧情设计和创意，不要因为重新生成而丢失\n' +
-      '2. 【补充缺失】检查每卷是否有遗漏的关键事件，确保卷数达到10-15卷，总章节1500+章\n' +
-      '3. 【深化细节】在已有基础上增加更具体的剧情节点，让每卷更加充实\n' +
-      '4. 【增强节奏】确保节奏紧凑，每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n' +
-      '5. 【扩展创意】参考创意提示词，在不改变核心剧情的前提下增加新的创意元素\n' +
-      '6. 【完整输出】输出优化后的完整大纲内容，不要只输出修改部分：\n\n';
-  }
-  
-  prompt += '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
+  prompt += '你是一位顶级网文大纲架构师。\n\n';
   if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+    prompt += '【⚠️ 用户指令（最高优先级）】\n' + userCommand.trim() + '\n\n';
   }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n\n';
+  prompt += '【作品】' + title + ' | 【题材】' + genre + '\n\n';
   
-  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许大纲覆盖
   if (world && world.length > 50) {
-    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
-    prompt += '【核心约束】\n';
-    prompt += '1. 大纲必须严格遵循世界观设定\n';
-    prompt += '2. 绝对禁止添加世界观未提及的元素（如：精灵、矮人、魔法、超能力、精神力、元素力等）\n';
-    prompt += '3. 绝对禁止修改世界观明确设定的规则\n';
-    prompt += '4. 如果世界观设定了力量上限，大纲中所有战斗必须遵守\n\n';
+    prompt += '【⚠️ 世界观（必须遵守）】\n' + world.substring(0, 3000) + '\n\n';
+    prompt += '【约束】禁止添加世界观未提及元素\n\n';
   }
   
-  var creativePrompts = getGenreCreativePrompts(genre);
-  if (creativePrompts && creativePrompts.outline && creativePrompts.outline.length > 0) {
-    prompt += '【题材创意提示词（仅作为参考，不能覆盖世界观设定）】\n';
-    for (var ci = 0; ci < creativePrompts.outline.length; ci++) {
-      prompt += (ci + 1) + '. ' + creativePrompts.outline[ci] + '\n';
-    }
-    prompt += '\n';
+  if (iteration === 0) {
+    // 核心框架
+    prompt += '【本轮任务】生成大纲核心框架：\n';
+    prompt += '一、核心设定（主角身份、目标、弱点）\n';
+    prompt += '二、全书结构（10-15卷、每卷150章、每章2500字）\n';
+    prompt += '三、前3卷详细大纲（每卷20+关键事件）\n\n';
+    prompt += '【要求】每项3000+字，总计10000+字\n';
+  } else if (iteration === 1) {
+    // 扩展卷4-7
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 5000) + '\n\n';
+    prompt += '【扩展任务】继续生成卷4-7的详细大纲\n\n';
+    prompt += '【要求】每卷3000+字，总计12000+字\n';
+  } else {
+    // 最终扩展卷8-15
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 8000) + '\n\n';
+    prompt += '【最终扩展】继续生成卷8-15的详细大纲，以及：\n';
+    prompt += '四、核心矛盾链\n';
+    prompt += '五、爽点规划\n';
+    prompt += '六、伏笔布局\n\n';
+    prompt += '【要求】总计15000+字\n';
   }
   
-  var outlineText = world || userCommand || prevResult || '';
-  var keywordAnalysis = analyzeWorldviewKeywords(outlineText);
-  if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析】\n';
-    prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词强化方向】\n';
-    var kwIdx = 0;
-    for (var kw in keywordAnalysis.prompts) {
-      var kwPrompts = keywordAnalysis.prompts[kw];
-      if (kwPrompts.outline && kwPrompts.outline.length > 0) {
-        for (var kwi = 0; kwi < kwPrompts.outline.length; kwi++) {
-          kwIdx++;
-          prompt += kwIdx + '. [' + kw + '] ' + kwPrompts.outline[kwi] + '\n';
-        }
-      }
-    }
-    prompt += '\n';
-  }
-  
-  prompt += '请基于世界观设计符合"普通人战争"风格的大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
-  prompt += '包含以下内容：\n\n';
-  prompt += '一、核心设定回顾\n';
-  prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
-  prompt += '二、全书结构规划\n';
-  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约2500字、总字数估算\n\n';
-  prompt += '三、分卷大纲（每卷详细，每卷至少500字）\n';
-  prompt += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
-  prompt += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
-  prompt += '四、核心矛盾链\n';
-  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n';
-  prompt += '—— 每卷矛盾的推进和升级\n\n';
-  prompt += '五、爽点规划\n';
-  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻、爆发时刻\n\n';
-  prompt += '六、伏笔布局\n';
-  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n';
-  prompt += '—— 长线伏笔（贯穿多卷）和短线伏笔（单卷内回收）\n\n';
-  prompt += '七、人物成长弧线\n';
-  prompt += '—— 主角和主要配角的成长路径、转折点、关键变化\n\n';
-  prompt += '八、节奏规划\n';
-  prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 总字数不少于300000字（30万字），每卷大纲至少25000字\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
-  prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
-  prompt += '5. 考虑百万字长篇（1500-3000章）的延展性，预留足够的剧情空间\n';
-  prompt += '6. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
-function buildCharsPrompt(work, userCommand, prevResult) {
+// v59: 添加iteration参数
+function buildCharsPrompt(work, userCommand, iteration, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
   var prompt = '';
+  iteration = iteration || 0;
   
-  if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮人设】\n' + prevResult + '\n\n' +
-      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
-      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的角色设计和创意，不要因为重新生成而丢失\n' +
-      '2. 【补充缺失】检查是否有遗漏的重要角色，确保人物体系完整丰富\n' +
-      '3. 【深化细节】增加每个角色的详细程度和独特记忆点，让角色更加立体\n' +
-      '4. 【增强关系】深化角色之间的关系网，增加冲突点和潜在的背叛/结盟可能性\n' +
-      '5. 【扩展创意】参考创意提示词，在不改变核心设定的前提下增加新的创意元素\n' +
-      '6. 【完整输出】输出优化后的完整人设内容，不要只输出修改部分：\n\n';
-  }
-  
-  prompt += '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
+  prompt += '你是一位顶级网文人物设计师。\n\n';
   if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+    prompt += '【⚠️ 用户指令（最高优先级）】\n' + userCommand.trim() + '\n\n';
   }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n\n';
+  prompt += '【作品】' + title + ' | 【题材】' + genre + '\n\n';
   
-  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许人设覆盖
   if (world && world.length > 50) {
-    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
-    prompt += '【核心约束】\n';
-    prompt += '1. 人物设计必须严格遵循世界观设定\n';
-    prompt += '2. 绝对禁止设计具有超自然能力的人物（如：魔法师、精灵、矮人等）\n';
-    prompt += '3. 所有角色必须是普通人，通过训练、智谋、经验获得能力\n';
-    prompt += '4. 如果世界观设定了力量上限，人物能力必须遵守\n\n';
+    prompt += '【⚠️ 世界观（必须遵守）】\n' + world.substring(0, 2000) + '\n';
+    prompt += '【约束】禁止设计超自然能力角色\n\n';
   }
   
-  var creativePrompts = getGenreCreativePrompts(genre);
-  if (creativePrompts && creativePrompts.chars && creativePrompts.chars.length > 0) {
-    prompt += '【题材创意提示词（仅作为参考，不能覆盖世界观设定）】\n';
-    for (var ci = 0; ci < creativePrompts.chars.length; ci++) {
-      prompt += (ci + 1) + '. ' + creativePrompts.chars[ci] + '\n';
-    }
-    prompt += '\n';
+  if (iteration === 0) {
+    // 主角+女主
+    prompt += '【本轮任务】生成主角和女主详细人设：\n';
+    prompt += '一、主角（3000+字）：姓名、年龄、外貌、性格、动机、弱点、成长弧光\n';
+    prompt += '二、女主（2000+字）：姓名、身份、性格、与主角关系\n\n';
+  } else if (iteration === 1) {
+    // 反派+配角
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 3000) + '\n\n';
+    prompt += '【扩展任务】继续生成反派和配角：\n';
+    prompt += '三、主要反派（3位，2000+字/位）\n';
+    prompt += '四、重要配角（5位，500+字/位）\n\n';
+  } else {
+    // 关系网+记忆点
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 5000) + '\n\n';
+    prompt += '【最终扩展】继续生成：\n';
+    prompt += '五、人物关系网（冲突、联盟、背叛）\n';
+    prompt += '六、角色记忆点（独特识别特征）\n';
+    prompt += '七、更多配角（丰富人物体系）\n\n';
   }
   
-  var charsText = world || userCommand || prevResult || '';
-  var keywordAnalysis = analyzeWorldviewKeywords(charsText);
-  if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析】\n';
-    prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词强化方向】\n';
-    var kwIdx = 0;
-    for (var kw in keywordAnalysis.prompts) {
-      var kwPrompts = keywordAnalysis.prompts[kw];
-      if (kwPrompts.chars && kwPrompts.chars.length > 0) {
-        for (var kwi = 0; kwi < kwPrompts.chars.length; kwi++) {
-          kwIdx++;
-          prompt += kwIdx + '. [' + kw + '] ' + kwPrompts.chars[kwi] + '\n';
-        }
-      }
-    }
-    prompt += '\n';
-  }
-  
-  prompt += '请基于世界观设计符合"普通人战争"风格的人物体系，包含以下内容：\n\n';
-  prompt += '一、主角（详细）\n';
-  prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
-  prompt += '—— 人物弧光起点和终点、成长路径\n';
-  prompt += '—— 金手指/能力、使用限制、代价\n';
-  prompt += '—— 标志性动作、口头禅、独特习惯\n\n';
-  prompt += '二、女主角/重要女性角色\n';
-  prompt += '—— 姓名、年龄、身份、性格、与主角关系、角色定位\n';
-  prompt += '—— 人物成长弧线、关键时刻\n\n';
-  prompt += '三、主要反派（2-3位）\n';
-  prompt += '—— 姓名、身份、核心目标、与主角的关系、动机合理性\n';
-  prompt += '—— 能力、弱点、人物层次（不是纯粹的坏人）\n\n';
-  prompt += '四、重要配角（5-8位）\n';
-  prompt += '—— 每个人的姓名、身份、性格、作用、与主角关系\n\n';
-  prompt += '五、人物关系网\n';
-  prompt += '—— 角色之间的关系矩阵、冲突点、潜在的背叛/结盟\n\n';
-  prompt += '六、角色记忆点设计\n';
-  prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 主角部分至少15000字，每个重要角色至少3000字，总字数不少于150000字（15万字）\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 角色要有鲜明个性，避免模板化\n';
-  prompt += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
-  prompt += '5. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -8078,142 +7945,47 @@ function getGenreCreativePrompts(genre) {
   return prompts['玄幻'];
 }
 
-function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
+// v59: 添加iteration参数
+function buildDetailPrompt(work, volumeIndex, userCommand, iteration, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var chars = work.chars || '';
-  var outline = work.outline || '';
-  var genreTemplate = getGenreDetailTemplate(genre);
-  
   var prompt = '';
+  iteration = iteration || 0;
   
-  if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮细纲】\n' + prevResult + '\n\n' +
-      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
-      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的章节设计和创意，不要因为重新生成而丢失\n' +
-      '2. 【补充缺失】检查是否有遗漏的章节，确保本卷达到72章\n' +
-      '3. 【深化细节】增加每章的详细程度，确保每章至少200字，包含完整的剧情节点\n' +
-      '4. 【增强节奏】确保每章有明确的目标和钩子，保持读者的阅读兴趣\n' +
-      '5. 【扩展创意】参考创意提示词，在不改变核心剧情的前提下增加新的创意元素\n' +
-      '6. 【完整输出】输出优化后的完整细纲内容，不要只输出修改部分：\n\n';
-  }
-  
-  prompt += '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
+  prompt += '你是一位顶级网文细纲设计师。\n\n';
   if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+    prompt += '【⚠️ 用户指令（最高优先级）】\n' + userCommand.trim() + '\n\n';
   }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
-  prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  prompt += '【作品】' + title + ' | 【题材】' + genre + ' | 【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
   
-  // ⚠️ 核心原则：用户输入的世界观是绝对标准，不允许细纲覆盖
   if (world && world.length > 50) {
-    prompt += '【⚠️ 绝对标准 · 用户设定的世界观（必须100%遵守）】\n' + world + '\n\n';
-    prompt += '【核心约束】\n';
-    prompt += '1. 细纲必须严格遵循世界观设定\n';
-    prompt += '2. 绝对禁止出现超自然元素（如：魔法、超能力、精灵、矮人等）\n';
-    prompt += '3. 所有战斗必须依靠策略、智谋、勇气，不能出现违背力量上限的战斗\n';
-    prompt += '4. 如果世界观设定了"普通人最强"，所有情节必须符合这一设定\n\n';
-  }
-  if (chars && chars.length > 50) {
-    prompt += '【主要人物】\n' + chars + '\n\n';
-  }
-  if (outline && outline.length > 50) {
-    var outlineLines = outline.split('\n');
-    var volumeOutline = '';
-    var inVolume = false;
-    for (var i = 0; i < outlineLines.length; i++) {
-      var line = outlineLines[i];
-      if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
-        inVolume = true;
-      }
-      if (inVolume) {
-        volumeOutline += line + '\n';
-        if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
-          break;
-        }
-      }
-    }
-    if (volumeOutline.length > 50) {
-      prompt += '【本卷大纲】\n' + volumeOutline + '\n\n';
-    }
+    prompt += '【⚠️ 世界观（必须遵守）】\n' + world.substring(0, 2000) + '\n';
+    prompt += '【约束】禁止超自然元素，战斗依靠策略和智谋\n\n';
   }
   
-  // 使用普通人战争模板
   var normalWarTemplate = getGenreDetailTemplate('普通人战争');
-  prompt += '【普通人战争题材模板】\n';
-  prompt += '本作品为"普通人战争"风格，请使用以下模板：\n\n';
-  prompt += '【数字面板格式】\n';
-  prompt += normalWarTemplate.digitalPanel + '\n\n';
-  prompt += '【爽点类型参考】\n';
-  prompt += normalWarTemplate.beatTypes.join('、') + '\n\n';
-  prompt += '【情绪基调参考】\n';
-  prompt += normalWarTemplate.emotionTones.join('、') + '\n\n';
-  prompt += '【钩子类型参考】\n';
-  prompt += normalWarTemplate.hookTypes.join('、') + '\n\n';
-  prompt += '【硬节点分类参考】\n';
-  prompt += normalWarTemplate.hardNodeCategories.join('、') + '\n\n';
+  prompt += '【题材模板】\n';
+  prompt += '数字面板：' + normalWarTemplate.digitalPanel + '\n';
+  prompt += '爽点：' + normalWarTemplate.beatTypes.slice(0, 5).join('、') + '\n\n';
   
-  var creativePrompts = getGenreCreativePrompts('普通人战争');
-  if (creativePrompts && creativePrompts.detail && creativePrompts.detail.length > 0) {
-    prompt += '【普通人战争创意提示词（每章至少融入1个）】\n';
-    for (var ci = 0; ci < creativePrompts.detail.length; ci++) {
-      prompt += (ci + 1) + '. ' + creativePrompts.detail[ci] + '\n';
-    }
-    prompt += '\n';
+  if (iteration === 0) {
+    // 第1-24章
+    prompt += '【本轮任务】生成第1-24章详细细纲\n';
+    prompt += '每章格式：标题、情绪基调、爽点、时间、地点、人物、10+硬节点、数字面板、番茄钩子\n';
+    prompt += '每章500+字，总计12000+字\n';
+  } else if (iteration === 1) {
+    // 第25-48章
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 3000) + '\n\n';
+    prompt += '【扩展任务】继续生成第25-48章\n\n';
+    prompt += '每章500+字，总计12000+字\n';
+  } else {
+    // 第49-72章
+    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 5000) + '\n\n';
+    prompt += '【最终扩展】继续生成第49-72章\n\n';
+    prompt += '每章500+字，总计12000+字\n';
   }
   
-  var detailText = world || userCommand || prevResult || '';
-  var keywordAnalysis = analyzeWorldviewKeywords(detailText);
-  if (keywordAnalysis && keywordAnalysis.keywords.length > 0) {
-    prompt += '【🔍 世界观关键词分析】\n';
-    prompt += '识别到关键词：' + keywordAnalysis.keywords.join('、') + '\n\n';
-    prompt += '【关键词强化方向】\n';
-    var kwIdx = 0;
-    for (var kw in keywordAnalysis.prompts) {
-      var kwPrompts = keywordAnalysis.prompts[kw];
-      if (kwPrompts.detail && kwPrompts.detail.length > 0) {
-        for (var kwi = 0; kwi < kwPrompts.detail.length; kwi++) {
-          kwIdx++;
-          prompt += kwIdx + '. [' + kw + '] ' + kwPrompts.detail[kwi] + '\n';
-        }
-      }
-    }
-    prompt += '\n';
-  }
-  
-  prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约2500字。\n\n';
-  prompt += '每章必须包含以下内容（严格按照此格式）：\n\n';
-  prompt += '### 【第N章】章节标题\n';
-  prompt += '**情绪基调**：本章的整体情绪走向（从以上参考中选择或自定义）\n';
-  prompt += '**爽点类型**：本章的核心爽点（从以上参考中选择或自定义）\n';
-  prompt += '**时间**：具体时间点\n';
-  prompt += '**地点**：本章主要发生的地点\n';
-  prompt += '**人物**：本章出场的主要角色\n';
-  prompt += '**硬节点**：\n';
-  prompt += '1. 第一个具体剧情节点\n';
-  prompt += '2. 第二个具体剧情节点\n';
-  prompt += '...\n';
-  prompt += '20. 第二十个具体剧情节点\n';
-  prompt += '**【数字面板】** ' + genreTemplate.digitalPanel.replace(/X/g, '具体数值') + '\n';
-  prompt += '**【番茄钩子】** 章末强烈的悬念或爽点，让读者必须看下一章\n';
-  prompt += '**【兑现链】**\n';
-  prompt += '- 钩子1 → 第X章回收（兑现）\n';
-  prompt += '- 钩子2 → 第Y章回收（兑现）\n';
-  prompt += '**字数建议**：2000-3000字\n\n';
-  
-  prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少500字\n';
-  prompt += '2. 总字数不少于1000000字（100万字）\n';
-  prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
-  prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
-  prompt += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
-  prompt += '6. 每个番茄钩子必须有明确的兑现链，标注回收章节\n';
-  prompt += '7. 每5章一个小高潮、每10章一个中高潮、每24章一个大高潮\n';
-  prompt += '8. 穿插上帝视角段落，增加故事深度\n';
-  prompt += '9. 适合百万字长篇（1500-3000章）的细纲架构\n';
-  prompt += '10. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -8278,6 +8050,8 @@ async function aiGenerateArchitecture(type, userCommand) {
   return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, 0, null, '');
 }
 
+// v59修复: 改为"扩展"模式而非"迭代"模式
+// 核心: 每次生成不同部分，最后拼接
 async function _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration, bestResult, prevResult) {
   var prompt;
   var volumeIdx = 0;
@@ -8289,36 +8063,23 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
     } catch(e) {}
   }
   
-  if (iteration === 0) {
-    switch(type) {
-      case 'world':
-        prompt = buildWorldPrompt(work, userCommand);
-        break;
-      case 'outline':
-        prompt = buildOutlinePrompt(work, userCommand);
-        break;
-      case 'chars':
-        prompt = buildCharsPrompt(work, userCommand);
-        break;
-      case 'detail':
-        prompt = buildDetailPrompt(work, volumeIdx, userCommand);
-        break;
-    }
-  } else {
-    switch(type) {
-      case 'world':
-        prompt = buildWorldPrompt(work, userCommand, prevResult);
-        break;
-      case 'outline':
-        prompt = buildOutlinePrompt(work, userCommand, prevResult);
-        break;
-      case 'chars':
-        prompt = buildCharsPrompt(work, userCommand, prevResult);
-        break;
-      case 'detail':
-        prompt = buildDetailPrompt(work, volumeIdx, userCommand, prevResult);
-        break;
-    }
+  // v59: 改为扩展模式 - 每一轮生成不同部分
+  // 第0轮: 生成核心框架
+  // 第1轮: 扩展详细内容
+  // 第2轮: 补充更多细节
+  switch(type) {
+    case 'world':
+      prompt = buildWorldPrompt(work, userCommand, iteration, prevResult);
+      break;
+    case 'outline':
+      prompt = buildOutlinePrompt(work, userCommand, iteration, prevResult);
+      break;
+    case 'chars':
+      prompt = buildCharsPrompt(work, userCommand, iteration, prevResult);
+      break;
+    case 'detail':
+      prompt = buildDetailPrompt(work, volumeIdx, userCommand, iteration, prevResult);
+      break;
   }
   
   if (iteration === 0) {
@@ -8330,52 +8091,46 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
   
   try {
-    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
+    // v59: 每次生成部分内容，逐步扩展
+    var partialTarget = Math.floor(targetChars / 3); // 每轮目标1/3
+    var result = await callRealAPIWithFallback(prompt, null, taskType, partialTarget);
     
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
       
-      if (result.length < minChars) {
-        if (statusBar) statusBar.textContent = '⚠️ ' + statusMsg.replace('正在生成', '生成中') + ' · 内容偏短(' + result.length + '字)，正在补写…';
-        var extendPrompt = '你是网文架构补全助手。以下内容不够完整，请补充完善至' + minChars + '字以上，保持结构完整、内容详实。\n\n';
-        extendPrompt += '【已有内容】\n' + result + '\n\n';
-        extendPrompt += '【要求】\n1. 保持原有结构和格式\n2. 补充缺失的细节和内容\n3. 不要重复已有内容\n4. 直接输出补写内容：';
-        try {
-          var extendResult = await callRealAPIWithFallback(extendPrompt, null, taskType, targetChars - result.length, true);
-          if (extendResult && extendResult.length > 100) {
-            result = result + '\n\n' + extendResult;
-            if(statusBar) statusBar.textContent = '✅ ' + statusMsg.replace('正在生成', '补写完成') + ' · ' + result.length + '字';
-          }
-        } catch(e) { console.warn('[架构补写] 失败:', e); }
+      // v59: 改为拼接模式 - 每轮结果拼接，而不是让AI重新生成
+      if (!bestResult) {
+        bestResult = { text: result, score: 0, parts: [result] };
+      } else {
+        bestResult.parts.push(result);
+        bestResult.text = bestResult.parts.join('\n\n'); // 拼接所有部分
       }
       
-      var currentScore = 0;
-      var qReport = null;
-      if (typeof evaluateText === 'function') {
-        try {
-          qReport = evaluateText(result, type, work);
-          currentScore = qReport && typeof qReport.score === 'number' ? qReport.score : 0;
-        } catch(e) { console.warn('[架构评分] 失败:', e); }
-      }
+      var currentLength = bestResult.text.length;
       
-      if (!bestResult || result.length > bestResult.length || (currentScore > 0 && currentScore > bestResult.score)) {
-        bestResult = { text: result, score: currentScore };
-      }
-      
-      if (iteration < 2 && currentScore > 0 && currentScore < 85) {
-        if (statusBar) {
-          statusBar.style.background = '#fef3c7';
-          statusBar.style.color = '#92400e';
-          statusBar.textContent = '🔄 自动迭代中 · 当前' + currentScore + '分 · 第' + (iteration + 1) + '/3轮';
-        }
+      // 继续生成下一轮，直到达到目标字数
+      if (iteration < 2 && currentLength < minChars) {
+        if (statusBar) statusBar.textContent = '📝 扩展中...(' + currentLength + '字/' + minChars + '字) · 第' + (iteration + 1) + '/3轮';
         return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration + 1, bestResult, result);
       }
       
+      // v59: 扩展完成后，如果字数还不够，进行最终补写
       var finalResult = bestResult ? bestResult.text : result;
+      var remaining = minChars - finalResult.length;
       
+      if (remaining > 0 && remaining > 5000) {
+        if (statusBar) statusBar.textContent = '📝 最终补写...(' + finalResult.length + '字)';
+        var extendPrompt = buildExtendPrompt(type, finalResult, remaining, work, userCommand);
+        try {
+          var extendResult = await callRealAPIWithFallback(extendPrompt, null, taskType, remaining, true);
+          if (extendResult && extendResult.length > 500) {
+            finalResult = finalResult + '\n\n' + extendResult;
+          }
+        } catch(e) { console.warn('[最终补写] 失败:', e); }
+      }
+      
+      // 保存缓存
       work._archCache[cacheKey] = { content: finalResult, timestamp: Date.now() };
-      
-      // 同时存储类型基础缓存（用于无命令时的快速响应）
       if (!userCommand) {
         var typeCacheKey = type + '_base';
         work._archCache[typeCacheKey] = { content: finalResult, timestamp: Date.now() };
@@ -8383,7 +8138,7 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
       
       applyArchResult(type, work, finalResult);
       
-      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + finalResult.length + '字 · 共' + (iteration + 1) + '轮', 5000);
+      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + finalResult.length + '字', 5000);
     } else {
       showToast('⚠️ 生成内容过短，可能是API异常', 5000);
     }
@@ -8393,6 +8148,26 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   } finally {
     hideLoading();
   }
+}
+
+// v59: 构建补写prompt
+function buildExtendPrompt(type, currentContent, targetChars, work, userCommand) {
+  var extendMap = {
+    'world': '请继续补充世界观内容，扩展以下方面：',
+    'outline': '请继续补充大纲内容，增加更多详细的情节设计：',
+    'chars': '请继续补充人设内容，增加更多角色细节：',
+    'detail': '请继续补充细纲内容，增加更多章节细节：'
+  };
+  
+  var extend = extendMap[type] || '请继续补充内容：';
+  
+  return '【已有内容（' + currentContent.length + '字）】\n' + currentContent + '\n\n' +
+    extend + '\n\n' +
+    '【要求】\n' +
+    '1. 必须生成至少' + targetChars + '字的新内容\n' +
+    '2. 保持与已有内容的风格一致\n' +
+    '3. 不要重复已有内容\n' +
+    '4. 直接输出新增内容（不需要标记）：';
 }
 
 function applyArchResult(type, work, result) {
