@@ -2750,117 +2750,66 @@ window.generateArchModule = async function(opts){
     else if(module === 'detail') taskType = 'detail_base';
 
     // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
-    var batches = batches;       // 兼容：detail 分支已赋值，非 detail 分支重新计算
     if(module !== 'detail'){
       batches = buildArchCardBatchesV48(module, work, idea);
       totalChars = 0;
       allCards = [];
-      useSingleShot = isLargeContextModel();
     }
 
-    // 4b. 大模型：一次性完整生成；小模型：逐卡片分批生成（仅非 detail 模块执行）
-    if(module !== 'detail' && useSingleShot){
-      // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
-      // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
-      var progressLabel = '完整' + moduleName + '（一次性生成）';
-      if(typeof startAutoLoadingProgress === 'function'){
-        startAutoLoadingProgress(72, '正在生成 ' + moduleName + ' · ' + progressLabel);
-      } else if(typeof updateLoadingProgress === 'function'){
-        updateLoadingProgress(35, '正在生成 ' + moduleName + ' · ' + progressLabel);
-      }
+    // 4b. 逐卡片分批生成（所有非 detail 模块执行）+ QualityEngine 评价 + 精准修复
+    // v60: 移除一次性生成，按卡片生成后走评价→方案→修复流程
+    for(var bi = 0; bi < batches.length; bi++){
       if(!_checkStillSameWork()) return;
 
-      var bigPrompt = buildArchSinglePromptV52(module, batches, work, idea, opts && opts.extraHint, marketResearch, memoryContext);
-      var bigTarget = 0;
-      for(var tbi = 0; tbi < batches.length; tbi++){
-        bigTarget += batches[tbi].targetChars || 1000;
-      }
-      // ⭐ v56：当模块已有内容时，以"不低于已有内容字数 + 30%"为目标，防止迭代后内容越来越少
-      if(work && work[module] && work[module].trim()){
-        var _existingContentLen = work[module].trim().length;
-        var _adaptiveTarget = Math.floor(_existingContentLen * 1.3);
-        bigTarget = Math.max(bigTarget, _adaptiveTarget);
+      var card = batches[bi];
+      var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      var progressPct = 35 + Math.round((bi / batches.length) * 55);
+
+      if(typeof startAutoLoadingProgress === 'function'){
+        startAutoLoadingProgress(progressPct + 12, '正在生成 ' + moduleName + ' · ' + progressLabel2);
+      } else if(typeof updateLoadingProgress === 'function'){
+        updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var bigResult = null;
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      var cardTargetChars = card.targetChars || 800;
+
+      var cardResult = null;
       try{
         if(typeof callRealAPIWithFallback === 'function'){
-          bigResult = await callRealAPIWithFallback(bigPrompt, null, taskType, bigTarget, true);
+          cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
         } else if(typeof callRealAPI === 'function'){
-          bigResult = await callRealAPI(bigPrompt, null, {});
+          cardResult = await callRealAPI(cardPrompt, null, {});
         }
       }catch(e){
-        console.warn('完整模块生成失败:', e);
-        bigResult = '（生成失败，请重试）\n';
+        console.warn('卡片 ' + card.label + ' 生成失败:', e);
+        cardResult = '（本卡片生成失败）\n';
       }
-      if(!_checkStillSameWork()) return;
 
-      if(!bigResult || !bigResult.trim()){
-        bigResult = '（生成失败，请重试）\n';
+      if(!cardResult || !cardResult.trim()){
+        cardResult = '（本卡片生成失败，请重试）\n';
       }
       if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
-      // v59: 直接使用生成结果，不再解析AI自评格式
-      result = bigResult.trim();
-      totalChars = result.length;
-      // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
-      allCards.push({ label: moduleName + '·完整生成', content: result });
-    } else if(module !== 'detail'){
-      // 小模型：保持原分批策略（逐卡片生成，每张卡片独立调用 AI）
-      for(var bi = 0; bi < batches.length; bi++){
-        if(!_checkStillSameWork()) return;
+      allCards.push({ label: card.label, content: cardResult });
+      totalChars += cardResult.length;
 
-        var card = batches[bi];
-        var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-        // 从 35% 起步，分批推进到 90%
-        var progressPct = 35 + Math.round((bi / batches.length) * 55);
-
-        if(typeof startAutoLoadingProgress === 'function'){
-          startAutoLoadingProgress(progressPct + 12, '正在生成 ' + moduleName + ' · ' + progressLabel2);
-        } else if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
-        }
-
-        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
-        var cardTargetChars = card.targetChars || 800;
-
-        var cardResult = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            cardResult = await callRealAPI(cardPrompt, null, {});
-          }
-        }catch(e){
-          console.warn('卡片 ' + card.label + ' 生成失败:', e);
-          cardResult = '（本卡片生成失败）\n';
-        }
-
-        if(!cardResult || !cardResult.trim()){
-          cardResult = '（本卡片生成失败，请重试）\n';
-        }
-        if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
-
-        allCards.push({ label: card.label, content: cardResult });
-        totalChars += cardResult.length;
-
-        if(bi < batches.length - 1){
-          await new Promise(function(res){ setTimeout(res, 50); });
-        }
+      if(bi < batches.length - 1){
+        await new Promise(function(res){ setTimeout(res, 50); });
       }
-
-      // 小模型：合并所有卡片为完整结果
-      var mergedResult = '';
-      for(var ci = 0; ci < allCards.length; ci++){
-        var c = allCards[ci];
-        var header = '';
-        if(batches.length > 1){
-          header = '【' + c.label + '】\n';
-        }
-        mergedResult += header + c.content.trim() + '\n\n';
-      }
-      result = mergedResult.trim();
     }
+
+    // 合并所有卡片为完整结果
+    var mergedResult = '';
+    for(var ci = 0; ci < allCards.length; ci++){
+      var c = allCards[ci];
+      var header = '';
+      if(batches.length > 1){
+        header = '【' + c.label + '】\n';
+      }
+      mergedResult += header + c.content.trim() + '\n\n';
+    }
+    result = mergedResult.trim();
 
     if(!result || totalChars < 100){
       if(typeof hideLoading === 'function') hideLoading();
