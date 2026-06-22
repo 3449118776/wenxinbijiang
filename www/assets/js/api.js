@@ -1182,9 +1182,12 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
     // 最低保底 800 token，确保至少能生成内容
     dynamicMaxTokens = Math.max(800, dynamicMaxTokens);
+    // 调试日志
+    console.log('[API调用] taskType:', taskType, 'targetChars:', targetChars, 'charsToTokens:', charsToTokens, 'modelMaxTokens:', modelMaxTokens, 'dynamicMaxTokens:', dynamicMaxTokens);
   } else {
     // 没有指定字数时，直接用模型极限
     dynamicMaxTokens = getModelMaxOutputTokens();
+    console.log('[API调用] taskType:', taskType, 'targetChars: 未指定', 'dynamicMaxTokens:', dynamicMaxTokens);
   }
   var config = DB.getApiConfig() || {};
   var userProvider = config.provider || 'deepseek';
