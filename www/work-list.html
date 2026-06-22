@@ -641,6 +641,7 @@ function saveModuleEdit() {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
+    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1157,6 +1158,7 @@ function addChapter() {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
+    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1178,6 +1180,7 @@ function moveChapter(idx, dir) {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
+    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1196,6 +1199,7 @@ function deleteChapter(idx) {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
+    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1275,9 +1279,14 @@ async function confirmDelete() {
   
   try {
     var cloudDeleted = false;
-    if (window.cloud && window.cloud.isLoggedIn()) {
+    // 确保 cloud 对象已初始化
+    var _cloud = window.cloud;
+    if (!_cloud) {
+      try { _cloud = _getCloud(); } catch(e) {}
+    }
+    if (_cloud && _cloud.isLoggedIn()) {
       try {
-        await window.cloud.deleteWork(deleteTargetId);
+        await _cloud.deleteWork(deleteTargetId);
         cloudDeleted = true;
       } catch(e) {
         console.warn('云端删除失败:', e);
@@ -1290,6 +1299,15 @@ async function confirmDelete() {
           if (DB && DB.flush) DB.flush();
         } catch(listErr) {}
       }
+    } else {
+      // 未登录时也要记录到待删除列表，等登录后重试
+      try {
+        if (DB && !DB._cloudDeleteList) DB._cloudDeleteList = [];
+        if (DB && DB._cloudDeleteList.indexOf(deleteTargetId) < 0) {
+          DB._cloudDeleteList.push(deleteTargetId);
+        }
+        if (DB && DB.flush) DB.flush();
+      } catch(listErr) {}
     }
     
     DB.deleteWork(deleteTargetId);
@@ -1415,6 +1433,7 @@ window.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('cloud-sync-btn-wl');
       if (!btn) return;
       var cloud = window.cloud;
+      if (!cloud) { try { cloud = _getCloud(); } catch(e) {} }
       if (cloud && cloud.isLoggedIn && cloud.isLoggedIn()) {
         btn.style.display = '';
         var user = cloud.user || {};
@@ -1430,6 +1449,7 @@ window.addEventListener('DOMContentLoaded', function() {
   window.triggerCloudSync_wl = function() {
     try {
       var cloud = window.cloud;
+      if (!cloud) { try { cloud = _getCloud(); } catch(e) {} }
       if (!cloud) { showToast('云同步未初始化'); return; }
       if (!cloud.isLoggedIn()) {
         showToast('请先在首页登录');
