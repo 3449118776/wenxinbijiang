@@ -207,6 +207,8 @@ const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens
 var MODEL_MAX_OUTPUT = {
   // DeepSeek —— 128K 上下文，实测支持 64K 输出
   'deepseek-chat': 65536,
+  'deepseek-v3': 65536,
+  'deepseek-v4': 65536,
   'deepseek-reasoner': 65536,
   'deepseek-coder': 65536,
   // 通义千问 (DashScope)
@@ -319,9 +321,9 @@ var MODEL_MAX_OUTPUT = {
 // 各模型的上下文窗口大小（token），用于判断是否能传完整架构内容
 var MODEL_CONTEXT_WINDOW = {
   // DeepSeek
-  'deepseek-chat': 65536,       // V4: 1M tokens
-  'deepseek-v4': 1000000,         // V4-Pro / V4-Flash
+  'deepseek-chat': 65536,       // DeepSeek-V3: 64K context
   'deepseek-v3': 131072,          // V3: 128K
+  'deepseek-v4': 1000000,          // V4-Pro / V4-Flash: 1M tokens
   'deepseek-reasoner': 65536,     // R1: 64K
   'deepseek-coder': 65536,
   // 通义千问 (DashScope)
