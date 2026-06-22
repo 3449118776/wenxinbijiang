@@ -3089,6 +3089,28 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   // 用户核心诉求放在第一位，优先级最高
   if(idea && idea.trim()){
     prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+
+    // v61: 从用户指令中提取禁止项，防止AI生成违规内容
+    var _forbiddenChecks = [];
+    var _ideaLower = idea.toLowerCase();
+    if(/无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神/.test(idea)) _forbiddenChecks.push('魔法、法术、魔力、元素、咒语、结界、传送门、神器、神迹、神祇');
+    if(/纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪/.test(idea)) _forbiddenChecks.push('任何超自然元素、神话生物、预言、天选之人、宿命、神权宗教');
+    if(/无系统|无面板|无金手指|无外挂|无穿越福利/.test(idea)) _forbiddenChecks.push('系统面板、属性加点、任务系统、签到奖励、抽奖、商城兑换');
+    if(/无修仙|无修真|无仙侠/.test(idea)) _forbiddenChecks.push('修仙、修真、渡劫、飞升、元婴、金丹、灵气、灵根');
+
+    if(_forbiddenChecks.length > 0){
+      prompt += '【🚫 禁止出现 — 以下内容绝对不允许出现在输出中，出现即视为生成失败】\n';
+      for(var _fci = 0; _fci < _forbiddenChecks.length; _fci++){
+        prompt += '- ' + _forbiddenChecks[_fci] + '\n';
+      }
+      prompt += '\n';
+    }
+
+    prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证】\n';
+    prompt += '1. 逐条对照上述用户核心诉求，确认每一条都已满足\n';
+    prompt += '2. 逐条对照上述禁止项，确认没有任何违规内容\n';
+    prompt += '3. 如果发现违规：删除违规内容，用符合用户指令的替代方案填补\n';
+    prompt += '4. 自检通过后再输出，不要输出未自检的内容\n\n';
   } else {
     prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
   }
