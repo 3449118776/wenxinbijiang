@@ -4709,7 +4709,7 @@ window.generateDetailForVolume = async function(volNum) {
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(progressPct, '正在生成细纲 · [第' + volNum + '卷·' + card.cardIndex + '/' + card.totalCards + '卡]');
       
       // 构建卡片 prompt
-      var cardPrompt = buildDetailCardPromptForVolume(work, volNum, card, idea, allCards, marketResearch, memoryContext, thisVolTarget, prevVolDetail, totalVols, chaptersPerVolume);
+      var cardPrompt = buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, memoryContext, thisVolTarget, prevVolDetail, totalVols, chaptersPerVolume);
       
       var cardResult = '';
       try {
@@ -4827,8 +4827,8 @@ window.generateDetailForVolume = async function(volNum) {
   } catch(e) { console.error('generateDetailForVolume error:', e); showToast('生成失败', { error: true, duration: 3000 }); if(typeof hideLoading === 'function') hideLoading(); }
 };
 
-// 为选卷生成构建卡片 prompt
-function buildDetailCardPromptForVolume(work, volNum, card, idea, prevCards, marketResearch, memoryContext, volTarget, prevVolDetail, totalVols, chaptersPerVolume){
+// 为选卷生成构建卡片 prompt（只依赖全局上下文，不注入已生成的卡片内容，命中缓存保证一致性）
+function buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, memoryContext, volTarget, prevVolDetail, totalVols, chaptersPerVolume){
   var prompt = '你是一位资深网文架构师，擅长拆解和构建章节细纲。\n\n';
   
   // 用户核心诉求
@@ -4841,7 +4841,7 @@ function buildDetailCardPromptForVolume(work, volNum, card, idea, prevCards, mar
     prompt += '【市场调研参考】\n' + marketResearch.substring(0, 1200) + '\n\n';
   }
   
-  // 记忆上下文
+  // 记忆上下文（世界观、人设、大纲等全局设定）
   if(memoryContext){
     prompt += '【已有设定记忆】\n' + memoryContext.substring(0, 2000) + '\n\n';
   }
@@ -4851,15 +4851,7 @@ function buildDetailCardPromptForVolume(work, volNum, card, idea, prevCards, mar
   
   // 前序卷细纲
   if(prevVolDetail){
-    prompt += '【前序卷细纲（已生成内容）】\n' + prevVolDetail.substring(0, 1500) + '\n\n';
-  }
-  
-  // 已生成的卡片（保持一致性）
-  if(prevCards && prevCards.length > 0){
-    prompt += '【已生成卡片（保持风格一致）】\n';
-    for(var pi = 0; pi < prevCards.length; pi++){
-      prompt += '【' + prevCards[pi].label + '】\n' + prevCards[pi].content.substring(0, 300) + '\n\n';
-    }
+    prompt += '【前序卷细纲（衔接参考）】\n' + prevVolDetail.substring(0, 1500) + '\n\n';
   }
   
   // 本卡片目标章节
