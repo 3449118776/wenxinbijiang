@@ -2765,16 +2765,17 @@ window.generateArchModule = async function(opts){
       var progressLabel2;
       var progressPct;
       
-      // 细纲模块：按卷计算进度，卡内进度用文字显示
+      // 计算当前卡片在整个批次中的进度位置
+      var cardProgress = (bi + 1) / batches.length; // 0~1
+      progressPct = 30 + Math.round(cardProgress * 58); // 30%~88%
+      
+      // 细纲模块：显示卷·卡序号
       if(module === 'detail' && card.volume){
         var volNum = card.volume;
         var cardIdx = card.cardIndex || 1;
         var totalCards = card.totalCards || 1;
-        var volProgress = (volNum - 1) / actualTotalVols; // 0~1 按卷进度
-        progressPct = 35 + Math.round(volProgress * 50); // 35%~85%
-        progressLabel2 = '[' + volNum + '/' + actualTotalVols + '卷·' + cardIdx + '/' + totalCards + '卡] ' + card.label;
+        progressLabel2 = '[第' + volNum + '卷·' + cardIdx + '/' + totalCards + '卡] ' + card.label;
       } else {
-        progressPct = 35 + Math.round((bi / batches.length) * 55);
         progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
       }
 
