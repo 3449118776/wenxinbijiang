@@ -2580,6 +2580,7 @@ window.generateArchModule = async function(opts){
 
       var _skSucceeded = false;
       var _skFeedback = '';
+      var _skeletonBlueprint = ''; // 骨架存入独立变量，不污染 marketResearch（保证缓存命中）
       for(var skAttempt = 1; skAttempt <= 1; skAttempt++){
         // 改用 updateLoadingProgress，保持进度连续
         var skPct = 15 + (skAttempt - 1) * 5;
@@ -2609,12 +2610,12 @@ window.generateArchModule = async function(opts){
             } else {
               // 最后一次仍不通过，注入警告但继续
               if(typeof showToast === 'function') showToast('⚠️ 骨架3次自检均不通过，将按最后一版继续生成', {duration: 5000});
-              marketResearch = (marketResearch || '') + '\n\n【骨架（3次自检均不通过，建议修改提示词后重试）】\n' + skText;
+              _skeletonBlueprint = '【骨架（3次自检均不通过，建议修改提示词后重试）】\n' + skText;
             }
           } else {
             // 通过
             if(typeof showToast === 'function') showToast('✅ 骨架自检通过（第' + skAttempt + '次），开始生成…', {duration: 2000});
-            marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
+            _skeletonBlueprint = '【骨架蓝图（已通过用户诉求自检）】\n' + skText;
             _skSucceeded = true;
             break;
           }
@@ -2627,7 +2628,7 @@ window.generateArchModule = async function(opts){
       }
       // 如果 _skFeedback 仍不为空但没通过，也注入到上下文中让AI知道
       if(!_skSucceeded && _skFeedback){
-        marketResearch = (marketResearch || '') + '\n\n【骨架自检反馈（AI需自行修正）】\n' + _skFeedback;
+        _skeletonBlueprint = '【骨架自检反馈（AI需自行修正）】\n' + _skFeedback;
       }
     }
 
@@ -2699,7 +2700,8 @@ window.generateArchModule = async function(opts){
           opts && opts.extraHint,
           marketResearch,
           memoryContext,
-          userChPerVol
+          userChPerVol,
+          _skeletonBlueprint
         );
 
         // 调用 AI 生成本卷
@@ -2786,7 +2788,7 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext, _skeletonBlueprint);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -3263,7 +3265,7 @@ function buildArchCardBatchesV48(module, work, idea){
 
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext, skeleton){
   idea = idea || '';
   // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
   try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
@@ -3296,6 +3298,11 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
 
   // ⭐ AI命中缓存机制：不注入动态上下文（prevCards/work[module]/memoryContext）
   // 大模型自身超强上下文能力 + 缓存命中保证卡片间的一致性和完整性
+
+  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  if(skeleton && skeleton.trim()){
+    prompt += '【🧠 骨架蓝图】\n' + smartTruncate(skeleton, 600) + '\n\n';
+  }
 
   var trend = getTrendHint2026(work);
   if(trend){
@@ -3530,7 +3537,7 @@ function extractOutlineTargetsV52(work){
 // 设计原则：细纲内容最多、对作品把控最严格，所以每一卷都独立调用 AI；
 // 但每次调用都携带：(a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲。
 // 这样即使大模型也不会在"一次性完整输出"时出现上下文断裂、伏笔遗忘、人设漂移。
-function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVolDetail, idea, extraHint, marketResearch, memoryContext, chaptersPerVol){
+function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVolDetail, idea, extraHint, marketResearch, memoryContext, chaptersPerVol, skeleton){
   var title = (work && work.title) || '未命名作品';
   var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
   var platform = '起点';
@@ -3587,6 +3594,11 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   }
   if(marketResearch && marketResearch.trim()){
     ctxMsg += '【📊 题材市场调研报告 · 灵感来源】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  }
+
+  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  if(skeleton && skeleton.trim()){
+    ctxMsg += '【🧠 骨架蓝图】\n' + smartTruncate(skeleton, 600) + '\n\n';
   }
 
   // 共享长记忆上下文
@@ -4554,6 +4566,7 @@ window.generateDetailForVolume = async function(volNum) {
 
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
+    var _detSkeleton = ''; // 骨架独立变量，不污染 marketResearch
 
     if(typeof resetLoading === 'function') resetLoading('正在生成第 ' + volNum + ' 卷细纲…');
     else if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…');
@@ -4658,7 +4671,7 @@ window.generateDetailForVolume = async function(volNum) {
       if(skR && skR.trim()) skeletonResult = skR.trim();
     } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
     
-    if(skeletonResult) marketResearch = (marketResearch || '') + '\n\n【骨架蓝图】\n' + skeletonResult;
+    if(skeletonResult) _detSkeleton = skeletonResult; // 存入独立变量，不污染 marketResearch
     if(!_checkStillSameWork()) return;
 
     // ===== 5. 逐卡片生成（只生成，不评价） =====
@@ -4675,7 +4688,7 @@ window.generateDetailForVolume = async function(volNum) {
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(progressPct, '正在生成细纲 · [第' + volNum + '卷·' + card.cardIndex + '/' + card.totalCards + '卡]');
       
       // 构建卡片 prompt
-      var cardPrompt = buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, thisVolTarget, prevVolDetail, totalVols, chaptersPerVolume);
+      var cardPrompt = buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, thisVolTarget, prevVolDetail, totalVols, chaptersPerVolume, _detSkeleton);
       
       var cardResult = '';
       try {
@@ -4820,12 +4833,17 @@ window.generateDetailForVolume = async function(volNum) {
 };
 
 // 为选卷生成构建卡片 prompt（不注入动态上下文，命中缓存保证一致性）
-function buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, volTarget, prevVolDetail, totalVols, chaptersPerVolume){
+function buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, volTarget, prevVolDetail, totalVols, chaptersPerVolume, skeleton){
   var prompt = '你是一位资深网文架构师，擅长拆解和构建章节细纲。\n\n';
   
   // 用户核心诉求
   if(idea && idea.trim()){
     prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行】\n' + idea.trim() + '\n\n';
+  }
+  
+  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  if(skeleton && skeleton.trim()){
+    prompt += '【🧠 骨架蓝图】\n' + skeleton.substring(0, 600) + '\n\n';
   }
   
   // 市场调研
@@ -4978,7 +4996,7 @@ function generateArchCardSingle(module, card, idea, callback){
   var memoryContext = '';
   try { if (typeof buildMemoryContextString === 'function') { var mctx = buildMemoryContextString(work); if (mctx) memoryContext = mctx.substring(0, 2000); } } catch(e){}
 
-  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext);
+  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext, '');
   var cardTargetChars = card.targetChars || 3000;
 
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
