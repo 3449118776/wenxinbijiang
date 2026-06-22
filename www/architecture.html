@@ -2872,13 +2872,13 @@ window.generateArchModule = async function(opts){
         var _curScore = evalResult.totalScore || 0;
         var _needFix = false;
 
-        // 检查是否需要修复：总分<90 或 任何维度<9
-        if(_curScore < 90){
+        // 检查是否需要修复：总分<80 或 任何维度<7/10
+        if(_curScore < 80){
           _needFix = true;
         } else if(evalResult.dimensions && evalResult.dimensions.length){
           for(var _di = 0; _di < evalResult.dimensions.length; _di++){
             var _d = evalResult.dimensions[_di];
-            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.9){
+            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.7){
               _needFix = true; break;
             }
           }
@@ -2892,7 +2892,7 @@ window.generateArchModule = async function(opts){
           if(evalResult.dimensions && evalResult.dimensions.length){
             for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
               var _d2 = evalResult.dimensions[_di2];
-              if(_d2.score !== undefined && _d2.max !== undefined && (_d2.score / _d2.max) < 0.9){
+              if(_d2.score !== undefined && _d2.max !== undefined && (_d2.score / _d2.max) < 0.7){
                 _fixIssues.push('【' + _d2.name + ' ' + _d2.score + '/' + _d2.max + '分】' + (_d2.issues && _d2.issues.length ? _d2.issues[0] : '需提升'));
               }
             }
@@ -2948,8 +2948,8 @@ window.generateArchModule = async function(opts){
           }
         }
 
-        // ⭐ 保底机制：当评分极低（<70）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
-        if(_curScore < 70){
+        // ⭐ 保底机制：当评分极低（<60）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
+        if(_curScore < 60){
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🛡️ ' + moduleName + ' · 保底一致性修复中…');
           
           var _backupPrompt = '你是一位资深网文编辑。当前生成的内容存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
