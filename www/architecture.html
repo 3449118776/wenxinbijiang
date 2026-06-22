@@ -2435,6 +2435,90 @@ function buildModuleSummaryContext(work, currentModule){
   return ctx.trim();
 }
 
+// ===== 架构模块缓存机制：基于前置模块内容的hash检测 =====
+function getArchCacheHash(content) {
+  if (!content || !content.trim()) return '';
+  // 简单hash：用内容长度 + 首尾字符 + 关键词数量
+  var len = content.length;
+  var first = content.substring(0, 50);
+  var last = content.slice(-50);
+  var keyCount = (content.match(/[■■★◆●]/g) || []).length;
+  return len + '_' + first.charCodeAt(0) + '_' + last.charCodeAt(last.length - 1) + '_' + keyCount;
+}
+
+function checkArchCache(work, module, idea, extraHint) {
+  // 初始化缓存结构
+  if (!work._archCache) work._archCache = {};
+  if (!work._archCache[module]) work._archCache[module] = {};
+
+  var cache = work._archCache[module];
+
+  // 计算本次输入的hash
+  var inputHash = getArchCacheHash((idea || '') + '|' + (extraHint || '') + '|' + (work.genre || ''));
+
+  // 检查前置依赖的hash（人设依赖世界观，大纲依赖世界观+人设，细纲依赖世界观+人设+大纲）
+  var deps = { chars: ['world'], outline: ['world', 'chars'], detail: ['world', 'chars', 'outline'] };
+  var depHashes = {};
+  var depsChanged = false;
+
+  if (deps[module]) {
+    for (var di = 0; di < deps[module].length; di++) {
+      var depMod = deps[module][di];
+      var depContent = work[depMod] || '';
+      var currentHash = getArchCacheHash(depContent);
+      depHashes[depMod] = currentHash;
+
+      // 检查前置内容是否变化
+      if (cache._depHashes && cache._depHashes[depMod] && cache._depHashes[depMod] !== currentHash) {
+        depsChanged = true;
+        break;
+      }
+    }
+  }
+
+  // 检查是否命中缓存
+  var hitCache = false;
+  var cachedResult = null;
+
+  if (!depsChanged && cache._inputHash === inputHash && cache.result && cache.result.trim()) {
+    // 命中缓存：前置依赖没变 + 输入提示词没变
+    hitCache = true;
+    cachedResult = cache.result;
+
+    // 更新依赖hash（保持最新）
+    cache._depHashes = depHashes;
+    cache._inputHash = inputHash;
+  } else {
+    // 未命中缓存：准备重新生成，先记录本次的依赖hash
+    cache._depHashes = depHashes;
+    cache._inputHash = inputHash;
+  }
+
+  return { hitCache: hitCache, cachedResult: cachedResult };
+}
+
+function saveArchCache(work, module, result) {
+  if (!work._archCache) work._archCache = {};
+  if (!work._archCache[module]) work._archCache[module] = {};
+
+  var cache = work._archCache[module];
+
+  // 计算所有依赖的hash
+  var deps = { chars: ['world'], outline: ['world', 'chars'], detail: ['world', 'chars', 'outline'] };
+  var depHashes = {};
+  if (deps[module]) {
+    for (var di = 0; di < deps[module].length; di++) {
+      var depMod = deps[module][di];
+      depHashes[depMod] = getArchCacheHash(work[depMod] || '');
+    }
+  }
+
+  // 保存到缓存
+  cache._depHashes = depHashes;
+  cache.result = result;
+  cache._updatedAt = Date.now();
+}
+
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
 window.generateArchModule = async function(opts){
   opts = opts || {};
@@ -2446,6 +2530,34 @@ window.generateArchModule = async function(opts){
       showToast('请先选择一部作品', {error:true});
       goToLevel(2);
       return;
+    }
+
+    // ===== 架构模块缓存检查：前置内容没变则直接用缓存结果 =====
+    // 只有非迭代修复模式才检查缓存（isFix=true 时强制重新生成）
+    if(!opts.isFix && module !== 'world'){
+      var cacheResult = checkArchCache(work, module, idea, opts && opts.extraHint);
+      if(cacheResult.hitCache && cacheResult.cachedResult){
+        // 命中缓存：直接使用缓存结果，跳过AI调用
+        if(typeof hideLoading === 'function') hideLoading();
+
+        var result = cacheResult.cachedResult;
+        work[module] = result;
+
+        // 更新编辑区
+        var rawEl = document.getElementById('raw-' + module);
+        if(rawEl){
+          rawEl.value = result;
+          rawEl.style.height = 'auto';
+          rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
+        }
+
+        showToast('✅ ' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + ' 命中缓存（前置内容未变）· ' + result.length + '字', {duration: 4000});
+
+        // 触发保存
+        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+
+        return;
+      }
     }
 
     // ===== 关键：锁定当前作品，防止异步期间用户切换作品导致内容串档 =====
@@ -2910,7 +3022,10 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
-    
+
+    // 保存到架构缓存（前置内容没变时可直接复用）
+    try { saveArchCache(work, module, result); } catch(cacheErr) { console.warn('[架构缓存] 保存失败:', cacheErr); }
+
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
     try {
       if(!work.longMemory) work.longMemory = {};
