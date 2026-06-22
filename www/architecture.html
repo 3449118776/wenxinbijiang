@@ -2967,20 +2967,63 @@ window.generateArchModule = async function(opts){
         var cardTargetChars = card.targetChars || 800;
 
         var cardResult = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            cardResult = await callRealAPI(cardPrompt, null, {});
+        var cardBestResult = null;
+        var cardBestScore = 0;
+        var cardIterCount = 0;
+        var maxCardIterations = 3; // 每张卡片最多迭代3次
+
+        // 卡片级别迭代：最多3次，保留最高分结果
+        while(cardIterCount < maxCardIterations){
+          try{
+            if(typeof callRealAPIWithFallback === 'function'){
+              cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+            } else if(typeof callRealAPI === 'function'){
+              cardResult = await callRealAPI(cardPrompt, null, {});
+            }
+          }catch(e){
+            console.warn('卡片 ' + card.label + ' 生成失败:', e);
+            cardResult = '（本卡片生成失败）\n';
           }
-        }catch(e){
-          console.warn('卡片 ' + card.label + ' 生成失败:', e);
-          cardResult = '（本卡片生成失败）\n';
+
+          if(!cardResult || !cardResult.trim()){
+            cardResult = '（本卡片生成失败，请重试）\n';
+          }
+
+          // 评价本次生成结果
+          var cardEvalScore = 0;
+          try{
+            if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+              var cardEval = QualityEngine.evaluate(cardResult, module);
+              cardEvalScore = cardEval.totalScore || 0;
+            }
+          }catch(evalE){ cardEvalScore = 50; }
+
+          // 保留最高分结果
+          if(cardEvalScore > cardBestScore){
+            cardBestResult = cardResult;
+            cardBestScore = cardEvalScore;
+          }
+
+          // 分数 >= 85 或已迭代3次，结束迭代
+          if(cardBestScore >= 85 || cardIterCount >= maxCardIterations - 1){
+            break;
+          }
+
+          // 分数 < 85，准备下一次迭代
+          cardIterCount++;
+          var cardIterHint = '⚠️ 第' + cardIterCount + '次生成评分 ' + cardEvalScore + '/100，需要加强。\n';
+          cardIterHint += '请针对以下问题精准修补，不要重新生成整体：\n';
+          try{
+            if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide){
+              var _fg2 = QualityEngine.getFixGuide(module);
+              if(_fg2) cardIterHint += smartTruncate(_fg2, 800);
+            }
+          }catch(e){}
+          cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, cardIterHint, marketResearch, memoryContext);
         }
 
-        if(!cardResult || !cardResult.trim()){
-          cardResult = '（本卡片生成失败，请重试）\n';
-        }
+        // 使用最高分结果
+        cardResult = cardBestResult || cardResult;
         if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
         allCards.push({ label: card.label, content: cardResult });
