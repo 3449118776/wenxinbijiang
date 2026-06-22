@@ -3287,11 +3287,17 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
 
   var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
 
-  // 用户核心诉求放在第一位，优先级最高
+  // 用户核心诉求放在第一位，优先级最高——这是唯一权威的创作方向
   if(idea && idea.trim()){
-    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+    prompt += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
+    prompt += '用户指令：' + idea.trim() + '\n';
+    prompt += '⚠️ 执行规则：\n';
+    prompt += '  - 用户指令中明确提到的设定/人物/风格/情节 → 必须严格遵循，逐字落实\n';
+    prompt += '  - 用户指令中明确提到的限制（如"不要出现XX""必须是普通人"）→ 绝对不能违反\n';
+    prompt += '  - 用户指令中未明确的部分 → 你可以参考市场调研和趋势数据来自由发挥\n';
+    prompt += '  - 用户指令中暗示的方向 → 沿该方向深入扩展，不要引入无关内容\n\n';
   } else {
-    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材和市场趋势自由发挥】\n\n';
   }
 
   prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
@@ -3309,19 +3315,19 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   // ⭐ AI命中缓存机制：不注入动态上下文（prevCards/work[module]/memoryContext）
   // 大模型自身超强上下文能力 + 缓存命中保证卡片间的一致性和完整性
 
-  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
   if(skeleton && skeleton.trim()){
-    prompt += '【🧠 骨架蓝图】\n' + smartTruncate(skeleton, 600) + '\n\n';
+    prompt += '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
   }
 
   var trend = getTrendHint2026(work);
   if(trend){
-    prompt += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
+    prompt += '【📊 市场趋势参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(trend, 400) + '\n\n';
   }
 
   // 市场调研报告
   if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
+    prompt += '【📊 市场调研参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
   }
 
   // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高
@@ -3339,8 +3345,9 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
   prompt += '2. 不要输出与本卡片无关的内容（如创作思路、解释说明）\n';
   prompt += '3. 段落清晰，用「■」标记关键子项\n';
-  prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
+  prompt += '4. **目标字数：本卡片必须输出不少于 ' + card.targetChars + ' 字，这是硬性要求，不得压缩内容，充分展开每一个细节**\n';
   prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
+  prompt += '6. 以上所有内容必须严格遵循用户创作指令，不得偏离用户指令的方向\n';
   if(module === 'detail' && card.volume){
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
     prompt += '7. 本卷细纲的章节编号从第 ' + card.chapterRange + ' 章开始\n';
@@ -3449,9 +3456,11 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   // ===== 用户消息1：上下文（模块特定，共享前缀可被缓存）=====
   var ctxMsg = '';
 
-  // 用户核心诉求
+  // 用户核心诉求放在第一位——唯一权威
   if(idea && idea.trim()){
-    ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+    ctxMsg += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
+    ctxMsg += '用户指令：' + idea.trim() + '\n';
+    ctxMsg += '⚠️ 执行规则：用户指令明确提到的设定/人物/风格/情节 → 必须严格遵循；用户指令未明确的部分 → 参考市场调研自由发挥\n\n';
   }
 
   // 前置架构：世界观 + 人设 + 大纲
@@ -3470,18 +3479,18 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
     ctxMsg += smartTruncate(volTarget, 2500) + '\n\n';
   }
 
-  // 趋势 + 市场调研
+  // 趋势 + 市场调研（仅填补用户指令未覆盖的空白）
   var trend = getTrendHint2026(work);
   if(trend){
-    ctxMsg += '【2026 年题材趋势参考】\n' + smartTruncate(trend, 600) + '\n\n';
+    ctxMsg += '【📊 市场趋势参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(trend, 600) + '\n\n';
   }
   if(marketResearch && marketResearch.trim()){
-    ctxMsg += '【📊 题材市场调研报告 · 灵感来源】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+    ctxMsg += '【📊 市场调研参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
   }
 
-  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
   if(skeleton && skeleton.trim()){
-    ctxMsg += '【🧠 骨架蓝图】\n' + smartTruncate(skeleton, 600) + '\n\n';
+    ctxMsg += '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
   }
 
   // 共享长记忆上下文
@@ -4795,19 +4804,21 @@ window.generateDetailForVolume = async function(volNum) {
 function buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, volTarget, prevVolDetail, totalVols, chaptersPerVolume, skeleton){
   var prompt = '你是一位资深网文架构师，擅长拆解和构建章节细纲。\n\n';
   
-  // 用户核心诉求
+  // 用户核心诉求放在第一位——唯一权威
   if(idea && idea.trim()){
-    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行】\n' + idea.trim() + '\n\n';
+    prompt += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
+    prompt += '用户指令：' + idea.trim() + '\n';
+    prompt += '⚠️ 执行规则：用户指令明确提到的设定/人物/风格/情节 → 必须严格遵循；用户指令未明确的部分 → 参考市场调研自由发挥\n\n';
   }
   
-  // 骨架蓝图（仅当存在时注入，同骨架→同prompt→命中缓存）
+  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
   if(skeleton && skeleton.trim()){
-    prompt += '【🧠 骨架蓝图】\n' + skeleton.substring(0, 600) + '\n\n';
+    prompt += '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + skeleton.substring(0, 600) + '\n\n';
   }
   
-  // 市场调研
+  // 市场调研（仅填补用户指令未覆盖的空白）
   if(marketResearch){
-    prompt += '【市场调研参考】\n' + marketResearch.substring(0, 1200) + '\n\n';
+    prompt += '【📊 市场调研参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + marketResearch.substring(0, 1200) + '\n\n';
   }
   
   // 本卷目标
