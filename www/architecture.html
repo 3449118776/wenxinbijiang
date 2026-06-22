@@ -2847,7 +2847,7 @@ window.generateArchModule = async function(opts){
       var fullDetailResult = '';
       var prevVolDetail = '';
       var detailAllCards = [];
-      var volTargetChars = userChPerVol * 220; // 约每章 220 字
+      var volTargetChars = userChPerVol * 400; // 约每章 400 字，更详细的细纲
 
       for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
         // ===== 每次卷生成前校验：作品被切换则立即中止 =====
@@ -2941,63 +2941,9 @@ window.generateArchModule = async function(opts){
       useSingleShot = isLargeContextModel();
     }
 
-    // 4b. 大模型：一次性完整生成；小模型：逐卡片分批生成（仅非 detail 模块执行）
-    if(module !== 'detail' && useSingleShot){
-      // ⭐ v52：大模型一次性生成完整模块（避免逐张卡片导致上下文断裂）
-      // 结构规划（batches 列表）仍被 buildArchSinglePromptV52 注入为"要写哪些部分"，但 AI 自己连贯输出
-      var progressLabel = '完整' + moduleName + '（一次性生成）';
-      if(typeof startAutoLoadingProgress === 'function'){
-        startAutoLoadingProgress(72, '正在生成 ' + moduleName + ' · ' + progressLabel);
-      } else if(typeof updateLoadingProgress === 'function'){
-        updateLoadingProgress(35, '正在生成 ' + moduleName + ' · ' + progressLabel);
-      }
-      if(!_checkStillSameWork()) return;
-
-      var bigPrompt = buildArchSinglePromptV52(module, batches, work, idea, opts && opts.extraHint, marketResearch, memoryContext);
-      var bigTarget = 0;
-      for(var tbi = 0; tbi < batches.length; tbi++){
-        bigTarget += batches[tbi].targetChars || 1000;
-      }
-      // ⭐ v56：当模块已有内容时，以"不低于已有内容字数 + 30%"为目标，防止迭代后内容越来越少
-      if(work && work[module] && work[module].trim()){
-        var _existingContentLen = work[module].trim().length;
-        var _adaptiveTarget = Math.floor(_existingContentLen * 1.3);
-        bigTarget = Math.max(bigTarget, _adaptiveTarget);
-      }
-
-      var bigResult = null;
-      try{
-        if(typeof callRealAPIWithFallback === 'function'){
-          bigResult = await callRealAPIWithFallback(bigPrompt, null, taskType, bigTarget, true);
-        } else if(typeof callRealAPI === 'function'){
-          bigResult = await callRealAPI(bigPrompt, null, {});
-        }
-      }catch(e){
-        console.warn('完整模块生成失败:', e);
-        bigResult = '（生成失败，请重试）\n';
-      }
-      if(!_checkStillSameWork()) return;
-
-      if(!bigResult || !bigResult.trim()){
-        bigResult = '（生成失败，请重试）\n';
-      }
-      if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
-
-      // ⭐ v57：从AI输出中提取最终内容，最终评价始终用本地 QualityEngine（quality.js），不用AI自评分
-      var _parsedResult = _parseAISelfEvalOutput(bigResult.trim(), module);
-      result = _parsedResult.content;
-      totalChars = result.length;
-      // 始终用本地 quality.js 的 QualityEngine 做权威评价；AI 自评价仅保留作内部迭代参考
-      var _aiEvalResult = _parsedResult.eval; // 仅用于参考，不作为最终评价
-      try {
-        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-          _aiEvalResult = QualityEngine.evaluate(result, module);
-        }
-      } catch(e){}
-      // 一次性生成：allCards 只有一张"完整"卡片（用于后续记忆精要提取）
-      allCards.push({ label: moduleName + '·完整生成', content: result });
-    } else if(module !== 'detail'){
-      // 小模型：保持原分批策略（逐卡片生成，每张卡片独立调用 AI）
+    // 4b. 统一卡片式生成（大模型/小模型都用卡片）
+    // 每张卡片独立缓存，前置内容没变时直接命中缓存，节省 token
+    if(module !== 'detail'){
       for(var bi = 0; bi < batches.length; bi++){
         if(!_checkStillSameWork()) return;
 
@@ -3219,79 +3165,79 @@ function buildArchCardBatchesV48(module, work, idea){
     // 世界观：8 张卡片，每张聚焦一个维度，极度精细，覆盖大型世界观需求
     batches.push({
       label: '世界观·时代定位与历史脉络',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '时间线与历史背景 — 精确到年号/纪元的时代定位（可用架空纪年）、至少4个改变世界格局的重大历史事件（每件写清：起因→经过→后果→对当前时代活的直接影响，必须能用在后文剧情中）、当前时代的核心特征（为什么这个时代能产生好故事——是乱世出英雄？还是盛世藏暗流？）、历史遗留的未解之谜（至少3个，将成为跨卷伏笔）、时代特有的禁忌与规则（触碰会怎样，谁在维护这些规则）'
     });
     batches.push({
       label: '世界观·地理环境与生态资源',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '地理设定与自然资源 — 核心区域（至少5个，每个写清：名称、地理位置、气候特征、资源特产、交通路线、与主角的关联）、边缘地带/禁地/秘境（至少3个，为什么危险、隐藏什么秘密、谁在探索）、自然资源分布（什么资源稀缺、什么资源是争夺焦点）、生态链（有哪些关键物种/灵兽/魔兽，它们与人类/文明的关系）、对文明发展的影响（地理如何塑造了各地区的发展路径和文化差异）'
     });
     batches.push({
       label: '世界观·文明体系与文化特征',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '文明与文化体系 — 主流文明（至少2个，每个写清：核心理念、发展历程、代表性建筑/艺术/科技、与其他文明的交流或冲突）、宗教/信仰体系（至少2个，每个写清：核心教义、信徒群体、神职人员、圣地、对政治的影响）、语言与文字（是否统一语言、是否有失传的古文字、是否有只有特定种族/阶层才能读的语言）、节日与习俗（至少3个重要节日，每个写清：起源、庆祝方式、谁参与谁排斥、是否有潜在的故事冲突）、文化禁忌（至少3个，触碰的后果是什么）'
     });
     batches.push({
       label: '世界观·力量体系完整规则',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '力量体系与规则 — 完整等级划分（每级：名称、标志性能力、突破条件、突破失败代价、在总人口中的占比）、力量的来源（来自修炼/血脉/科技/契约/信仰？来源是否有限？）、力量的限制（天花板在哪、为什么不能无限升级、是否有副作用/代价）、力量的分类（至少3种不同类型的力量体系，它们之间的克制/互补关系）、力量体系对社会的影响（强者如何统治、弱者如何生存、力量等级是否决定社会地位）、力量体系对剧情的推动（至少3个与力量体系直接相关的冲突点和转折点）'
     });
     batches.push({
       label: '世界观·势力分布与政治格局',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '社会结构与势力分布 — 主要势力（至少5个，每个写清：名称、首领、崛起历史、核心理念、势力范围、核心资源、内部派系、对外关系）、势力间的对立关系（至少4组对立，每组写清：表面关系vs暗地关系、利益冲突点、即将爆发的导火索、谁在调停谁在拱火）、政治体制（各势力的统治方式：君主制/议会制/长老会/宗教统治/强者独裁？）、底层民众的生存状态（他们如何被卷入势力斗争、有没有自己的组织或反抗力量）、隐藏势力/第三方力量（至少2个，在关键时刻搅局，谁也不知道它们的存在）'
     });
     batches.push({
       label: '世界观·经济体系与资源博弈',
-      targetChars: 2500,
+      targetChars: 4000,
       focus: '经济与资源体系 — 货币体系（统一货币还是各势力各自发行？货币名称、兑换率、购买力、是否有稀缺物资充当特殊货币）、贸易网络（至少3条主要贸易路线，每条写清：起点→终点、运输什么、谁掌控、风险是什么）、稀有资源（至少3种，每种写清：名称、用途、产地、谁垄断、为什么稀缺）、经济命脉（谁掌控世界经济命脉、经济不平等如何加剧社会矛盾）、黑市与地下交易（有没有地下经济、谁在运营、交易什么）'
     });
     batches.push({
       label: '世界观·种族与阶层',
-      targetChars: 2500,
+      targetChars: 4000,
       focus: '种族与社会阶层 — 主要种族/物种（至少3个，每个写清：外形特征、寿命、天赋/弱点、社会地位、与其他种族的关系、是否有种族歧视或结盟）、社会阶层划分（至少4个阶层，每个写清：构成人群、生活状态、上升通道、与主角的关联）、阶层间的矛盾（贫富差距、种族歧视、新旧贵族之争、平民与特权阶层的冲突）、边缘群体（有没有被社会排斥的群体、他们的生存方式、会不会成为主角的盟友或敌人）、主角所处的阶层（他/她出身的阶层、有哪些限制、如何突破）'
     });
     batches.push({
       label: '世界观·核心矛盾与悬念钩子',
-      targetChars: 2500,
+      targetChars: 4000,
       focus: '世界观矛盾与悬念钩子 — 核心矛盾（表层矛盾：谁和谁在打+为什么；深层矛盾：真正的原因是什么，99%的人不知道，这个真相何时揭露）、势力间的暗流（至少4条暗线，每条写清：谁在策划什么、为什么不被发现、什么时候浮出水面）、世界观级悬念钩子（至少5个未解之谜，每个标注：谁在追查、预计何时揭晓、揭晓后会引发什么连锁反应）、主角与世界规则的冲突点（主角为什么是打破规则的人、他/她的存在本身是不是对世界规则的威胁）、世界即将面临的变局（至少2个大事件即将发生，改变一切，它们是什么、谁在推动、主角如何被卷入）'
     });
   } else if(module === 'chars'){
     // 人设：7 张卡片，覆盖主角、反派、配角、关系角色 + 关系网
     batches.push({
       label: '主角·核心设定',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '主角（1位，最核心的那位）：姓名（含含义/外号）、年龄、完整外貌描写（3个辨识点，如伤疤/纹身/习惯动作）、核心动机（不是"变强"，而是具体到"为XX报仇/找到XX/证明XX"，必须能失败）、最大执念（执念到偏执的程度，让他做出不理性选择）、最大弱点/缺陷（性格缺陷，不是能力缺陷，让读者又爱又恨）、人物弧光（起点状态→终点状态，中间至少2次动摇）、核心能力/资源（初始能力+隐藏潜力，标注限制条件）、外在面具 vs 真实自我（他装出来的样子和他真正是什么人）、标志性台词/口头禅（至少2句，读者一看就知道是他说的）、3个让读者记住的细节瞬间'
     });
     batches.push({
       label: '主角·成长轨迹',
-      targetChars: 2500,
+      targetChars: 4000,
       focus: '主角成长轨迹 — 开局状态（他一无所有/被压制/被误解的具体处境）、第1次觉醒（什么事件触发、他获得了什么、付出了什么代价）、第1次挫折（他失败在哪里、如何爬起来、心态变化）、第1次重大选择（两难抉择，无论选什么都失去重要的东西）、中期转折（他发现自己一直被蒙蔽/利用）、后期蜕变（他真正成为什么样的人，和开局的反差）、最终结局（他得到了什么、失去了什么、他是否还是原来的自己）'
     });
     batches.push({
       label: '反派·核心设定',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '主要反派（1位）：姓名、身份/地位、核心目标（他认为自己在做正确的事，写出他的正义观）、与主角的根本冲突（不是简单的善恶对立，而是理念/立场/利益的不可调和）、反派的人设亮点（至少2个让读者觉得"他也有道理"的点）、弱点/软肋（他最在乎的人或事，这是打败他的关键）、与主角的旧关系或镜像关系（他们曾经是朋友/师徒/同类人？）、反派的3步计划（他已经做了什么、正在做什么、最终要做什么）、反派的结局预想（他最终会怎样，是悔悟/毁灭/还是另一种结局）'
     });
     batches.push({
       label: '反派·阵营与暗线',
-      targetChars: 2000,
+      targetChars: 3500,
       focus: '反派阵营 — 核心手下2-3位（每人：姓名、职位、能力、对反派的忠诚度、个人小算盘）、反派阵营的内部矛盾（谁可能背叛、为什么）、反派隐藏的底牌（至少2张，在关键时刻翻出来）、反派与主角阵营的暗线交集（谁其实是双面间谍/谁有隐藏身份）'
     });
     batches.push({
       label: '关键配角（盟友系）',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '主角阵营关键配角 3-4 位，每人必须写清：姓名、身份、与主角的关系（怎么认识的、为什么跟着主角）、独特作用（战斗/情报/情感/搞笑，至少一个不可替代的功能）、一句话标签（读者秒记）、性格辨识点（说话方式/习惯动作/口头禅）、个人秘密（至少1个，在关键时刻揭露）、他/她的成长线（从什么状态到什么状态）、如果这个角色死了对主角的打击'
     });
     batches.push({
       label: '关键配角（对手/中立系）',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '对手/中立系关键配角 2-3 位（每人同上格式：姓名、身份、与主角的关系、独特作用、性格辨识点、个人秘密、成长线）+ 中立势力的关键人物（至少1位，他/她为什么保持中立、在什么情况下会倒向主角或反派）'
     });
     batches.push({
       label: '重要关系角色 + 全人物关系网',
-      targetChars: 2500,
+      targetChars: 4000,
       focus: '（1）恋爱对象/CP角色（如果有）：姓名、外貌、性格、与主角的相遇方式、感情线推进节奏（暧昧→确认→考验→结局）、两人关系中的核心矛盾（不是小三，而是价值观/立场/隐瞒的冲突）、如果BE/如果HE分别是什么结局。（2）导师/引路人（如果有）：姓名、身份、教给主角什么、对主角的期望、最终结局（牺牲/退隐/背叛？）。（3）家族/亲缘关系（如果有）：父母/兄弟姐妹/家族背景，这些关系如何影响主角的行为和选择。（4）完整人物关系网：画出所有主要角色间的张力线（至少10条），每条线标注：关系类型（爱情/亲情/师徒/敌对/合作/利用/暗恋）、当前状态（亲密/疏远/对立/暧昧）、冲突点（什么会让这条关系破裂或转变）、转折预期（这条关系最终走向何方）'
     });
   } else if(module === 'outline'){
@@ -3312,7 +3258,7 @@ function buildArchCardBatchesV48(module, work, idea){
     
     batches.push({
       label: '开篇设计（前3章）',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '开篇3章精设计 — 第1章：开场画面（具体场景+感官细节）、主角出场方式（让读者3秒内记住他）、核心冲突引入（主角面临的第一个危机）、钩子设计（章末必须让读者想翻下一页）；第2章：世界观初窥（通过事件而非说明展示）、第一个爽点/虐点、新角色引入；第3章：第一个小高潮（主角的第一次胜利或第一次惨败）、主线任务明确（主角的目标是什么）、留下3个悬念。每章必须标注：情绪曲线（紧张→释放→更紧张）、读者预期管理（读者以为会怎样→实际怎样）'
     });
     for(var vi = 0; vi < userVolCount; vi++){
@@ -3320,14 +3266,14 @@ function buildArchCardBatchesV48(module, work, idea){
       var phase = volPhases[vi] || '';
       batches.push({
         label: '第 ' + volNum + ' 卷（' + phase + '）',
-        targetChars: 2000,
+        targetChars: 3500,
         focus: '第 ' + volNum + ' 卷（' + phase + '期）：【本卷核心冲突】主角外部对手是谁+内心挣扎是什么，两者必须交织。【本卷主角阶段性目标】具体可检验可失败的目标，不是"变强"而是"在XX之前拿到XX/阻止XX/救出XX"。【本卷核心事件】6-8个转折点，每个写清：触发原因→主角选择→后果→对后续影响，标注哪些是爽点/虐点/泪点。【本卷结束后】主角获得/失去了什么（物质+精神双重变化）、世界发生了什么变化、主角的处境是上升还是恶化。【本卷伏笔】至少3条跨卷伏笔，标注预计在哪一卷回收。【本卷爽点设计】完整的"压抑→爆发"链路，不是突然变强而是有铺垫。【本卷情感线推进】主角与关键角色的关系发生了什么变化。' + (volNum > 1 ? '【承接上卷】上卷末的状态如何延续到本卷，上卷的悬念如何在本卷解开或深化。' : ''),
         volume: volNum
       });
     }
     batches.push({
       label: '终卷·大结局 + 跨卷伏笔总览',
-      targetChars: 3000,
+      targetChars: 5000,
       focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前' + userVolCount + '卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
     });
   } else if(module === 'detail'){
