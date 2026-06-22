@@ -839,6 +839,7 @@ function renderLevel3() {
 
   // 一键全部生成按钮
   html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;" onclick="generateAllPipeline()" title="4位AI专家协作：世界观→人设→大纲→细纲 全自动生成">🚀 一键全部生成</button>';
+  html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);" onclick="generateBookTitleAndSynopsis()" title="基于全书内容生成商业书名和简介">📖 生成书名+简介</button>';
 
   var moduleKeys = ['world', 'chars', 'outline', 'detail'];
   moduleKeys.forEach(function(key) {
@@ -4005,11 +4006,87 @@ window.generateAllPipeline = async function(){
     }
     if(typeof hideLoading === 'function') hideLoading();
     showToast('✅ 四个模块全部生成完成！', {duration:3500});
+
+    // 自动生成商业书名+简介
+    try { await generateBookTitleAndSynopsis(true); } catch(e) {}
+
     _selectedModule = 'world';
   }catch(err){
     if(typeof hideLoading === 'function') hideLoading();
     console.error('generateAllPipeline error:', err);
     showToast('流水线生成异常：' + (err && err.message ? err.message : err));
+  }
+};
+
+// ===== 商业书名 + 简介生成 =====
+// 基于世界观、人设、大纲、细纲的完整内容，生成符合网文市场的商业书名和简介
+window.generateBookTitleAndSynopsis = async function(silent){
+  try {
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择作品'); return; }
+    if(!work.world && !work.chars && !work.outline && !work.detail){
+      showToast('请先生成至少一个模块的内容'); return;
+    }
+
+    if(!silent){
+      if(typeof resetLoading === 'function') resetLoading('📖 生成书名+简介…');
+      else if(typeof showLoading === 'function') showLoading('📖 生成书名+简介…');
+    }
+
+    var genre = work.genre || (work.category && work.category.cat1) || '';
+    var platform = '起点';
+    try { if(work._platform === 'fanqie') platform = '番茄'; } catch(e){}
+
+    var prompt = '你是一位资深网文编辑和营销专家，擅长为网络小说定名和撰写简介。请基于以下作品完整设定，生成符合市场需求的商业书名和简介。\n\n';
+    prompt += '【作品题材】' + (genre || '通用') + '\n';
+    prompt += '【发布平台】' + platform + '\n\n';
+
+    if(work.world && work.world.trim()){
+      prompt += '【世界观（精要）】\n' + smartTruncate(work.world, 2000) + '\n\n';
+    }
+    if(work.chars && work.chars.trim()){
+      prompt += '【人设（精要）】\n' + smartTruncate(work.chars, 2000) + '\n\n';
+    }
+    if(work.outline && work.outline.trim()){
+      prompt += '【全书大纲（精要）】\n' + smartTruncate(work.outline, 2000) + '\n\n';
+    }
+    if(work.detail && work.detail.trim()){
+      prompt += '【细纲（精要，前3卷）】\n' + smartTruncate(work.detail, 2000) + '\n\n';
+    }
+
+    prompt += '请生成以下内容：\n\n';
+    prompt += '【推荐书名】（5个）\n';
+    prompt += '1. 每个书名单独一行，标注类型（如：爽文向/设定向/悬念向/情感向）\n';
+    prompt += '2. 书名要朗朗上口、有记忆点、符合' + platform + '平台风格\n';
+    prompt += '3. 至少包含1个"反差型"书名（如《我在修仙界当卷王》——修仙+卷的反差）\n';
+    prompt += '4. 每个书名后面用小括号标注推荐理由（15字以内）\n\n';
+    prompt += '【商业简介】（1个，300-400字）\n';
+    prompt += '1. 开头第一句必须是"悬念钩子"——让读者3秒内产生好奇\n';
+    prompt += '2. 中间展示：世界观亮点 + 主角核心卖点 + 核心冲突\n';
+    prompt += '3. 结尾用一句话制造"不读可惜"的紧迫感\n';
+    prompt += '4. 必须包含：1个金句（适合做标语）、1个爆点（读者最期待的场景）\n';
+    prompt += '5. 不要堆砌设定，要用"事件+冲突+悬念"的方式讲故事\n\n';
+    prompt += '【营销标签】（5个）\n';
+    prompt += '1. 用#标签格式，如：#系统流 #无敌流 #反套路\n';
+    prompt += '2. 前3个标签必须是平台热门的\n\n';
+    prompt += '直接输出成品内容，不要加对话语前缀。';
+
+    var result = await callRealAPIWithFallback(prompt, null, 'default', 2000, silent);
+
+    if(result && result.trim()){
+      work.bookTitle = result.trim();
+      try { if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e){}
+
+      // 显示在 toast 中
+      if(!silent){
+        if(typeof hideLoading === 'function') hideLoading();
+        showToast('✅ 书名+简介已生成并保存', {duration: 3000});
+      }
+      console.log('[书名+简介] 已保存到 work.bookTitle');
+    }
+  } catch(e) {
+    console.error('generateBookTitleAndSynopsis error:', e);
+    if(!silent) showToast('书名生成失败', {error: true});
   }
 };
 
