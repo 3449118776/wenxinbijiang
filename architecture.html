@@ -2631,118 +2631,15 @@ window.generateArchModule = async function(opts){
       }
     }
 
-    // 3. v56: 细纲专用逐卷生成分支（细纲内容最多、对作品把控最严格）
-    // —— 无论大模型/小模型，统一改为"逐卷调用 AI"，每一卷都携带：
-    //    (a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲
+    // 3. 细纲专用：按卷选择生成（取消全部自动生成，改由用户点击具体卷号）
+    // v60: 移除逐卷循环，用户点击下方卷按钮单独生成
     if(module === 'detail'){
-      // 3a. 读取卷数/每卷章节数（与 buildArchCardBatchesV48 的 detail 分支保持一致的解析逻辑）
-      var userVolCount2 = 9;
-      var userChPerVol = 12;
-
-      var volInputEl3 = document.getElementById('vol-count-detail');
-      if(volInputEl3){
-        var v3 = parseInt(volInputEl3.value);
-        if(v3 >= 3 && v3 <= 20) userVolCount2 = v3;
-      }
-      var chInputEl2 = document.getElementById('ch-count-detail');
-      if(chInputEl2){
-        var c2 = parseInt(chInputEl2.value);
-        if(c2 >= 1000 && c2 <= 20000) userChPerVol = Math.max(8, Math.round(c2 / userVolCount2));
-      }
-
-      // 3b. 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
-      var actualTotalVols = userVolCount2;
-      if(work && work.outline){
-        var volMatches2 = work.outline.match(/第[一二三四五六七八九十百零〇\d]+\s*卷/g);
-        if(volMatches2 && volMatches2.length > 0) actualTotalVols = volMatches2.length;
-      }
-
-      // 3c. 从大纲中提取每一卷的核心目标（作为硬性约束）
-      var volTargets = extractOutlineTargetsV52(work);
-
-      // 3d. 逐卷生成
-      var fullDetailResult = '';
-      var prevVolDetail = '';
-      var detailAllCards = [];
-      var volTargetChars = userChPerVol * 220; // 约每章 220 字
-
-      for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
-        // ===== 每次卷生成前校验：作品被切换则立即中止 =====
-        if(!_checkStillSameWork()) return;
-
-        // 进度提示（只更新百分比+文字，不再重置进度条）
-        var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
-        if(typeof startAutoLoadingProgress === 'function'){
-          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
-          startAutoLoadingProgress(Math.min(98, detPct + 8), '正在生成细纲 · ' + volLabel);
-        } else if(typeof updateLoadingProgress === 'function'){
-          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
-          updateLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
-        }
-
-        // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
-        var thisVolTarget = '';
-        if(volTargets && volTargets[vi56 - 1] && volTargets[vi56 - 1].goal){
-          thisVolTarget = volTargets[vi56 - 1].goal;
-        } else {
-          thisVolTarget = '（请从"全书大纲"中自行抽取本卷的核心目标，并围绕其展开）';
-        }
-
-        // 构建本卷 prompt
-        var volPrompt = buildDetailVolumePromptV52(
-          work,
-          vi56,
-          actualTotalVols,
-          thisVolTarget,
-          prevVolDetail,
-          idea,
-          opts && opts.extraHint,
-          marketResearch,
-          memoryContext,
-          userChPerVol
-        );
-
-        // 调用 AI 生成本卷
-        var volResultText = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            volResultText = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            volResultText = await callRealAPI(volPrompt, null, {});
-          }
-        }catch(ve){
-          console.warn('细纲 ' + volLabel + ' 生成失败:', ve);
-          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
-        }
-        if(!volResultText || !volResultText.trim()){
-          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
-        }
-        if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
-
-        // 组装：卷标题 + 卷内容
-        var volHeader = '【第 ' + vi56 + ' 卷 · 章节细纲】\n';
-        var volBlock = volHeader + volResultText.trim() + '\n\n';
-
-        fullDetailResult += volBlock;
-        prevVolDetail += volBlock;  // 下一卷能读到前序所有卷的完整内容
-        detailAllCards.push({ label: volLabel, content: volResultText });
-        totalChars += volResultText.length;
-
-        // 卷之间轻微节流
-        if(vi56 < actualTotalVols){
-          await new Promise(function(res56){ setTimeout(res56, 50); });
-        }
-      }
-
-      // 3e. 完成细纲：后续与通用的"写入编辑区 + 保存到作品"流程对接
-      result = fullDetailResult.trim();
-      allCards = detailAllCards;
-      useSingleShot = false;  // 让后续的 toast 提示显示自定义文本
-      batches = detailAllCards;
+      if(typeof showToast === 'function') showToast('请在细纲页面点击具体卷号生成', {duration: 2500});
+      if(typeof hideLoading === 'function') hideLoading();
+      return;
     }
 
-    // 4. v48: 非 detail 模块 —— 保持原有的"大模型一次性 / 小模型分批卡片"策略
-    // 注意：如果上面进入了 detail 分支，allCards/result/batches 已经填充，下面不会再生成内容
+    // 4. 非 detail 模块 —— 逐卡片分批生成
     var taskType = 'default';
     if(module === 'world') taskType = 'world_rules';
     else if(module === 'chars') taskType = 'chars_core';
@@ -2972,7 +2869,7 @@ window.generateArchModule = async function(opts){
     if(module === 'detail'){
       batchInfo = '逐卷生成（共 ' + actualTotalVols + ' 卷）';
     } else {
-      batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
+      batchInfo = batches.length + ' 张卡片';
     }
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
     showToast(completionMsg, {duration:5000});
@@ -3955,9 +3852,17 @@ window.generateAllPipeline = async function(){
       return;
     }
 
-    // 循环生成：每一个模块都优先读取对应的 user idea
+    // 循环生成：前3个模块自动生成，细纲需用户手动点选卷号
     for(var i=0;i<modules.length;i++){
       _selectedModule = modules[i];
+      // 细纲：跳过自动生成，提示用户手动点卷
+      if(modules[i] === 'detail'){
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(90, '⏸ 细纲 · 请在下方点击具体卷号生成');
+        }
+        showToast('细纲需手动点击卷号生成', {duration: 3000});
+        continue;
+      }
       // 尝试切换到对应 tab 的 UI（如果存在）
       try{
         var pages = document.querySelectorAll('.module-page');
