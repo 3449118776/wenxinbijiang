@@ -549,8 +549,9 @@ function saveChapter(){
   // 云同步：章节保存后推送到云端
   try {
     if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
-      if (window.cloud._syncTimer) clearTimeout(window.cloud._syncTimer);
-      window.cloud._syncTimer = setTimeout(function() {
+      if (window.cloud._pushTimer) clearTimeout(window.cloud._pushTimer);
+      window.cloud._pushTimer = setTimeout(function() {
+        window.cloud._pushTimer = null;
         try { window.cloud.quickSync(work.id); } catch(e) {}
       }, 2000);
     }
@@ -4658,7 +4659,6 @@ async function aiWriteChapter(opts){
     return true;
   }
   const content=document.getElementById('editor').value;
-  const chapterIdx = currentChapterIdx || 0;
   
   // 显示API状态 + 本卷信息（v57: 更细致的阶段进度）
   const statusBar = document.getElementById('api-status-bar');
@@ -4826,7 +4826,7 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  let result = await aiCaller(prompt, null, 'write_normal', 6000); // 目标 2500-3500 字，大模型可承受更长输出
+  var result = await aiCaller(prompt, null, 'write_normal', 6000); // 目标 2500-3500 字，大模型可承受更长输出
 
   if(!_checkStillSameWork('正文生成中')) return;
 

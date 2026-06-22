@@ -33,6 +33,9 @@ function CloudSync(opts) {
   this._timer = null;
   this._syncTimer = null;
   this._callbacks = []; // onSync 回调列表
+  this._syncing = false;
+  this._pushTimer = null;
+  this._kvQuotaExceeded = null;
   this._loadToken();
   // 启动自动同步（如果配置了）
   if (this.autoSync) {
@@ -564,6 +567,11 @@ CloudSync.prototype = {
    */
   quickSync: async function(workId) {
     if (!this.isLoggedIn()) return { ok: false, error: '未登录' };
+    if (this._syncing) return { ok: false, error: '同步进行中' };
+    if (this._kvQuotaExceeded && Date.now() - this._kvQuotaExceeded < 300000) {
+      return { ok: false, error: '云端存储配额已超限，请稍后再试（每天UTC 0点重置）' };
+    }
+    this._syncing = true;
     try {
       var w = null;
       if (DB && DB.works) {
@@ -572,7 +580,6 @@ CloudSync.prototype = {
         }
       }
       if (!w) return { ok: false, error: '未找到作品' };
-      // 从 IndexedDB 加载瘦身章节的正文，避免推送空内容
       if (w.chapters && Array.isArray(w.chapters) && DB && DB.loadChapterShard) {
         for (var ci = 0; ci < w.chapters.length; ci++) {
           var ch = w.chapters[ci];
@@ -588,6 +595,10 @@ CloudSync.prototype = {
         }
       }
       var qsResult = await this.pushWork(_packWork(w));
+      if (qsResult && qsResult.version) {
+        w._version = qsResult.version;
+        delete w._dirty;
+      }
       var evt = { action: 'quickSync', ok: !qsResult.error, workId: workId, pushed: 1 };
       try { for (var qk in qsResult) if (qsResult.hasOwnProperty(qk)) evt[qk] = qsResult[qk]; } catch(_) {}
       this._fireSync(evt);
@@ -595,6 +606,8 @@ CloudSync.prototype = {
     } catch(e) {
       this._fireSync({ action: 'quickSync', ok: false, error: e.message });
       return { ok: false, error: e.message };
+    } finally {
+      this._syncing = false;
     }
   },
 
