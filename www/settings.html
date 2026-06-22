@@ -229,8 +229,8 @@ body{background:#f6f7f9;color:#333;padding-bottom:78px;height:auto!important;ove
     <div class="settings-section">
       <div class="settings-section-header">&#8505;&#65039; 关于</div>
       <div class="version-info">
-        <div class="version">文心笔匠 v4.0</div>
-        <div>递进构建融合版</div>
+        <div class="version" id="app-version">文心笔匠 <span id="ver-number">加载中...</span></div>
+        <div id="ver-build" style="font-size:11px;color:#bbb;"></div>
         <div style="margin-top:8px;">专为网文作者打造的AI写作助手</div>
       </div>
     </div>
@@ -283,6 +283,17 @@ function initSettings(){
   if(modelEl){modelEl.value=apiConfig.model||'qwen-max';}
 
   renderKeyList();
+
+  // 动态加载版本号
+  fetch('version.json?'+Date.now()).then(function(r){return r.json();}).then(function(v){
+    var el=document.getElementById('ver-number');
+    if(el) el.textContent='v'+v.version;
+    var el2=document.getElementById('ver-build');
+    if(el2) el2.textContent='构建: '+v.build+'  commit: '+v.commit;
+  }).catch(function(){
+    var el=document.getElementById('ver-number');
+    if(el) el.textContent='--';
+  });
 }
 
 function toggleDarkMode(){
