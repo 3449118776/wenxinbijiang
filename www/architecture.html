@@ -3239,7 +3239,7 @@ window.generateArchModule = async function(opts){
           continue;
         }
 
-        // 无缓存，调用AI生成（带上方案提示）
+        // 无缓存，调用AI生成（带上方案提示），失败自动重试1次
         var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, planHint, marketResearch, memoryContext);
 
         if(typeof updateLoadingProgress === 'function'){
@@ -3247,15 +3247,24 @@ window.generateArchModule = async function(opts){
         }
 
         var cardResult = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            cardResult = await callRealAPI(cardPrompt, null, {});
+        var _retryCount = 0;
+        var _maxRetry = 1;
+        while(_retryCount <= _maxRetry && _checkStillSameWork()){
+          try{
+            if(typeof callRealAPIWithFallback === 'function'){
+              cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+            } else if(typeof callRealAPI === 'function'){
+              cardResult = await callRealAPI(cardPrompt, null, {});
+            }
+            if(cardResult && cardResult.trim() && cardResult.trim().length > 20) break; // 成功
+          }catch(e){
+            console.warn('卡片 ' + card.label + ' 生成失败（第' + (_retryCount+1) + '次）:', e);
           }
-        }catch(e){
-          console.warn('卡片 ' + card.label + ' 生成失败:', e);
-          cardResult = '（本卡片生成失败）\n';
+          _retryCount++;
+          if(_retryCount <= _maxRetry && typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(Math.min(85, cardStartPct), '⏳ ' + card.label + ' 重试中…（第' + (_retryCount) + '次）');
+            await new Promise(function(res){ setTimeout(res, 1000); });
+          }
         }
 
         if(!cardResult || !cardResult.trim()){
@@ -3838,28 +3847,14 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
-  // 关键：已生成的卡片内容（提取骨架而非全文，同时保证完整性和控制token量）
+  // 关键：已生成的卡片内容（所有前面的卡片完整注入，确保上下文连贯）
   if(prevCards && prevCards.length > 0){
     prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
     
-    // 每张卡片提取：首段（定义/概述）、含【】的节标题及对应行、末段（收束/衔接）
+    // 所有已生成的卡片都完整注入
     for(var pi2 = 0; pi2 < prevCards.length; pi2++){
       var pc2 = prevCards[pi2];
-      var _cardSections = pc2.content.split(/(?=【)/);
-      var _sectionTexts = [];
-      for(var _si = 0; _si < _cardSections.length; _si++){
-        var _sec = _cardSections[_si].trim();
-        if(!_sec) continue;
-        // 含【】标题的段落保留前400字（含标题+核心内容）
-        if(/^【/.test(_sec)){
-          _sectionTexts.push(_sec.substring(0, 400));
-        } else if(_si === 0 || _si === _cardSections.length - 1){
-          // 首段和末段保留
-          _sectionTexts.push(_sec.substring(0, 200));
-        }
-      }
-      prompt += '■ ' + pc2.label + '（摘要' + _sectionTexts.length + '段）：\n';
-      prompt += _sectionTexts.join('\n\n').substring(0, 2500) + '\n\n';
+      prompt += '■ ' + pc2.label + '：\n' + pc2.content.trim() + '\n\n';
     }
   }
 
