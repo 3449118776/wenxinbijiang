@@ -2985,8 +2985,9 @@ window.generateArchModule = async function(opts){
           volIterHint += '\n【加强要求】只针对短板精准加强，不要重新生成整体，加强后必须与已有内容自然衔接。\n';
 
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(Math.min(95, iterPct), '细纲 · ' + volLabel + '（加强短板中）');
-          }
+  var _volWds = volWeakDims.map(function(w){ return w.name; }).slice(0, 2).join(', ');
+  updateLoadingProgress(Math.min(95, iterPct), '细纲 · ' + volLabel + '（加强：' + (_volWds || '短板') + '）');
+}
 
           volPrompt = buildDetailVolumePromptV52(work, vi56, actualTotalVols, thisVolTarget, prevVolDetail, idea, volIterHint, marketResearch, memoryContext, chaptersPerVolume);
         }
@@ -3175,7 +3176,7 @@ window.generateArchModule = async function(opts){
       planPrompt += '【质量检查表】按上述评分维度列出检查项\n';
       planPrompt += '\n直接输出，不要对话语前缀。';
 
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🎯 生成精准方案…');
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🎯 生成精准方案（' + _planDims.slice(0, 3).map(function(d){ return d.split('（')[0]; }).join('·') + '…）');
 
       var planResult = null;
       try{
@@ -3343,7 +3344,10 @@ window.generateArchModule = async function(opts){
       } else {
         // 分数 < 90，快速迭代：直接在合并内容上修改，不重新生成卡片
         iterationCount = 1;
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🔧 快速迭代 · ' + currentScore + '分 → 加强短板…');
+        if(typeof updateLoadingProgress === 'function') {
+  var _wdNames = weakDims.map(function(w){ return w.name + '(' + w.score + ')'; }).join(', ');
+  updateLoadingProgress(92, '🔧 快速迭代 · ' + currentScore + '分 → 短板：' + (_wdNames || '待加强'));
+}
 
         var iterHint = '🔥 当前评分 ' + currentScore + '/100，以下维度需要加强：\n';
         for(var _wdi = 0; _wdi < weakDims.length; _wdi++){
@@ -3401,7 +3405,7 @@ window.generateArchModule = async function(opts){
 
       // 分数 >= 90 或无短板，跳过完整性检查
       if(completeEvalScore >= 90 || completeWeakDims.length === 0){
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性检查通过');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性检查通过（' + completeEvalScore + '分）');
         console.log('[完整性检查] ' + module + ' 评分' + completeEvalScore + '分，无需修复');
       } else {
         // 有短板，快速修复（一次AI调用）
@@ -4400,6 +4404,12 @@ window.evaluateArchModule = async function(){
       result = QualityEngine.evaluate(content, module);
     }
 
+    // 评价进度条显示当前模块的评分维度
+    var _evalDimNames = {world:'设定完整度/独特创新/冲突张力/社会结构/叙事潜力', chars:'人物立体度/关系网络/反派/差异化/情感共鸣', outline:'结构清晰/节奏/伏笔/主线/冲突递进/商业价值', detail:'章节连贯/悬念密度/冲突/信息释放/爽点/可执行性'};
+    if(typeof updateLoadingProgress === 'function' && _evalDimNames[module]){
+      updateLoadingProgress(30, '📊 ' + moduleName + ' 评价·' + _evalDimNames[module]);
+    }
+
     // 2. AI 深度评价（可选，异步补充）
     var aiReport = '';
     if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
@@ -4819,9 +4829,15 @@ window.generateWithAutoIterate = async function(opts) {
     }
     // */
     
-    // 完成：显示最终评价
+    // 完成：显示最终评价（含低分维度）
     if (typeof updateLoadingProgress === 'function') {
-      updateLoadingProgress(100, '✅ ' + moduleName + ' · 完成（' + currentScore + '分）');
+      var _lowDimsStr = '';
+      if(evalResult && evalResult.dimensions){
+        var _sortedDims = evalResult.dimensions.slice().sort(function(a,b){ return a.score - b.score; });
+        var _lowest = _sortedDims.slice(0, 2).map(function(d){ return d.name.split('（')[0] + d.score; }).join(', ');
+        if(_lowest) _lowDimsStr = ' · ' + _lowest;
+      }
+      updateLoadingProgress(100, '✅ ' + moduleName + ' · 完成（' + currentScore + '分' + _lowDimsStr + '）');
     }
     if (typeof hideLoading === 'function') hideLoading();
     
