@@ -3273,10 +3273,11 @@ window.generateArchModule = async function(opts){
 
         console.log('[架构卡片] ' + card.label + ' 生成完成，字数:', cardResult.length);
 
-        // 自动追加：内容不足目标的80%时继续追加（最多2次，减少等待）
+        // 自动追加：内容不足目标的80%时继续追加（最多2次），生成失败的内容不追加
         var appendCount = 0;
         var maxAppend = 2;
-        while(cardResult.length < cardTargetChars * 0.8 && appendCount < maxAppend && _checkStillSameWork()){
+        var _isFailedPlaceholder = cardResult.length < 50; // 失败占位符不追加
+        while(!_isFailedPlaceholder && cardResult.length < cardTargetChars * 0.8 && appendCount < maxAppend && _checkStillSameWork()){
           appendCount++;
           var appendTarget = Math.max(1000, cardTargetChars - cardResult.length);
           if(typeof updateLoadingProgress === 'function'){
@@ -3447,7 +3448,15 @@ window.generateArchModule = async function(opts){
         }
         // 清空卡片级缓存（完整性修复改变了合并内容，旧卡片缓存已失效）
         if(work._archCache && work._archCache[module]) { delete work._archCache[module]._cards; }
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性修复完成');
+        // 修复后重新评价，显示最终分数
+        var _finalEvalScore = completeEvalScore;
+        try{
+          if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+            var _finalEval = QualityEngine.evaluate(result, module);
+            if(_finalEval && _finalEval.totalScore) _finalEvalScore = _finalEval.totalScore;
+          }
+        }catch(e){}
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ ' + moduleName + ' 完整性检查通过 · 评分' + _finalEvalScore + '分');
       }
     }
 
