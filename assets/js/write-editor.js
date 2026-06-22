@@ -7945,48 +7945,141 @@ function getGenreCreativePrompts(genre) {
   return prompts['玄幻'];
 }
 
-// v59: 添加iteration参数
-function buildDetailPrompt(work, volumeIndex, userCommand, iteration, prevResult) {
+// v59: 细纲生成 - 一次生成300章（覆盖较大范围），迭代时质量强化而非续写
+function buildDetailPrompt(work, volumeIndex, userCommand, batchNum) {
+  batchNum = batchNum || 1;
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
+  var outline = work.outline || '';
   var prompt = '';
-  iteration = iteration || 0;
   
   prompt += '你是一位顶级网文细纲设计师。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令（最高优先级）】\n' + userCommand.trim() + '\n\n';
   }
-  prompt += '【作品】' + title + ' | 【题材】' + genre + ' | 【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  prompt += '【作品】' + title + ' | 【题材】' + genre + '\n\n';
   
   if (world && world.length > 50) {
-    prompt += '【⚠️ 世界观（必须遵守）】\n' + world.substring(0, 2000) + '\n';
-    prompt += '【约束】禁止超自然元素，战斗依靠策略和智谋\n\n';
+    prompt += '【世界观（必须遵守）】\n' + world.substring(0, 3000) + '\n\n';
+  }
+  
+  if (outline && outline.length > 50) {
+    prompt += '【大纲（必须遵守）】\n' + outline.substring(0, 3000) + '\n\n';
   }
   
   var normalWarTemplate = getGenreDetailTemplate('普通人战争');
-  prompt += '【题材模板】\n';
+  prompt += '【题材模板·普通人战争】\n';
   prompt += '数字面板：' + normalWarTemplate.digitalPanel + '\n';
   prompt += '爽点：' + normalWarTemplate.beatTypes.slice(0, 5).join('、') + '\n\n';
   
-  if (iteration === 0) {
-    // 第1-24章
-    prompt += '【本轮任务】生成第1-24章详细细纲\n';
-    prompt += '每章格式：标题、情绪基调、爽点、时间、地点、人物、10+硬节点、数字面板、番茄钩子\n';
-    prompt += '每章500+字，总计12000+字\n';
-  } else if (iteration === 1) {
-    // 第25-48章
-    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 3000) + '\n\n';
-    prompt += '【扩展任务】继续生成第25-48章\n\n';
-    prompt += '每章500+字，总计12000+字\n';
-  } else {
-    // 第49-72章
-    prompt += '【已有内容】\n' + (prevResult || '').substring(0, 5000) + '\n\n';
-    prompt += '【最终扩展】继续生成第49-72章\n\n';
-    prompt += '每章500+字，总计12000+字\n';
-  }
+  // v59: 生成300章细纲（覆盖约1/5小说），不是72章
+  var startCh = (batchNum - 1) * 300 + 1;
+  var endCh = batchNum * 300;
+  prompt += '【本轮任务】生成第' + startCh + '-' + endCh + '章详细细纲\n';
+  prompt += '【格式要求】每章必须包含：\n';
+  prompt += '1. 章节标题\n';
+  prompt += '2. 情绪基调（压抑/热血/悬疑/温情等）\n';
+  prompt += '3. 核心爽点类型\n';
+  prompt += '4. 时间线（相对战争的进度）\n';
+  prompt += '5. 地点/场景\n';
+  prompt += '6. 登场人物\n';
+  prompt += '7. 10个以上硬节点（具体剧情事件）\n';
+  prompt += '8. 数字面板变化\n';
+  prompt += '9. 番茄钩子（结尾悬念）\n';
+  prompt += '【字数要求】每章细纲300+字，总计90000+字\n';
   
   return prompt;
+}
+
+// v59: 质量强化prompt - 对同一份内容进行质量强化，不是续写新内容
+function buildDetailImprovePrompt(work, userCommand, prevResult, iteration, focusAreas) {
+  var iterationInstructions = {
+    1: '【质量强化第1轮】请在保持上一轮优点的基础上，进行以下改进：\n',
+    2: '【质量强化第2轮】请基于上一轮内容继续优化：\n'
+  };
+  
+  var base = iterationInstructions[iteration] || '【质量强化】请优化内容：\n';
+  base += '【上一轮细纲内容】（必须保留其中优点，输出完整优化后内容）】\n' + prevResult + '\n\n';
+  base += '【改进要求】\n';
+  base += '1. 保留上一轮中优秀的章节设定和创意\n';
+  base += '2. 修正逻辑矛盾和不够完善的地方\n';
+  base += '3. 深化每章的硬节点，增加更具体的事件\n';
+  base += '4. 强化冲突和看点，增加爆点密度\n';
+  base += '5. 【重要】输出完整的优化后内容，不是只输出修改部分\n';
+  base += '6. 【重要】不要生成新章节，只强化已有章节的质量\n';
+  base += '7. 目标字数：' + (focusAreas || prevResult.length * 1.2) + '字以上\n\n';
+  
+  return base;
+}
+
+// v59: 细纲补写prompt - 字数不够时继续生成（这是扩展模式，不是质量强化）
+function buildDetailExtendPrompt(work, userCommand, prevResult, targetChars) {
+  return '【已有细纲内容（' + prevResult.length + '字）】\n' + prevResult.substring(0, 10000) + '\n\n' +
+    '【补写要求】\n' +
+    '请继续补充细纲内容，保持风格一致\n' +
+    '必须生成至少' + targetChars + '字\n' +
+    '直接输出新增内容：';
+}
+
+// v59: 世界观质量强化prompt
+function buildWorldImprovePrompt(work, userCommand, prevResult, iteration) {
+  var iterationInstructions = {
+    1: '【质量强化第1轮】请在保持上一轮优点的基础上，进行以下改进：\n',
+    2: '【质量强化第2轮】请基于上一轮内容继续优化：\n'
+  };
+  
+  var base = iterationInstructions[iteration] || '【质量强化】请优化内容：\n';
+  base += '【上一轮世界观内容】（必须保留其中优点，输出完整优化后内容）\n' + prevResult + '\n\n';
+  base += '【改进要求】\n';
+  base += '1. 保留上一轮中优秀的设定和创意\n';
+  base += '2. 修正逻辑矛盾和不够完善的地方\n';
+  base += '3. 深化细节，增加更具体的世界规则描述\n';
+  base += '4. 强化冲突根源和势力格局\n';
+  base += '5. 【重要】输出完整的优化后内容，不是只输出修改部分\n';
+  base += '6. 目标字数：' + (prevResult.length * 1.2) + '字以上\n\n';
+  
+  return base;
+}
+
+// v59: 大纲质量强化prompt
+function buildOutlineImprovePrompt(work, userCommand, prevResult, iteration) {
+  var iterationInstructions = {
+    1: '【质量强化第1轮】请在保持上一轮优点的基础上，进行以下改进：\n',
+    2: '【质量强化第2轮】请基于上一轮内容继续优化：\n'
+  };
+  
+  var base = iterationInstructions[iteration] || '【质量强化】请优化内容：\n';
+  base += '【上一轮大纲内容】（必须保留其中优点，输出完整优化后内容）\n' + prevResult + '\n\n';
+  base += '【改进要求】\n';
+  base += '1. 保留上一轮中优秀的情节设计和创意\n';
+  base += '2. 修正逻辑矛盾和不够完善的地方\n';
+  base += '3. 深化每条故事线的细节，增加更具体的事件\n';
+  base += '4. 强化冲突和看点，增加高潮密度\n';
+  base += '5. 【重要】输出完整的优化后内容，不是只输出修改部分\n';
+  base += '6. 目标字数：' + (prevResult.length * 1.2) + '字以上\n\n';
+  
+  return base;
+}
+
+// v59: 人设质量强化prompt
+function buildCharsImprovePrompt(work, userCommand, prevResult, iteration) {
+  var iterationInstructions = {
+    1: '【质量强化第1轮】请在保持上一轮优点的基础上，进行以下改进：\n',
+    2: '【质量强化第2轮】请基于上一轮内容继续优化：\n'
+  };
+  
+  var base = iterationInstructions[iteration] || '【质量强化】请优化内容：\n';
+  base += '【上一轮人设内容】（必须保留其中优点，输出完整优化后内容）\n' + prevResult + '\n\n';
+  base += '【改进要求】\n';
+  base += '1. 保留上一轮中优秀的人物设定和创意\n';
+  base += '2. 修正性格矛盾和不够立体的地方\n';
+  base += '3. 深化人物背景和动机，增加更具体的描写\n';
+  base += '4. 强化人物之间的冲突和关系张力\n';
+  base += '5. 【重要】输出完整的优化后内容，不是只输出修改部分\n';
+  base += '6. 目标字数：' + (prevResult.length * 1.2) + '字以上\n\n';
+  
+  return base;
 }
 
 async function aiGenerateArchitecture(type, userCommand) {
@@ -8050,8 +8143,8 @@ async function aiGenerateArchitecture(type, userCommand) {
   return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, 0, null, '');
 }
 
-// v59修复: 改为"扩展"模式而非"迭代"模式
-// 核心: 每次生成不同部分，最后拼接
+// v59: 质量强化迭代模式
+// 核心: 同一份内容质量越来越好，不是续写拼接
 async function _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration, bestResult, prevResult) {
   var prompt;
   var volumeIdx = 0;
@@ -8063,70 +8156,93 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
     } catch(e) {}
   }
   
-  // v59: 改为扩展模式 - 每一轮生成不同部分
-  // 第0轮: 生成核心框架
-  // 第1轮: 扩展详细内容
-  // 第2轮: 补充更多细节
-  switch(type) {
-    case 'world':
-      prompt = buildWorldPrompt(work, userCommand, iteration, prevResult);
-      break;
-    case 'outline':
-      prompt = buildOutlinePrompt(work, userCommand, iteration, prevResult);
-      break;
-    case 'chars':
-      prompt = buildCharsPrompt(work, userCommand, iteration, prevResult);
-      break;
-    case 'detail':
-      prompt = buildDetailPrompt(work, volumeIdx, userCommand, iteration, prevResult);
-      break;
+  // v59: 质量强化模式
+  // 第0轮: 生成完整内容
+  // 第1轮: 在上一轮基础上强化质量（保留优点，改进不足）
+  // 第2轮: 继续强化，最终选择最好的版本
+  if (iteration === 0) {
+    // 首次生成 - 完整内容
+    switch(type) {
+      case 'world':
+        prompt = buildWorldPrompt(work, userCommand);
+        break;
+      case 'outline':
+        prompt = buildOutlinePrompt(work, userCommand);
+        break;
+      case 'chars':
+        prompt = buildCharsPrompt(work, userCommand);
+        break;
+      case 'detail':
+        prompt = buildDetailPrompt(work, volumeIdx, userCommand);
+        break;
+    }
+  } else {
+    // 质量强化 - 基于上一轮结果改进
+    switch(type) {
+      case 'world':
+        prompt = buildWorldImprovePrompt(work, userCommand, prevResult, iteration);
+        break;
+      case 'outline':
+        prompt = buildOutlineImprovePrompt(work, userCommand, prevResult, iteration);
+        break;
+      case 'chars':
+        prompt = buildCharsImprovePrompt(work, userCommand, prevResult, iteration);
+        break;
+      case 'detail':
+        prompt = buildDetailImprovePrompt(work, volumeIdx, userCommand, prevResult, iteration);
+        break;
+    }
   }
   
   if (iteration === 0) {
     if (typeof resetLoading === 'function') resetLoading(statusMsg);
     else showLoading(statusMsg);
   } else {
-    if (typeof resetLoading === 'function') resetLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
-    else showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+    if (typeof resetLoading === 'function') resetLoading('🔄 质量强化第' + (iteration + 1) + '轮 · ' + statusMsg);
+    else showLoading('🔄 质量强化第' + (iteration + 1) + '轮 · ' + statusMsg);
   }
   
   try {
-    // v59: 每次生成部分内容，逐步扩展
-    var partialTarget = Math.floor(targetChars / 3); // 每轮目标1/3
-    var result = await callRealAPIWithFallback(prompt, null, taskType, partialTarget);
+    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
     
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
       
-      // v59: 改为拼接模式 - 每轮结果拼接，而不是让AI重新生成
-      if (!bestResult) {
-        bestResult = { text: result, score: 0, parts: [result] };
-      } else {
-        bestResult.parts.push(result);
-        bestResult.text = bestResult.parts.join('\n\n'); // 拼接所有部分
+      // v59: 评分 - 质量好的保留
+      var currentScore = 0;
+      if (typeof evaluateText === 'function') {
+        try {
+          var qReport = evaluateText(result, type, work);
+          currentScore = qReport && typeof qReport.score === 'number' ? qReport.score : 0;
+        } catch(e) {}
       }
       
-      var currentLength = bestResult.text.length;
+      // 保存最好的结果（按分数或长度）
+      if (!bestResult || currentScore > bestResult.score || (currentScore === bestResult.score && result.length > bestResult.length)) {
+        bestResult = { text: result, score: currentScore };
+      }
       
-      // 继续生成下一轮，直到达到目标字数
-      if (iteration < 2 && currentLength < minChars) {
-        if (statusBar) statusBar.textContent = '📝 扩展中...(' + currentLength + '字/' + minChars + '字) · 第' + (iteration + 1) + '/3轮';
+      // 继续迭代强化（最多3轮）
+      if (iteration < 2) {
+        if (statusBar) {
+          statusBar.textContent = '🔄 质量强化中...(' + result.length + '字) · 第' + (iteration + 1) + '/3轮';
+        }
         return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration + 1, bestResult, result);
       }
       
-      // v59: 扩展完成后，如果字数还不够，进行最终补写
-      var finalResult = bestResult ? bestResult.text : result;
-      var remaining = minChars - finalResult.length;
+      // 3轮结束后，保存最好的结果
+      var finalResult = bestResult.text;
       
-      if (remaining > 0 && remaining > 5000) {
-        if (statusBar) statusBar.textContent = '📝 最终补写...(' + finalResult.length + '字)';
-        var extendPrompt = buildExtendPrompt(type, finalResult, remaining, work, userCommand);
+      // 如果总字数不够，进行补写
+      if (finalResult.length < minChars) {
+        var remaining = minChars - finalResult.length;
+        var extendPrompt = buildImproveExtendPrompt(type, finalResult, remaining, work, userCommand);
         try {
           var extendResult = await callRealAPIWithFallback(extendPrompt, null, taskType, remaining, true);
           if (extendResult && extendResult.length > 500) {
             finalResult = finalResult + '\n\n' + extendResult;
           }
-        } catch(e) { console.warn('[最终补写] 失败:', e); }
+        } catch(e) {}
       }
       
       // 保存缓存
@@ -8150,24 +8266,39 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
 }
 
-// v59: 构建补写prompt
-function buildExtendPrompt(type, currentContent, targetChars, work, userCommand) {
-  var extendMap = {
-    'world': '请继续补充世界观内容，扩展以下方面：',
-    'outline': '请继续补充大纲内容，增加更多详细的情节设计：',
-    'chars': '请继续补充人设内容，增加更多角色细节：',
-    'detail': '请继续补充细纲内容，增加更多章节细节：'
+// v59: 构建质量强化prompt
+function buildImprovePrompt(type, prevResult, focusAreas, iteration) {
+  var iterationInstructions = {
+    1: '【质量强化第1轮】请在保持上一轮优点的基础上，进行以下改进：\n',
+    2: '【质量强化第2轮】请基于上一轮内容继续优化：\n'
   };
   
-  var extend = extendMap[type] || '请继续补充内容：';
+  var base = iterationInstructions[iteration] || '【质量强化】请优化内容：\n';
+  base += '【上一轮内容】（必须保留其中优点）\n' + prevResult + '\n\n';
+  base += '【改进要求】\n';
+  base += '1. 保留上一轮中优秀的设定和创意\n';
+  base += '2. 修正逻辑矛盾和不够完善的地方\n';
+  base += '3. 深化细节，增加更具体的内容\n';
+  base += '4. 强化冲突和看点\n';
+  base += '5. 【重要】输出完整的优化后内容，不是只输出修改部分\n';
+  base += '6. 目标字数：' + (focusAreas || 50000) + '字以上\n\n';
+  
+  return base;
+}
+
+// v59: 构建补写prompt
+function buildImproveExtendPrompt(type, currentContent, targetChars, work, userCommand) {
+  var extendMap = {
+    'world': '继续补充世界观细节：',
+    'outline': '继续补充大纲情节：',
+    'chars': '继续补充人设细节：',
+    'detail': '继续补充细纲章节：'
+  };
   
   return '【已有内容（' + currentContent.length + '字）】\n' + currentContent + '\n\n' +
-    extend + '\n\n' +
-    '【要求】\n' +
-    '1. 必须生成至少' + targetChars + '字的新内容\n' +
-    '2. 保持与已有内容的风格一致\n' +
-    '3. 不要重复已有内容\n' +
-    '4. 直接输出新增内容（不需要标记）：';
+    '【补写要求】\n' +
+    '请继续补充内容，必须生成至少' + targetChars + '字\n' +
+    '保持风格一致，直接输出新增内容：';
 }
 
 function applyArchResult(type, work, result) {
