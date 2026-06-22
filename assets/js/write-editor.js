@@ -7358,7 +7358,7 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   prompt += '八、信息增量规划\n';
   prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 每个模块至少20000字，总字数不少于300000字（30万字）\n';
+  prompt += '1. 每个模块至少15000字，总字数不少于200000字（20万字）\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 设定要具体、可验证，避免模糊表述\n';
   prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
@@ -7451,7 +7451,7 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   prompt += '八、节奏规划\n';
   prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 总字数不少于500000字（50万字），每卷大纲至少40000字\n';
+  prompt += '1. 总字数不少于300000字（30万字），每卷大纲至少25000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
   prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
@@ -8108,8 +8108,8 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '**字数建议**：4000-5000字\n\n';
   
   prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少500字\n';
-  prompt += '2. 总字数不少于50000字（5万字）\n';
+  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少15000字\n';
+  prompt += '2. 总字数不少于1000000字（100万字）\n';
   prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
   prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
   prompt += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
