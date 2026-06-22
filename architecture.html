@@ -2945,6 +2945,8 @@ window.generateArchModule = async function(opts){
 
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
 
+          if(!_checkStillSameWork()) return;
+
           var _fixResult = null;
           try {
             if(typeof callRealAPIWithFallback === 'function'){
@@ -3488,94 +3490,6 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   if(module === 'detail'){
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
   }
-
-  // ⭐ 新增：返回指定模块在 quality.js 中的固定评价维度名称
-  function _getModuleEvalDims(module) {
-    if (module === 'world')   return ['指令遵循', '设定完整度', '独特创新', '冲突张力', '社会结构', '叙事潜力', '篇幅合理'];
-    if (module === 'chars')   return ['指令遵循', '人物立体度', '关系网络', '反派/对抗力', '角色差异化', '情感共鸣', '篇幅合理'];
-    if (module === 'outline') return ['指令遵循', '结构清晰', '节奏把控', '伏笔设计', '主线清晰', '冲突递进', '商业价值'];
-    if (module === 'detail')  return ['指令遵循', '章节连贯', '钩子密度', '信息释放', '节奏控制', '爽点分布', '可执行性'];
-    return ['开篇吸引力', '章尾钩子', '对话质量', '动作描写', '感官描写', '情绪张力', '节奏控制', '文笔水平', '信息密度', '剧情契合度', '角色表现', '原创性'];
-  }
-
-  // ⭐ v58：自评价 + 自修正循环（严格按 quality.js 各模块的固定维度，不再让AI自由脑补）
-  //  核心变更：
-  //    1. "指令遵循"维度必须直接对照用户输入的提示词关键词，不满足就扣分
-  //    2. 用户指令（idea）被展开为具体关键词清单，AI 必须逐条核查
-  //    3. 最终评价仍由本地 quality.js 系统独立计算（AI自评分仅用于自我审视）
-  var _selfIterHint = '';
-  var _dimNames = _getModuleEvalDims(module);
-
-  // v58：提取用户提示词关键词（2字以上去重，供 AI 自评时逐条对照，缺就扣分）
-  var _userCmdKeywords = [];
-  if (idea && idea.trim()) {
-    try {
-      var _seen = {};
-      var _parts = idea.trim().replace(/[，。！？、；：""''（）【】《》—…·,\.\!\?;:\(\)\[\]<>\/\\]+/g, ' ').split(/\s+/).filter(function(k){ return k.length >= 2; });
-      for (var _pi2 = 0; _pi2 < _parts.length; _pi2++) {
-        var _pw2 = _parts[_pi2];
-        if (!_seen[_pw2]) { _seen[_pw2] = 1; _userCmdKeywords.push(_pw2); if (_userCmdKeywords.length >= 20) break; }
-      }
-    } catch(e) {}
-  }
-
-  _selfIterHint += '\n\n══════════════════════════════════════\n';
-  _selfIterHint += '【🔄 自评价与自修正循环（必须执行，最多3轮）】\n';
-  _selfIterHint += '══════════════════════════════════════\n\n';
-  _selfIterHint += '【评分维度表（仅此' + _dimNames.length + '个维度，顺序固定，不得增减或替换 —— 来自本地 quality.js 评价系统）】\n';
-  for (var _di = 0; _di < _dimNames.length; _di++) {
-    _selfIterHint += (_di + 1) + '. ' + _dimNames[_di] + '\n';
-  }
-  _selfIterHint += '\n';
-  _selfIterHint += '【最终评价机制说明】最终评价由本地 quality.js 系统独立计算，你在此处的自评分仅用于你自己的参考。\n';
-  _selfIterHint += '你必须按上述维度逐一审视你输出的内容，有问题就修改。\n\n';
-
-  if (idea && idea.trim()) {
-    _selfIterHint += '【⚠️ 第1维度「指令遵循」— 硬性判断标准（AI不得自由发挥，必须逐条对照以下关键词）】\n';
-    _selfIterHint += '用户本次要求：\n' + idea.trim() + '\n\n';
-    if (_userCmdKeywords.length > 0) {
-      _selfIterHint += '你必须在内容中体现以下关键词/要求（满分10；缺1条扣1-2分）：\n';
-      for (var _ki = 0; _ki < _userCmdKeywords.length; _ki++) {
-        _selfIterHint += ' • ' + _userCmdKeywords[_ki] + '\n';
-      }
-      _selfIterHint += '\n';
-    }
-    _selfIterHint += '【判定规则】若内容中未出现以上关键词，或用户要求被忽略 → 该维度扣分；缺3条以上 → 直接触发第二轮修正。\n\n';
-  }
-  if (extraHint && extraHint.trim()) {
-    _selfIterHint += '【📝 本次加强要求（来自上一轮评价意见）— 必须逐项检查是否满足】\n' + extraHint.trim() + '\n\n';
-  }
-
-  _selfIterHint += '【第一轮】请直接输出完整内容，然后按上述维度表进行自我评价：\n';
-  _selfIterHint += '在内容末尾追加以下格式的【自评价报告】：\n\n';
-  _selfIterHint += '【自评价报告】\n';
-  for (var _di2 = 0; _di2 < _dimNames.length; _di2++) {
-    _selfIterHint += '【' + _dimNames[_di2] + '】得分/10：评价理由（10字以上，说明亮点或问题）\n';
-  }
-  _selfIterHint += '【总分】X/100\n';
-  _selfIterHint += '【问题列表】1. ... 2. ... 3. ...（如果有维度低于8分，必须列出具体问题）\n';
-  _selfIterHint += '【是否需要修正】是/否\n\n';
-  _selfIterHint += '【判定规则】如果【总分】< 90 或有维度低于8分或【是否需要修正】= 是，必须进入第二轮：\n';
-  _selfIterHint += '【第二轮】在第一轮内容基础上，精准修改【问题列表】中的每个问题，保留其他部分不变。\n';
-  _selfIterHint += '修改完成后，重新输出完整内容，并再次进行自评价（格式同上），追加在第一轮报告之后。\n';
-  _selfIterHint += '【判定规则】如果第二轮【总分】< 90 或仍有维度低于8分，必须进入第三轮。\n';
-  _selfIterHint += '【第三轮】再次精准修改剩余问题。完成后输出完整内容 + 自评价报告。\n';
-  _selfIterHint += '【判定规则】无论第三轮分数多少，都必须输出最终内容，循环结束。\n\n';
-  _selfIterHint += '【最终输出格式】（必须严格遵守）：\n';
-  _selfIterHint += '══════════════════════════════════════\n';
-  _selfIterHint += '【最终内容】\n';
-  _selfIterHint += '（这里是你经过多轮自我修正后的最终完整内容）\n\n';
-  _selfIterHint += '【最终自评价报告】\n';
-  for (var _di3 = 0; _di3 < _dimNames.length; _di3++) {
-    _selfIterHint += '【' + _dimNames[_di3] + '】得分/10：评价理由\n';
-  }
-  _selfIterHint += '【总分】X/100\n';
-  _selfIterHint += '【主要改进】1. ... 2. ...\n';
-  _selfIterHint += '【迭代次数】N/3\n';
-  _selfIterHint += '══════════════════════════════════════\n\n';
-  _selfIterHint += '【开始输出】请立即开始，不要输出任何解释说明，直接输出内容。\n';
-
-  prompt += _selfIterHint;
 
   return prompt;
 }
