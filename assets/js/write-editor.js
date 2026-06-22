@@ -7285,3 +7285,291 @@ async function aiPolishByQuality(){
 window.showQualityReport = showQualityReport;
 window.closeQualityReport = closeQualityReport;
 window.aiPolishByQuality = aiPolishByQuality;
+
+// ========== v58: 架构生成专用函数（世界观/大纲/人设/细纲）==========
+// 解决问题：原系统使用正文生成的通用函数，输出长度受限，迭代机制不合理
+
+function buildWorldPrompt(work, userCommand) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var prompt = '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n\n';
+  prompt += '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
+  prompt += '一、时代背景与历史脉络\n';
+  prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
+  prompt += '二、地理设定\n';
+  prompt += '—— 核心区域（3-5个）的地理特征、气候、资源分布、势力格局\n\n';
+  prompt += '三、力量体系\n';
+  prompt += '—— 力量来源、修炼路径、等级划分（5-8级）、每个等级的特征与门槛\n\n';
+  prompt += '四、社会结构\n';
+  prompt += '—— 统治阶层、权力结构、社会阶层、经济体系、文化习俗\n\n';
+  prompt += '五、核心势力\n';
+  prompt += '—— 主要势力（3-5个）的立场、目标、实力对比、相互关系\n\n';
+  prompt += '六、核心矛盾\n';
+  prompt += '—— 表面冲突、深层矛盾、即将爆发的危机、主角需要面对的挑战\n\n';
+  prompt += '七、独特设定\n';
+  prompt += '—— 这个世界最与众不同的地方、创新点、读者会记住的特色\n\n';
+  prompt += '八、信息增量规划\n';
+  prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 每个模块至少200字，总字数不少于4000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 设定要具体、可验证，避免模糊表述\n';
+  prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
+  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function buildOutlinePrompt(work, userCommand) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var prompt = '你是一位顶级网文大纲架构师，擅长设计紧凑、有节奏感、充满悬念的长篇小说大纲。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  if (world && world.length > 50) {
+    prompt += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
+  }
+  prompt += '请为这部作品设计完整的多卷大纲，包含以下内容：\n\n';
+  prompt += '一、核心设定回顾\n';
+  prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
+  prompt += '二、全书结构规划\n';
+  prompt += '—— 预计卷数（建议5-8卷）、每卷主题、总字数估算\n\n';
+  prompt += '三、分卷大纲（每卷详细）\n';
+  prompt += '—— 每卷标题、核心任务、关键事件（8-12个）、卷末钩子\n\n';
+  prompt += '四、核心矛盾链\n';
+  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n\n';
+  prompt += '五、爽点规划\n';
+  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻\n\n';
+  prompt += '六、伏笔布局\n';
+  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n\n';
+  prompt += '七、人物成长弧线\n';
+  prompt += '—— 主角和主要配角的成长路径、转折点\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 每卷大纲至少300字，总字数不少于5000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
+  prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
+  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function buildCharsPrompt(work, userCommand) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var prompt = '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  if (world && world.length > 50) {
+    prompt += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
+  }
+  prompt += '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
+  prompt += '一、主角（详细）\n';
+  prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
+  prompt += '—— 人物弧光起点和终点、成长路径\n';
+  prompt += '—— 金手指/能力、使用限制、代价\n';
+  prompt += '—— 标志性动作、口头禅、独特习惯\n\n';
+  prompt += '二、女主角/重要女性角色\n';
+  prompt += '—— 姓名、年龄、身份、性格、与主角关系、角色定位\n';
+  prompt += '—— 人物成长弧线、关键时刻\n\n';
+  prompt += '三、主要反派（2-3位）\n';
+  prompt += '—— 姓名、身份、核心目标、与主角的关系、动机合理性\n';
+  prompt += '—— 能力、弱点、人物层次（不是纯粹的坏人）\n\n';
+  prompt += '四、重要配角（5-8位）\n';
+  prompt += '—— 每个人的姓名、身份、性格、作用、与主角关系\n\n';
+  prompt += '五、人物关系网\n';
+  prompt += '—— 角色之间的关系矩阵、冲突点、潜在的背叛/结盟\n\n';
+  prompt += '六、角色记忆点设计\n';
+  prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
+  prompt += '【输出要求】\n';
+  prompt += '1. 主角部分至少500字，每个重要角色至少200字，总字数不少于4000字\n';
+  prompt += '2. 结构清晰，使用标题分隔\n';
+  prompt += '3. 角色要有鲜明个性，避免模板化\n';
+  prompt += '4. 考虑角色在剧情中的作用和发展\n';
+  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+function buildDetailPrompt(work, volumeIndex, userCommand) {
+  var title = work.title || '未命名作品';
+  var genre = getWorkGenre(work);
+  var world = work.world || '';
+  var chars = work.chars || '';
+  var outline = work.outline || '';
+  
+  var prompt = '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
+  if (userCommand && userCommand.trim()) {
+    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
+  prompt += '【作品】' + title + '\n';
+  prompt += '【题材】' + genre + '\n';
+  prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  
+  if (world && world.length > 50) {
+    prompt += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
+  }
+  if (chars && chars.length > 50) {
+    prompt += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
+  }
+  if (outline && outline.length > 50) {
+    var outlineLines = outline.split('\n');
+    var volumeOutline = '';
+    var inVolume = false;
+    for (var i = 0; i < outlineLines.length; i++) {
+      var line = outlineLines[i];
+      if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
+        inVolume = true;
+      }
+      if (inVolume) {
+        volumeOutline += line + '\n';
+        if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
+          break;
+        }
+      }
+    }
+    if (volumeOutline.length > 50) {
+      prompt += '【本卷大纲】\n' + volumeOutline + '\n\n';
+    }
+  }
+  
+  prompt += '请为本卷设计详细的章节细纲，每章包含以下内容：\n\n';
+  prompt += '■ 第N章《章节标题》\n';
+  prompt += '  场景：本章主要发生的地点\n';
+  prompt += '  人物：本章出场的主要角色\n';
+  prompt += '  剧情节点：本章推动主线的具体事件（2-3个）\n';
+  prompt += '  冲突：本章的核心冲突和对抗\n';
+  prompt += '  爆点/悬念钩子：章末的悬念或爽点，让读者想看下一章\n\n';
+  
+  prompt += '【输出要求】\n';
+  prompt += '1. 本卷设计8-15章细纲，每章至少150字，总字数不少于3000字\n';
+  prompt += '2. 结构清晰，按照上述格式输出\n';
+  prompt += '3. 每个章节要有明确的冲突和推进\n';
+  prompt += '4. 确保前后章节衔接自然，伏笔有安排\n';
+  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  return prompt;
+}
+
+async function aiGenerateArchitecture(type, userCommand) {
+  const work = getCurrentWork();
+  if (!work) { showToast('请先新建或选择作品'); return; }
+  
+  var prompt, taskType, targetChars;
+  var statusMsg = '';
+  
+  switch(type) {
+    case 'world':
+      prompt = buildWorldPrompt(work, userCommand);
+      taskType = 'world_creative';
+      targetChars = 6000;
+      statusMsg = '正在生成世界观…';
+      break;
+    case 'outline':
+      prompt = buildOutlinePrompt(work, userCommand);
+      taskType = 'outline_logic';
+      targetChars = 7000;
+      statusMsg = '正在生成大纲…';
+      break;
+    case 'chars':
+      prompt = buildCharsPrompt(work, userCommand);
+      taskType = 'chars_core';
+      targetChars = 6000;
+      statusMsg = '正在生成人设…';
+      break;
+    case 'detail':
+      var volumeIdx = 0;
+      try {
+        var volInfo = getCurrentVolumeDetail(work, currentChapterIdx || 0);
+        if (volInfo && volInfo.currentIdx !== undefined) volumeIdx = volInfo.currentIdx;
+      } catch(e) {}
+      prompt = buildDetailPrompt(work, volumeIdx, userCommand);
+      taskType = 'detail_base';
+      targetChars = 5000;
+      statusMsg = '正在生成第' + (volumeIdx + 1) + '卷细纲…';
+      break;
+    default:
+      showToast('未知类型');
+      return;
+  }
+  
+  if (typeof resetLoading === 'function') resetLoading(statusMsg);
+  else showLoading(statusMsg);
+  
+  try {
+    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
+    
+    if (result && result.length > 200) {
+      result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
+      
+      switch(type) {
+        case 'world':
+          work.world = result;
+          break;
+        case 'outline':
+          work.outline = result;
+          break;
+        case 'chars':
+          work.chars = result;
+          break;
+        case 'detail':
+          work.detail = (work.detail || '') + '\n\n' + result;
+          break;
+      }
+      
+      DB.saveWork(work);
+      updateArchStatus(work);
+      
+      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + result.length + '字', 5000);
+    } else {
+      showToast('⚠️ 生成内容过短，可能是API异常', 5000);
+    }
+  } catch(e) {
+    console.warn('[架构生成] 失败:', e);
+    showToast('⚠️ 生成失败：' + (e.message || '未知错误'), 5000);
+  } finally {
+    hideLoading();
+  }
+}
+
+window.aiGenerateArchitecture = aiGenerateArchitecture;
+
+// ========== v58: 正文生成迭代机制优化 ==========
+// 问题：原机制每次迭代重新生成全部内容，目标分数90分太高，命中率低
+// 优化：改为增量改进，降低目标分数到80分，增加输出长度
+
+function optimizeChapterGeneration() {
+  window._originalAiWriteChapter = window._originalAiWriteChapter || aiWriteChapter;
+  
+  window.aiWriteChapter = async function(opts) {
+    opts = opts || {};
+    var _writeIteration = opts._iteration || 0;
+    
+    if (_writeIteration === 0) {
+      opts._targetScore = 80;
+    }
+    
+    var result = await window._originalAiWriteChapter(opts);
+    
+    if (_writeIteration > 0 && opts._prevBest && result) {
+      var currentContent = document.getElementById('editor').value || '';
+      if (currentContent.length < opts._prevBest.text.length * 0.8) {
+        result = opts._prevBest.text;
+        document.getElementById('editor').value = result;
+      }
+    }
+    
+    return result;
+  };
+}
+
+optimizeChapterGeneration();
