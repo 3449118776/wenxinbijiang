@@ -3077,7 +3077,7 @@ window.generateArchModule = async function(opts){
       batches = buildArchCardBatchesV48(module, work, idea);
       totalChars = 0;
       allCards = [];
-      useSingleShot = isLargeContextModel();
+      useSingleShot = false; // 所有模型都按卡片生成，不再使用一次性模式
     }
 
     // 4b. 统一卡片式生成（大模型/小模型都用卡片）
