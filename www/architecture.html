@@ -3167,6 +3167,7 @@ window.generateArchModule = async function(opts){
 
         // 使用最高分结果
         cardResult = cardBestResult || cardResult;
+        console.log('[卡片迭代] ' + card.label + ' 最终结果: cardBestScore=' + cardBestScore + ', cardBestResult长度=' + (cardBestResult ? cardBestResult.length : 'null') + ', cardResult长度=' + cardResult.length);
         if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
         allCards.push({ label: card.label, content: cardResult });
