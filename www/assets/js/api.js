@@ -1191,7 +1191,9 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   }
   var config = DB.getApiConfig() || {};
   var userProvider = config.provider || 'deepseek';
+  var userModel = config.model || '';
   var route = TASK_ROUTE[taskType] || TASK_ROUTE['default'];
+  console.log('[API调用] 提供商:', userProvider, '模型:', userModel, '模型最大输出:', getModelMaxOutputTokens());
 
   // 构建实际尝试顺序：路由中 __user__ 替换为用户设的首选；去重；无 key 的跳过
   var seen = {};
