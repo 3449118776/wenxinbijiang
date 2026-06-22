@@ -2764,7 +2764,9 @@ window.generateArchModule = async function(opts){
             });
           }
 
-          // 构建精准修复 prompt
+          // v61: 构建精准修复 prompt — 补丁模式
+          // 不再要求AI输出完整内容（max_tokens限制会导致大幅删减），
+          // 改为输出补丁段落，系统自动合并到原文
           var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
           _fixPrompt += '【当前评分】' + _curScore + '/100\n';
           _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
@@ -2786,8 +2788,12 @@ window.generateArchModule = async function(opts){
           _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
           _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
           _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
-          _fixPrompt += '【待修复的完整内容】\n' + smartTruncate(result, 8000) + '\n\n';
-          _fixPrompt += '直接输出修复后的完整内容。不要加对话语前缀。';
+          // 发送完整原文，不截断 — AI上下文窗口足够大，关键是输出侧
+          _fixPrompt += '【待修复的完整内容 — 请仔细阅读，所有内容都需要保留】\n' + result + '\n\n';
+          _fixPrompt += '【输出要求】\n';
+          _fixPrompt += '输出修复后的完整内容。必须保留原文的全部结构和细节，不得删减、缩短或省略任何部分。\n';
+          _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
+          _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
 
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
 
@@ -2796,14 +2802,21 @@ window.generateArchModule = async function(opts){
           var _fixResult = null;
           try {
             if(typeof callRealAPIWithFallback === 'function'){
-              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, result.length, true);
+              // 用原文长度作为 targetChars，让 max_tokens 尽可能大
+              // 配合截断续写机制，AI会自动补齐超出max_tokens的内容
+              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, Math.max(result.length, 30000), true);
             }
           } catch(_fixErr) { console.warn('[精准修复] 失败:', _fixErr); }
 
           if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
-            result = _fixResult.trim();
-            totalChars = result.length;
-            if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
+            // v61: 如果修复结果比原文短超过30%，说明AI删减了内容，保留原文
+            if(_fixResult.trim().length < result.length * 0.7){
+              if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水（' + result.length + '→' + _fixResult.trim().length + '字），已保留原文。请手动编辑或缩小修复范围。', {duration: 5000});
+            } else {
+              result = _fixResult.trim();
+              totalChars = result.length;
+              if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
+            }
           } else {
             if(typeof showToast === 'function') showToast('⚠️ 精准修复未生效，使用原始内容', {duration: 3000});
           }
