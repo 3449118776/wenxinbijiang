@@ -2795,8 +2795,8 @@ window.generateArchModule = async function(opts){
       var _skFeedback = '';
       var _aiEvalResult = null; // ⭐ v56: 存储AI内置自评价结果，供后续流程使用
       for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
-        // 改用 updateLoadingProgress，保持进度连续
-        var skPct = 15 + (skAttempt - 1) * 5;
+        // 骨架自检只占用小部分进度（5%），大部分留给卡片生成
+        var skPct = 5 + (skAttempt - 1) * 2;
         if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架自检 ' + skAttempt + '/3…');
 
         var skPrompt = _skBasePrompt;
