@@ -4444,6 +4444,8 @@ async function startChapterPipeline() {
 
 // ===== 正文生成缓存机制：基于前置内容（架构+前序章节）的hash检测 =====
 // 正文依赖：世界观、人设、大纲、细纲、前序章节
+var _chapterCacheKey = 'wxbj_chapter_cache_v2';  // localStorage key
+
 function getChapterCacheHash(content) {
   if (!content || !content.trim()) return '';
   var len = content.length;
@@ -4453,12 +4455,51 @@ function getChapterCacheHash(content) {
   return len + '_' + first.charCodeAt(0) + '_' + last.charCodeAt(last.length - 1) + '_' + keyCount;
 }
 
+// 从localStorage加载章节缓存
+function loadChapterCacheFromStorage(workId) {
+  try {
+    var stored = localStorage.getItem(_chapterCacheKey);
+    if (stored) {
+      var data = JSON.parse(stored);
+      if (data && data[workId]) {
+        return data[workId];
+      }
+    }
+  } catch(e) { console.warn('[章节缓存] 读取失败:', e); }
+  return null;
+}
+
+// 保存章节缓存到localStorage
+function saveChapterCacheToStorage(workId, cache) {
+  try {
+    var stored = localStorage.getItem(_chapterCacheKey);
+    var data = stored ? JSON.parse(stored) : {};
+    data[workId] = cache;
+    // 限制存储大小，只保留最近3个作品的缓存
+    var keys = Object.keys(data);
+    if (keys.length > 3) {
+      var oldest = keys.sort(function(a, b) { return (data[a]._updatedAt || 0) - (data[b]._updatedAt || 0); })[0];
+      delete data[oldest];
+    }
+    localStorage.setItem(_chapterCacheKey, JSON.stringify(data));
+  } catch(e) { console.warn('[章节缓存] 保存失败:', e); }
+}
+
 function checkChapterCache(work, chapterIdx, userCmd) {
   // 初始化章节缓存结构
   if (!work._chapterCache) work._chapterCache = {};
   if (!work._chapterCache[chapterIdx]) work._chapterCache[chapterIdx] = {};
 
   var cache = work._chapterCache[chapterIdx];
+
+  // 从localStorage加载缓存（如果内存中没有）
+  if (!cache._updatedAt && work.id) {
+    var stored = loadChapterCacheFromStorage(work.id);
+    if (stored && stored[chapterIdx]) {
+      work._chapterCache[chapterIdx] = stored[chapterIdx];
+      cache = work._chapterCache[chapterIdx];
+    }
+  }
 
   // 计算本次输入的hash
   var inputHash = getChapterCacheHash((userCmd || '') + '|' + (work.genre || '') + '|' + chapterIdx);
@@ -4539,6 +4580,11 @@ function saveChapterCache(work, chapterIdx, result) {
   cache._prevChapterHash = depHashes.prevChapter;
   cache.result = result;
   cache._updatedAt = Date.now();
+
+  // 持久化到localStorage
+  if (work.id) {
+    saveChapterCacheToStorage(work.id, work._chapterCache);
+  }
 }
 
 async function aiWriteChapter(opts){

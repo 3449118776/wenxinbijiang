@@ -2436,6 +2436,8 @@ function buildModuleSummaryContext(work, currentModule){
 }
 
 // ===== 架构模块缓存机制：基于前置模块内容的hash检测 =====
+var _archCacheKey = 'wxbj_arch_cache_v2';  // localStorage key
+
 function getArchCacheHash(content) {
   if (!content || !content.trim()) return '';
   // 简单hash：用内容长度 + 首尾字符 + 关键词数量
@@ -2446,12 +2448,51 @@ function getArchCacheHash(content) {
   return len + '_' + first.charCodeAt(0) + '_' + last.charCodeAt(last.length - 1) + '_' + keyCount;
 }
 
+// 从localStorage加载架构缓存
+function loadArchCacheFromStorage(workId) {
+  try {
+    var stored = localStorage.getItem(_archCacheKey);
+    if (stored) {
+      var data = JSON.parse(stored);
+      if (data && data[workId]) {
+        return data[workId];
+      }
+    }
+  } catch(e) { console.warn('[架构缓存] 读取失败:', e); }
+  return null;
+}
+
+// 保存架构缓存到localStorage
+function saveArchCacheToStorage(workId, cache) {
+  try {
+    var stored = localStorage.getItem(_archCacheKey);
+    var data = stored ? JSON.parse(stored) : {};
+    data[workId] = cache;
+    // 限制存储大小，只保留最近5个作品的缓存
+    var keys = Object.keys(data);
+    if (keys.length > 5) {
+      var oldest = keys.sort(function(a, b) { return (data[a]._updatedAt || 0) - (data[b]._updatedAt || 0); })[0];
+      delete data[oldest];
+    }
+    localStorage.setItem(_archCacheKey, JSON.stringify(data));
+  } catch(e) { console.warn('[架构缓存] 保存失败:', e); }
+}
+
 function checkArchCache(work, module, idea, extraHint) {
   // 初始化缓存结构
   if (!work._archCache) work._archCache = {};
   if (!work._archCache[module]) work._archCache[module] = {};
 
   var cache = work._archCache[module];
+
+  // 从localStorage加载缓存（如果内存中没有）
+  if (!cache._updatedAt && work.id) {
+    var stored = loadArchCacheFromStorage(work.id);
+    if (stored && stored[module]) {
+      work._archCache[module] = stored[module];
+      cache = work._archCache[module];
+    }
+  }
 
   // 计算本次输入的hash
   var inputHash = getArchCacheHash((idea || '') + '|' + (extraHint || '') + '|' + (work.genre || ''));
@@ -2517,6 +2558,11 @@ function saveArchCache(work, module, result) {
   cache._depHashes = depHashes;
   cache.result = result;
   cache._updatedAt = Date.now();
+
+  // 持久化到localStorage
+  if (work.id) {
+    saveArchCacheToStorage(work.id, work._archCache);
+  }
 }
 
 // v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
@@ -2538,7 +2584,9 @@ window.generateArchModule = async function(opts){
       var cacheResult = checkArchCache(work, module, idea, opts && opts.extraHint);
       if(cacheResult.hitCache && cacheResult.cachedResult){
         // 命中缓存：直接使用缓存结果，跳过AI调用
-        if(typeof hideLoading === 'function') hideLoading();
+        // 显示进度条
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(100, '✅ 命中缓存（前置内容未变）…');
+        if(typeof hideLoading === 'function') setTimeout(hideLoading, 500);
 
         var result = cacheResult.cachedResult;
         work[module] = result;
