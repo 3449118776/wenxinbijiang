@@ -2636,6 +2636,8 @@ window.generateArchModule = async function(opts){
           rawEl.style.height = 'auto';
           rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
         }
+        // 初始化翻页器
+        if(typeof updateArchDisplay === 'function') updateArchDisplay(module);
 
         showToast('✅ ' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + ' 命中缓存（前置内容未变）· ' + result.length + '字', {duration: 4000});
 
@@ -3200,6 +3202,8 @@ window.generateArchModule = async function(opts){
           work[module] = result;
           var rawEl2 = document.getElementById('raw-' + module);
           if(rawEl2){ rawEl2.value = result; }
+          // 初始化翻页器
+          if(typeof updateArchDisplay === 'function') updateArchDisplay(module);
           showToast('✅ ' + moduleName + ' 命中缓存 · ' + result.length + '字', {duration: 4000});
           try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
           return;
@@ -3477,6 +3481,8 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+    // 初始化翻页器
+    if(typeof updateArchDisplay === 'function') updateArchDisplay(module);
 
     // 保存到架构缓存（前置内容没变时可直接复用）
     try { saveArchCache(work, module, result); } catch(cacheErr) { console.warn('[架构缓存] 保存失败:', cacheErr); }
@@ -4650,8 +4656,9 @@ window.strengthenDetailOutlineV46 = async function(){
       rawEl.style.height = 'auto';
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
-    // 清理分页全文缓存，确保后续保存以新内容为准，并重新初始化细纲翻页器
+    // 清理分页全文缓存 + 初始化翻页器
     delete _archFullContent['detail'];
+    if(typeof updateArchDisplay === 'function') updateArchDisplay('detail');
     work.detail = result;
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
     if(typeof hideLoading === 'function') hideLoading();
