@@ -2797,7 +2797,29 @@ window.generateArchModule = async function(opts){
         }
       }catch(e){
         console.warn('卡片 ' + card.label + ' 生成失败:', e);
-        cardResult = '（本卡片生成失败）\n';
+        cardResult = null;
+      }
+
+      // 保底机制：未命中缓存或结果异常（null/空/过短），注入上下文重试一次
+      if(!cardResult || !cardResult.trim() || cardResult.trim().length < 50){
+        console.warn('[cache miss] ' + card.label + ' 未命中缓存，注入上下文重试');
+        var retryPrompt = cardPrompt + '\n\n【⚠️ 保底上下文 — 仅在缓存未命中时提供】\n';
+        if(work && work[module] && work[module].trim()){
+          retryPrompt += '■ 当前模块已有内容（摘要）：\n' + smartTruncate(work[module], 3000) + '\n\n';
+        }
+        if(memoryContext && memoryContext.trim()){
+          retryPrompt += '■ 设定上下文（摘要）：\n' + memoryContext.substring(0, 1500) + '\n';
+        }
+        try {
+          if(typeof callRealAPIWithFallback === 'function'){
+            cardResult = await callRealAPIWithFallback(retryPrompt, null, taskType, cardTargetChars, true);
+          } else if(typeof callRealAPI === 'function'){
+            cardResult = await callRealAPI(retryPrompt, null, {});
+          }
+        } catch(retryErr){
+          console.warn('[保底重试] ' + card.label + ' 失败:', retryErr);
+          cardResult = '（本卡片生成失败）\n';
+        }
       }
 
       if(!cardResult || !cardResult.trim()){
