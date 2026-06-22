@@ -7310,10 +7310,19 @@ window.aiPolishByQuality = aiPolishByQuality;
 function buildWorldPrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
-  var prompt = '';
   
+  // ===== 系统消息（固定前缀，重复调用时服务商缓存）=====
+  var sysMsg = '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
+  sysMsg += '【作品】' + title + '\n';
+  sysMsg += '【题材】' + genre + '\n';
+  
+  // ===== 用户消息1：上下文 =====
+  var ctxMsg = '';
+  if (userCommand && userCommand.trim()) {
+    ctxMsg += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
   if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮世界观】\n' + prevResult + '\n\n' +
+    ctxMsg += '【上一轮世界观】\n' + prevResult + '\n\n' +
       '【改进要求】\n' +
       '1. 基于已有世界观进行深化和完善\n' +
       '2. 补充缺失的细节，增强设定的丰富度\n' +
@@ -7321,47 +7330,56 @@ function buildWorldPrompt(work, userCommand, prevResult) {
       '4. 输出完整的优化后世界观内容：\n\n';
   }
   
-  prompt += '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
-  if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
-  }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n\n';
-  prompt += '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
-  prompt += '一、时代背景与历史脉络\n';
-  prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
-  prompt += '二、地理设定\n';
-  prompt += '—— 核心区域（3-5个）的地理特征、气候、资源分布、势力格局\n\n';
-  prompt += '三、力量体系\n';
-  prompt += '—— 力量来源、修炼路径、等级划分（5-8级）、每个等级的特征与门槛\n\n';
-  prompt += '四、社会结构\n';
-  prompt += '—— 统治阶层、权力结构、社会阶层、经济体系、文化习俗\n\n';
-  prompt += '五、核心势力\n';
-  prompt += '—— 主要势力（3-5个）的立场、目标、实力对比、相互关系\n\n';
-  prompt += '六、核心矛盾\n';
-  prompt += '—— 表面冲突、深层矛盾、即将爆发的危机、主角需要面对的挑战\n\n';
-  prompt += '七、独特设定\n';
-  prompt += '—— 这个世界最与众不同的地方、创新点、读者会记住的特色\n\n';
-  prompt += '八、信息增量规划\n';
-  prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 每个模块至少3000字，总字数不少于30000字\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 设定要具体、可验证，避免模糊表述\n';
-  prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
-  prompt += '5. 适合百万字长篇（1500-3000章）的世界观架构\n';
-  prompt += '6. 直接输出完整内容，不要加对话语前缀';
-  return prompt;
+  // ===== 用户消息2：任务 =====
+  var taskMsg = '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
+  taskMsg += '一、时代背景与历史脉络\n';
+  taskMsg += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
+  taskMsg += '二、地理设定\n';
+  taskMsg += '—— 核心区域（3-5个）的地理特征、气候、资源分布、势力格局\n\n';
+  taskMsg += '三、力量体系\n';
+  taskMsg += '—— 力量来源、修炼路径、等级划分（5-8级）、每个等级的特征与门槛\n\n';
+  taskMsg += '四、社会结构\n';
+  taskMsg += '—— 统治阶层、权力结构、社会阶层、经济体系、文化习俗\n\n';
+  taskMsg += '五、核心势力\n';
+  taskMsg += '—— 主要势力（3-5个）的立场、目标、实力对比、相互关系\n\n';
+  taskMsg += '六、核心矛盾\n';
+  taskMsg += '—— 表面冲突、深层矛盾、即将爆发的危机、主角需要面对的挑战\n\n';
+  taskMsg += '七、独特设定\n';
+  taskMsg += '—— 这个世界最与众不同的地方、创新点、读者会记住的特色\n\n';
+  taskMsg += '八、信息增量规划\n';
+  taskMsg += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
+  taskMsg += '【输出要求】\n';
+  taskMsg += '1. 每个模块至少3000字，总字数不少于30000字\n';
+  taskMsg += '2. 结构清晰，使用标题分隔\n';
+  taskMsg += '3. 设定要具体、可验证，避免模糊表述\n';
+  taskMsg += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
+  taskMsg += '5. 适合百万字长篇（1500-3000章）的世界观架构\n';
+  taskMsg += '6. 直接输出完整内容，不要加对话语前缀';
+  
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: ctxMsg },
+    { role: 'user', content: taskMsg }
+  ];
 }
 
 function buildOutlinePrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var prompt = '';
   
+  // ===== 系统消息（固定前缀，重复调用时服务商缓存）=====
+  var sysMsg = '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
+  sysMsg += '【作品】' + title + '\n';
+  sysMsg += '【题材】' + genre + '\n';
+  
+  // ===== 用户消息1：上下文 =====
+  var ctxMsg = '';
+  if (userCommand && userCommand.trim()) {
+    ctxMsg += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
   if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮大纲】\n' + prevResult + '\n\n' +
+    ctxMsg += '【上一轮大纲】\n' + prevResult + '\n\n' +
       '【改进要求】\n' +
       '1. 基于已有大纲进行深化和完善\n' +
       '2. 补充缺失的细节，增加每卷的详细程度\n' +
@@ -7369,55 +7387,64 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
       '4. 保持原有结构和核心剧情不变\n' +
       '5. 输出完整的优化后大纲内容：\n\n';
   }
-  
-  prompt += '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
-  if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
-  }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
+    ctxMsg += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
   }
-  prompt += '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
-  prompt += '包含以下内容：\n\n';
-  prompt += '一、核心设定回顾\n';
-  prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
-  prompt += '二、全书结构规划\n';
-  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约3500字、总字数估算\n\n';
-  prompt += '三、分卷大纲（每卷详细，每卷至少500字）\n';
-  prompt += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
-  prompt += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
-  prompt += '四、核心矛盾链\n';
-  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n';
-  prompt += '—— 每卷矛盾的推进和升级\n\n';
-  prompt += '五、爽点规划\n';
-  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻、爆发时刻\n\n';
-  prompt += '六、伏笔布局\n';
-  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n';
-  prompt += '—— 长线伏笔（贯穿多卷）和短线伏笔（单卷内回收）\n\n';
-  prompt += '七、人物成长弧线\n';
-  prompt += '—— 主角和主要配角的成长路径、转折点、关键变化\n\n';
-  prompt += '八、节奏规划\n';
-  prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 总字数不少于50000字，每卷大纲至少5000字\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
-  prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
-  prompt += '5. 考虑百万字长篇（1500-3000章）的延展性，预留足够的剧情空间\n';
-  prompt += '6. 直接输出完整内容，不要加对话语前缀';
-  return prompt;
+  
+  // ===== 用户消息2：任务 =====
+  var taskMsg = '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
+  taskMsg += '包含以下内容：\n\n';
+  taskMsg += '一、核心设定回顾\n';
+  taskMsg += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
+  taskMsg += '二、全书结构规划\n';
+  taskMsg += '—— 卷数（10-15卷）、每卷约150章、每章约3500字、总字数估算\n\n';
+  taskMsg += '三、分卷大纲（每卷详细，每卷至少500字）\n';
+  taskMsg += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
+  taskMsg += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
+  taskMsg += '四、核心矛盾链\n';
+  taskMsg += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n';
+  taskMsg += '—— 每卷矛盾的推进和升级\n\n';
+  taskMsg += '五、爽点规划\n';
+  taskMsg += '—— 每卷的主要爽点、打脸场景、升级时刻、爆发时刻\n\n';
+  taskMsg += '六、伏笔布局\n';
+  taskMsg += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n';
+  taskMsg += '—— 长线伏笔（贯穿多卷）和短线伏笔（单卷内回收）\n\n';
+  taskMsg += '七、人物成长弧线\n';
+  taskMsg += '—— 主角和主要配角的成长路径、转折点、关键变化\n\n';
+  taskMsg += '八、节奏规划\n';
+  taskMsg += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
+  taskMsg += '【输出要求】\n';
+  taskMsg += '1. 总字数不少于50000字，每卷大纲至少5000字\n';
+  taskMsg += '2. 结构清晰，使用标题分隔\n';
+  taskMsg += '3. 每个关键事件要具体，有明确的冲突和结果\n';
+  taskMsg += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
+  taskMsg += '5. 考虑百万字长篇（1500-3000章）的延展性，预留足够的剧情空间\n';
+  taskMsg += '6. 直接输出完整内容，不要加对话语前缀';
+  
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: ctxMsg },
+    { role: 'user', content: taskMsg }
+  ];
 }
 
 function buildCharsPrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var prompt = '';
   
+  // ===== 系统消息（固定前缀，重复调用时服务商缓存）=====
+  var sysMsg = '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
+  sysMsg += '【作品】' + title + '\n';
+  sysMsg += '【题材】' + genre + '\n';
+  
+  // ===== 用户消息1：上下文 =====
+  var ctxMsg = '';
+  if (userCommand && userCommand.trim()) {
+    ctxMsg += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
   if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮人设】\n' + prevResult + '\n\n' +
+    ctxMsg += '【上一轮人设】\n' + prevResult + '\n\n' +
       '【改进要求】\n' +
       '1. 基于已有人设进行深化和完善\n' +
       '2. 补充缺失的角色，增强人物体系的丰富度\n' +
@@ -7425,41 +7452,41 @@ function buildCharsPrompt(work, userCommand, prevResult) {
       '4. 保持原有角色设定和关系不变\n' +
       '5. 输出完整的优化后人设内容：\n\n';
   }
-  
-  prompt += '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
-  if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
-  }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
+    ctxMsg += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
   }
-  prompt += '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
-  prompt += '一、主角（详细）\n';
-  prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
-  prompt += '—— 人物弧光起点和终点、成长路径\n';
-  prompt += '—— 金手指/能力、使用限制、代价\n';
-  prompt += '—— 标志性动作、口头禅、独特习惯\n\n';
-  prompt += '二、女主角/重要女性角色\n';
-  prompt += '—— 姓名、年龄、身份、性格、与主角关系、角色定位\n';
-  prompt += '—— 人物成长弧线、关键时刻\n\n';
-  prompt += '三、主要反派（2-3位）\n';
-  prompt += '—— 姓名、身份、核心目标、与主角的关系、动机合理性\n';
-  prompt += '—— 能力、弱点、人物层次（不是纯粹的坏人）\n\n';
-  prompt += '四、重要配角（5-8位）\n';
-  prompt += '—— 每个人的姓名、身份、性格、作用、与主角关系\n\n';
-  prompt += '五、人物关系网\n';
-  prompt += '—— 角色之间的关系矩阵、冲突点、潜在的背叛/结盟\n\n';
-  prompt += '六、角色记忆点设计\n';
-  prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
-  prompt += '【输出要求】\n';
-  prompt += '1. 主角部分至少5000字，每个重要角色至少2000字，总字数不少于20000字\n';
-  prompt += '2. 结构清晰，使用标题分隔\n';
-  prompt += '3. 角色要有鲜明个性，避免模板化\n';
-  prompt += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
-  prompt += '5. 直接输出完整内容，不要加对话语前缀';
-  return prompt;
+  
+  // ===== 用户消息2：任务 =====
+  var taskMsg = '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
+  taskMsg += '一、主角（详细）\n';
+  taskMsg += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
+  taskMsg += '—— 人物弧光起点和终点、成长路径\n';
+  taskMsg += '—— 金手指/能力、使用限制、代价\n';
+  taskMsg += '—— 标志性动作、口头禅、独特习惯\n\n';
+  taskMsg += '二、女主角/重要女性角色\n';
+  taskMsg += '—— 姓名、年龄、身份、性格、与主角关系、角色定位\n';
+  taskMsg += '—— 人物成长弧线、关键时刻\n\n';
+  taskMsg += '三、主要反派（2-3位）\n';
+  taskMsg += '—— 姓名、身份、核心目标、与主角的关系、动机合理性\n';
+  taskMsg += '—— 能力、弱点、人物层次（不是纯粹的坏人）\n\n';
+  taskMsg += '四、重要配角（5-8位）\n';
+  taskMsg += '—— 每个人的姓名、身份、性格、作用、与主角关系\n\n';
+  taskMsg += '五、人物关系网\n';
+  taskMsg += '—— 角色之间的关系矩阵、冲突点、潜在的背叛/结盟\n\n';
+  taskMsg += '六、角色记忆点设计\n';
+  taskMsg += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
+  taskMsg += '【输出要求】\n';
+  taskMsg += '1. 主角部分至少5000字，每个重要角色至少2000字，总字数不少于20000字\n';
+  taskMsg += '2. 结构清晰，使用标题分隔\n';
+  taskMsg += '3. 角色要有鲜明个性，避免模板化\n';
+  taskMsg += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
+  taskMsg += '5. 直接输出完整内容，不要加对话语前缀';
+  
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: ctxMsg },
+    { role: 'user', content: taskMsg }
+  ];
 }
 
 function getGenreDetailTemplate(genre) {
@@ -7567,10 +7594,26 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   var outline = work.outline || '';
   var genreTemplate = getGenreDetailTemplate(genre);
   
-  var prompt = '';
+  // ===== 系统消息（固定前缀，重复调用时服务商缓存）=====
+  var sysMsg = '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
+  sysMsg += '【作品】' + title + '\n';
+  sysMsg += '【题材】' + genre + '\n';
+  sysMsg += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  sysMsg += '【题材专属模板】\n';
+  sysMsg += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
+  sysMsg += '【数字面板格式】\n' + genreTemplate.digitalPanel + '\n\n';
+  sysMsg += '【爽点类型参考】\n' + genreTemplate.beatTypes.join('、') + '\n\n';
+  sysMsg += '【情绪基调参考】\n' + genreTemplate.emotionTones.join('、') + '\n\n';
+  sysMsg += '【钩子类型参考】\n' + genreTemplate.hookTypes.join('、') + '\n\n';
+  sysMsg += '【硬节点分类参考】\n' + genreTemplate.hardNodeCategories.join('、') + '\n';
   
+  // ===== 用户消息1：上下文 =====
+  var ctxMsg = '';
+  if (userCommand && userCommand.trim()) {
+    ctxMsg += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
+  }
   if (prevResult && prevResult.length > 50) {
-    prompt = '【上一轮细纲】\n' + prevResult + '\n\n' +
+    ctxMsg += '【上一轮细纲】\n' + prevResult + '\n\n' +
       '【改进要求】\n' +
       '1. 基于已有细纲进行深化和完善\n' +
       '2. 补充缺失的章节，确保本卷达到72章\n' +
@@ -7578,20 +7621,11 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
       '4. 保持原有章节结构和剧情不变\n' +
       '5. 输出完整的优化后细纲内容：\n\n';
   }
-  
-  prompt += '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
-  if (userCommand && userCommand.trim()) {
-    prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
-  }
-  prompt += '【作品】' + title + '\n';
-  prompt += '【题材】' + genre + '\n';
-  prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
-  
   if (world && world.length > 50) {
-    prompt += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
+    ctxMsg += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
   }
   if (chars && chars.length > 50) {
-    prompt += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
+    ctxMsg += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
   }
   if (outline && outline.length > 50) {
     var outlineLines = outline.split('\n');
@@ -7610,55 +7644,48 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
       }
     }
     if (volumeOutline.length > 50) {
-      prompt += '【本卷大纲】\n' + volumeOutline + '\n\n';
+      ctxMsg += '【本卷大纲】\n' + volumeOutline + '\n\n';
     }
   }
   
-  prompt += '【题材专属模板】\n';
-  prompt += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
-  prompt += '【数字面板格式】\n';
-  prompt += genreTemplate.digitalPanel + '\n\n';
-  prompt += '【爽点类型参考】\n';
-  prompt += genreTemplate.beatTypes.join('、') + '\n\n';
-  prompt += '【情绪基调参考】\n';
-  prompt += genreTemplate.emotionTones.join('、') + '\n\n';
-  prompt += '【钩子类型参考】\n';
-  prompt += genreTemplate.hookTypes.join('、') + '\n\n';
-  prompt += '【硬节点分类参考】\n';
-  prompt += genreTemplate.hardNodeCategories.join('、') + '\n\n';
+  // ===== 用户消息2：任务 =====
+  var taskMsg = '请为本卷设计详细的章节细纲，目标规模：72章，每章约3500-4000字。\n\n';
+  taskMsg += '每章必须包含以下内容（严格按照此格式）：\n\n';
+  taskMsg += '### 【第N章】章节标题\n';
+  taskMsg += '**情绪基调**：本章的整体情绪走向（从以上参考中选择或自定义）\n';
+  taskMsg += '**爽点类型**：本章的核心爽点（从以上参考中选择或自定义）\n';
+  taskMsg += '**时间**：具体时间点\n';
+  taskMsg += '**地点**：本章主要发生的地点\n';
+  taskMsg += '**人物**：本章出场的主要角色\n';
+  taskMsg += '**硬节点**：\n';
+  taskMsg += '1. 第一个具体剧情节点\n';
+  taskMsg += '2. 第二个具体剧情节点\n';
+  taskMsg += '...\n';
+  taskMsg += '20. 第二十个具体剧情节点\n';
+  taskMsg += '**【数字面板】** ' + genreTemplate.digitalPanel.replace(/X/g, '具体数值') + '\n';
+  taskMsg += '**【番茄钩子】** 章末强烈的悬念或爽点，让读者必须看下一章\n';
+  taskMsg += '**【兑现链】**\n';
+  taskMsg += '- 钩子1 → 第X章回收（兑现）\n';
+  taskMsg += '- 钩子2 → 第Y章回收（兑现）\n';
+  taskMsg += '**字数建议**：4000-5000字\n\n';
   
-  prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约3500-4000字。\n\n';
-  prompt += '每章必须包含以下内容（严格按照此格式）：\n\n';
-  prompt += '### 【第N章】章节标题\n';
-  prompt += '**情绪基调**：本章的整体情绪走向（从以上参考中选择或自定义）\n';
-  prompt += '**爽点类型**：本章的核心爽点（从以上参考中选择或自定义）\n';
-  prompt += '**时间**：具体时间点\n';
-  prompt += '**地点**：本章主要发生的地点\n';
-  prompt += '**人物**：本章出场的主要角色\n';
-  prompt += '**硬节点**：\n';
-  prompt += '1. 第一个具体剧情节点\n';
-  prompt += '2. 第二个具体剧情节点\n';
-  prompt += '...\n';
-  prompt += '20. 第二十个具体剧情节点\n';
-  prompt += '**【数字面板】** ' + genreTemplate.digitalPanel.replace(/X/g, '具体数值') + '\n';
-  prompt += '**【番茄钩子】** 章末强烈的悬念或爽点，让读者必须看下一章\n';
-  prompt += '**【兑现链】**\n';
-  prompt += '- 钩子1 → 第X章回收（兑现）\n';
-  prompt += '- 钩子2 → 第Y章回收（兑现）\n';
-  prompt += '**字数建议**：4000-5000字\n\n';
+  taskMsg += '【输出要求】\n';
+  taskMsg += '1. 本卷设计72章细纲，每章详细写出，每章至少300字\n';
+  taskMsg += '2. 总字数不少于35000字\n';
+  taskMsg += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
+  taskMsg += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
+  taskMsg += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
+  taskMsg += '6. 每个番茄钩子必须有明确的兑现链，标注回收章节\n';
+  taskMsg += '7. 每5章一个小高潮、每10章一个中高潮、每24章一个大高潮\n';
+  taskMsg += '8. 穿插上帝视角段落，增加故事深度\n';
+  taskMsg += '9. 适合百万字长篇（1500-3000章）的细纲架构\n';
+  taskMsg += '10. 直接输出完整内容，不要加对话语前缀';
   
-  prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少300字\n';
-  prompt += '2. 总字数不少于35000字\n';
-  prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
-  prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
-  prompt += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
-  prompt += '6. 每个番茄钩子必须有明确的兑现链，标注回收章节\n';
-  prompt += '7. 每5章一个小高潮、每10章一个中高潮、每24章一个大高潮\n';
-  prompt += '8. 穿插上帝视角段落，增加故事深度\n';
-  prompt += '9. 适合百万字长篇（1500-3000章）的细纲架构\n';
-  prompt += '10. 直接输出完整内容，不要加对话语前缀';
-  return prompt;
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: ctxMsg },
+    { role: 'user', content: taskMsg }
+  ];
 }
 
 async function aiGenerateArchitecture(type, userCommand) {
