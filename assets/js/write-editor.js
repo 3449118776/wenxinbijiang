@@ -4636,7 +4636,7 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  let result = await aiCaller(prompt, null, 'write_normal', 20000); // 目标 8000-12000 字，大幅增加输出长度
+  let result = await aiCaller(prompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
 
@@ -4670,14 +4670,14 @@ async function aiWriteChapter(opts){
     }
 
     // 字数校验：过短时自动补写，确保章节完整性（不再限制上限）
-    if (result.length < 5000) {
+    if (result.length < 8000) {
       if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数偏短(' + result.length + '字)，自动补写至完整章节…';
       showToast('正在自动补写，确保章节完整…', 2000);
-      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至8000字以上，确保剧情完整、节奏紧凑。\n\n';
+      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至12000字以上，确保剧情完整、节奏紧凑。\n\n';
       extendPrompt += '【已有内容】\n' + result + '\n\n';
-      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容3000-8000字，使总字数达到8000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
+      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容4000-12000字，使总字数达到12000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
       try {
-        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 12000, true);
+        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 20000, true);
         if (extendResult && extendResult.length > 100) {
           result = result + '\n\n' + extendResult;
           if(statusBar) statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 补写完成（' + result.length + '字）';
@@ -7341,7 +7341,7 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   prompt += '八、信息增量规划\n';
   prompt += '—— 各卷应揭示的设定内容，避免前期信息倾倒\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 每个模块至少800字，总字数不少于10000字\n';
+  prompt += '1. 每个模块至少3000字，总字数不少于30000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 设定要具体、可验证，避免模糊表述\n';
   prompt += '4. 考虑后续剧情发展的可能性，预留伏笔空间\n';
@@ -7397,7 +7397,7 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   prompt += '八、节奏规划\n';
   prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 总字数不少于20000字，每卷大纲至少1500字\n';
+  prompt += '1. 总字数不少于50000字，每卷大纲至少5000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
   prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
@@ -7450,7 +7450,7 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   prompt += '六、角色记忆点设计\n';
   prompt += '—— 每个主要角色的独特识别特征，让读者记住他们\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 主角部分至少1500字，每个重要角色至少500字，总字数不少于8000字\n';
+  prompt += '1. 主角部分至少5000字，每个重要角色至少2000字，总字数不少于20000字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 角色要有鲜明个性，避免模板化\n';
   prompt += '4. 考虑角色在剧情中的作用和发展（1500-3000章长篇）\n';
@@ -7641,11 +7641,11 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '**【兑现链】**\n';
   prompt += '- 钩子1 → 第X章回收（兑现）\n';
   prompt += '- 钩子2 → 第Y章回收（兑现）\n';
-  prompt += '**字数建议**：3500-4000字\n\n';
+  prompt += '**字数建议**：4000-5000字\n\n';
   
   prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少200字\n';
-  prompt += '2. 总字数不少于15000字\n';
+  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少300字\n';
+  prompt += '2. 总字数不少于35000字\n';
   prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
   prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
   prompt += '5. 数字面板必须使用题材专属格式，包含实时资源统计\n';
@@ -7677,26 +7677,26 @@ async function aiGenerateArchitecture(type, userCommand) {
   switch(type) {
     case 'world':
       taskType = 'world_creative';
-      targetChars = 30000;
-      minChars = 10000;
+      targetChars = 80000;
+      minChars = 30000;
       statusMsg = '正在生成世界观…';
       break;
     case 'outline':
       taskType = 'outline_logic';
-      targetChars = 50000;
-      minChars = 20000;
+      targetChars = 150000;
+      minChars = 50000;
       statusMsg = '正在生成大纲…';
       break;
     case 'chars':
       taskType = 'chars_core';
-      targetChars = 25000;
-      minChars = 8000;
+      targetChars = 60000;
+      minChars = 20000;
       statusMsg = '正在生成人设…';
       break;
     case 'detail':
       taskType = 'detail_base';
-      targetChars = 35000;
-      minChars = 12000;
+      targetChars = 100000;
+      minChars = 35000;
       statusMsg = '正在生成细纲…';
       break;
     default:
