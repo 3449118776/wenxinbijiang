@@ -4439,6 +4439,136 @@ async function startChapterPipeline() {
       pipelineStatus('✅ 第' + n + '章完成，准备下一章…');
       // v48: 章节间短等待 100ms 即可，无需长等待
       if (n < end) await pipelineSleep(100);
+
+      // ===== 流水线：每10章整体评价迭代 =====
+      if (done > 0 && done % 10 === 0 && n < end) {
+        pipelineStatus('🏭 流水线 ' + done + ' 章完成，正在进行整体评价迭代…');
+        // 合并已完成的章节内容
+        var batchContent = '';
+        for (var bi = start - 1; bi < n; bi++) {
+          if (work.chapters[bi]) {
+            batchContent += work.chapters[bi].content || '';
+          }
+        }
+        // 整体评价
+        var batchEvalScore = 50;
+        var batchWeakDims = [];
+        try {
+          if (typeof QualityEngine !== 'undefined' && QualityEngine.evaluate) {
+            var batchEval = QualityEngine.evaluate(batchContent, 'detail');
+            batchEvalScore = batchEval.totalScore || 0;
+            if (batchEval.dimensions) {
+              for (var _bedi = 0; _bedi < batchEval.dimensions.length; _bedi++) {
+                var _bed = batchEval.dimensions[_bedi];
+                if (_bed.score !== undefined && _bed.max !== undefined && (_bed.score / _bed.max) < 0.9 && _bed.name) {
+                  batchWeakDims.push({ name: _bed.name, score: _bed.score, max: _bed.max, issues: _bed.issues || [] });
+                }
+              }
+            }
+          }
+        } catch(e) { console.warn('[流水线整体评价]', e); }
+
+        pipelineStatus('🏭 第' + done + '章整体评价：' + batchEvalScore + '分' + (batchWeakDims.length > 0 ? '，发现' + batchWeakDims.length + '个短板' : '，通过'));
+
+        // 如果分数<85或有问题，进行整体迭代修复
+        if (batchEvalScore < 85 || batchWeakDims.length > 0) {
+          var batchIterDone = 0;
+          var maxBatchIterations = 3;
+          var currentBatchResult = batchContent;
+
+          while (batchIterDone < maxBatchIterations) {
+            if (_chapterPipelineCancel) break;
+
+            // 构建加强提示
+            var batchIterHint = '🔥 流水线整体评价第' + (batchIterDone + 1) + '次，当前评分 ' + batchEvalScore + '/100，以下维度需要加强：\n';
+            for (var _bwi = 0; _bwi < batchWeakDims.length; _bwi++) {
+              var _bwd = batchWeakDims[_bwi];
+              batchIterHint += '【' + _bwd.name + '】' + _bwd.score + '/' + _bwd.max + '分';
+              if (_bwd.issues && _bwd.issues.length > 0) batchIterHint += ' — ' + _bwd.issues.slice(0, 2).join('; ');
+              batchIterHint += '\n';
+            }
+            batchIterHint += '\n【整体一致性检查重点】\n1. 各章之间情节是否连贯一致\n2. 人物行为逻辑是否统一\n3. 伏笔是否有埋设和回收\n4. 只针对问题精准修复，不要重新生成整体\n\n';
+
+            pipelineStatus('🏭 流水线整体修复第' + (batchIterDone + 1) + '/' + maxBatchIterations + '轮…');
+
+            // 对接下来的章节重新生成（带上加强提示）
+            var nextBatchStart = n;
+            var nextBatchEnd = Math.min(n + 10, end);
+
+            for (var ri = nextBatchStart; ri < nextBatchEnd; ri++) {
+              if (_chapterPipelineCancel) break;
+              work = getCurrentWork();
+              if (!validateCurrentWorkBeforeWrite(work)) break;
+
+              var rIdx = ri - 1;
+              ensurePipelineChapters(work, rIdx);
+              var rCh = work.chapters[rIdx];
+
+              pipelineStatus('🏭 整体修复：第' + (ri + 1) + '章…');
+              var rBefore = (rCh.content || '').length;
+
+              // 重新生成这章（带加强提示）
+              loadChapter(rIdx);
+              await pipelineSleep(100);
+
+              try {
+                await aiWriteChapter({ extraHint: batchIterHint, forceRegen: true });
+              } catch(e) {
+                console.warn('[流水线整体修复] 第' + (ri + 1) + '章失败:', e);
+              }
+
+              work = getCurrentWork();
+              rCh = work.chapters[rIdx];
+              var rAfter = rCh && rCh.content ? rCh.content.length : 0;
+
+              // 保存
+              try {
+                saveChapter();
+                if (DB.flush) DB.flush();
+              } catch(saveErr) { console.warn('[pipeline save]', saveErr); }
+
+              // 覆盖缓存
+              try { saveChapterCache(work, rIdx, rCh.content); } catch(e) {}
+
+              await pipelineSleep(50);
+            }
+
+            batchIterDone++;
+
+            // 重新评价
+            var newBatchContent = '';
+            for (var _nbi = start - 1; _nbi < nextBatchEnd; _nbi++) {
+              if (work.chapters[_nbi]) {
+                newBatchContent += work.chapters[_nbi].content || '';
+              }
+            }
+
+            try {
+              if (typeof QualityEngine !== 'undefined' && QualityEngine.evaluate) {
+                var newBatchEval = QualityEngine.evaluate(newBatchContent, 'detail');
+                batchEvalScore = newBatchEval.totalScore || 0;
+                if (newBatchEval.dimensions) {
+                  batchWeakDims = [];
+                  for (var _nbdi = 0; _nbdi < newBatchEval.dimensions.length; _nbdi++) {
+                    var _nbd = newBatchEval.dimensions[_nbdi];
+                    if (_nbd.score !== undefined && _nbd.max !== undefined && (_nbd.score / _nbd.max) < 0.9 && _nbd.name) {
+                      batchWeakDims.push({ name: _nbd.name, score: _nbd.score, max: _nbd.max, issues: _nbd.issues || [] });
+                    }
+                  }
+                }
+              }
+            } catch(e) {}
+
+            pipelineStatus('🏭 整体修复第' + batchIterDone + '轮完成：新评分 ' + batchEvalScore + '分');
+
+            // 分数>=85或无短板，结束
+            if (batchEvalScore >= 85 || batchWeakDims.length === 0) break;
+          }
+        }
+
+        pipelineStatus('🏭 整体评价迭代完成，继续流水线…');
+        await pipelineSleep(200);
+      }
     }
   } finally {
     _chapterPipelineRunning = false;
