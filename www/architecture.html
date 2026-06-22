@@ -2580,10 +2580,10 @@ window.generateArchModule = async function(opts){
 
       var _skSucceeded = false;
       var _skFeedback = '';
-      for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
+      for(var skAttempt = 1; skAttempt <= 1; skAttempt++){
         // 改用 updateLoadingProgress，保持进度连续
         var skPct = 15 + (skAttempt - 1) * 5;
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架自检 ' + skAttempt + '/3…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架生成中…');
 
         var skPrompt = _skBasePrompt;
         if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
