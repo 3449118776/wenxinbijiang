@@ -958,6 +958,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           try { if (ftext) fdata = JSON.parse(ftext); } catch (_) {}
           if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
             var _res = cleanAIOutput(fdata.choices[0].message.content);
+            _callOnce._lastFinishReason = (fdata.choices[0].finish_reason || 'stop');
             _cacheSet(provider, _cacheModel, prompt, _res);
             return _res;
           }
@@ -1027,6 +1028,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
         err3.kind = 'network'; err3.provider = provider; throw err3;
       }
       result = (okData.content && okData.content[0] && okData.content[0].text) || '';
+      _callOnce._lastFinishReason = (okData.stop_reason || 'stop');
     } else {
       // OpenAI 兼容
       var messages = isMsg ? prompt : [{ role: 'user', content: prompt }];
@@ -1066,6 +1068,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
         ne2.kind = 'network'; ne2.provider = provider; throw ne2;
       }
       result = (okData2.choices && okData2.choices[0] && okData2.choices[0].message && okData2.choices[0].message.content) || '';
+      _callOnce._lastFinishReason = (okData2.choices && okData2.choices[0] && okData2.choices[0].finish_reason) || 'stop';
     }
   } catch (e) {
     // 网络级错误（如跨域、DNS、断开、AbortError）
@@ -1299,6 +1302,32 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     var le = callRealAPI && callRealAPI.lastErr;
     if (le && le.kind) lastKindSummary[le.kind] = (lastKindSummary[le.kind] || 0) + 1;
     if (result) {
+      // v61: 检测输出是否被截断，若是则自动续写
+      var finishReason = _callOnce._lastFinishReason || 'stop';
+      if (finishReason === 'length' || finishReason === 'max_tokens') {
+        var continued = result;
+        var maxRounds = 3;
+        for (var cr = 0; cr < maxRounds; cr++) {
+          var tail = continued.length > 500 ? continued.slice(-500) : continued;
+          var contPrompt = '请继续上文，从断点处直接接着写，不要重复已有内容，保持文风和叙事节奏一致：\n\n...' + tail + '\n\n请直接继续：';
+          try {
+            if (!silent) showLoading('输出被截断，自动续写中…(' + (cr + 1) + '/' + maxRounds + ')', true);
+            var contOpts = { provider: provider, silent: true, maxTokens: Math.min((callOpts.maxTokens || 4096) / 2, 4096) };
+            var contResult = await callRealAPI(contPrompt, null, contOpts);
+            if (contResult && contResult.length > 20) {
+              continued = continued + '\n\n' + contResult;
+              if (_callOnce._lastFinishReason === 'length' || _callOnce._lastFinishReason === 'max_tokens') {
+                continue;
+              }
+            }
+            break;
+          } catch(e) { break; }
+        }
+        if (continued.length > result.length) {
+          if (!silent) showToast('已自动续写补齐（' + result.length + '→' + continued.length + '字）', { duration: 2500 });
+          result = continued;
+        }
+      }
       if (!silent) hideLoading();
       if (oi > 0) {
         showToast('已切换到 ' + (API_PROVIDERS[provider] ? API_PROVIDERS[provider].name : provider) + ' 完成生成', { duration: 2200 });
