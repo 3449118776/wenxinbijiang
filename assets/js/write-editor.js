@@ -2820,9 +2820,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   } catch(_e) {}
   if (!worldContent && work.world) worldContent = work.world;
   if (worldContent && worldContent.length > 200) {
-    // 只保留精华，不做全量注入
-    var worldInjected = worldContent.length > 3000 ? worldContent.substring(0, 3000) + '...' : worldContent;
-    prompt += '【世界观设定】\n' + worldInjected + '\n\n';
+    prompt += '【世界观设定】\n' + worldContent + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
     var rules = [];
@@ -2848,8 +2846,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   } catch(_e2) {}
   if (!charsContent && work.chars) charsContent = work.chars;
   if (charsContent && charsContent.length > 100) {
-    var charsInjected = charsContent.length > 2500 ? charsContent.substring(0, 2500) + '...' : charsContent;
-    prompt += '【人物人设】\n' + charsInjected + '\n\n';
+    prompt += '【人物人设】\n' + charsContent + '\n\n';
   }
   
   // ===== v52: 素材库 · 从 work.materialLib 读取（AI 提取的 12 类结构化素材） =====
@@ -2936,26 +2933,22 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
   if (outlineSum || outlineVol.body) {
     if (outlineSum && outlineSum.length > 200) {
-      var outlineSumInjected = outlineSum.length > 2500 ? outlineSum.substring(0, 2500) + '...' : outlineSum;
-      prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSumInjected + '\n\n';
+      prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSum + '\n\n';
       outlineInjected = true;
     }
     if (outlineVol.body && outlineVol.body.length > 100) {
-      var curVolOut = outlineVol.body.length > 3500 ? outlineVol.body.substring(0, 3500) + '...' : outlineVol.body;
-      prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
+      prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + outlineVol.body + '\n';
       if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
       if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
       prompt += '\n';
       outlineInjected = true;
     }
-    // 3. 兜底：如果没切到卷，则用完整大纲但截断上限
+    // 3. 兜底：如果没切到卷，则用完整大纲
     if (!outlineInjected && work.outline) {
-      var fallback = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
-      prompt += '【全书大纲】\n' + fallback + '\n\n';
+      prompt += '【全书大纲】\n' + work.outline + '\n\n';
     }
   } else if (work.outline) {
-    var fallback2 = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
-    prompt += '【全书大纲】\n' + fallback2 + '\n\n';
+    prompt += '【全书大纲】\n' + work.outline + '\n\n';
   }
 
   // ===== v57: 细纲按卷注入 — 只让 AI 看到本卷细纲 + 本章相邻几章 =====
@@ -2965,20 +2958,12 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     var hasDetail = detailVol && detailVol.volBody;
 
     if (hasDetail) {
-      // 注入：本卷细纲全文（上限 5000 字，一卷足够）
-      var volDetailText = detailVol.volBody.length > 5000
-        ? detailVol.volBody.substring(0, 5000) + '...(本卷细纲过长，已截断)'
-        : detailVol.volBody;
-
       prompt += '【📑 当前卷细纲：' + (detailVol.volLabel || '本卷') + '（第' + (detailVol.volStartChapter || 1) + '-' + (detailVol.volEndChapter || detailVol.volSize || '?') + '章）】\n';
-      prompt += volDetailText + '\n\n';
+      prompt += detailVol.volBody + '\n\n';
 
       // 如果切到了相邻几章的片段，再强调这几章
       if (detailVol.neighbor && detailVol.neighbor.trim()) {
-        var neighborLimit = detailVol.neighbor.length > 2500
-          ? detailVol.neighbor.substring(0, 2500) + '...'
-          : detailVol.neighbor;
-        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborLimit + '\n\n';
+        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + detailVol.neighbor + '\n\n';
       }
 
       prompt += '【核心指令 · 细纲最高优先级】\n';
@@ -2991,20 +2976,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
       prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     } else {
-      // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
+      // 兜底：细纲没分卷，直接按章节标题精准匹配
       var detailText = work.detail;
-      if (archLimits && detailText.length > archLimits.detail) {
-        var idxInDetail = detailText.indexOf(chTitle);
-        if (idxInDetail >= 0) {
-          var dStart = Math.max(0, idxInDetail - 3000);
-          var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
-          detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
-        } else {
-          detailText = detailText.substring(0, 8000) + '...(细纲过长已截断)';
-        }
-      } else if (detailText.length > 10000) {
-        detailText = detailText.substring(0, 10000) + '...(细纲过长已截断)';
-      }
       prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
       prompt += '【核心指令 · 细纲最高优先级】\n';
       prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
@@ -3440,7 +3413,7 @@ function smartCompressArch(text, maxLen) {
     if (typeof VectorRAG !== 'undefined' && work && work.chapters && work.chapters.length > 2) {
       var ragIdx = VectorRAG.buildIndex(work);
       if (ragIdx.size > 0) {
-        var query = (chTitle || '') + ' ' + (work.detail || '').substring(0, 600) + ' ' + (work.outline || '').substring(0, 300);
+        var query = (chTitle || '') + ' ' + (work.detail || '') + ' ' + (work.outline || '');
         var ragRes = VectorRAG.retrieve(ragIdx, query, 4, { currentChapter: chapterIdx });
         if (ragRes.length) {
           prompt += '\n\n【⚠️ RAG 记忆片段 · 自动检索到的 ' + ragRes.length + ' 个前文相关片段（仅供一致性参考，不要原文引用）：\n';
@@ -7310,11 +7283,13 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   
   if (prevResult && prevResult.length > 50) {
     prompt = '【上一轮世界观】\n' + prevResult + '\n\n' +
-      '【改进要求】\n' +
-      '1. 基于已有世界观进行深化和完善\n' +
-      '2. 补充缺失的细节，增强设定的丰富度\n' +
-      '3. 保持原有结构和核心设定不变\n' +
-      '4. 输出完整的优化后世界观内容：\n\n';
+      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
+      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的设定和创意，不要因为重新生成而丢失\n' +
+      '2. 【补充缺失】检查每个模块是否有遗漏的关键信息，补充完整\n' +
+      '3. 【深化细节】在已有基础上增加更具体的设定，让世界更加生动\n' +
+      '4. 【增强逻辑】确保设定之间逻辑自洽，修正可能存在的矛盾\n' +
+      '5. 【扩展创意】参考创意提示词，在不改变核心设定的前提下增加新的创意元素\n' +
+      '6. 【完整输出】输出优化后的完整世界观内容，不要只输出修改部分：\n\n';
   }
   
   prompt += '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
@@ -7323,6 +7298,16 @@ function buildWorldPrompt(work, userCommand, prevResult) {
   }
   prompt += '【作品】' + title + '\n';
   prompt += '【题材】' + genre + '\n\n';
+  
+  var creativePrompts = getGenreCreativePrompts(genre);
+  if (creativePrompts && creativePrompts.world && creativePrompts.world.length > 0) {
+    prompt += '【创意提示词（从中选择2-3个融入世界观设计）】\n';
+    for (var ci = 0; ci < creativePrompts.world.length; ci++) {
+      prompt += (ci + 1) + '. ' + creativePrompts.world[ci] + '\n';
+    }
+    prompt += '\n';
+  }
+  
   prompt += '请为这部作品构建完整的世界观，包含以下8个核心模块：\n\n';
   prompt += '一、时代背景与历史脉络\n';
   prompt += '—— 当前时代的特征、最近的重大事件、历史发展阶段（至少3个阶段）\n\n';
@@ -7358,12 +7343,13 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   
   if (prevResult && prevResult.length > 50) {
     prompt = '【上一轮大纲】\n' + prevResult + '\n\n' +
-      '【改进要求】\n' +
-      '1. 基于已有大纲进行深化和完善\n' +
-      '2. 补充缺失的细节，增加每卷的详细程度\n' +
-      '3. 确保卷数达到10-15卷，总章节1500+章\n' +
-      '4. 保持原有结构和核心剧情不变\n' +
-      '5. 输出完整的优化后大纲内容：\n\n';
+      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
+      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的剧情设计和创意，不要因为重新生成而丢失\n' +
+      '2. 【补充缺失】检查每卷是否有遗漏的关键事件，确保卷数达到10-15卷，总章节1500+章\n' +
+      '3. 【深化细节】在已有基础上增加更具体的剧情节点，让每卷更加充实\n' +
+      '4. 【增强节奏】确保节奏紧凑，每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n' +
+      '5. 【扩展创意】参考创意提示词，在不改变核心剧情的前提下增加新的创意元素\n' +
+      '6. 【完整输出】输出优化后的完整大纲内容，不要只输出修改部分：\n\n';
   }
   
   prompt += '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
@@ -7373,8 +7359,18 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   prompt += '【作品】' + title + '\n';
   prompt += '【题材】' + genre + '\n';
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
+    prompt += '【世界观】\n' + world + '\n\n';
   }
+  
+  var creativePrompts = getGenreCreativePrompts(genre);
+  if (creativePrompts && creativePrompts.outline && creativePrompts.outline.length > 0) {
+    prompt += '【创意提示词（从中选择2-3个融入大纲设计）】\n';
+    for (var ci = 0; ci < creativePrompts.outline.length; ci++) {
+      prompt += (ci + 1) + '. ' + creativePrompts.outline[ci] + '\n';
+    }
+    prompt += '\n';
+  }
+  
   prompt += '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
   prompt += '包含以下内容：\n\n';
   prompt += '一、核心设定回顾\n';
@@ -7414,12 +7410,13 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   
   if (prevResult && prevResult.length > 50) {
     prompt = '【上一轮人设】\n' + prevResult + '\n\n' +
-      '【改进要求】\n' +
-      '1. 基于已有人设进行深化和完善\n' +
-      '2. 补充缺失的角色，增强人物体系的丰富度\n' +
-      '3. 增加每个角色的详细程度和记忆点\n' +
-      '4. 保持原有角色设定和关系不变\n' +
-      '5. 输出完整的优化后人设内容：\n\n';
+      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
+      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的角色设计和创意，不要因为重新生成而丢失\n' +
+      '2. 【补充缺失】检查是否有遗漏的重要角色，确保人物体系完整丰富\n' +
+      '3. 【深化细节】增加每个角色的详细程度和独特记忆点，让角色更加立体\n' +
+      '4. 【增强关系】深化角色之间的关系网，增加冲突点和潜在的背叛/结盟可能性\n' +
+      '5. 【扩展创意】参考创意提示词，在不改变核心设定的前提下增加新的创意元素\n' +
+      '6. 【完整输出】输出优化后的完整人设内容，不要只输出修改部分：\n\n';
   }
   
   prompt += '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
@@ -7429,8 +7426,18 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   prompt += '【作品】' + title + '\n';
   prompt += '【题材】' + genre + '\n';
   if (world && world.length > 50) {
-    prompt += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
+    prompt += '【世界观】\n' + world + '\n\n';
   }
+  
+  var creativePrompts = getGenreCreativePrompts(genre);
+  if (creativePrompts && creativePrompts.chars && creativePrompts.chars.length > 0) {
+    prompt += '【创意提示词（从中选择2-3个融入人物设计）】\n';
+    for (var ci = 0; ci < creativePrompts.chars.length; ci++) {
+      prompt += (ci + 1) + '. ' + creativePrompts.chars[ci] + '\n';
+    }
+    prompt += '\n';
+  }
+  
   prompt += '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
   prompt += '一、主角（详细）\n';
   prompt += '—— 姓名、年龄、外貌特征、性格、核心动机、深层执念、最大弱点\n';
@@ -7555,6 +7562,91 @@ function getGenreDetailTemplate(genre) {
   return templates['玄幻'];
 }
 
+function getGenreCreativePrompts(genre) {
+  var prompts = {
+    '玄幻': {
+      world: ['创造一个独特的修炼体系，比如以"情绪"或"记忆"为力量来源', '设计一个被遗忘的上古文明遗迹，隐藏着颠覆世界的秘密', '构建一个多层级的世界结构，每个层级都有不同的法则', '创造一种稀有资源，引发各方势力的争夺', '设计一种特殊体质，主角拥有但不知道如何发挥', '构建一个充满禁忌的区域，强者也不敢轻易踏足'],
+      outline: ['设计一个贯穿全书的宿命论主线，主角不断打破命运枷锁', '规划一个"伪反派"角色，后期洗白成为重要盟友', '设计一个看似简单实则复杂的阴谋，层层揭开真相', '规划主角从底层到巅峰的逆袭路径，每个阶段都有明确目标', '设计多个时间线交织的剧情，最终汇聚成一个完整的故事'],
+      chars: ['为主角设计一个"不可告人"的秘密，影响其一生的抉择', '创造一个亦正亦邪的角色，让读者爱恨交织', '设计一个有独特执念的反派，其动机令人同情', '创造一个看似普通却隐藏巨大秘密的配角', '为主要角色设计独特的成长弧线，避免线性升级'],
+      detail: ['每章设计一个小反转，让读者保持新鲜感', '在章节结尾设置悬念，迫使读者点击下一章', '设计角色间的微妙互动，通过细节展现关系变化', '在日常描写中埋下伏笔，后期回收时令人惊叹']
+    },
+    '仙侠': {
+      world: ['构建一个"天道有缺"的世界，主角需要补全天道', '设计一个轮回体系，前世今生交织影响', '创造一种"功德"机制，影响修炼速度和境界', '构建一个仙凡有别的社会结构，仙人如何看待凡人', '设计一种"劫"的机制，每个境界都要渡过不同的劫难'],
+      outline: ['规划一条"逆天改命"的主线，主角挑战天道法则', '设计一个"仙门阴谋"，揭示仙界的黑暗面', '规划主角从凡俗到仙界再到神界的升级路径', '设计多个"仙缘"事件，每个都改变主角命运'],
+      chars: ['为主角设计一个"道心"缺陷，需要不断修炼弥补', '创造一个"堕仙"角色，曾经是正道领袖', '设计一个"心魔"角色，与主角亦敌亦友', '创造一个"天道代言人"角色，代表规则的力量'],
+      detail: ['设计"悟道"场景，通过自然现象领悟大道', '在战斗中融入道法变化，避免单纯的力量碰撞', '设计角色间的"道"之辩论，展现不同的人生观', '在日常修炼中埋下境界突破的伏笔']
+    },
+    '都市': {
+      world: ['构建一个"超能力者隐藏于市井"的现代都市', '设计一个"灰色地带"的地下世界，与表面秩序并存', '创造一种"能力交易"的黑市，引发道德困境', '构建一个"科技与异能"共存的城市，两者如何平衡'],
+      outline: ['规划主角从普通人到"地下之王"的崛起之路', '设计一个"公司阴谋"，揭示背后的黑暗势力', '规划"身份暴露"的危机线，如何应对社会压力', '设计多条商业线交织，展现都市生活的复杂性'],
+      chars: ['为主角设计一个"双重身份"，白天是普通人晚上是强者', '创造一个"表面和善实则可怕"的反派', '设计一个"亦敌亦友"的商业对手', '创造一个"神秘资助人"角色，身份成谜'],
+      detail: ['设计商业谈判场景，展现主角的智谋', '在日常互动中展现角色间的微妙关系', '设计"打脸"场景，满足读者爽感', '在都市背景中融入异能战斗，保持真实感']
+    },
+    '历史': {
+      world: ['构建一个架空历史时代，融合多个真实朝代的特点', '设计一种"特殊兵种"，影响战争格局', '创造一种"经济体系"，决定国家兴衰', '构建一个"情报网络"，影响政治决策'],
+      outline: ['规划主角从平民到帝王的传奇之路', '设计一个"宫廷阴谋"，揭示权力斗争的残酷', '规划"统一战争"的军事线，展现战略智慧', '设计多个"外交博弈"事件，展现大国智慧'],
+      chars: ['为主角设计一个"历史局限性"，需要不断突破', '创造一个"忠臣"角色，与主角理念冲突', '设计一个"枭雄"角色，亦正亦邪', '创造一个"红颜知己"角色，影响主角决策'],
+      detail: ['设计战争场景，展现战术和士气', '在政治斗争中展现谋略和人心', '设计经济建设场景，展现治国之道', '在日常描写中展现时代风貌和文化特色']
+    },
+    '悬疑': {
+      world: ['构建一个"规则怪谈"式的城市，存在不可解释的现象', '设计一个"记忆可以修改"的世界，真相难寻', '创造一种"特殊案件"，超出常规认知', '构建一个"信息黑市"，贩卖各种秘密'],
+      outline: ['规划一个"连环杀人案"主线，层层揭开真相', '设计一个"伪解答"，后期被推翻', '规划"主角被陷害"的剧情线，如何自证清白', '设计多个"支线案件"，最终汇聚成主线'],
+      chars: ['为主角设计一个"心理创伤"，影响其判断', '创造一个"神秘侦探"角色，身份成谜', '设计一个"高智商罪犯"，与主角斗智斗勇', '创造一个"信息贩子"角色，提供关键线索'],
+      detail: ['设计推理过程，展现逻辑思维', '在调查中发现关键证据，改变调查方向', '设计"反转"场景，推翻之前的结论', '在对话中隐藏潜台词，需要读者思考']
+    },
+    '言情': {
+      world: ['构建一个"身份悬殊"的爱情故事背景', '设计一个"误会重重"的相遇场景', '创造一种"命运羁绊"，让两人无法分开', '构建一个"家庭阻力"的社会环境'],
+      outline: ['规划一段"从恨到爱"的感情变化', '设计一个"情敌"角色，制造冲突', '规划"感情危机"的剧情线，考验两人关系', '设计多个"甜蜜瞬间"，满足读者期待'],
+      chars: ['为主角设计一个"性格缺陷"，需要另一半弥补', '创造一个"温柔守护"型角色', '设计一个"霸道总裁"型角色，但有内心柔软面', '创造一个"闺蜜/兄弟"角色，提供支持'],
+      detail: ['设计"暧昧"场景，通过细节展现心动', '在对话中展现角色间的化学反应', '设计"吃醋"场景，展现占有欲', '在日常互动中展现感情的升温']
+    },
+    '科幻': {
+      world: ['构建一个"星际文明"时代，多个种族共存', '设计一种"超光速旅行"的技术，改变宇宙格局', '创造一种"人工智能"，拥有自我意识', '构建一个"虫族威胁"，考验人类文明'],
+      outline: ['规划主角从普通士兵到星际英雄的成长', '设计一个"文明碰撞"的主线，展现不同价值观', '规划"虫族入侵"的战争线，展现生存危机', '设计多个"星际探索"事件，发现新文明'],
+      chars: ['为主角设计一个"改造人"身份，引发身份认同危机', '创造一个"AI伙伴"角色，拥有独特性格', '设计一个"外星盟友"角色，展现跨种族友谊', '创造一个"疯狂科学家"角色，推动科技发展'],
+      detail: ['设计机甲战斗场景，展现科技力量', '在星际探索中发现新物种和新文明', '设计政治博弈场景，展现文明间的利益冲突', '在日常描写中展现未来科技的便利']
+    },
+    '末世': {
+      world: ['构建一个"丧尸病毒爆发"后的世界', '设计一种"变异生物"，威胁幸存者', '创造一种"特殊能力"，幸存者觉醒', '构建一个"安全区"体系，展现不同治理模式'],
+      outline: ['规划主角从普通人到幸存者领袖的成长', '设计一个"内奸"角色，制造团队危机', '规划"物资争夺"的剧情线，展现人性考验', '设计多个"尸潮"事件，展现生存压力'],
+      chars: ['为主角设计一个"心理创伤"，需要克服', '创造一个"冷酷幸存者"角色，内心善良', '设计一个"科学家"角色，寻找解药', '创造一个"领导者"角色，展现责任与担当'],
+      detail: ['设计物资搜寻场景，展现生存技巧', '在团队互动中展现信任与背叛', '设计战斗场景，展现能力运用', '在日常描写中展现末世的残酷与希望']
+    },
+    '武侠': {
+      world: ['构建一个"江湖"世界，门派林立', '设计一种"武学秘典"，引发争夺', '创造一种"武林大会"，决定江湖格局', '构建一个"朝廷与江湖"的对立关系'],
+      outline: ['规划主角从无名小卒到武林盟主的成长', '设计一个"门派阴谋"，揭示江湖黑暗', '规划"寻仇"的剧情线，展现恩怨情仇', '设计多个"比武"事件，展现武学魅力'],
+      chars: ['为主角设计一个"武学天赋"，但需要后天努力', '创造一个"隐世高人"角色，指点主角', '设计一个"亦正亦邪"的角色，亦敌亦友', '创造一个"名门正派"角色，实则伪善'],
+      detail: ['设计武学修炼场景，展现循序渐进', '在战斗中展现招式变化和内力运用', '设计江湖恩怨场景，展现义气与背叛', '在日常描写中展现江湖规矩和文化']
+    },
+    '系统流': {
+      world: ['构建一个"系统降临"的世界，规则被改变', '设计一种"任务系统"，推动剧情发展', '创造一种"商城"，可以兑换各种物品', '构建一个"排行榜"，展现实力对比'],
+      outline: ['规划主角从普通人到"系统主宰"的成长', '设计一个"系统任务"线，层层递进', '规划"系统升级"的剧情线，解锁新功能', '设计多个"特殊任务"，改变世界格局'],
+      chars: ['为主角设计一个"系统限制"，需要不断突破', '创造一个"系统精灵"角色，提供指引', '设计一个"竞争对手"角色，也拥有系统', '创造一个"NPC"角色，实则有自我意识'],
+      detail: ['设计任务完成场景，展现系统奖励', '在系统面板中展示角色属性变化', '设计抽奖场景，满足读者期待', '在日常描写中展现系统带来的便利']
+    },
+    '规则怪谈': {
+      world: ['构建一个"规则"主宰的世界，违反规则会受到惩罚', '设计一种"禁忌"，不可触碰', '创造一种"诡异"现象，超出常理', '构建一个"循环"，不断重复'],
+      outline: ['规划主角从"遵守规则"到"利用规则"的成长', '设计一个"规则漏洞"，可以被利用', '规划"逃离循环"的剧情线，寻找出路', '设计多个"规则变化"事件，增加难度'],
+      chars: ['为主角设计一个"理智值"，需要维持', '创造一个"资深幸存者"角色，传授经验', '设计一个"规则化身"角色，代表规则的意志', '创造一个"新手"角色，与主角同行'],
+      detail: ['设计规则发现场景，展现智慧', '在违反规则时展现恐怖后果', '设计规则利用场景，展现创造力', '在日常描写中展现诡异氛围']
+    },
+    '竞技': {
+      world: ['构建一个"全民竞技"的时代，竞技成为主流', '设计一种"竞技体系"，分多个层级', '创造一种"特殊能力"，在竞技中展现', '构建一个"商业联盟"，操控竞技赛事'],
+      outline: ['规划主角从新手到冠军的成长', '设计一个"黑幕"角色，操控比赛', '规划"伤病"的剧情线，考验意志', '设计多个"关键比赛"，展现竞技魅力'],
+      chars: ['为主角设计一个"技术特点"，独一无二', '创造一个"宿敌"角色，亦敌亦友', '设计一个"教练"角色，指导成长', '创造一个"粉丝"角色，给予支持'],
+      detail: ['设计比赛场景，展现技术和战术', '在训练中展现汗水和努力', '设计关键时刻的逆转，满足爽感', '在日常描写中展现竞技精神']
+    }
+  };
+
+  for (var k in prompts) {
+    if (genre.indexOf(k) >= 0) {
+      return prompts[k];
+    }
+  }
+
+  return prompts['玄幻'];
+}
+
 function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
@@ -7567,12 +7659,13 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   
   if (prevResult && prevResult.length > 50) {
     prompt = '【上一轮细纲】\n' + prevResult + '\n\n' +
-      '【改进要求】\n' +
-      '1. 基于已有细纲进行深化和完善\n' +
-      '2. 补充缺失的章节，确保本卷达到72章\n' +
-      '3. 增加每章的详细程度，确保每章至少200字\n' +
-      '4. 保持原有章节结构和剧情不变\n' +
-      '5. 输出完整的优化后细纲内容：\n\n';
+      '【增量改进要求（核心：保留优点 + 补充增强）】\n' +
+      '1. 【保留优点】仔细阅读上一轮内容，识别并保留其中优秀的章节设计和创意，不要因为重新生成而丢失\n' +
+      '2. 【补充缺失】检查是否有遗漏的章节，确保本卷达到72章\n' +
+      '3. 【深化细节】增加每章的详细程度，确保每章至少200字，包含完整的剧情节点\n' +
+      '4. 【增强节奏】确保每章有明确的目标和钩子，保持读者的阅读兴趣\n' +
+      '5. 【扩展创意】参考创意提示词，在不改变核心剧情的前提下增加新的创意元素\n' +
+      '6. 【完整输出】输出优化后的完整细纲内容，不要只输出修改部分：\n\n';
   }
   
   prompt += '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
@@ -7584,10 +7677,10 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
   
   if (world && world.length > 50) {
-    prompt += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
+    prompt += '【世界观关键设定】\n' + world + '\n\n';
   }
   if (chars && chars.length > 50) {
-    prompt += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
+    prompt += '【主要人物】\n' + chars + '\n\n';
   }
   if (outline && outline.length > 50) {
     var outlineLines = outline.split('\n');
@@ -7622,6 +7715,15 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += genreTemplate.hookTypes.join('、') + '\n\n';
   prompt += '【硬节点分类参考】\n';
   prompt += genreTemplate.hardNodeCategories.join('、') + '\n\n';
+  
+  var creativePrompts = getGenreCreativePrompts(genre);
+  if (creativePrompts && creativePrompts.detail && creativePrompts.detail.length > 0) {
+    prompt += '【创意提示词（每章至少融入1个）】\n';
+    for (var ci = 0; ci < creativePrompts.detail.length; ci++) {
+      prompt += (ci + 1) + '. ' + creativePrompts.detail[ci] + '\n';
+    }
+    prompt += '\n';
+  }
   
   prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约3500-4000字。\n\n';
   prompt += '每章必须包含以下内容（严格按照此格式）：\n\n';
@@ -7664,10 +7766,21 @@ async function aiGenerateArchitecture(type, userCommand) {
   work._archCache = work._archCache || {};
   
   var cacheKey = type + '_' + (userCommand || 'default');
-  if (work._archCache[cacheKey] && work._archCache[cacheKey].timestamp > Date.now() - 3600000) {
+  
+  // 检查精确缓存（相同类型+相同命令）- 有效期24小时
+  if (work._archCache[cacheKey] && work._archCache[cacheKey].timestamp > Date.now() - 86400000) {
     var cached = work._archCache[cacheKey];
     showToast('🔄 使用缓存 · ' + cached.content.length + '字', 3000);
     applyArchResult(type, work, cached.content);
+    return;
+  }
+  
+  // 检查类型缓存（相同类型，不同命令）- 有效期48小时
+  var typeCacheKey = type + '_base';
+  if (!userCommand && work._archCache[typeCacheKey] && work._archCache[typeCacheKey].timestamp > Date.now() - 172800000) {
+    var typeCached = work._archCache[typeCacheKey];
+    showToast('🔄 使用类型缓存 · ' + typeCached.content.length + '字', 3000);
+    applyArchResult(type, work, typeCached.content);
     return;
   }
   
@@ -7803,6 +7916,12 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
       var finalResult = bestResult ? bestResult.text : result;
       
       work._archCache[cacheKey] = { content: finalResult, timestamp: Date.now() };
+      
+      // 同时存储类型基础缓存（用于无命令时的快速响应）
+      if (!userCommand) {
+        var typeCacheKey = type + '_base';
+        work._archCache[typeCacheKey] = { content: finalResult, timestamp: Date.now() };
+      }
       
       applyArchResult(type, work, finalResult);
       
