@@ -2263,10 +2263,10 @@ function getArchTruncationLimits() {
     return null;
   }
   if (ctx >= 30000) {
-    return { world: 15000, chars: 10000, outline: 12000, detail: 12000 };
+    return { world: 50000, chars: 30000, outline: 40000, detail: 35000 };
   }
   // 8K-32K 模型
-  return { world: 8000, chars: 5000, outline: 5000, detail: 5000 };
+  return { world: 20000, chars: 15000, outline: 18000, detail: 15000 };
 }
 
 // 构建章节写作prompt
@@ -2989,21 +2989,21 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
       prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
-      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
+      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     } else {
       // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
       var detailText = work.detail;
       if (archLimits && detailText.length > archLimits.detail) {
         var idxInDetail = detailText.indexOf(chTitle);
         if (idxInDetail >= 0) {
-          var dStart = Math.max(0, idxInDetail - 1500);
+          var dStart = Math.max(0, idxInDetail - 3000);
           var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
           detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
         } else {
-          detailText = detailText.substring(0, 3000) + '...(细纲过长已截断)';
+          detailText = detailText.substring(0, 8000) + '...(细纲过长已截断)';
         }
-      } else if (detailText.length > 4000) {
-        detailText = detailText.substring(0, 4000) + '...(细纲过长已截断)';
+      } else if (detailText.length > 10000) {
+        detailText = detailText.substring(0, 10000) + '...(细纲过长已截断)';
       }
       prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
       prompt += '【核心指令 · 细纲最高优先级】\n';
@@ -3011,7 +3011,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
       prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
-      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字\n\n';
+      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     }
   }
   
@@ -3046,9 +3046,9 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   
   if (existingContent && existingContent.trim()) {
     prompt += '【本章已写内容】\n' + existingContent + '\n\n';
-    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。\n';
+    prompt += '【指令】请基于细纲中「' + chTitle + '」的剧情要点，续写并完善本章内容，与已有内容自然衔接。字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字。\n';
   } else {
-    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容。字数灵活控制，以剧情完整性为先，不少于3000字，可根据需要写至5000-8000字。';
+    prompt += '【指令】请根据细纲中「' + chTitle + '」的剧情要点，撰写完整章节内容。字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字。';
     if (prevContent) prompt += '开头要承接上一章结尾。';
   }
   
@@ -4147,9 +4147,9 @@ function getMemoryText(work, upToChapterIdx) {
     }
   }
   
-  // 控制总长度，超过12000字截断
-  if (text.length > 12000) {
-    text = text.substring(0, 12000) + '\n...(记忆过长，已截断)';
+  // 控制总长度，超过50000字截断
+  if (text.length > 50000) {
+    text = text.substring(0, 50000) + '\n...(记忆过长，已截断)';
   }
   
   return text;
