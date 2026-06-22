@@ -895,10 +895,20 @@ function buildWritePrompt(work,content,cmd){
   prompt += getWriteConstraint(getWorkGenre(work), work) + '\n';
   var cb = buildWriteConsistencyBlock(work, typeof currentChapterIdx !== "undefined" ? currentChapterIdx : 0);
   if (cb) prompt += cb + '\n';
-  if(work.world)prompt+='【世界观】'+work.world+'\n';
-  if(work.chars)prompt+='【人物人设】'+work.chars+'\n';
-  if(work.outline)prompt+='【全书大纲】'+work.outline+'\n';
-  if(work.detail)prompt+='【章节细纲】'+work.detail+'\n';
+  // v60: 优先使用记忆精要，省token同时让DeepSeek命中缓存
+  if (work.longMemory && work.longMemory.moduleSummaries) {
+    var sums = work.longMemory.moduleSummaries;
+    if (sums.world) prompt += '【世界观】' + sums.world + '\n';
+    if (sums.chars) prompt += '【人物人设】' + sums.chars + '\n';
+    if (sums.outline) prompt += '【全书大纲】' + sums.outline + '\n';
+    if (sums.detail) prompt += '【章节细纲】' + sums.detail + '\n';
+  } else {
+    // 降级：没有记忆精要时用原文
+    if(work.world)prompt+='【世界观】'+work.world+'\n';
+    if(work.chars)prompt+='【人物人设】'+work.chars+'\n';
+    if(work.outline)prompt+='【全书大纲】'+work.outline+'\n';
+    if(work.detail)prompt+='【章节细纲】'+work.detail+'\n';
+  }
   prompt+='\n【当前内容】\n'+content+'\n\n';
   prompt+='【用户指令】'+cmd+'\n\n';
   prompt+='请严格按照上述全套架构设定生成内容，保持风格一致。';
