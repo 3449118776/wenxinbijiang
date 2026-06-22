@@ -3315,21 +3315,18 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   // ⭐ AI命中缓存机制：不注入动态上下文（prevCards/work[module]/memoryContext）
   // 大模型自身超强上下文能力 + 缓存命中保证卡片间的一致性和完整性
 
-  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
+  // 骨架蓝图（扩展框架，以用户指令为核心展开）
   if(skeleton && skeleton.trim()){
-    var skelHint = '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
-    prompt += skelHint;
+    prompt += '【🧠 骨架蓝图（扩展框架，以用户指令为核心展开，填补用户未提及的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
   }
 
-  // 趋势和市场调研：仅当用户无指令时才注入，防止模板污染
-  if(!idea || !idea.trim()){
-    var trend = getTrendHint2026(work);
-    if(trend){
-      prompt += '【📊 市场趋势参考】\n' + smartTruncate(trend, 400) + '\n\n';
-    }
-    if(marketResearch && marketResearch.trim()){
-      prompt += '【📊 市场调研参考】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
-    }
+  // 趋势和市场调研：始终注入，用于填补用户指令未提及的空白
+  var trend = getTrendHint2026(work);
+  if(trend){
+    prompt += '【📊 市场趋势参考 — 填补用户指令未提及的空白，为用户指令的扩展提供背景】\n' + smartTruncate(trend, 400) + '\n\n';
+  }
+  if(marketResearch && marketResearch.trim()){
+    prompt += '【📊 市场调研参考 — 填补用户指令未提及的空白，为用户指令的扩展提供背景】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
   }
 
   // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高
@@ -3341,7 +3338,7 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   prompt += '【本卡片任务】\n';
   prompt += '正在生成本模块中的卡片：**' + card.label + '**\n';
   if(idea && idea.trim()){
-    prompt += '⚠️ 以下 focus 为参考框架，必须完全服从用户创作指令。如果用户指令与 focus 中的某些要求冲突，以用户指令为准，可以自由调整内容结构甚至放弃 focus 中不匹配的部分。\n';
+    prompt += '⚠️ 请以用户创作指令为核心，使用以下 focus 作为扩展框架，将用户指令展开为详细内容。用户指令是种子，focus 是扩展方向。\n';
   }
   prompt += '请专注于以下内容：\n' + card.focus + '\n\n';
 
@@ -3353,7 +3350,7 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   prompt += '4. **目标字数：本卡片必须输出不少于 ' + card.targetChars + ' 字，这是硬性要求，不得压缩内容，充分展开每一个细节**\n';
   prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
   if(idea && idea.trim()){
-    prompt += '6. 【最高优先级】以上所有内容必须严格遵循用户创作指令，不得偏离用户指令的方向。如果用户指令与模板/焦点要求冲突，以用户指令为准，可以完全重新组织内容\n';
+    prompt += '6. 以用户指令为核心，用 focus 框架扩展。用户指令明确要求的 → 必须落实；用户指令暗示的 → 沿方向扩展；用户指令未提及的 → 结合市场趋势自由填补\n';
   } else {
     prompt += '6. 按照上述 focus 要求组织内容，保证结构完整\n';
   }
