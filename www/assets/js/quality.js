@@ -1,4 +1,4 @@
-// quality.js v58 — 5种类型独立评价引擎（含D0指令遵循维度）
+// quality.js v59 — 评分精度优化：连续比率映射 + 三级钩子 + 交叉验证
 // 正文 / 世界观 / 人设 / 大纲 / 细纲 — 各自独立维度，互不混淆
 // 暴露 window.QualityEngine：evaluate / evaluateText / evaluateWorld / evaluateChars / evaluateOutline / evaluateDetail
 // 兼容旧 API：score / attach / lastHints / analyzeChapter / learnFromEdit
@@ -19,10 +19,12 @@
     var dims = [];
     var allIssues = [], allStrengths = [];
 
-    // D1: 开篇吸引力（10分）— v56 增强：首句检测 + 身份锚定 + 信息倾倒
+    // D1: 开篇吸引力（10分）— v59: 冲突关键词加排除误报
     var head = content.slice(0, 350);
     var firstSentence = content.replace(/^\s+/, '').slice(0, 60);
-    var headConflict = /(冲突|质问|怒|杀|逼|拦|跪|退婚|危机|尸体|线索|警报|敌|赌|证据|命令|圣旨|追杀|血|撞|碎|裂|断|惊|怕|危险|爆炸|抓|推|刀|剑|拳|掌|冷|喝|斥)/.test(head);
+    // 冲突关键词（排除冷静/冷淡/杀青等非冲突语境）
+    var headConflictRE = /(冲突|质问|怒(?!斥\s*(?:道|说))|[^冷]逼|拦|跪|退婚|危机|尸体|线索|警报|敌(?!人)|赌|证据|命令|圣旨|追[杀捕]|血[腥液]|撞[击碎]|碎[裂片]|裂[开痕]|断[裂绝]|惊[叫呼]|怕|危险|爆炸|抓[住捕]|推[开搡]|刀[光刃]|剑[气芒]|拳[头脚]|掌[风印]|冷[笑哼酷]|喝[斥问]|斥[责骂])/;
+    var headConflict = headConflictRE.test(head);
     var d1 = { name: '开篇吸引力', score: 6, max: 10, weight: 0.12, issues: [], strengths: [] };
     // v56: 首句检测 — 以环境描写/时间/背景介绍开头扣分
     var badStartRE = /^(清晨|傍晚|夜幕|阳光|月光|天空|大地|世界|大陆|传说|从前|在很久|这是一个|苍澜|九州|混沌|洪荒|宇宙|天地|万物|上古|远古|太古|亘古|千年|百年|万年|多少年|很久|多年|那年|那一年|某一日|这一天|这天|今日|今天|早晨|中午|下午|黄昏|夜幕|夜深|深夜|入夜|清晨|傍晚|黎明|拂晓|黄昏|夜|暮|朝|曦|曙|晨|晚|午|旦|夕)/;
@@ -41,42 +43,53 @@
     d1.score = Math.max(1, Math.min(10, d1.score));
     dims.push(d1);
 
-    // D2: 章尾钩子（10分）
+    // D2: 章尾钩子（10分）— v59: 三级连续评分代替二值
     var tail = content.slice(-350);
-    var hookStrong = /(然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|脸色一变|问题是|秘密|原来|只是|竟然|居然|不好|糟了|该死|三下敲|又两下|停了停)/.test(tail);
+    var hookStrong = /(然而|可|却|就在这时|下一秒|忽然|突然|谁也没想到|门外|身后|真正|不是|只听|传来|出现|脸色一变|问题是|秘密|原来|只是|竟然|居然|不好|糟了|该死)/.test(tail);
+    var hookQuestion = /[？?！!]/.test(tail);
+    var hookCount = countMatches(tail, /(然而|可|却|就在这时|突然|谁也没想到|秘密|原来|竟然|居然)/g);
     var d2 = { name: '章尾钩子', score: 6, max: 10, weight: 0.12, issues: [], strengths: [] };
-    if (hookStrong) { d2.score = 9; d2.strengths.push('章尾有悬念钩子'); }
+    if (hookStrong && hookQuestion && hookCount >= 2) { d2.score = 9; d2.strengths.push('章尾悬念强（转折+问叹+多信号）'); }
+    else if (hookStrong || (hookCount >= 2)) { d2.score = 7; d2.strengths.push('章尾有悬念信号'); }
+    else if (hookQuestion) { d2.score = 5; d2.issues.push('章尾有问句但缺转折，钩子偏弱'); }
     else { d2.score = 3; d2.issues.push('章尾缺钩子，读者不会点"下一章"'); }
     dims.push(d2);
 
-    // D3: 对话质量（10分）
+    // D3: 对话质量（10分）— v59: 密度比率评分
     var dialogCount = (content.match(/[“"][^”"]{2,}[”"]/g) || []).length;
     var d3 = { name: '对话质量', score: 6, max: 10, weight: 0.10, issues: [], strengths: [] };
     if (len >= 1000) {
-      if (dialogCount >= 4 && dialogCount <= 20) { d3.score = 8; d3.strengths.push('对话密度适中(' + dialogCount + '处)'); }
-      else if (dialogCount === 0) { d3.score = 2; d3.issues.push('缺少对话，人物没有互动'); }
-      else if (dialogCount > 25) { d3.score = 4; d3.issues.push('对话过多(' + dialogCount + '处)，叙述不足'); }
+      var dialogDensity = dialogCount / (len / 1000); // 每千字对话数
+      if (dialogDensity >= 3 && dialogDensity <= 18) { d3.score = Math.min(9, 6 + Math.round(dialogDensity / 3)); d3.strengths.push('对话密度适中(' + dialogCount + '处/' + Math.round(dialogDensity) + '/千字)'); }
+      else if (dialogDensity === 0) { d3.score = 2; d3.issues.push('缺少对话，人物没有互动'); }
+      else if (dialogDensity > 25) { d3.score = 4; d3.issues.push('对话过多(' + dialogCount + '处)，叙述不足'); }
+      else if (dialogDensity < 2) { d3.score = 4; d3.issues.push('对话偏少(' + dialogCount + '处)'); }
+      else { d3.score = 5; }
     }
     // 对话潜台词
     var subtextCount = countMatches(content, /(沉默|没有回答|移开目光|攥紧|咬唇|别过头|欲言又止|话到嘴边|摸耳垂|清嗓子|端起茶|放下茶)/g);
     if (subtextCount >= 2) { d3.score = Math.min(10, d3.score + 1); d3.strengths.push('对话有潜台词'); }
     dims.push(d3);
 
-    // D4: 动作描写（10分）
+    // D4: 动作描写（10分）— v59: 连续比率评分
     var actionCount = countMatches(content, /(抬手|转身|逼近|后退|拔|挥|砸|按住|盯|踏|冲|挡|推开|抓住|扣|扑|跃|闪|退|停|喝|甩|扔|推|击|刺|砍|劈|躲|攥|握|捏|拍|踢|踹|掐|拖|拽|扯|撕|抄|掏|抹|擦|捂|抚|触|戳|捅|拨|弹|敲|叩)/g);
     var d4 = { name: '动作描写', score: 6, max: 10, weight: 0.08, issues: [], strengths: [] };
     if (len >= 1000) {
-      if (actionCount >= 8) { d4.score = 8; d4.strengths.push('动作调度丰富(' + actionCount + '处)'); }
-      else if (actionCount < 4) { d4.score = 3; d4.issues.push('动作描写偏少，场景缺乏动感'); }
+      var actionDensity = actionCount / (len / 1000); // 每千字动作数
+      if (actionDensity >= 6) { d4.score = Math.min(10, 6 + Math.round(actionDensity / 3)); d4.strengths.push('动作调度丰富(' + actionCount + '处/' + Math.round(actionDensity) + '/千字)'); }
+      else if (actionDensity >= 3) { d4.score = 7; d4.strengths.push('动作数量合理'); }
+      else { d4.score = 4; d4.issues.push('动作描写偏少(' + actionCount + '处)，场景缺乏动感'); }
     }
     dims.push(d4);
 
-    // D5: 感官描写（10分）
+    // D5: 感官描写（10分）— v59: 连续比率评分
     var sensoryCount = countMatches(content, /(闻到|听到|看到|摸到|尝到|刺鼻|震耳|滚烫|冰凉|粗糙|光滑|腥味|焦味|嗡鸣|回响|金属味|血腥味|青草味|灰尘味|腐臭|酸味|甜味|苦涩|潮湿|燥热|阴冷|闷热|刺骨|灼热)/g);
     var d5 = { name: '感官描写', score: 5, max: 10, weight: 0.06, issues: [], strengths: [] };
     if (len >= 1000) {
-      if (sensoryCount >= 3) { d5.score = 8; d5.strengths.push('感官细节丰富(' + sensoryCount + '处)'); }
-      else { d5.score = 3; d5.issues.push('感官描写偏少，场景不够立体'); }
+      var sensoryDensity = sensoryCount / (len / 1000);
+      if (sensoryDensity >= 3) { d5.score = Math.min(9, 5 + Math.round(sensoryDensity * 1.5)); d5.strengths.push('感官细节丰富(' + sensoryCount + '处/' + Math.round(sensoryDensity) + '/千字)'); }
+      else if (sensoryDensity >= 1.5) { d5.score = 6; }
+      else { d5.score = 3; d5.issues.push('感官描写偏少(' + sensoryCount + '处)，场景不够立体'); }
     }
     dims.push(d5);
 
@@ -125,17 +138,27 @@
     else if (infoPer500 < 1) { d9.score = 3; d9.issues.push('信息密度低，可能水字数'); }
     dims.push(d9);
 
-    // D10: 剧情契合度（10分）— 需要 work 上下文
-    var d10 = { name: '剧情契合度', score: 7, max: 10, weight: 0.08, issues: [], strengths: [] };
-    if (work && work.detail) {
-      var detailLines = work.detail.split('\n').filter(Boolean);
-      if (detailLines.length > 0) {
-        d10.strengths.push('有细纲对照');
+    // D10: 剧情契合度（10分）— v59: 实际检测内容与细纲/大纲重叠
+    var d10 = { name: '剧情契合度', score: 5, max: 10, weight: 0.08, issues: [], strengths: [] };
+    if (work && (work.detail || work.outline)) {
+      var refText = (work.detail || '') + (work.outline || '');
+      var refSentences = refText.split(/[。！？\n]/).filter(function(s){ return s.trim().length >= 6; });
+      if (refSentences.length > 0) {
+        var matchCount = 0;
+        for (var _ri = 0; _ri < Math.min(refSentences.length, 20); _ri++) {
+          var rs = refSentences[_ri].trim();
+          if (rs.length >= 6 && content.indexOf(rs.substring(0, Math.min(rs.length, 10))) >= 0) matchCount++;
+        }
+        var matchRatio = matchCount / Math.min(refSentences.length, 20);
+        if (matchRatio >= 0.3) { d10.score = 8; d10.strengths.push('内容与细纲/大纲匹配度高(' + Math.round(matchRatio * 100) + '%)'); }
+        else if (matchRatio >= 0.1) { d10.score = 6; d10.strengths.push('有部分内容匹配细纲/大纲(' + Math.round(matchRatio * 100) + '%)'); }
+        else { d10.score = 3; d10.issues.push('内容与细纲/大纲匹配度低，可能偏离规划'); }
       } else {
-        d10.issues.push('无细纲无法评估契合度');
+        d10.issues.push('细纲/大纲内容不足以评估契合度');
       }
     } else {
-      d10.issues.push('无细纲无法评估契合度');
+      d10.score = 7;
+      d10.strengths.push('无细纲对照，按通用标准评判');
     }
     dims.push(d10);
 
@@ -155,11 +178,14 @@
     }
     dims.push(d11);
 
-    // D12: 原创性（10分）
+    // D12: 原创性（10分）— v59: 按命中率连续扣分
     var clicheCount = countMatches(content, /(嘴角勾起|眼神一冷|瞳孔一缩|心中暗道|心头一颤|脸色一变|倒吸一口凉气|目光如炬|不怒自威|霸气侧漏)/g);
     var d12 = { name: '原创性', score: 7, max: 10, weight: 0.06, issues: [], strengths: [] };
-    if (clicheCount <= 1) { d12.strengths.push('套路化表达少'); }
-    else if (clicheCount >= 3) { d12.score = 4; d12.issues.push('套路化表达偏多(' + clicheCount + '处)'); }
+    var clicheDensity = len >= 500 ? clicheCount / (len / 500) : 0; // 每500字套路表达数
+    if (clicheDensity <= 0.5) { d12.strengths.push('套路化表达少'); }
+    else if (clicheDensity <= 1.5) { d12.score = 6; d12.issues.push('有少量套路表达(' + clicheCount + '处)'); }
+    else if (clicheDensity <= 3) { d12.score = 4; d12.issues.push('套路化表达偏多(' + clicheCount + '处)'); }
+    else { d12.score = 2; d12.issues.push('严重套路化(' + clicheCount + '处)，建议全文替换'); }
     dims.push(d12);
 
     // === v55: 正面文笔检查（朱雀级）===
@@ -388,9 +414,10 @@
     dims.push(d5);
 
     var d6 = { name: '篇幅合理', score: 7, max: 10, weight: 0.12, issues: [], strengths: [] };
-    if (len >= 600 && len <= 3000) d6.strengths.push('篇幅合理');
-    else if (len < 600) { d6.score = 4; d6.issues.push('篇幅偏短'); }
-    else { d6.score = 5; d6.issues.push('篇幅偏长'); }
+    if (len >= 2000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 1000) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 600) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 4; d6.issues.push('篇幅偏短，建议至少2000字'); }
     dims.push(d6);
 
     return _buildResult('world', '世界观', dims, content, len);
@@ -456,8 +483,10 @@
     dims.push(d5);
 
     var d6 = { name: '篇幅合理', score: 7, max: 10, weight: 0.14, issues: [], strengths: [] };
-    if (len >= 400 && len <= 2000) d6.strengths.push('篇幅合理');
-    else if (len < 400) { d6.score = 4; d6.issues.push('篇幅偏短，每个人物至少200字'); }
+    if (len >= 3000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 1500) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 800) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 4; d6.issues.push('篇幅偏短，建议至少1500字'); }
     dims.push(d6);
 
     return _buildResult('chars', '人设', dims, content, len);
@@ -608,10 +637,13 @@
     dims.push(d5);
 
     var d6 = { name: '可执行性', score: 6, max: 10, weight: 0.14, issues: [], strengths: [] };
-    if (len >= 600) d6.strengths.push('篇幅充足');
-    if (chapterCount >= 5) d6.strengths.push('可支撑多章写作');
-    if (d6.strengths.length >= 2) d6.score = 8;
-    if (len < 300) { d6.score = 3; d6.issues.push('内容太短，难以指导正文写作'); }
+    if (len >= 5000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
+    else if (len >= 2000) { d6.score = 8; d6.strengths.push('篇幅充足'); }
+    else if (len >= 600) { d6.score = 6; d6.strengths.push('篇幅合理'); }
+    else { d6.score = 3; d6.issues.push('内容太短，难以指导正文写作'); }
+    if (chapterCount >= 30) d6.strengths.push('章节数量充足(' + chapterCount + '章)');
+    else if (chapterCount >= 15) d6.strengths.push('章节数量合理');
+    else if (chapterCount >= 5) d6.strengths.push('可支撑多章写作');
     dims.push(d6);
 
     return _buildResult('detail', '细纲', dims, content, len);
@@ -637,9 +669,27 @@
     var totalScore = Math.round((weightedSum / totalWeight) * 10);
     var allIssues = [], allStrengths = [];
     dims.forEach(function(d) { allIssues = allIssues.concat(d.issues); allStrengths = allStrengths.concat(d.strengths); });
+
+    // v59: 交叉验证 — 检测维度间矛盾信号
+    var _conflictNotes = [];
+    // 检查 D8(文笔水平) vs D12(原创性) — 都检测模板化表达，不应矛盾
+    var _d8 = dims.filter(function(d){ return d.name === '文笔水平'; });
+    var _d12 = dims.filter(function(d){ return d.name === '原创性'; });
+    if (_d8.length && _d12.length) {
+      var _d8good = _d8[0].strengths.some(function(s){ return s.indexOf('无模板') >= 0; });
+      var _d12bad = _d12[0].issues.some(function(s){ return s.indexOf('套路') >= 0; });
+      if (_d8good && _d12bad) _conflictNotes.push('文笔水平判定"无模板化表达"但原创性判定"套路化"，评分矛盾，建议人工复核');
+    }
+    // 检查开篇冲突信号内部一致性
+    var _d1 = dims.filter(function(d){ return d.name === '开篇吸引力'; });
+    if (_d1.length && _d1[0].issues.length && _d1[0].strengths.length) {
+      var _d1Conflict = _d1[0].issues.some(function(s){ return s.indexOf('冲突不够') >= 0; }) && _d1[0].strengths.some(function(s){ return s.indexOf('冲突') >= 0; });
+      if (_d1Conflict) _conflictNotes.push('开篇吸引力同时有"冲突不够"和"有冲突"，检测信号矛盾');
+    }
+
     return {
       type: type, moduleName: moduleName, totalScore: totalScore, grade: _grade(totalScore),
-      dimensions: dims, issues: allIssues.slice(0, 12), strengths: allStrengths.slice(0, 10),
+      dimensions: dims, issues: allIssues.concat(_conflictNotes).slice(0, 12), strengths: allStrengths.slice(0, 10),
       suggestions: _genSuggestions(dims),
       details: { length: len },
       updatedAt: Date.now()
