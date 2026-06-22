@@ -3233,8 +3233,8 @@ window.generateArchModule = async function(opts){
             updateLoadingProgress(Math.min(99, appendProgress), '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
           }
           var appendPrompt = '【追加指令】\n';
-          appendPrompt += '当前已生成内容（最后500字）：\n';
-          appendPrompt += cardResult.slice(-500) + '\n\n';
+          appendPrompt += '当前已生成内容（完整）：\n';
+          appendPrompt += cardResult + '\n\n';
           appendPrompt += '请继续扩展、深化、细化以上内容，补充更多细节和具体描述。\n';
           appendPrompt += '追加目标：至少 ' + appendTarget + ' 字。\n';
           appendPrompt += '不要重复已有内容，只做扩展和深化。\n';
@@ -3664,7 +3664,8 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   // ⭐ v56：注入当前模块的已有内容 —— 让AI基于已有内容做迭代/加强，而不是每次从头生成
   // 特别注意：当有 extraHint 时，这是针对性修改而非重新生成
   if(work && work[module] && work[module].trim()){
-    var _cardExistingLimit = 6000;
+    var _isBigModel = typeof getModelContextWindow === 'function' && getModelContextWindow() >= 32000;
+    var _cardExistingLimit = _isBigModel ? 50000 : 6000;
     if(extraHint && extraHint.trim()){
       prompt += '【📖 当前模块已有内容 —— 请在此基础上针对问题部分做精准修改，其他部分保持不变。不是重新生成，是迭代加强】\n';
     } else {
@@ -4137,6 +4138,12 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   var chStart = (volIndex - 1) * chaptersPerVol + 1;
   var chEnd = volIndex * chaptersPerVol;
 
+  var _isBigModel2 = typeof getModelContextWindow === 'function' && getModelContextWindow() >= 32000;
+  var _worldLimit = _isBigModel2 ? 50000 : 6000;
+  var _charsLimit = _isBigModel2 ? 50000 : 6000;
+  var _outlineLimit = _isBigModel2 ? 80000 : 8000;
+  var _prevVolLimit = _isBigModel2 ? 50000 : 12000;
+
   var prompt = '你是一位资深网文架构师，当前任务是为作品生成"第 ' + volIndex + ' / ' + totalVols + ' 卷"的章节细纲。细纲是写作时最直接的剧本，必须做到：章节编号连续、人设永不漂移、伏笔前后呼应、节奏起伏有致。\n\n';
 
   // 1. 最高优先级：用户核心诉求
@@ -4164,13 +4171,13 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   // 4. 前置架构：世界观 + 人设 + 大纲 — 细纲是生成正文的底层基础，必须用原文确保准确完整
   prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
   if(work && work.world && work.world.trim()){
-    prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+    prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, _worldLimit) + '\n\n';
   }
   if(work && work.chars && work.chars.trim()){
-    prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+    prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, _charsLimit) + '\n\n';
   }
   if(work && work.outline && work.outline.trim()){
-    prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+    prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, _outlineLimit) + '\n\n';
   }
   if(volTarget && volTarget.trim()){
     prompt += '【🎯 本卷核心目标 — 硬性约束，本卷细纲必须围绕以下目标展开，未达成即失败】\n';
@@ -4194,7 +4201,7 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   // 8. ⭐ 前序卷的完整细纲（逐卷生成的核心优势：每卷都能读到前面所有章节）
   if(prevVolDetail && prevVolDetail.trim()){
     prompt += '【📖 前序卷完整细纲 — 第 1 卷 ～ 第 ' + (volIndex - 1) + ' 卷已生成内容，本卷必须严格承接】\n';
-    prompt += smartTruncate(prevVolDetail, 12000) + '\n\n';
+    prompt += smartTruncate(prevVolDetail, _prevVolLimit) + '\n\n';
   } else if(volIndex === 1){
     prompt += '【📖 本卷为第 1 卷 — 是全书开篇，必须完成"开局炸弹"与"金手指引入"】\n\n';
   }
