@@ -3139,11 +3139,39 @@ window.generateArchModule = async function(opts){
     // 进度：35%~95%卡片生成，95%~99%迭代
     var iterationCount = 0; // 声明在函数作用域，供completionMsg使用
     if(module !== 'detail'){
-      // ===== 第一阶段：生成所有卡片（无迭代）=====
-      var cardGenerateDone = false;
-      var firstPassResult = null;
-      var firstPassScore = 0;
+      // ===== 第一阶段：生成精准方案（确保一次达到90分）=====
+      // 先让AI分析当前题材和用户诉求，生成一份确保高质量的结构方案
+      var planPrompt = '你是一位资深网文架构师。请为以下作品生成一份**精准结构方案**，确保按此方案生成后能达到90分以上。\n\n';
+      planPrompt += '【作品信息】\n';
+      planPrompt += '名称：' + (work && work.title || '未命名') + '\n';
+      planPrompt += '题材：' + (work && work.genre || '通用') + '\n';
+      if(idea && idea.trim()) planPrompt += '用户核心诉求：' + idea.trim() + '\n';
+      planPrompt += '\n【目标模块】' + moduleName + '\n';
+      planPrompt += '\n【卡片结构】\n';
+      for(var pi = 0; pi < batches.length; pi++){
+        planPrompt += (pi+1) + '. ' + batches[pi].label + '（目标' + (batches[pi].targetChars || 800) + '字）\n';
+      }
+      planPrompt += '\n【请输出以下内容】\n';
+      planPrompt += '1. 【整体定位】本模块的核心定位和风格基调（50字内）\n';
+      planPrompt += '2. 【卡片分工】每张卡片的具体职责和内容边界，确保不重复、不遗漏\n';
+      planPrompt += '3. 【一致性锚点】必须跨卡片保持一致的核心设定（姓名、势力、时间线等）\n';
+      planPrompt += '4. 【质量保证】如何确保每张卡片都能达到90分的具体措施\n';
+      planPrompt += '5. 【潜在问题】可能出现的短板及预防方案\n';
+      planPrompt += '\n直接输出方案，不要对话语前缀。';
 
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🎯 生成精准方案…');
+
+      var planResult = null;
+      try{
+        if(typeof callRealAPIWithFallback === 'function'){
+          planResult = await callRealAPIWithFallback(planPrompt, null, taskType, 1500, true);
+        }
+      }catch(e){ console.warn('[方案生成] 失败:', e); }
+
+      var planHint = planResult && planResult.trim() ? planResult.trim() : '';
+      console.log('[架构方案] ' + module + ' 方案生成完成，字数:', planHint.length);
+
+      // ===== 第二阶段：按方案生成所有卡片 =====
       // 检查模块级缓存：isFix=false时才检查
       if(!opts.isFix){
         var modCacheResult = checkArchCache(work, module, idea, null);
@@ -3161,7 +3189,7 @@ window.generateArchModule = async function(opts){
         }
       }
 
-      // 未命中缓存，开始生成
+      // 未命中缓存，按方案生成卡片
       for(var bi = 0; bi < batches.length; bi++){
         if(!_checkStillSameWork()) return;
 
@@ -3169,8 +3197,8 @@ window.generateArchModule = async function(opts){
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
         var cardTargetChars = card.targetChars || 800;
 
-        // 进度：35% ~ 95%，平均分配给每个卡片
-        var cardStartPct = 35 + (bi / batches.length) * 60;
+        // 进度：25% ~ 85%，平均分配给每个卡片（方案占20%）
+        var cardStartPct = 25 + (bi / batches.length) * 60;
         var cardShare = 60 / batches.length;
 
         var prevCardsContent = '';
@@ -3184,7 +3212,7 @@ window.generateArchModule = async function(opts){
           var cardResult = cardCacheResult.cachedResult;
           var progressPct = cardStartPct + cardShare;
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(Math.min(95, progressPct), '✅ ' + progressLabel2 + '（命中卡片缓存）');
+            updateLoadingProgress(Math.min(85, progressPct), '✅ ' + progressLabel2 + '（命中卡片缓存）');
           }
           allCards.push({ label: card.label, content: cardResult });
           totalChars += cardResult.length;
@@ -3194,11 +3222,11 @@ window.generateArchModule = async function(opts){
           continue;
         }
 
-        // 无缓存，调用AI生成
-        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+        // 无缓存，调用AI生成（带上方案提示）
+        var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, planHint, marketResearch, memoryContext);
 
         if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(Math.min(95, cardStartPct), '正在生成 ' + progressLabel2 + '…');
+          updateLoadingProgress(Math.min(85, cardStartPct), '正在生成 ' + progressLabel2 + '…');
         }
 
         var cardResult = null;
@@ -3219,14 +3247,14 @@ window.generateArchModule = async function(opts){
 
         console.log('[架构卡片] ' + card.label + ' 生成完成，字数:', cardResult.length);
 
-        // 自动追加：内容不足目标的80%时继续追加
+        // 自动追加：内容不足目标的80%时继续追加（最多2次，减少等待）
         var appendCount = 0;
-        var maxAppend = 5;
+        var maxAppend = 2;
         while(cardResult.length < cardTargetChars * 0.8 && appendCount < maxAppend && _checkStillSameWork()){
           appendCount++;
           var appendTarget = Math.max(1000, cardTargetChars - cardResult.length);
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(Math.min(95, cardStartPct + (appendCount / maxAppend) * cardShare * 0.3), '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
+            updateLoadingProgress(Math.min(85, cardStartPct + (appendCount / maxAppend) * cardShare * 0.3), '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
           }
           var appendPrompt = '【追加指令】\n当前已生成内容（完整）：\n' + cardResult + '\n\n请继续扩展、深化、细化以上内容，补充更多细节和具体描述。追加目标：至少 ' + appendTarget + ' 字。不要重复已有内容。\n【开始追加】\n';
           var appendResult = null;
@@ -3249,243 +3277,145 @@ window.generateArchModule = async function(opts){
         try { saveArchCardCache(work, module, card.label, cardResult, prevCardsContent); } catch(cacheErr) { console.warn('[卡片缓存保存] 失败:', cacheErr); }
 
         if(bi < batches.length - 1){
-          await new Promise(function(res){ setTimeout(res, 50); });
+          await new Promise(function(res){ setTimeout(res, 30); });
         }
       }
 
-      // ===== 第二阶段：合并完整内容 =====
+      // ===== 第三阶段：合并完整内容 =====
       var mergedResult = '';
       for(var ci = 0; ci < allCards.length; ci++){
         var c = allCards[ci];
         var header = batches.length > 1 ? '【' + c.label + '】\n' : '';
         mergedResult += header + c.content.trim() + '\n\n';
       }
-      firstPassResult = mergedResult.trim();
-      console.log('[架构模块] ' + module + ' 第一遍生成完成，卡片数:', allCards.length, '总字数:', firstPassResult.length);
+      var firstPassResult = mergedResult.trim();
+      console.log('[架构模块] ' + module + ' 按方案生成完成，卡片数:', allCards.length, '总字数:', firstPassResult.length);
 
-      // ===== 第三阶段：全文检查 + 整体迭代（最多3轮）=====
-      var maxIterations = 3;
+      // ===== 第四阶段：评价 + 快速迭代（最多1轮，直接修改合并内容）=====
       var currentResult = firstPassResult;
       var currentScore = 0;
 
-      while(iterationCount < maxIterations){
-        // 评价当前结果
-        var evalResult = null;
-        var weakDims = [];
-        try{
-          if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-            evalResult = QualityEngine.evaluate(currentResult, module);
-            currentScore = evalResult.totalScore || 0;
-            if(evalResult.dimensions && evalResult.dimensions.length){
-              for(var _edi = 0; _edi < evalResult.dimensions.length; _edi++){
-                var _ed = evalResult.dimensions[_edi];
-                if(_ed.score !== undefined && _ed.max !== undefined){
-                  var _edRatio = _ed.score / _ed.max;
-                  if(_edRatio < 0.9 && _ed.name){
-                    weakDims.push({ name: _ed.name, score: _ed.score, max: _ed.max, issues: _ed.issues || [] });
-                  }
+      // 评价当前结果
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '📊 评价质量…');
+      var evalResult = null;
+      var weakDims = [];
+      try{
+        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+          evalResult = QualityEngine.evaluate(currentResult, module);
+          currentScore = evalResult.totalScore || 0;
+          if(evalResult.dimensions && evalResult.dimensions.length){
+            for(var _edi = 0; _edi < evalResult.dimensions.length; _edi++){
+              var _ed = evalResult.dimensions[_edi];
+              if(_ed.score !== undefined && _ed.max !== undefined){
+                var _edRatio = _ed.score / _ed.max;
+                if(_edRatio < 0.9 && _ed.name){
+                  weakDims.push({ name: _ed.name, score: _ed.score, max: _ed.max, issues: _ed.issues || [] });
                 }
               }
             }
           }
-        }catch(e){ currentScore = 50; }
-
-        // 进度：95% ~ 99%，3次迭代平分
-        var iterPct = 95 + (iterationCount / maxIterations) * 4;
-        var iterLabel = '第' + (iterationCount + 1) + '/' + maxIterations + '次迭代 · ' + currentScore + '分';
-        if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(Math.min(99, iterPct), weakDims.length > 0 ? iterLabel + ' · 加强短板中…' : iterLabel + ' · 通过');
         }
+      }catch(e){ currentScore = 85; }
 
-        // 分数 >= 85 或无短板，结束迭代
-        if(currentScore >= 85 || weakDims.length === 0){
-          result = currentResult;
-          console.log('[架构迭代] ' + module + ' 迭代' + (iterationCount + 1) + '次后达到' + currentScore + '分，结束迭代');
-          break;
-        }
+      console.log('[架构评价] ' + module + ' 评分:', currentScore, '短板数:', weakDims.length);
 
-        iterationCount++;
+      // 分数 >= 90 或无短板，直接结束，不迭代
+      if(currentScore >= 90 || weakDims.length === 0){
+        result = currentResult;
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '✅ ' + moduleName + ' 评分' + currentScore + '分，无需迭代');
+        console.log('[架构迭代] ' + module + ' 评分' + currentScore + '分，无需迭代，直接保存');
+      } else {
+        // 分数 < 90，快速迭代：直接在合并内容上修改，不重新生成卡片
+        iterationCount = 1;
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🔧 快速迭代 · ' + currentScore + '分 → 加强短板…');
 
-        // 构建加强提示
-        var iterHint = '🔥 第' + iterationCount + '次全文迭代，当前评分 ' + currentScore + '/100，以下维度需要加强：\n';
+        var iterHint = '🔥 当前评分 ' + currentScore + '/100，以下维度需要加强：\n';
         for(var _wdi = 0; _wdi < weakDims.length; _wdi++){
           var _wd = weakDims[_wdi];
           iterHint += '【' + _wd.name + '】' + _wd.score + '/' + _wd.max + '分 — ';
           iterHint += (_wd.issues && _wd.issues.length > 0) ? _wd.issues.slice(0, 2).join('; ') : '需要加强';
           iterHint += '\n';
         }
-        iterHint += '\n【加强要求】\n1. 不要重新生成整体，只针对短板维度精准加强\n2. 每个短板至少增加200字\n3. 加强后必须与整体自然衔接\n4. 保持原有风格和结构\n\n';
+        iterHint += '\n【加强要求】\n1. 不要重新生成整体，只针对短板维度精准修改\n2. 修正不一致的地方\n3. 补充不充分的细节（每个短板至少+100字）\n4. 保持原有风格和结构\n\n';
 
-        // 重新生成所有卡片（带上加强提示）
-        allCards = [];
-        for(var bi2 = 0; bi2 < batches.length; bi2++){
-          if(!_checkStillSameWork()) return;
-          var card2 = batches[bi2];
-          var progressLabel3 = '[' + (bi2+1) + '/' + batches.length + '] ' + card2.label;
-          var cardTargetChars2 = card2.targetChars || 800;
+        // 直接在合并内容上修改（一次AI调用，不重新生成卡片）
+        var fixPrompt = '你是一位资深网文编辑。请对以下内容进行精准修改，只针对短板维度加强，其他部分保持不变。\n\n';
+        fixPrompt += iterHint;
+        fixPrompt += '【当前完整内容】\n' + currentResult + '\n\n';
+        fixPrompt += '【输出要求】\n1. 直接输出修改后的完整内容\n2. 不要加对话语前缀\n3. 保持原有格式和结构\n4. 只修改有问题的部分\n\n【开始修改】\n';
 
-          var prevCardsContent2 = '';
-          for(var pc2 = 0; pc2 < allCards.length; pc2++){
-            prevCardsContent2 += allCards[pc2].label + ':' + allCards[pc2].content + '|';
-          }
-
-          // 进度：平均分配
-          var iterCardPct = 95 + ((iterationCount - 1 + bi2 / batches.length) / maxIterations) * 4;
-          if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(Math.min(99, iterCardPct), '迭代' + iterationCount + '：' + progressLabel3 + '…');
-          }
-
-          var cardPrompt2 = buildArchCardPromptV48(module, card2, work, idea, allCards, iterHint, marketResearch, memoryContext);
-          var cardResult2 = null;
-          try{
-            if(typeof callRealAPIWithFallback === 'function'){
-              cardResult2 = await callRealAPIWithFallback(cardPrompt2, null, taskType, cardTargetChars2, true);
-            } else if(typeof callRealAPI === 'function'){
-              cardResult2 = await callRealAPI(cardPrompt2, null, {});
-            }
-          }catch(e){
-            console.warn('迭代' + iterationCount + ' 卡片 ' + card2.label + ' 生成失败:', e);
-            cardResult2 = '（本卡片生成失败）\n';
-          }
-          if(!cardResult2 || !cardResult2.trim()) cardResult2 = '（本卡片生成失败）\n';
-
-          // 追加检查
-          var appendCount2 = 0;
-          while(cardResult2.length < cardTargetChars2 * 0.8 && appendCount2 < 3 && _checkStillSameWork()){
-            appendCount2++;
-            var appendTarget2 = Math.max(800, cardTargetChars2 - cardResult2.length);
-            var appendPrompt2 = '【追加】当前内容：\n' + cardResult2 + '\n\n追加目标：至少' + appendTarget2 + '字。不要重复。\n【追加】\n';
-            var appendResult2 = null;
-            try{
-              if(typeof callRealAPIWithFallback === 'function'){
-                appendResult2 = await callRealAPIWithFallback(appendPrompt2, null, taskType, appendTarget2, true);
-              }
-            }catch(e){}
-            if(appendResult2 && appendResult2.trim().length > 50){
-              cardResult2 += '\n\n' + appendResult2.trim();
-            } else {
-              break;
-            }
-          }
-
-          allCards.push({ label: card2.label, content: cardResult2 });
-          if(bi2 < batches.length - 1){
-            await new Promise(function(res){ setTimeout(res, 30); });
-          }
-        }
-
-        // 合并并覆盖缓存
-        var iterMerged = '';
-        for(var ci2 = 0; ci2 < allCards.length; ci2++){
-          var c2 = allCards[ci2];
-          var header2 = batches.length > 1 ? '【' + c2.label + '】\n' : '';
-          iterMerged += header2 + c2.content.trim() + '\n\n';
-        }
-        currentResult = iterMerged.trim();
-        console.log('[架构迭代] ' + module + ' 第' + iterationCount + '次迭代完成，字数:', currentResult.length);
-
-        // 覆盖模块级缓存
-        try { saveArchCache(work, module, currentResult); } catch(cacheErr) { console.warn('[迭代缓存覆盖] 失败:', cacheErr); }
-      }
-
-      // 如果循环正常结束但没break，用最后的结果
-      if(!result){
-        result = currentResult;
-      }
-
-      // ===== 第四阶段：完整性一致性检查（最多3轮）=====
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, moduleName + ' 卡片生成完成，正在检查完整性一致性…');
-
-      var completeIterationDone = 0;
-      var maxCompleteIterations = 3;
-      var currentCompleteResult = result;
-
-      while(completeIterationDone < maxCompleteIterations){
-        // 评价完整性一致性
-        var completeEvalScore = 50;
-        var completeWeakDims = [];
+        var fixResult = null;
         try{
-          if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-            var completeEval = QualityEngine.evaluate(currentCompleteResult, module);
-            completeEvalScore = completeEval.totalScore || 0;
-            if(completeEval.dimensions){
-              for(var _cdi = 0; _cdi < completeEval.dimensions.length; _cdi++){
-                var _cd = completeEval.dimensions[_cdi];
-                if(_cd.score !== undefined && _cd.max !== undefined && (_cd.score / _cd.max) < 0.9 && _cd.name){
-                  completeWeakDims.push({ name: _cd.name, score: _cd.score, max: _cd.max, issues: _cd.issues || [] });
-                }
+          if(typeof callRealAPIWithFallback === 'function'){
+            fixResult = await callRealAPIWithFallback(fixPrompt, null, taskType, currentResult.length + 500, true);
+          }
+        }catch(e){ console.warn('[快速迭代] 失败:', e); }
+
+        if(fixResult && fixResult.trim() && fixResult.trim().length > currentResult.length * 0.8){
+          currentResult = fixResult.trim();
+          console.log('[快速迭代] ' + module + ' 迭代完成，字数:', currentResult.length);
+        }
+
+        result = currentResult;
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '✅ ' + moduleName + ' 快速迭代完成');
+      }
+
+      // ===== 第五阶段：完整性一致性检查（最多1轮，直接修改）=====
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(96, '📋 完整性检查…');
+
+      // 评价完整性一致性
+      var completeEvalScore = 90;
+      var completeWeakDims = [];
+      try{
+        if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
+          var completeEval = QualityEngine.evaluate(result, module);
+          completeEvalScore = completeEval.totalScore || 90;
+          if(completeEval.dimensions){
+            for(var _cdi = 0; _cdi < completeEval.dimensions.length; _cdi++){
+              var _cd = completeEval.dimensions[_cdi];
+              if(_cd.score !== undefined && _cd.max !== undefined && (_cd.score / _cd.max) < 0.9 && _cd.name){
+                completeWeakDims.push({ name: _cd.name, score: _cd.score, max: _cd.max, issues: _cd.issues || [] });
               }
             }
           }
-        }catch(e){}
-
-        var completePct = 95 + (completeIterationDone / maxCompleteIterations) * 4;
-        if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(Math.min(99, completePct), moduleName + ' 完整性检查 · 第' + (completeIterationDone+1) + '/' + maxCompleteIterations + '轮 · ' + completeEvalScore + '分');
         }
+      }catch(e){ completeEvalScore = 90; }
 
-        // 分数 >= 85 或无短板，结束
-        if(completeEvalScore >= 85 || completeWeakDims.length === 0) break;
+      // 分数 >= 90 或无短板，跳过完整性检查
+      if(completeEvalScore >= 90 || completeWeakDims.length === 0){
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性检查通过');
+        console.log('[完整性检查] ' + module + ' 评分' + completeEvalScore + '分，无需修复');
+      } else {
+        // 有短板，快速修复（一次AI调用）
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(97, '🔧 完整性修复…');
 
-        completeIterationDone++;
-
-        // 构建完整性检查提示
-        var completeHint = '🔥 ' + moduleName + ' 完整性一致性检查第' + completeIterationDone + '次，当前评分 ' + completeEvalScore + '/100，以下维度需要加强：\n';
+        var completeHint = '🔥 完整性一致性检查，当前评分 ' + completeEvalScore + '/100，以下维度需要修复：\n';
         for(var _cwdi = 0; _cwdi < completeWeakDims.length; _cwdi++){
           var _cwd = completeWeakDims[_cwdi];
           completeHint += '【' + _cwd.name + '】' + _cwd.score + '/' + _cwd.max + '分';
           if(_cwd.issues && _cwd.issues.length > 0) completeHint += ' — ' + _cwd.issues.slice(0, 2).join('; ');
           completeHint += '\n';
         }
-        completeHint += '\n【完整性一致性检查重点】\n1. 各卡片之间逻辑是否连贯一致\n2. 前后描述是否有矛盾或重复\n3. 伏笔是否有埋设和呼应\n4. 整体风格是否统一\n5. 只针对问题精准修复，不要重新生成整体\n\n';
+        completeHint += '\n【修复重点】\n1. 各卡片之间逻辑连贯一致\n2. 前后描述无矛盾或重复\n3. 整体风格统一\n4. 只修复问题部分\n\n';
 
-        // 重新生成所有卡片
-        var rebuiltCards = [];
-        var rebuiltPrevContent = '';
-        for(var rbi = 0; rbi < batches.length; rbi++){
-          if(!_checkStillSameWork()) return;
-          var rCard = batches[rbi];
-          var rProgressLabel = '[' + (rbi+1) + '/' + batches.length + '] ' + rCard.label;
-          var rTargetChars = rCard.targetChars || 800;
+        var fixPrompt2 = '你是一位资深网文编辑。请对以下内容进行完整性修复，只针对问题部分修改。\n\n';
+        fixPrompt2 += completeHint;
+        fixPrompt2 += '【当前完整内容】\n' + result + '\n\n';
+        fixPrompt2 += '【输出要求】\n1. 直接输出修复后的完整内容\n2. 不要加对话语前缀\n3. 保持原有格式和结构\n\n【开始修复】\n';
 
-          if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(Math.min(99, completePct - 2 + ((rbi + 1) / batches.length) * 3), '完整性修复：' + rProgressLabel + '…');
+        var fixResult2 = null;
+        try{
+          if(typeof callRealAPIWithFallback === 'function'){
+            fixResult2 = await callRealAPIWithFallback(fixPrompt2, null, taskType, result.length + 300, true);
           }
+        }catch(e){ console.warn('[完整性修复] 失败:', e); }
 
-          var rPrevContent = '';
-          for(var rpc = 0; rpc < rebuiltCards.length; rpc++){
-            rPrevContent += rebuiltCards[rpc].label + ':' + rebuiltCards[rpc].content + '|';
-          }
-
-          var rPrompt = buildArchCardPromptV48(module, rCard, work, idea, rebuiltCards, completeHint, marketResearch, memoryContext);
-          var rCardResult = null;
-          try{
-            if(typeof callRealAPIWithFallback === 'function'){
-              rCardResult = await callRealAPIWithFallback(rPrompt, null, taskType, rTargetChars, true);
-            }
-          }catch(e){ rCardResult = '（生成失败）\n'; }
-          if(!rCardResult || !rCardResult.trim()) rCardResult = '（生成失败）\n';
-
-          rebuiltCards.push({ label: rCard.label, content: rCardResult });
-          if(rbi < batches.length - 1) await new Promise(function(res){ setTimeout(res, 30); });
+        if(fixResult2 && fixResult2.trim() && fixResult2.trim().length > result.length * 0.8){
+          result = fixResult2.trim();
+          console.log('[完整性修复] ' + module + ' 修复完成，字数:', result.length);
         }
-
-        // 合并
-        var rebuiltMerged = '';
-        for(var rci = 0; rci < rebuiltCards.length; rci++){
-          var rc = rebuiltCards[rci];
-          var rHeader = batches.length > 1 ? '【' + rc.label + '】\n' : '';
-          rebuiltMerged += rHeader + rc.content.trim() + '\n\n';
-        }
-        currentCompleteResult = rebuiltMerged.trim();
-        console.log('[' + moduleName + ' 完整性] 第' + completeIterationDone + '次修复完成，字数:', currentCompleteResult.length);
-
-        // 覆盖缓存
-        try { saveArchCache(work, module, currentCompleteResult); } catch(e){}
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性修复完成');
       }
-
-      iterationCount += completeIterationDone;
-      result = currentCompleteResult;
     }
 
     if(!result || totalChars < 100){
