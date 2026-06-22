@@ -4431,6 +4431,7 @@ async function aiWriteChapter(opts){
   var _writeExtraHint = opts.extraHint || '';
   var _writeBest = opts._prevBest || null;  // 之前的最佳结果 {text, score}
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
+  var _prevResult = opts._prevResult || '';  // 上一轮生成结果，迭代时用于增量改进
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
   // 第一次生成：resetLoading 从 0 起步；迭代时只更新文字，保持进度连续推进
@@ -4592,11 +4593,23 @@ async function aiWriteChapter(opts){
     // ✅ 缓存完整prompt（骨架+所有上下文），供后续迭代直接复用，不再重建
     work._cachedChapterPrompt = prompt;
   } else {
-    // ⚡ 第2/3轮：直接复用缓存的完整prompt，只追加改进提示
+    // ⚡ 第2/3轮：增量改进模式，基于上一轮结果进行优化
     if (!work._cachedChapterPrompt) {
       prompt = buildChapterPrompt(work, chapterIdx, content, userCmd);
     } else {
       prompt = work._cachedChapterPrompt;
+    }
+    // ⚡ 注入上一轮结果和改进提示，实现增量优化
+    if (_prevResult && _writeExtraHint) {
+      prompt = '【上一轮生成结果】\n' + _prevResult + '\n\n' + 
+        '【改进要求】\n' + _writeExtraHint + '\n\n' + 
+        '【优化策略】\n' + 
+        '1. 保留上一轮中做得好的部分（已在上面列出）\n' + 
+        '2. 针对问题部分进行修改和补充\n' + 
+        '3. 不要完全重写，只做必要的改进\n' + 
+        '4. 保持整体结构和叙事节奏\n' + 
+        '5. 输出完整的优化后章节内容：\n\n' + 
+        prompt;
     }
   }
 
@@ -4791,12 +4804,13 @@ async function aiWriteChapter(opts){
         _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
       }
       _nextHint = _hintLines.join('\n');
-      // ⚡ 递归调用：注入上一轮最佳结果（只追加到缓存prompt，不重建）
+      // ⚡ 递归调用：增量改进模式，传递上一轮结果供AI优化
       return aiWriteChapter({
         _iteration: _writeIteration + 1,
         extraHint: _nextHint,
         _prevBest: _writeBest,
-        _prevSkeleton: skFinalText
+        _prevSkeleton: skFinalText,
+        _prevResult: result
       });
     }
 
@@ -7289,10 +7303,21 @@ window.aiPolishByQuality = aiPolishByQuality;
 // ========== v58: 架构生成专用函数（世界观/大纲/人设/细纲）==========
 // 解决问题：原系统使用正文生成的通用函数，输出长度受限，迭代机制不合理
 
-function buildWorldPrompt(work, userCommand) {
+function buildWorldPrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
-  var prompt = '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮世界观】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有世界观进行深化和完善\n' +
+      '2. 补充缺失的细节，增强设定的丰富度\n' +
+      '3. 保持原有结构和核心设定不变\n' +
+      '4. 输出完整的优化后世界观内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文世界观架构师，擅长构建宏大、自洽、富有创新的小说世界。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
@@ -7324,11 +7349,23 @@ function buildWorldPrompt(work, userCommand) {
   return prompt;
 }
 
-function buildOutlinePrompt(work, userCommand) {
+function buildOutlinePrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var prompt = '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮大纲】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有大纲进行深化和完善\n' +
+      '2. 补充缺失的细节，增加每卷的详细程度\n' +
+      '3. 确保卷数达到10-15卷，总章节1500+章\n' +
+      '4. 保持原有结构和核心剧情不变\n' +
+      '5. 输出完整的优化后大纲内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
@@ -7368,11 +7405,23 @@ function buildOutlinePrompt(work, userCommand) {
   return prompt;
 }
 
-function buildCharsPrompt(work, userCommand) {
+function buildCharsPrompt(work, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var prompt = '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮人设】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有人设进行深化和完善\n' +
+      '2. 补充缺失的角色，增强人物体系的丰富度\n' +
+      '3. 增加每个角色的详细程度和记忆点\n' +
+      '4. 保持原有角色设定和关系不变\n' +
+      '5. 输出完整的优化后人设内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
@@ -7408,14 +7457,26 @@ function buildCharsPrompt(work, userCommand) {
   return prompt;
 }
 
-function buildDetailPrompt(work, volumeIndex, userCommand) {
+function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
   var chars = work.chars || '';
   var outline = work.outline || '';
   
-  var prompt = '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
+  var prompt = '';
+  
+  if (prevResult && prevResult.length > 50) {
+    prompt = '【上一轮细纲】\n' + prevResult + '\n\n' +
+      '【改进要求】\n' +
+      '1. 基于已有细纲进行深化和完善\n' +
+      '2. 补充缺失的章节，确保本卷达到150章\n' +
+      '3. 增加每章的详细程度，确保每章至少150字\n' +
+      '4. 保持原有章节结构和剧情不变\n' +
+      '5. 输出完整的优化后细纲内容：\n\n';
+  }
+  
+  prompt += '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
@@ -7484,50 +7545,92 @@ async function aiGenerateArchitecture(type, userCommand) {
     return;
   }
   
-  var prompt, taskType, targetChars, minChars;
+  var taskType, targetChars, minChars;
   var statusMsg = '';
   
   switch(type) {
     case 'world':
-      prompt = buildWorldPrompt(work, userCommand);
       taskType = 'world_creative';
-      targetChars = 8000;
-      minChars = 2000;
+      targetChars = 10000;
+      minChars = 3000;
       statusMsg = '正在生成世界观…';
       break;
     case 'outline':
-      prompt = buildOutlinePrompt(work, userCommand);
       taskType = 'outline_logic';
-      targetChars = 15000;
-      minChars = 5000;
+      targetChars = 18000;
+      minChars = 6000;
       statusMsg = '正在生成大纲…';
       break;
     case 'chars':
-      prompt = buildCharsPrompt(work, userCommand);
       taskType = 'chars_core';
-      targetChars = 8000;
-      minChars = 2000;
+      targetChars = 10000;
+      minChars = 3000;
       statusMsg = '正在生成人设…';
       break;
     case 'detail':
-      var volumeIdx = 0;
-      try {
-        var volInfo = getCurrentVolumeDetail(work, currentChapterIdx || 0);
-        if (volInfo && volInfo.currentIdx !== undefined) volumeIdx = volInfo.currentIdx;
-      } catch(e) {}
-      prompt = buildDetailPrompt(work, volumeIdx, userCommand);
       taskType = 'detail_base';
-      targetChars = 12000;
-      minChars = 3000;
-      statusMsg = '正在生成第' + (volumeIdx + 1) + '卷细纲…';
+      targetChars = 15000;
+      minChars = 4000;
+      statusMsg = '正在生成细纲…';
       break;
     default:
       showToast('未知类型');
       return;
   }
   
-  if (typeof resetLoading === 'function') resetLoading(statusMsg);
-  else showLoading(statusMsg);
+  return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, 0, null, '');
+}
+
+async function _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration, bestResult, prevResult) {
+  var prompt;
+  var volumeIdx = 0;
+  
+  if (type === 'detail') {
+    try {
+      var volInfo = getCurrentVolumeDetail(work, currentChapterIdx || 0);
+      if (volInfo && volInfo.currentIdx !== undefined) volumeIdx = volInfo.currentIdx;
+    } catch(e) {}
+  }
+  
+  if (iteration === 0) {
+    switch(type) {
+      case 'world':
+        prompt = buildWorldPrompt(work, userCommand);
+        break;
+      case 'outline':
+        prompt = buildOutlinePrompt(work, userCommand);
+        break;
+      case 'chars':
+        prompt = buildCharsPrompt(work, userCommand);
+        break;
+      case 'detail':
+        prompt = buildDetailPrompt(work, volumeIdx, userCommand);
+        break;
+    }
+  } else {
+    switch(type) {
+      case 'world':
+        prompt = buildWorldPrompt(work, userCommand, prevResult);
+        break;
+      case 'outline':
+        prompt = buildOutlinePrompt(work, userCommand, prevResult);
+        break;
+      case 'chars':
+        prompt = buildCharsPrompt(work, userCommand, prevResult);
+        break;
+      case 'detail':
+        prompt = buildDetailPrompt(work, volumeIdx, userCommand, prevResult);
+        break;
+    }
+  }
+  
+  if (iteration === 0) {
+    if (typeof resetLoading === 'function') resetLoading(statusMsg);
+    else showLoading(statusMsg);
+  } else {
+    if (typeof resetLoading === 'function') resetLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+    else showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+  }
   
   try {
     var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
@@ -7549,11 +7652,35 @@ async function aiGenerateArchitecture(type, userCommand) {
         } catch(e) { console.warn('[架构补写] 失败:', e); }
       }
       
-      work._archCache[cacheKey] = { content: result, timestamp: Date.now() };
+      var currentScore = 0;
+      var qReport = null;
+      if (typeof evaluateText === 'function') {
+        try {
+          qReport = evaluateText(result, type, work);
+          currentScore = qReport && typeof qReport.score === 'number' ? qReport.score : 0;
+        } catch(e) { console.warn('[架构评分] 失败:', e); }
+      }
       
-      applyArchResult(type, work, result);
+      if (!bestResult || result.length > bestResult.length || (currentScore > 0 && currentScore > bestResult.score)) {
+        bestResult = { text: result, score: currentScore };
+      }
       
-      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + result.length + '字', 5000);
+      if (iteration < 2 && currentScore > 0 && currentScore < 85) {
+        if (statusBar) {
+          statusBar.style.background = '#fef3c7';
+          statusBar.style.color = '#92400e';
+          statusBar.textContent = '🔄 自动迭代中 · 当前' + currentScore + '分 · 第' + (iteration + 1) + '/3轮';
+        }
+        return _archIterateGenerate(type, taskType, targetChars, minChars, statusMsg, userCommand, work, cacheKey, iteration + 1, bestResult, result);
+      }
+      
+      var finalResult = bestResult ? bestResult.text : result;
+      
+      work._archCache[cacheKey] = { content: finalResult, timestamp: Date.now() };
+      
+      applyArchResult(type, work, finalResult);
+      
+      showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + finalResult.length + '字 · 共' + (iteration + 1) + '轮', 5000);
     } else {
       showToast('⚠️ 生成内容过短，可能是API异常', 5000);
     }
