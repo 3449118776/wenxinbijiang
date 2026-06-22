@@ -21,14 +21,15 @@ function CloudSync(opts) {
   this.token = null;
   this.user = null;
   this.autoSync = !!opts.autoSync;
-  // 检测环境：本地开发/移动App用较短间隔，浏览器线上用1分钟（原5分钟太慢导致跨设备不同步感知差）
+  // 检测环境：本地开发/移动App用较短间隔，浏览器线上用5分钟
+  // （免费KV每天1000次写入，1分钟间隔光keys/settings就消耗2880次/天，必须降低频率）
   var _hostname = '';
   try { _hostname = (location.hostname || ''); } catch(e) {}
   var _isLocalDev = _hostname === 'localhost' || _hostname === '127.0.0.1';
   var _protocol = '';
   try { _protocol = location.protocol || ''; } catch(e) {}
   var _isMobileApp = (_protocol === 'capacitor:' || _protocol === 'ionic:' || _protocol === 'file:');
-  var _activeInterval = _isLocalDev ? 30000 : (_isMobileApp ? 120000 : 60000); // 30s/2min/1min
+  var _activeInterval = _isLocalDev ? 30000 : (_isMobileApp ? 120000 : 300000); // 30s/2min/5min
   this.autoInterval = opts.autoInterval || _activeInterval;
   this._timer = null;
   this._syncTimer = null;
@@ -36,6 +37,8 @@ function CloudSync(opts) {
   this._syncing = false;
   this._pushTimer = null;
   this._kvQuotaExceeded = null;
+  this._lastKeysHash = '';
+  this._lastSettingsHash = '';
   this._loadToken();
   // 启动自动同步（如果配置了）
   if (this.autoSync) {
@@ -190,7 +193,7 @@ CloudSync.prototype = {
       var self = this;
       var result = { keys: 0, settings: 0, errors: 0 };
 
-      // 同步 keys
+      // 同步 keys（仅变更时写入，避免浪费KV配额）
       try {
         var cloudKeys = await this.getKeys();
         var cloudApiKeys = (cloudKeys && cloudKeys.apiKeys) || {};
@@ -203,7 +206,6 @@ CloudSync.prototype = {
             localApiKeys[p] = cloudApiKeys[p];
             changed = true;
           } else {
-            // 本地云端都有，合并去重
             for (var ki = 0; ki < cloudApiKeys[p].length; ki++) {
               if (localApiKeys[p].indexOf(cloudApiKeys[p][ki]) < 0) {
                 localApiKeys[p].push(cloudApiKeys[p][ki]);
@@ -214,12 +216,16 @@ CloudSync.prototype = {
         }
         if (DB) DB.apiKeys = localApiKeys;
 
-        // 本地 keys 推云端（整体覆盖）
-        await this.putKeys({ apiKeys: localApiKeys });
-        result.keys = 1;
+        // 仅当本地keys与上次推送不同时才写入KV
+        var keysJson = JSON.stringify({ apiKeys: localApiKeys });
+        if (keysJson !== this._lastKeysHash) {
+          await this.putKeys({ apiKeys: localApiKeys });
+          this._lastKeysHash = keysJson;
+          result.keys = 1;
+        }
       } catch(e) { result.errors++; }
 
-      // 同步 settings
+      // 同步 settings（仅变更时写入，避免浪费KV配额）
       try {
         var cloudSettings = await this.getSettings();
         var cloudSettingsData = (cloudSettings && cloudSettings.settings) || {};
@@ -227,7 +233,6 @@ CloudSync.prototype = {
         var localSettings = (DB && DB.settings) || {};
         var localApiConfig = (DB && DB.apiConfig) || {};
 
-        // 云端有但本地空的字段，拉回来
         for (var sk in cloudSettingsData) {
           if (localSettings[sk] === undefined || localSettings[sk] === '') {
             localSettings[sk] = cloudSettingsData[sk];
@@ -238,12 +243,15 @@ CloudSync.prototype = {
         }
         if (DB) { DB.settings = localSettings; DB.apiConfig = localApiConfig; }
 
-        // 本地 settings 推云端
-        await this.putSettings({ settings: localSettings, apiConfig: localApiConfig });
-        result.settings = 1;
+        // 仅当本地settings与上次推送不同时才写入KV
+        var settingsJson = JSON.stringify({ settings: localSettings, apiConfig: localApiConfig });
+        if (settingsJson !== this._lastSettingsHash) {
+          await this.putSettings({ settings: localSettings, apiConfig: localApiConfig });
+          this._lastSettingsHash = settingsJson;
+          result.settings = 1;
+        }
       } catch(e) { result.errors++; }
 
-      // 保存本地（防抖）
       try { if (DB && DB.save) DB.save(); } catch(e) {}
 
       result.ok = true;
@@ -545,10 +553,12 @@ CloudSync.prototype = {
       // 保存本地（立即落盘，避免页面刷新导致拉取数据丢失）
       try { if (DB && DB.flush) DB.flush(); } catch(e) {}
 
-      // 同时同步 keys 和 settings（每次完整同步都顺带做）
-      try {
-        await this.syncKeysAndSettings();
-      } catch(ksErr) {}
+      // 同时同步 keys 和 settings（仅当有实际作品变更时才做，避免浪费KV配额）
+      if (report.pushed > 0 || report.pulled > 0 || report.deleted > 0) {
+        try {
+          await this.syncKeysAndSettings();
+        } catch(ksErr) {}
+      }
 
       report.ok = true;
     } catch(e) {
