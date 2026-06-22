@@ -4348,10 +4348,27 @@ async function startChapterPipeline() {
       ensurePipelineChapters(work, n - 1);
       var idx = n - 1;
       var ch = work.chapters[idx];
-      if (!overwrite && ch.content && ch.content.trim().length > 100) {
-        skipped++;
-        pipelineStatus('🏭 流水线 ' + n + '/' + end + '：已有正文，已跳过');
-        continue;
+
+      // 检查缓存：前置内容没变时直接用缓存结果（不跳过章节）
+      if (!overwrite) {
+        var cacheResult = checkChapterCache(work, idx, '');
+        if (cacheResult.hitCache && cacheResult.cachedResult) {
+          // 命中缓存：直接使用缓存结果
+          ch._aiOriginal = cacheResult.cachedResult;
+          ch.content = cacheResult.cachedResult;
+          ch.wordCount = cacheResult.cachedResult.length;
+          skipped++;
+          pipelineStatus('🏭 流水线 ' + n + '/' + end + '：命中缓存（' + cacheResult.cachedResult.length + '字），已应用');
+          try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e) {}
+          continue;
+        }
+
+        // 有正文且超过100字：跳过（原有的逻辑）
+        if (ch.content && ch.content.trim().length > 100) {
+          skipped++;
+          pipelineStatus('🏭 流水线 ' + n + '/' + end + '：已有正文，已跳过');
+          continue;
+        }
       }
       loadChapter(idx);
       await pipelineSleep(100); // v48: 缩短章节间等待，快速切换
@@ -4425,6 +4442,105 @@ async function startChapterPipeline() {
   }
 }
 
+// ===== 正文生成缓存机制：基于前置内容（架构+前序章节）的hash检测 =====
+// 正文依赖：世界观、人设、大纲、细纲、前序章节
+function getChapterCacheHash(content) {
+  if (!content || !content.trim()) return '';
+  var len = content.length;
+  var first = content.substring(0, 50);
+  var last = content.slice(-50);
+  var keyCount = (content.match(/[■■★◆●]/g) || []).length;
+  return len + '_' + first.charCodeAt(0) + '_' + last.charCodeAt(last.length - 1) + '_' + keyCount;
+}
+
+function checkChapterCache(work, chapterIdx, userCmd) {
+  // 初始化章节缓存结构
+  if (!work._chapterCache) work._chapterCache = {};
+  if (!work._chapterCache[chapterIdx]) work._chapterCache[chapterIdx] = {};
+
+  var cache = work._chapterCache[chapterIdx];
+
+  // 计算本次输入的hash
+  var inputHash = getChapterCacheHash((userCmd || '') + '|' + (work.genre || '') + '|' + chapterIdx);
+
+  // 检查前置依赖的hash
+  // 正文依赖：世界观、人设、大纲、细纲、前序章节
+  var deps = ['world', 'chars', 'outline', 'detail'];
+  var depHashes = {};
+  var depsChanged = false;
+
+  for (var di = 0; di < deps.length; di++) {
+    var depMod = deps[di];
+    var depContent = work[depMod] || '';
+    var currentHash = getChapterCacheHash(depContent);
+    depHashes[depMod] = currentHash;
+
+    // 检查前置内容是否变化
+    if (cache._depHashes && cache._depHashes[depMod] && cache._depHashes[depMod] !== currentHash) {
+      depsChanged = true;
+      break;
+    }
+  }
+
+  // 检查前序章节内容是否变化
+  if (!depsChanged && chapterIdx > 0 && work.chapters && work.chapters[chapterIdx - 1]) {
+    var prevContent = work.chapters[chapterIdx - 1].content || '';
+    var prevHash = getChapterCacheHash(prevContent);
+    if (cache._prevChapterHash && cache._prevChapterHash !== prevHash) {
+      depsChanged = true;
+    } else {
+      depHashes.prevChapter = prevHash;
+    }
+  }
+
+  // 检查是否命中缓存
+  var hitCache = false;
+  var cachedResult = null;
+
+  if (!depsChanged && cache._inputHash === inputHash && cache.result && cache.result.trim()) {
+    // 命中缓存：前置依赖没变 + 输入提示词没变
+    hitCache = true;
+    cachedResult = cache.result;
+
+    // 更新依赖hash
+    cache._depHashes = depHashes;
+    cache._inputHash = inputHash;
+  } else {
+    // 未命中缓存：准备重新生成
+    cache._depHashes = depHashes;
+    cache._prevChapterHash = depHashes.prevChapter;
+    cache._inputHash = inputHash;
+  }
+
+  return { hitCache: hitCache, cachedResult: cachedResult };
+}
+
+function saveChapterCache(work, chapterIdx, result) {
+  if (!work._chapterCache) work._chapterCache = {};
+  if (!work._chapterCache[chapterIdx]) work._chapterCache[chapterIdx] = {};
+
+  var cache = work._chapterCache[chapterIdx];
+
+  // 计算所有依赖的hash
+  var deps = ['world', 'chars', 'outline', 'detail'];
+  var depHashes = {};
+  for (var di = 0; di < deps.length; di++) {
+    var depMod = deps[di];
+    depHashes[depMod] = getChapterCacheHash(work[depMod] || '');
+  }
+
+  // 前序章节hash
+  if (chapterIdx > 0 && work.chapters && work.chapters[chapterIdx - 1]) {
+    depHashes.prevChapter = getChapterCacheHash(work.chapters[chapterIdx - 1].content || '');
+  }
+
+  // 保存到缓存
+  cache._depHashes = depHashes;
+  cache._prevChapterHash = depHashes.prevChapter;
+  cache.result = result;
+  cache._updatedAt = Date.now();
+}
+
 async function aiWriteChapter(opts){
   opts = opts || {};
   var _writeIteration = opts._iteration || 0;
@@ -4433,6 +4549,37 @@ async function aiWriteChapter(opts){
   var _prevSkeleton = opts._prevSkeleton || '';  // 上一轮骨架，迭代时复用避免重新生成
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
+
+  // ===== 正文缓存检查：前置内容没变则直接用缓存结果 =====
+  // 只有非迭代模式才检查缓存
+  var userCmd = (document.getElementById('ai-input')?.value || '').trim();
+  if (_writeIteration === 0 && !opts.forceRegen) {
+    var chapterIdx = currentChapterIdx || 0;
+    var cacheResult = checkChapterCache(work, chapterIdx, userCmd);
+    if (cacheResult.hitCache && cacheResult.cachedResult) {
+      // 命中缓存：直接使用缓存结果，跳过AI调用
+      if (typeof hideLoading === 'function') hideLoading();
+
+      var result = cacheResult.cachedResult;
+      var ch = work.chapters[chapterIdx];
+      if (ch) {
+        ch._aiOriginal = result;
+        ch.content = result;
+        ch.wordCount = result.length;
+      }
+
+      // 更新编辑器
+      var editor = document.getElementById('editor');
+      if (editor) editor.value = result;
+
+      showToast('✅ 第' + (chapterIdx + 1) + '章命中缓存（前置内容未变）· ' + result.length + '字', {duration: 4000});
+
+      // 触发保存
+      try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e) {}
+
+      return;
+    }
+  }
   // 第一次生成：resetLoading 从 0 起步；迭代时只更新文字，保持进度连续推进
   if (_writeIteration === 0 && typeof resetLoading === 'function') {
     resetLoading('正在生成章节…');
@@ -4857,7 +5004,10 @@ async function aiWriteChapter(opts){
     // 同步章节标题到输入框
     if(ch.title) document.getElementById('ch-title').value = ch.title;
     updateWordCount();
-    
+
+    // 保存到正文缓存（前置内容没变时可直接复用）
+    try { saveChapterCache(work, chapterIdx, result); } catch(cacheErr) { console.warn('[正文缓存] 保存失败:', cacheErr); }
+
     // 细纲覆盖率检测
     if (work.detail) {
       const detailLines = work.detail.split('\n').filter(l => l.trim().length > 5 && (l.includes('场景') || l.includes('■') || /\d+[.、]/.test(l)));
@@ -4875,11 +5025,14 @@ async function aiWriteChapter(opts){
             if(!_checkStillSameWork('细纲补写中')) return;
             if (fillResult) {
               // v52: 保存AI原始（含补写），用于用户编辑学习
-              ch._aiOriginal = result + '\n\n' + fillResult;
-              ch.content = result + '\n\n' + fillResult;
+              var finalResult = result + '\n\n' + fillResult;
+              ch._aiOriginal = finalResult;
+              ch.content = finalResult;
               document.getElementById('editor').value = ch.content;
               updateWordCount();
               showToast('自动补写完成 -- 补充了' + missed.length + '个遗漏场景点');
+              // 保存补写后的内容到缓存
+              try { saveChapterCache(work, chapterIdx, finalResult); } catch(cacheErr) { console.warn('[正文缓存] 保存失败:', cacheErr); }
             }
           } catch(e) {
             console.log('补写失败:', e);
