@@ -2610,13 +2610,13 @@ window.generateArchModule = async function(opts){
     }
 
     // ===== 架构模块缓存检查：前置内容没变则直接用缓存结果 =====
-    // 只有非迭代修复模式才检查缓存（isFix=true 时强制重新生成）
-    if(!opts.isFix && module !== 'world'){
+    // 所有模块都检查缓存（包括世界观），只有非迭代修复模式才检查（isFix=true 时强制重新生成）
+    if(!opts.isFix){
       var cacheResult = checkArchCache(work, module, idea, opts && opts.extraHint);
       if(cacheResult.hitCache && cacheResult.cachedResult){
         // 命中缓存：直接使用缓存结果，跳过AI调用
         // 显示进度条
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(100, '✅ 命中缓存（前置内容未变）…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(100, '✅ ' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + ' 命中缓存…');
         if(typeof hideLoading === 'function') setTimeout(hideLoading, 500);
 
         var result = cacheResult.cachedResult;
