@@ -1177,8 +1177,8 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
   var dynamicMaxTokens = null;
   if(targetChars && targetChars > 0){
-    // 中文约 1.5 token/字，留 30% 余量
-    var charsToTokens = Math.floor(targetChars * 1.5 * 1.3);
+    // 中文约 1.5 token/字，留 50% 余量（v60: 提高余量确保长文本不被截断）
+    var charsToTokens = Math.floor(targetChars * 1.5 * 1.5);
     // 取「字数需求」和「模型最大输出」中的较小值，确保不超模型限制
     var modelMaxTokens = getModelMaxOutputTokens();
     dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
