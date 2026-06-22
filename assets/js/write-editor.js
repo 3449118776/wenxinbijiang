@@ -7328,7 +7328,7 @@ function buildOutlinePrompt(work, userCommand) {
   var title = work.title || '未命名作品';
   var genre = getWorkGenre(work);
   var world = work.world || '';
-  var prompt = '你是一位顶级网文大纲架构师，擅长设计紧凑、有节奏感、充满悬念的长篇小说大纲。\n\n';
+  var prompt = '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
   if (userCommand && userCommand.trim()) {
     prompt += '【⚠️ 用户指令 · 最高优先级】\n' + userCommand.trim() + '\n\n';
   }
@@ -7337,27 +7337,34 @@ function buildOutlinePrompt(work, userCommand) {
   if (world && world.length > 50) {
     prompt += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
   }
-  prompt += '请为这部作品设计完整的多卷大纲，包含以下内容：\n\n';
+  prompt += '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
+  prompt += '包含以下内容：\n\n';
   prompt += '一、核心设定回顾\n';
   prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
   prompt += '二、全书结构规划\n';
-  prompt += '—— 预计卷数（建议5-8卷）、每卷主题、总字数估算\n\n';
-  prompt += '三、分卷大纲（每卷详细）\n';
-  prompt += '—— 每卷标题、核心任务、关键事件（8-12个）、卷末钩子\n\n';
+  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约3500字、总字数估算\n\n';
+  prompt += '三、分卷大纲（每卷详细，每卷至少500字）\n';
+  prompt += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
+  prompt += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
   prompt += '四、核心矛盾链\n';
-  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n\n';
+  prompt += '—— 贯穿全书的主要矛盾线、次要矛盾线、它们如何交织\n';
+  prompt += '—— 每卷矛盾的推进和升级\n\n';
   prompt += '五、爽点规划\n';
-  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻\n\n';
+  prompt += '—— 每卷的主要爽点、打脸场景、升级时刻、爆发时刻\n\n';
   prompt += '六、伏笔布局\n';
-  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n\n';
+  prompt += '—— 关键伏笔的埋设位置、回收时机、对剧情的影响\n';
+  prompt += '—— 长线伏笔（贯穿多卷）和短线伏笔（单卷内回收）\n\n';
   prompt += '七、人物成长弧线\n';
-  prompt += '—— 主角和主要配角的成长路径、转折点\n\n';
+  prompt += '—— 主角和主要配角的成长路径、转折点、关键变化\n\n';
+  prompt += '八、节奏规划\n';
+  prompt += '—— 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n\n';
   prompt += '【输出要求】\n';
-  prompt += '1. 每卷大纲至少300字，总字数不少于5000字\n';
+  prompt += '1. 总字数不少于8000字，每卷大纲至少500字\n';
   prompt += '2. 结构清晰，使用标题分隔\n';
   prompt += '3. 每个关键事件要具体，有明确的冲突和结果\n';
   prompt += '4. 确保节奏紧凑，每卷有明确的推进和高潮\n';
-  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  prompt += '5. 考虑百万字长篇的延展性，预留足够的剧情空间\n';
+  prompt += '6. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -7443,7 +7450,8 @@ function buildDetailPrompt(work, volumeIndex, userCommand) {
     }
   }
   
-  prompt += '请为本卷设计详细的章节细纲，每章包含以下内容：\n\n';
+  prompt += '请为本卷设计详细的章节细纲，目标规模：150章，每章约3500字。\n\n';
+  prompt += '每章包含以下内容：\n\n';
   prompt += '■ 第N章《章节标题》\n';
   prompt += '  场景：本章主要发生的地点\n';
   prompt += '  人物：本章出场的主要角色\n';
@@ -7452,11 +7460,13 @@ function buildDetailPrompt(work, volumeIndex, userCommand) {
   prompt += '  爆点/悬念钩子：章末的悬念或爽点，让读者想看下一章\n\n';
   
   prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计8-15章细纲，每章至少150字，总字数不少于3000字\n';
-  prompt += '2. 结构清晰，按照上述格式输出\n';
-  prompt += '3. 每个章节要有明确的冲突和推进\n';
-  prompt += '4. 确保前后章节衔接自然，伏笔有安排\n';
-  prompt += '5. 直接输出完整内容，不要加对话语前缀';
+  prompt += '1. 本卷设计150章细纲，前30章详细写出每章内容，后续章节按阶段（每30章）给出详细阶段规划\n';
+  prompt += '2. 前30章每章至少150字，总字数不少于8000字\n';
+  prompt += '3. 结构清晰，使用标题分隔，分阶段输出（如：第一阶段、第二阶段等）\n';
+  prompt += '4. 每个章节要有明确的冲突和推进\n';
+  prompt += '5. 确保前后章节衔接自然，伏笔有安排\n';
+  prompt += '6. 每5章一个小高潮、每10章一个中高潮、每30章一个大高潮\n';
+  prompt += '7. 直接输出完整内容，不要加对话语前缀';
   return prompt;
 }
 
@@ -7477,7 +7487,7 @@ async function aiGenerateArchitecture(type, userCommand) {
     case 'outline':
       prompt = buildOutlinePrompt(work, userCommand);
       taskType = 'outline_logic';
-      targetChars = 7000;
+      targetChars = 12000;
       statusMsg = '正在生成大纲…';
       break;
     case 'chars':
@@ -7494,7 +7504,7 @@ async function aiGenerateArchitecture(type, userCommand) {
       } catch(e) {}
       prompt = buildDetailPrompt(work, volumeIdx, userCommand);
       taskType = 'detail_base';
-      targetChars = 5000;
+      targetChars = 10000;
       statusMsg = '正在生成第' + (volumeIdx + 1) + '卷细纲…';
       break;
     default:
