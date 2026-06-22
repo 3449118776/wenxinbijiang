@@ -1,0 +1,11 @@
+name = "wxbj-main"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "."
+
+# KV 存储：用户和作品数据
+kv_namespaces = [
+  { binding = "WXBJ_DATA", id = "2b06fe43905c4bf998344eeb4a89e1e3", preview_id = "2b06fe43905c4bf998344eeb4a89e1e3" }
+]
+
+[vars]
+WXBJ_SECRET = "wxbj_cloud_secret_2026_v2_production"
