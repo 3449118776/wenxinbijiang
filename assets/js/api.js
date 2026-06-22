@@ -199,22 +199,22 @@ const API_MAX_KEY_RETRY  = 999;
 // 跨服务商总尝试上限（防死循环，适配更多服务商）
 const API_MAX_TOTAL_TRY  = 40;
 const DEFAULT_TIMEOUT_MS = 90 * 1000;
-const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens，适配大模型长文本生成需求
+const DEFAULT_MAX_TOKENS = 131072; // v59: 默认最大输出提升到 128K tokens，适配大模型长文本生成需求
 
-// 各模型的最大输出 token 数（按模型名前缀匹配）v56: 按模型实际支持的能力调整
+// 各模型的最大输出 token 数（按模型名前缀匹配）v59: 按模型实际支持的能力调整
 // 说明：max_tokens 只是上限，模型不会每次都填满，按需生成
-// 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字
+// 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字，128K ≈ 8-10万中文字
 var MODEL_MAX_OUTPUT = {
-  // DeepSeek —— 128K 上下文，实测支持 64K 输出
-  'deepseek-chat': 65536,
-  'deepseek-reasoner': 65536,
-  'deepseek-coder': 65536,
+  // DeepSeek —— 128K 上下文，实测支持 128K 输出
+  'deepseek-chat': 131072,
+  'deepseek-reasoner': 131072,
+  'deepseek-coder': 131072,
   // 通义千问 (DashScope)
-  'qwen-max': 65536,
-  'qwen-plus': 65536,
-  'qwen-turbo': 32768,
-  'qwen-long': 65536,
-  'qwen-max-latest': 65536,
+  'qwen-max': 131072,
+  'qwen-plus': 131072,
+  'qwen-turbo': 65536,
+  'qwen-long': 131072,
+  'qwen-max-latest': 131072,
   // QwenLM
   'qwen3-max': 131072,
   'qwen3-coder': 65536,
@@ -225,28 +225,28 @@ var MODEL_MAX_OUTPUT = {
   'gpt-4': 8192,
   'gpt-3.5-turbo': 4096,
   // Claude / Anthropic
-  'claude-sonnet-4': 65536,
-  'claude-3-5-sonnet': 32768,
-  'claude-3-5-haiku': 32768,
-  'claude-3-opus': 16384,
-  'claude-opus-4': 65536,
-  'claude-haiku-4': 32768,
+  'claude-sonnet-4': 131072,
+  'claude-3-5-sonnet': 65536,
+  'claude-3-5-haiku': 65536,
+  'claude-3-opus': 32768,
+  'claude-opus-4': 131072,
+  'claude-haiku-4': 65536,
   // 智谱AI (Zhipu)
-  'glm-4-plus': 32768,
-  'glm-4': 32768,
-  'glm-4-flash': 16384,
-  'glm-4-air': 16384,
-  'glm-3-turbo': 16384,
+  'glm-4-plus': 65536,
+  'glm-4': 65536,
+  'glm-4-flash': 32768,
+  'glm-4-air': 32768,
+  'glm-3-turbo': 32768,
   // Kimi (Moonshot)
-  'moonshot-v1-128k': 65536,
-  'moonshot-v1-32k': 32768,
-  'moonshot-v1-8k': 8192,
+  'moonshot-v1-128k': 131072,
+  'moonshot-v1-32k': 65536,
+  'moonshot-v1-8k': 16384,
   // 火山引擎 / 豆包
-  'doubao-pro-32k': 16384,
-  'doubao-pro-4k': 4096,
-  'doubao-lite-4k': 4096,
+  'doubao-pro-32k': 65536,
+  'doubao-pro-4k': 16384,
+  'doubao-lite-4k': 16384,
   // 百度文心 (Baidu)
-  'ernie-4.0-8k': 8192,
+  'ernie-4.0-8k': 32768,
   'ernie-4.0-turbo-8k': 8192,
   'ernie-3.5-8k': 8192,
   'ernie-speed-8k': 8192,
@@ -301,17 +301,17 @@ var MODEL_MAX_OUTPUT = {
   'gemma2-9b-it': 32768,
   // Together
   'meta-llama/Meta-Llama-3.1-8B-Instruct': 65536,
-  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 65536,
+  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 131072,
   'mistralai/Mixtral-8x22B-Instruct-v0.1': 65536,
   // OpenRouter
-  'deepseek/deepseek-chat': 32768,
-  'anthropic/claude-3.5-sonnet': 32768,
+  'deepseek/deepseek-chat': 131072,
+  'anthropic/claude-3.5-sonnet': 65536,
   'openai/gpt-4o-mini': 32768,
   'meta-llama/llama-3.1-8b-instruct': 65536,
   'google/gemma-3-27b-it': 32768,
   'mistralai/ministral-3b': 16384,
   // QwenLM 其他
-  'qwen2.5-72b-instruct': 32768,
+  'qwen2.5-72b-instruct': 65536,
   // 自定义
   'custom-model': 131072,
 };
@@ -415,17 +415,17 @@ var MODEL_CONTEXT_WINDOW = {
   'gemma2-9b-it': 32768,
   // Together
   'meta-llama/Meta-Llama-3.1-8B-Instruct': 65536,
-  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 65536,
+  'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo': 131072,
   'mistralai/Mixtral-8x22B-Instruct-v0.1': 65536,
   // OpenRouter
-  'deepseek/deepseek-chat': 32768,
-  'anthropic/claude-3.5-sonnet': 32768,
+  'deepseek/deepseek-chat': 131072,
+  'anthropic/claude-3.5-sonnet': 65536,
   'openai/gpt-4o-mini': 32768,
   'meta-llama/llama-3.1-8b-instruct': 65536,
   'google/gemma-3-27b-it': 32768,
   'mistralai/ministral-3b': 16384,
   // QwenLM 其他
-  'qwen2.5-72b-instruct': 32768,
+  'qwen2.5-72b-instruct': 65536,
   // 自定义
   'custom-model': 131072,
 };
@@ -1172,16 +1172,16 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
   // 根据目标字数动态计算 max_tokens
-  // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
+  // v59: 策略调整，大幅提升输出上限，适配长文本生成需求
   var dynamicMaxTokens = null;
   if(targetChars && targetChars > 0){
-    // 中文约 1.5 token/字，留 30% 余量
-    var charsToTokens = Math.floor(targetChars * 1.5 * 1.3);
+    // 中文约 1.5 token/字，留 20% 余量（原来30%，v59调整为20%以提高输出）
+    var charsToTokens = Math.floor(targetChars * 1.5 * 1.2);
     // 取「字数需求」和「模型最大输出」中的较小值，确保不超模型限制
     var modelMaxTokens = getModelMaxOutputTokens();
     dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
-    // 最低保底 800 token，确保至少能生成内容
-    dynamicMaxTokens = Math.max(800, dynamicMaxTokens);
+    // 最低保底 2000 token（v59: 从800提升到2000），确保能生成足够内容
+    dynamicMaxTokens = Math.max(2000, dynamicMaxTokens);
   } else {
     // 没有指定字数时，直接用模型极限
     dynamicMaxTokens = getModelMaxOutputTokens();
