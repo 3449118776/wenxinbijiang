@@ -3139,8 +3139,19 @@ window.generateArchModule = async function(opts){
     // 进度：35%~95%卡片生成，95%~99%迭代
     var iterationCount = 0; // 声明在函数作用域，供completionMsg使用
     if(module !== 'detail'){
-      // ===== 第一阶段：生成精准方案（带具体质量标准的90分方案）=====
-      var planPrompt = '你是一位资深网文架构评审专家。请为以下作品生成一份**精准结构方案**，要求每个维度评分≥9/10（总分≥90/100）。\n\n';
+      // ===== 第一阶段：生成精准方案（使用实际评分维度）=====
+      // 根据模块类型选择对应的评分维度
+      var _planDims = [];
+      if(module === 'world'){
+        _planDims = ['设定完整度（力量体系/势力结构/代价限制）', '独特创新（超越传统元素）', '冲突张力（矛盾源/势力平衡）', '社会结构（阶层/经济体系）', '叙事潜力（秘密/预言/遗迹）', '篇幅合理（600~3000字）'];
+      } else if(module === 'chars'){
+        _planDims = ['人物立体度（动机/弱点/弧光）', '关系网络（角色间关系）', '反派/对抗力', '角色差异化（性格区分）', '情感共鸣', '篇幅合理'];
+      } else if(module === 'outline'){
+        _planDims = ['结构清晰（分卷/分幕）', '节奏把控（高潮/转折）', '伏笔设计', '主线清晰', '冲突递进', '商业价值（爽点/名场面）'];
+      } else {
+        _planDims = ['章节连贯', '悬念密度（章尾钩子）', '冲突设计', '信息释放节奏', '爽点分布', '可执行性'];
+      }
+      var planPrompt = '你是一位资深网文架构评审专家。请为以下作品生成一份**精准结构方案**，要求后续严格按此方案执行，保证每个维度评分≥9/10（总分≥90/100）。\n\n';
       planPrompt += '【作品信息】\n';
       planPrompt += '名称：' + (work && work.title || '未命名') + '\n';
       planPrompt += '题材：' + (work && work.genre || '通用') + '\n';
@@ -3150,20 +3161,18 @@ window.generateArchModule = async function(opts){
       for(var pi = 0; pi < batches.length; pi++){
         planPrompt += (pi+1) + '. ' + batches[pi].label + '（目标' + (batches[pi].targetChars || 800) + '字）\n';
       }
-      planPrompt += '\n【评分维度定义（90分标准）】\n';
-      planPrompt += '- 完整性（9/10）：覆盖该模块所有必要元素，无重大遗漏\n';
-      planPrompt += '- 一致性（9/10）：全模块内无矛盾、名字/设定前后统一\n';
-      planPrompt += '- 连贯性（9/10）：卡片间逻辑连贯，伏笔有呼应\n';
-      planPrompt += '- 创新性（9/10）：在用户诉求方向上有新意，不落俗套\n';
-      planPrompt += '- 可执行性（9/10）：内容具体可落地，能直接用于后续创作\n';
+      planPrompt += '\n【评分维度（必须全部≥9/10）】\n';
+      for(var _pdi = 0; _pdi < _planDims.length; _pdi++){
+        planPrompt += '  - ' + _planDims[_pdi] + '\n';
+      }
       planPrompt += '\n【请按以下格式输出方案】\n';
       planPrompt += '【整体定位】核心定位与风格基调（50字内）\n';
-      planPrompt += '【卡片' + '1~' + batches.length + '分工】\n';
+      planPrompt += '【卡片分工】\n';
       for(var pi2 = 0; pi2 < batches.length; pi2++){
-        planPrompt += '  卡片' + (pi2+1) + '「' + batches[pi2].label + '」：内容边界与核心要点\n';
+        planPrompt += '  卡片' + (pi2+1) + '「' + batches[pi2].label + '」：具体职责与核心内容要点\n';
       }
-      planPrompt += '【一致性锚点】跨卡片必须统一的设定列表（具体到名称、时间、规则）\n';
-      planPrompt += '【质量检查表】按上述5个维度逐条列出检查项，确保生成后能逐条验证\n';
+      planPrompt += '【一致性锚点】跨卡片必须统一的设定（具体名称/时间/规则）\n';
+      planPrompt += '【质量检查表】按上述评分维度列出检查项\n';
       planPrompt += '\n直接输出，不要对话语前缀。';
 
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🎯 生成精准方案…');
