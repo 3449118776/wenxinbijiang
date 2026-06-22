@@ -3170,6 +3170,40 @@ window.generateArchModule = async function(opts){
         console.log('[卡片迭代] ' + card.label + ' 最终结果: cardBestScore=' + cardBestScore + ', cardBestResult长度=' + (cardBestResult ? cardBestResult.length : 'null') + ', cardResult长度=' + cardResult.length);
         if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
 
+        // ⭐ 自动追加生成：如果内容不足目标字数的80%，继续追加
+        var appendCount = 0;
+        var maxAppend = 5;
+        while(cardResult.length < cardTargetChars * 0.8 && appendCount < maxAppend && _checkStillSameWork()){
+          appendCount++;
+          var appendTarget = Math.max(1000, cardTargetChars - cardResult.length);
+          var appendProgress = progressPct + appendCount * 2;
+          if(typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(appendProgress, '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
+          }
+          var appendPrompt = '【追加指令】\n';
+          appendPrompt += '当前已生成内容（最后500字）：\n';
+          appendPrompt += cardResult.slice(-500) + '\n\n';
+          appendPrompt += '请继续扩展、深化、细化以上内容，补充更多细节和具体描述。\n';
+          appendPrompt += '追加目标：至少 ' + appendTarget + ' 字。\n';
+          appendPrompt += '不要重复已有内容，只做扩展和深化。\n';
+          appendPrompt += '保持风格一致，段落清晰。\n\n';
+          appendPrompt += '【开始追加】\n';
+
+          var appendResult = null;
+          try{
+            if(typeof callRealAPIWithFallback === 'function'){
+              appendResult = await callRealAPIWithFallback(appendPrompt, null, taskType, appendTarget, true);
+            }
+          }catch(e){ console.warn('[卡片追加] 失败:', e); }
+
+          if(appendResult && appendResult.trim().length > 50){
+            cardResult += '\n\n' + appendResult.trim();
+            console.log('[卡片追加] ' + card.label + ' 追加成功，当前字数:', cardResult.length);
+          } else {
+            break;
+          }
+        }
+
         allCards.push({ label: card.label, content: cardResult });
         totalChars += cardResult.length;
 

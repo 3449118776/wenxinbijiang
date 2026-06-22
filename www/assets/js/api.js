@@ -205,12 +205,12 @@ const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens
 // 说明：max_tokens 只是上限，模型不会每次都填满，按需生成
 // 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字
 var MODEL_MAX_OUTPUT = {
-  // DeepSeek —— 128K 上下文，实测支持 64K 输出
-  'deepseek-chat': 65536,
-  'deepseek-v3': 65536,
-  'deepseek-v4': 65536,
-  'deepseek-reasoner': 65536,
-  'deepseek-coder': 65536,
+  // DeepSeek —— V4 支持 1M tokens 输出
+  'deepseek-chat': 131072,
+  'deepseek-v3': 131072,
+  'deepseek-v4': 524288,
+  'deepseek-reasoner': 131072,
+  'deepseek-coder': 131072,
   // 通义千问 (DashScope)
   'qwen-max': 65536,
   'qwen-plus': 65536,
