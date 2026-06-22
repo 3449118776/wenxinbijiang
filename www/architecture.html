@@ -3672,31 +3672,21 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
-  // 关键：已生成的卡片内容（最近2张给完整摘要确保连贯，更早的只列标题——内容已提炼到记忆精要）
+  // 关键：已生成的卡片内容（最近1张给完整内容确保连贯，更早的只列标题——内容已提炼到记忆精要）
   if(prevCards && prevCards.length > 0){
     prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
     
-    // v52: 最近 2 张卡片给更长的完整摘要（首段 + 末段），保持上下文连贯——大模型给更多
-    var _rcBig = isLargeContextModel();
-    var _rcLimit = _rcBig ? 2000 : 800;
-    var _rcFirst = _rcBig ? 800 : 300;
-    var _rcLast = _rcBig ? 400 : 200;
-    var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
-    for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
+    // 最近1张卡片给完整内容（确保上下文连贯）
+    var recentStart = prevCards.length > 1 ? prevCards.length - 1 : 0;
+    for(var pi2 = recentStart; pi2 < prevCards.length; pi2++){
       var pc2 = prevCards[pi2];
-      var snip2 = '';
-      if(pc2.content.length > _rcLimit){
-        snip2 = pc2.content.substring(0, _rcFirst) + '\n...（中间略）...\n' + pc2.content.slice(-_rcLast);
-      } else {
-        snip2 = pc2.content;
-      }
-      prompt += '■ ' + pc2.label + '：\n' + snip2.trim() + '\n\n';
+      prompt += '■ ' + pc2.label + '：\n' + pc2.content.trim() + '\n\n';
     }
     
     // 更早的卡片：只列标题（内容已提炼到记忆精要，避免 prompt 爆炸）
-    if(recentLimit > 0){
+    if(recentStart > 0){
       prompt += '【更早的卡片（标题参考，内容已提炼到记忆精要）】\n';
-      for(var oi2 = 0; oi2 < recentLimit; oi2++){
+      for(var oi2 = 0; oi2 < recentStart; oi2++){
         prompt += '· ' + prevCards[oi2].label + '\n';
       }
       prompt += '\n';
