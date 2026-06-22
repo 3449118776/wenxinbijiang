@@ -2872,13 +2872,13 @@ window.generateArchModule = async function(opts){
         var _curScore = evalResult.totalScore || 0;
         var _needFix = false;
 
-        // 检查是否需要修复：总分<80 或 任何维度<7/10
-        if(_curScore < 80){
+        // 检查是否需要修复：总分<90 或 任何维度<9/10
+        if(_curScore < 90){
           _needFix = true;
         } else if(evalResult.dimensions && evalResult.dimensions.length){
           for(var _di = 0; _di < evalResult.dimensions.length; _di++){
             var _d = evalResult.dimensions[_di];
-            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.7){
+            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.9){
               _needFix = true; break;
             }
           }
@@ -2892,7 +2892,7 @@ window.generateArchModule = async function(opts){
           if(evalResult.dimensions && evalResult.dimensions.length){
             for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
               var _d2 = evalResult.dimensions[_di2];
-              if(_d2.score !== undefined && _d2.max !== undefined && (_d2.score / _d2.max) < 0.7){
+              if(_d2.score !== undefined && _d2.max !== undefined && (_d2.score / _d2.max) < 0.9){
                 _fixIssues.push('【' + _d2.name + ' ' + _d2.score + '/' + _d2.max + '分】' + (_d2.issues && _d2.issues.length ? _d2.issues[0] : '需提升'));
               }
             }
@@ -2904,10 +2904,9 @@ window.generateArchModule = async function(opts){
           }
 
           // 构建精准修复 prompt
-          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
-          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
-          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
+          var _fixPrompt = '你是一位资深网文编辑，必须一次性精准修复到目标（仅此一次修复机会，没有第二次）。\n\n';
+          _fixPrompt += '【当前评分】' + _curScore + '/100 （目标：≥90/100，每个维度≥9/10）\n';
+          _fixPrompt += '【修复规则 — 务必一次性全部解决】\n';
           for(var _fi = 0; _fi < _fixIssues.length; _fi++){
             _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
           }
@@ -2920,13 +2919,18 @@ window.generateArchModule = async function(opts){
             }
           } catch(e){}
 
-          _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
-          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+          if(idea && idea.trim()){
+            _fixPrompt += '\n【用户核心诉求 — 修复时不得偏离此方向】\n' + idea.trim().substring(0, 500) + '\n';
+          }
+
+          _fixPrompt += '\n【⚠️ 一次性精准修复规则 — 仅此一轮，没有第二次机会】\n';
+          _fixPrompt += '1. 一次性修复所有低分维度的问题，一个不漏\n';
           _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
-          _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
-          _fixPrompt += '【待修复的完整内容】\n' + smartTruncate(result, 8000) + '\n\n';
-          _fixPrompt += '直接输出修复后的完整内容。不要加对话语前缀。';
+          _fixPrompt += '3. 章节编号、人名、地名、格式必须保持不变\n';
+          _fixPrompt += '4. 不得改变原始用户核心诉求和整体方向\n';
+          _fixPrompt += '5. 修复后必须达到：每个维度≥9/10，总分≥90/100\n\n';
+          _fixPrompt += '【待修复的完整内容 — 保持原文不变，只改问题部分】\n' + result + '\n\n';
+          _fixPrompt += '直接输出修复后的完整内容（全文输出，不要只输出修改的部分）。不要加任何对话语前缀。';
 
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
 
@@ -2948,8 +2952,8 @@ window.generateArchModule = async function(opts){
           }
         }
 
-        // ⭐ 保底机制：当评分极低（<60）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
-        if(_curScore < 60){
+        // ⭐ 保底机制：当评分极低（<70）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
+        if(_curScore < 70){
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🛡️ ' + moduleName + ' · 保底一致性修复中…');
           
           var _backupPrompt = '你是一位资深网文编辑。当前生成的内容存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
@@ -4746,19 +4750,24 @@ window.generateDetailForVolume = async function(volNum) {
           var _fixGuide = '';
           try { if(typeof QualityEngine.getFixGuide === 'function') _fixGuide = QualityEngine.getFixGuide(evalResult.dimensions); } catch(e){}
           
-          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
-          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
-          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
+          var _fixPrompt = '你是一位资深网文编辑，必须一次性精准修复到目标（仅此一次修复机会，没有第二次）。\n\n';
+          _fixPrompt += '【当前评分】' + _curScore + '/100 （目标：≥90/100，每个维度≥9/10）\n';
+          _fixPrompt += '【修复规则 — 务必一次性全部解决】\n';
           for(var _fi = 0; _fi < _fixIssues.length; _fi++){
             _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
           }
           if(_fixGuide) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fixGuide, 1500) + '\n';
-          _fixPrompt += '\n【⚠️ 精准修复规则】\n';
-          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+          if(idea && idea.trim()){
+            _fixPrompt += '\n【用户核心诉求 — 修复时不得偏离此方向】\n' + idea.trim().substring(0, 500) + '\n';
+          }
+          _fixPrompt += '\n【⚠️ 一次性精准修复规则 — 仅此一轮，没有第二次机会】\n';
+          _fixPrompt += '1. 一次性修复所有低分维度的问题，一个不漏\n';
           _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n\n';
-          _fixPrompt += '【当前内容】\n' + result;
+          _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n';
+          _fixPrompt += '4. 不得改变原始用户核心诉求和整体方向\n';
+          _fixPrompt += '5. 修复后必须达到：每个维度≥9/10，总分≥90/100\n\n';
+          _fixPrompt += '【待修复的完整内容 — 保持原文不变，只改问题部分】\n' + result + '\n\n';
+          _fixPrompt += '直接输出修复后的完整内容（全文输出，不要只输出修改的部分）。不要加任何对话语前缀。';
           
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🔧 细纲 · 执行精准修复…');
           if(!_checkStillSameWork()) return;
