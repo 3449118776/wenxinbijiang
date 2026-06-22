@@ -4778,7 +4778,7 @@ window.generateWithAutoIterate = async function(opts) {
       return;
     }
     
-    // v59fix: generateArchModule 内部已完成3次迭代，外部不再迭代
+    // generateArchModule 内部已完成迭代（非detail: 1轮迭代+1轮完整性修复；detail: 每卷3轮+整卷至多3轮），外部不再迭代
     // 直接跳到完成状态
     currentScore = evalResult.totalScore || 0;
     iterationCount = 0;
