@@ -2762,8 +2762,21 @@ window.generateArchModule = async function(opts){
       if(!_checkStillSameWork()) return;
 
       var card = batches[bi];
-      var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-      var progressPct = 35 + Math.round((bi / batches.length) * 55);
+      var progressLabel2;
+      var progressPct;
+      
+      // 细纲模块：按卷计算进度，卡内进度用文字显示
+      if(module === 'detail' && card.volume){
+        var volNum = card.volume;
+        var cardIdx = card.cardIndex || 1;
+        var totalCards = card.totalCards || 1;
+        var volProgress = (volNum - 1) / actualTotalVols; // 0~1 按卷进度
+        progressPct = 35 + Math.round(volProgress * 50); // 35%~85%
+        progressLabel2 = '[' + volNum + '/' + actualTotalVols + '卷·' + cardIdx + '/' + totalCards + '卡] ' + card.label;
+      } else {
+        progressPct = 35 + Math.round((bi / batches.length) * 55);
+        progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      }
 
       if(typeof startAutoLoadingProgress === 'function'){
         startAutoLoadingProgress(progressPct + 12, '正在生成 ' + moduleName + ' · ' + progressLabel2);
