@@ -3139,9 +3139,8 @@ window.generateArchModule = async function(opts){
     // 进度：35%~95%卡片生成，95%~99%迭代
     var iterationCount = 0; // 声明在函数作用域，供completionMsg使用
     if(module !== 'detail'){
-      // ===== 第一阶段：生成精准方案（确保一次达到90分）=====
-      // 先让AI分析当前题材和用户诉求，生成一份确保高质量的结构方案
-      var planPrompt = '你是一位资深网文架构师。请为以下作品生成一份**精准结构方案**，确保按此方案生成后能达到90分以上。\n\n';
+      // ===== 第一阶段：生成精准方案（带具体质量标准的90分方案）=====
+      var planPrompt = '你是一位资深网文架构评审专家。请为以下作品生成一份**精准结构方案**，要求每个维度评分≥9/10（总分≥90/100）。\n\n';
       planPrompt += '【作品信息】\n';
       planPrompt += '名称：' + (work && work.title || '未命名') + '\n';
       planPrompt += '题材：' + (work && work.genre || '通用') + '\n';
@@ -3151,13 +3150,21 @@ window.generateArchModule = async function(opts){
       for(var pi = 0; pi < batches.length; pi++){
         planPrompt += (pi+1) + '. ' + batches[pi].label + '（目标' + (batches[pi].targetChars || 800) + '字）\n';
       }
-      planPrompt += '\n【请输出以下内容】\n';
-      planPrompt += '1. 【整体定位】本模块的核心定位和风格基调（50字内）\n';
-      planPrompt += '2. 【卡片分工】每张卡片的具体职责和内容边界，确保不重复、不遗漏\n';
-      planPrompt += '3. 【一致性锚点】必须跨卡片保持一致的核心设定（姓名、势力、时间线等）\n';
-      planPrompt += '4. 【质量保证】如何确保每张卡片都能达到90分的具体措施\n';
-      planPrompt += '5. 【潜在问题】可能出现的短板及预防方案\n';
-      planPrompt += '\n直接输出方案，不要对话语前缀。';
+      planPrompt += '\n【评分维度定义（90分标准）】\n';
+      planPrompt += '- 完整性（9/10）：覆盖该模块所有必要元素，无重大遗漏\n';
+      planPrompt += '- 一致性（9/10）：全模块内无矛盾、名字/设定前后统一\n';
+      planPrompt += '- 连贯性（9/10）：卡片间逻辑连贯，伏笔有呼应\n';
+      planPrompt += '- 创新性（9/10）：在用户诉求方向上有新意，不落俗套\n';
+      planPrompt += '- 可执行性（9/10）：内容具体可落地，能直接用于后续创作\n';
+      planPrompt += '\n【请按以下格式输出方案】\n';
+      planPrompt += '【整体定位】核心定位与风格基调（50字内）\n';
+      planPrompt += '【卡片' + '1~' + batches.length + '分工】\n';
+      for(var pi2 = 0; pi2 < batches.length; pi2++){
+        planPrompt += '  卡片' + (pi2+1) + '「' + batches[pi2].label + '」：内容边界与核心要点\n';
+      }
+      planPrompt += '【一致性锚点】跨卡片必须统一的设定列表（具体到名称、时间、规则）\n';
+      planPrompt += '【质量检查表】按上述5个维度逐条列出检查项，确保生成后能逐条验证\n';
+      planPrompt += '\n直接输出，不要对话语前缀。';
 
       if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🎯 生成精准方案…');
 
@@ -3357,6 +3364,8 @@ window.generateArchModule = async function(opts){
         }
 
         result = currentResult;
+        // 清空卡片级缓存（迭代改变了合并内容，旧卡片缓存已失效）
+        if(work._archCache && work._archCache[module]) { delete work._archCache[module]._cards; }
         if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '✅ ' + moduleName + ' 快速迭代完成');
       }
 
@@ -3414,6 +3423,8 @@ window.generateArchModule = async function(opts){
           result = fixResult2.trim();
           console.log('[完整性修复] ' + module + ' 修复完成，字数:', result.length);
         }
+        // 清空卡片级缓存（完整性修复改变了合并内容，旧卡片缓存已失效）
+        if(work._archCache && work._archCache[module]) { delete work._archCache[module]._cards; }
         if(typeof updateLoadingProgress === 'function') updateLoadingProgress(98, '✅ 完整性修复完成');
       }
     }
