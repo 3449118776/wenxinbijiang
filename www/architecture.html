@@ -3246,6 +3246,8 @@ window.generateArchModule = async function(opts){
         allCards.push({ label: card.label, content: cardResult });
         totalChars += cardResult.length;
 
+        try { saveArchCardCache(work, module, card.label, cardResult, prevCardsContent); } catch(cacheErr) { console.warn('[卡片缓存保存] 失败:', cacheErr); }
+
         if(bi < batches.length - 1){
           await new Promise(function(res){ setTimeout(res, 50); });
         }
