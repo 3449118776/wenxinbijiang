@@ -4623,7 +4623,7 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  let result = await aiCaller(prompt, null, 'write_normal', 12000); // 目标 5000-8000 字，大模型可承受更长输出
+  let result = await aiCaller(prompt, null, 'write_normal', 20000); // 目标 8000-12000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
 
@@ -4657,14 +4657,14 @@ async function aiWriteChapter(opts){
     }
 
     // 字数校验：过短时自动补写，确保章节完整性（不再限制上限）
-    if (result.length < 3000) {
+    if (result.length < 5000) {
       if(statusBar) statusBar.textContent = '⚠️ ' + _stageInfo + ' 3/3 · 字数偏短(' + result.length + '字)，自动补写至完整章节…';
       showToast('正在自动补写，确保章节完整…', 2000);
-      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至5000字以上，确保剧情完整、节奏紧凑。\n\n';
+      var extendPrompt = '你是网文续写助手。以下是一章未完成的内容，请续写补齐至8000字以上，确保剧情完整、节奏紧凑。\n\n';
       extendPrompt += '【已有内容】\n' + result + '\n\n';
-      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容3000-5000字，使总字数达到5000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
+      extendPrompt += '【要求】\n1. 从已有内容结尾处自然衔接\n2. 补充剧情细节、对话、场景描写、冲突递进\n3. 新写内容3000-8000字，使总字数达到8000+\n4. 保持文风和叙事节奏一致\n5. 不要重复已有内容\n6. 结尾要有明确的悬念/钩子\n\n请直接输出补写段落：';
       try {
-        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 8000, true);
+        var extendResult = await callRealAPIWithFallback(extendPrompt, null, 'fill', 12000, true);
         if (extendResult && extendResult.length > 100) {
           result = result + '\n\n' + extendResult;
           if(statusBar) statusBar.textContent = '✅ ' + _stageInfo + ' 3/3 · 补写完成（' + result.length + '字）';
@@ -7544,8 +7544,8 @@ async function aiGenerateArchitecture(type, userCommand) {
 window.aiGenerateArchitecture = aiGenerateArchitecture;
 
 // ========== v58: 正文生成迭代机制优化 ==========
-// 问题：原机制每次迭代重新生成全部内容，目标分数90分太高，命中率低
-// 优化：改为增量改进，降低目标分数到80分，增加输出长度
+// 问题：原机制输出长度受限，迭代时内容容易变短，命中率低
+// 优化：增加输出长度限制，改进迭代时的内容保持策略，保持目标分数90分
 
 function optimizeChapterGeneration() {
   window._originalAiWriteChapter = window._originalAiWriteChapter || aiWriteChapter;
@@ -7553,10 +7553,6 @@ function optimizeChapterGeneration() {
   window.aiWriteChapter = async function(opts) {
     opts = opts || {};
     var _writeIteration = opts._iteration || 0;
-    
-    if (_writeIteration === 0) {
-      opts._targetScore = 80;
-    }
     
     var result = await window._originalAiWriteChapter(opts);
     
