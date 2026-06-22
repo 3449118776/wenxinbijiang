@@ -9,58 +9,217 @@
 <title>文心笔匠 - 首页 v2</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+:root{
+  --primary:#6366f1;
+  --primary-dark:#4f46e5;
+  --gradient:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+  --gradient-warm:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
+  --gradient-cool:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
+  --gradient-green:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);
+  --gradient-orange:linear-gradient(135deg,#fa709a 0%,#fee140 100%);
+  --bg:#f0f2f5;
+  --card:#fff;
+  --text-1:#1a1a2e;
+  --text-2:#6b7280;
+  --text-3:#9ca3af;
+  --border:#e5e7eb;
+  --radius:16px;
+  --shadow:0 4px 20px rgba(0,0,0,0.06);
+  --shadow-hover:0 8px 30px rgba(0,0,0,0.12);
+}
 html,body{height:100%;overflow:hidden}
-body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--text-1);display:flex;flex-direction:column}
 
-/* 顶部标题栏 */
-.page-header{background:#fff;height:48px;min-height:48px;display:flex;align-items:center;padding:0 12px;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);flex-shrink:0}
-.page-title{flex:1;text-align:center;font-size:16px;font-weight:700}
+/* ===== 顶部栏 ===== */
+.page-header{
+  background:var(--gradient);
+  height:56px;min-height:56px;
+  display:flex;align-items:center;
+  padding:0 16px;gap:10px;
+  flex-shrink:0;
+  box-shadow:0 2px 12px rgba(102,126,234,0.3);
+}
+.page-title{flex:1;text-align:center;font-size:18px;font-weight:700;color:#fff;letter-spacing:1px;text-shadow:0 1px 4px rgba(0,0,0,0.15)}
 .placeholder{width:24px}
-.cloud-btn{display:flex;align-items:center;gap:4px;font-size:12px;padding:5px 9px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap}
-.cloud-btn.offline{background:#e5e7eb;color:#6b7280}
+.cloud-btn{
+  display:flex;align-items:center;gap:5px;
+  font-size:12px;padding:6px 12px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.2);
+  backdrop-filter:blur(10px);
+  color:#fff;font-weight:600;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  white-space:nowrap;
+  transition:all .2s;
+  border:1px solid rgba(255,255,255,0.15);
+}
+.cloud-btn:active{transform:scale(0.95);background:rgba(255,255,255,0.3)}
+.cloud-btn.offline{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.8)}
 .cloud-btn .cb-icon{font-size:14px;line-height:1}
 
-/* 主内容区：7 个按钮铺满剩余空间 */
-.quick-list{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px;padding-bottom:68px;min-height:0;overflow-y:auto}
-.quick-item{flex:1;border:1px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:12px;padding:0 14px;min-height:0}
-.quick-item:active{border-color:#6366f1;background:#f0f2ff}
-.quick-item .qi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
-.quick-item .qi-info{flex:1;min-width:0}
-.quick-item .qi-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quick-item .qi-desc{font-size:12px;color:#777;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quick-item .qi-arrow{color:#d1d5db;font-size:20px;flex-shrink:0}
-.qi-icon.purple{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff}
-.qi-icon.green{background:#ecf9f2;color:#16a34a}
-.qi-icon.blue{background:#f0f2ff;color:#6366f1}
-.qi-icon.pink{background:#fef2f7;color:#ec4899}
-.qi-icon.gray{background:#f1f5f9;color:#64748b}
-.qi-icon.orange{background:#fff7ed;color:#f97316}
+/* ===== 主内容区 ===== */
+.quick-list{
+  flex:1;
+  display:flex;flex-direction:column;
+  gap:10px;
+  padding:14px 14px 76px;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* 主推卡片 - 新建小说 */
+.hero-card{
+  background:var(--gradient);
+  border-radius:20px;
+  padding:20px 18px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;align-items:center;gap:14px;
+  box-shadow:0 6px 24px rgba(102,126,234,0.35);
+  transition:all .2s;
+  position:relative;
+  overflow:hidden;
+}
+.hero-card::before{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:120px;height:120px;
+  background:rgba(255,255,255,0.1);
+  border-radius:50%;
+}
+.hero-card::after{
+  content:'';position:absolute;bottom:-40px;right:20px;
+  width:80px;height:80px;
+  background:rgba(255,255,255,0.08);
+  border-radius:50%;
+}
+.hero-card:active{transform:scale(0.97);box-shadow:0 3px 12px rgba(102,126,234,0.3)}
+.hero-card .hc-icon{
+  width:52px;height:52px;
+  border-radius:16px;
+  background:rgba(255,255,255,0.2);
+  backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;flex-shrink:0;
+  z-index:1;
+}
+.hero-card .hc-info{flex:1;min-width:0;z-index:1}
+.hero-card .hc-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:0.5px}
+.hero-card .hc-desc{font-size:12px;color:rgba(255,255,255,0.85);margin-top:4px}
+.hero-card .hc-arrow{color:rgba(255,255,255,0.6);font-size:22px;flex-shrink:0;z-index:1}
+
+/* 功能卡片网格 */
+.feature-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.feature-card{
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:16px 14px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;gap:8px;
+  box-shadow:var(--shadow);
+  transition:all .2s;
+  position:relative;
+  overflow:hidden;
+}
+.feature-card:active{transform:scale(0.96);box-shadow:var(--shadow-hover)}
+.feature-card .fc-icon{
+  width:44px;height:44px;
+  border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.feature-card .fc-name{font-size:14px;font-weight:700;color:var(--text-1)}
+.feature-card .fc-desc{font-size:11px;color:var(--text-3);line-height:1.4}
+.feature-card .fc-badge{
+  position:absolute;top:10px;right:10px;
+  font-size:9px;padding:2px 6px;
+  border-radius:8px;font-weight:600;
+}
+
+/* 图标背景色 */
+.icon-purple{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.icon-blue{background:linear-gradient(135deg,#4facfe,#00f2fe);color:#fff}
+.icon-green{background:linear-gradient(135deg,#43e97b,#38f9d7);color:#fff}
+.icon-pink{background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff}
+.icon-orange{background:linear-gradient(135deg,#fa709a,#fee140);color:#fff}
+.icon-cyan{background:linear-gradient(135deg,#a8edea,#fed6e3);color:#6366f1}
 
 /* 底部导航 */
-.tab-bar{position:fixed;left:0;right:0;bottom:0;height:60px;min-height:60px;background:#fff;display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 4px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom,0);z-index:100}
-.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#999;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:6px 0;gap:2px}
-.tab-item.active{color:#6366f1}
-.tab-icon{font-size:22px;line-height:1}
+.tab-bar{
+  position:fixed;left:0;right:0;bottom:0;
+  height:64px;min-height:64px;
+  background:#fff;
+  display:flex;align-items:center;justify-content:space-around;
+  box-shadow:0 -2px 12px rgba(0,0,0,0.06);
+  padding-bottom:env(safe-area-inset-bottom,0);
+  z-index:100;
+}
+.tab-item{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-size:11px;color:var(--text-3);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  padding:6px 0;gap:3px;
+  transition:color .2s;
+}
+.tab-item.active{color:var(--primary);font-weight:600}
+.tab-icon{font-size:22px;line-height:1;transition:transform .2s}
+.tab-item.active .tab-icon{transform:translateY(-2px)}
 
 /* Toast */
-.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;opacity:0;pointer-events:none;transition:.25s}
+.toast{
+  position:fixed;top:72px;left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.82);color:#fff;
+  padding:10px 20px;border-radius:24px;
+  font-size:13px;z-index:999;
+  opacity:0;pointer-events:none;
+  transition:.25s;
+  box-shadow:0 4px 16px rgba(0,0,0,0.2);
+}
 .toast.show{opacity:1}
 
-/* 登录面板遮罩 */
-.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000}
+/* 登录面板 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)}
 .mask.show{display:flex}
-.panel{width:84%;max-width:360px;background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.15)}
-.panel h3{font-size:16px;font-weight:800;margin-bottom:12px;color:#111827}
-.panel p{font-size:12px;color:#6b7280;margin-bottom:12px;line-height:1.5}
-.panel label{font-size:12px;color:#374151;font-weight:600;display:block;margin:8px 0 4px}
-.panel input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px;outline:none;background:#f9fafb}
-.panel input:focus{border-color:#6366f1;background:#fff}
-.panel .row{display:flex;gap:8px;margin-top:14px}
-.panel button{flex:1;padding:11px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.panel button.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
-.panel button.secondary{background:#f3f4f6;color:#374151}
-.panel button.danger{background:#fff7ed;color:#f97316}
-.panel .switch{font-size:12px;color:#6366f1;cursor:pointer;margin-top:10px;text-align:center}
+.panel{
+  width:86%;max-width:360px;
+  background:#fff;border-radius:24px;
+  padding:24px;
+  box-shadow:0 12px 48px rgba(0,0,0,.2);
+  animation:panelIn .3s cubic-bezier(.4,0,.2,1);
+}
+@keyframes panelIn{from{opacity:0;transform:translateY(20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.panel h3{font-size:18px;font-weight:800;margin-bottom:8px;color:var(--text-1)}
+.panel p{font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.5}
+.panel label{font-size:12px;color:var(--text-1);font-weight:600;display:block;margin:10px 0 5px}
+.panel input{
+  width:100%;padding:12px 14px;
+  border:1.5px solid var(--border);
+  border-radius:12px;font-size:14px;
+  outline:none;background:#f9fafb;
+  transition:all .2s;
+}
+.panel input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,0.1)}
+.panel .row{display:flex;gap:10px;margin-top:16px}
+.panel button{
+  flex:1;padding:12px;
+  border:none;border-radius:12px;
+  font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+.panel button:active{transform:scale(0.97)}
+.panel button.primary{background:var(--gradient);color:#fff;box-shadow:0 3px 12px rgba(102,126,234,0.3)}
+.panel button.secondary{background:#f3f4f6;color:var(--text-1)}
+.panel button.danger{background:#fef2f2;color:#ef4444}
+.panel .switch{font-size:13px;color:var(--primary);cursor:pointer;margin-top:12px;text-align:center;font-weight:500}
 </style>
 </head>
 <body>
@@ -72,45 +231,56 @@ body{background:#f6f7f9;color:#222;display:flex;flex-direction:column}
 </div>
 
 <div class="quick-list">
-  <div class="quick-item" onclick="location.href='new-book.html'">
-    <div class="qi-icon purple">✨</div>
-    <div class="qi-info"><div class="qi-name">新建小说</div><div class="qi-desc">定名+简介+全维度题材</div></div>
-    <div class="qi-arrow">›</div>
+
+  <!-- 主推：新建小说 -->
+  <div class="hero-card" onclick="location.href='new-book.html'">
+    <div class="hc-icon">✨</div>
+    <div class="hc-info">
+      <div class="hc-name">新建小说</div>
+      <div class="hc-desc">定名 · 简介 · 全维度题材选择</div>
+    </div>
+    <div class="hc-arrow">›</div>
   </div>
-  <div class="quick-item" onclick="location.href='architecture.html'">
-    <div class="qi-icon purple">📋</div>
-    <div class="qi-info"><div class="qi-name">架构设计</div><div class="qi-desc">递进构建四大架构模块</div></div>
-    <div class="qi-arrow">›</div>
+
+  <!-- 功能卡片网格 -->
+  <div class="feature-grid">
+    <div class="feature-card" onclick="location.href='architecture.html'">
+      <div class="fc-icon icon-purple">📋</div>
+      <div class="fc-name">架构设计</div>
+      <div class="fc-desc">世界观·人设·大纲·细纲</div>
+    </div>
+    <div class="feature-card" onclick="location.href='write.html'">
+      <div class="fc-icon icon-blue">✍️</div>
+      <div class="fc-name">AI写作</div>
+      <div class="fc-desc">AI辅助创作与编辑</div>
+    </div>
+    <div class="feature-card" onclick="location.href='work-list.html'">
+      <div class="fc-icon icon-green">📂</div>
+      <div class="fc-name">作品管理</div>
+      <div class="fc-desc">管理小说与架构内容</div>
+    </div>
+    <div class="feature-card" onclick="location.href='template-library.html'">
+      <div class="fc-icon icon-pink">📄</div>
+      <div class="fc-name">模板库</div>
+      <div class="fc-desc">架构模板与词句素材</div>
+    </div>
+    <div class="feature-card" onclick="location.href='center.html'">
+      <div class="fc-icon icon-orange">🧭</div>
+      <div class="fc-name">创作中枢</div>
+      <div class="fc-desc">记忆·备份·体检·看板</div>
+    </div>
+    <div class="feature-card" onclick="location.href='data-predict.html'">
+      <div class="fc-icon icon-cyan">📈</div>
+      <div class="fc-name">数据预测</div>
+      <div class="fc-desc">作品数据AI分析预测</div>
+    </div>
   </div>
-  <div class="quick-item" onclick="location.href='write.html'">
-    <div class="qi-icon blue">✍</div>
-    <div class="qi-info"><div class="qi-name">AI写作</div><div class="qi-desc">AI辅助创作与编辑</div></div>
-    <div class="qi-arrow">›</div>
-  </div>
-  <div class="quick-item" onclick="location.href='work-list.html'">
-    <div class="qi-icon green">📂</div>
-    <div class="qi-info"><div class="qi-name">作品管理</div><div class="qi-desc">管理小说与架构</div></div>
-    <div class="qi-arrow">›</div>
-  </div>
-  <div class="quick-item" onclick="location.href='template-library.html'">
-    <div class="qi-icon pink">📄</div>
-    <div class="qi-info"><div class="qi-name">模板管理</div><div class="qi-desc">架构模板与词句库</div></div>
-    <div class="qi-arrow">›</div>
-  </div>
-  <div class="quick-item" onclick="location.href='center.html'">
-    <div class="qi-icon purple">🧭</div>
-    <div class="qi-info"><div class="qi-name">创作中枢</div><div class="qi-desc">记忆/备份/体检/看板</div></div>
-    <div class="qi-arrow">›</div>
-  </div>
-  <div class="quick-item" onclick="location.href='data-predict.html'">
-    <div class="qi-icon gray">📈</div>
-    <div class="qi-info"><div class="qi-name">数据预测</div><div class="qi-desc">选择作品后进入AI预测界面</div></div>
-    <div class="qi-arrow">›</div>
-  </div>
+
 </div>
 
 <div class="tab-bar">
   <div class="tab-item active" onclick="location.href='index.html'"><div class="tab-icon">🏠</div><div>首页</div></div>
+  <div class="tab-item" onclick="location.href='work-list.html'"><div class="tab-icon">📚</div><div>作品</div></div>
   <div class="tab-item" onclick="location.href='architecture.html'"><div class="tab-icon">🔧</div><div>工具</div></div>
   <div class="tab-item" onclick="location.href='settings.html'"><div class="tab-icon">⚙️</div><div>设置</div></div>
 </div>
