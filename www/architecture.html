@@ -3057,28 +3057,27 @@ window.generateArchModule = async function(opts){
 
         var card = batches[bi];
         var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-        // 进度条：从 35% 起步，分批推进到 95%，最后一张完成后到 100%
-        var progressPct = 35 + Math.round((bi / batches.length) * 60);
-        // 最后一张卡片时直接到 100%
-        if(bi === batches.length - 1) progressPct = 100;
-
-        if(typeof startAutoLoadingProgress === 'function'){
-          startAutoLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
-        } else if(typeof updateLoadingProgress === 'function'){
-          updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
-        }
-
         var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
         var cardTargetChars = card.targetChars || 800;
 
         var cardResult = null;
         var cardBestResult = null;
         var cardBestScore = 0;
-        var cardIterDone = 0;  // 已完成的迭代次数
-        var maxCardIterations = 3; // 每张卡片最多迭代3次
+        var cardIterDone = 0;
+        var maxCardIterations = 3;
+
+        var basePct = 35;
+        var cardShare = 60 / batches.length;
+        var iterShare = cardShare / maxCardIterations;
 
         // 卡片级别迭代：最多3次，每次针对性加强短板维度
         while(cardIterDone < maxCardIterations){
+          var progressPct = basePct + (bi * cardShare) + (cardIterDone * iterShare);
+          if(typeof startAutoLoadingProgress === 'function'){
+            startAutoLoadingProgress(Math.min(99, progressPct), '正在生成 ' + moduleName + ' · ' + progressLabel2 + '（第' + (cardIterDone+1) + '轮）');
+          } else if(typeof updateLoadingProgress === 'function'){
+            updateLoadingProgress(Math.min(99, progressPct), '正在生成 ' + moduleName + ' · ' + progressLabel2 + '（第' + (cardIterDone+1) + '轮）');
+          }
           try{
             if(typeof callRealAPIWithFallback === 'function'){
               cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
@@ -3173,12 +3172,13 @@ window.generateArchModule = async function(opts){
         // ⭐ 自动追加生成：如果内容不足目标字数的80%，继续追加
         var appendCount = 0;
         var maxAppend = 5;
+        var appendShare = iterShare * 0.5; // 追加占用当前卡片剩余进度的一半
         while(cardResult.length < cardTargetChars * 0.8 && appendCount < maxAppend && _checkStillSameWork()){
           appendCount++;
           var appendTarget = Math.max(1000, cardTargetChars - cardResult.length);
-          var appendProgress = progressPct + appendCount * 2;
+          var appendProgress = progressPct + appendCount * appendShare;
           if(typeof updateLoadingProgress === 'function'){
-            updateLoadingProgress(appendProgress, '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
+            updateLoadingProgress(Math.min(99, appendProgress), '正在追加 ' + card.label + '（' + appendCount + '/' + maxAppend + '）');
           }
           var appendPrompt = '【追加指令】\n';
           appendPrompt += '当前已生成内容（最后500字）：\n';
