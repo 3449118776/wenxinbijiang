@@ -5238,6 +5238,14 @@ async function applyEvalFix(){
   }
 }
 
+// v59: 正文流水线生成状态
+window._writePipeline = {
+  running: false,
+  stopRequested: false,
+  currentChapter: 0,
+  totalChapters: 0
+};
+
 async function sendAiCommand(){
   const cmd=document.getElementById('ai-input').value.trim();
   if(!cmd)return;
@@ -5248,8 +5256,15 @@ async function sendAiCommand(){
   // 基于章节prompt + 用户指令（指令注入prompt体内而非末尾，防止截断）
   const fullPrompt = buildChapterPrompt(work, chapterIdx, content, cmd);
   
-  // 先尝试API（自动遍历所有服务商），失败则使用本地AI
-  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
+  // v59: 先尝试流水线生成，如果没有则单次生成
+  if(cmd.indexOf('流水线') >= 0 || cmd.indexOf('连续') >= 0 || cmd.indexOf('自动') >= 0){
+    const count = parseInt(cmd.match(/\d+/)) || 5;
+    await startWritePipeline(work, chapterIdx, count);
+    return;
+  }
+  
+  // v59: 目标 2000-3000 字（适配网文标准）
+  let result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 4000);
   if(!result && window.ContentGenerator){
     showToast('使用本地AI生成...');
     result = window.ContentGenerator.continueStory(content, work, cmd);
@@ -5258,7 +5273,88 @@ async function sendAiCommand(){
     document.getElementById('editor').value=content+'\n\n'+result;
     updateWordCount();
     document.getElementById('ai-input').value='';
+    showToast('✅ 生成完成 · ' + result.length + '字', 2000);
   }
+}
+
+// v59: 流水线生成 - 自动连续生成多章
+async function startWritePipeline(work, startChapterIdx, count){
+  if(window._writePipeline.running){
+    showToast('⚠️ 流水线已在运行中', 2000);
+    return;
+  }
+  
+  window._writePipeline = {
+    running: true,
+    stopRequested: false,
+    currentChapter: startChapterIdx,
+    totalChapters: count
+  };
+  
+  showLoading('🚀 流水线生成中...（第1/' + count + '章）');
+  
+  for(var i = 0; i < count; i++){
+    if(window._writePipeline.stopRequested){
+      showToast('⏹️ 流水线已停止', 2000);
+      break;
+    }
+    
+    var chapterIdx = startChapterIdx + i;
+    window._writePipeline.currentChapter = chapterIdx;
+    
+    // 更新章节
+    if(typeof switchChapter === 'function'){
+      switchChapter(chapterIdx);
+    }
+    
+    // 等待章节切换完成
+    await new Promise(r => setTimeout(r, 500));
+    
+    var content = document.getElementById('editor').value;
+    var chTitle = work.chapters && work.chapters[chapterIdx] ? 
+      (work.chapters[chapterIdx].title || ('第' + (chapterIdx + 1) + '章')) : 
+      ('第' + (chapterIdx + 1) + '章');
+    
+    // 构建章节prompt（自动衔接上文）
+    var fullPrompt = buildChapterPrompt(work, chapterIdx, content, '续写本章内容，衔接上文，自然发展剧情');
+    
+    // v59: 目标 2000-3000 字
+    var result = await callRealAPIWithFallback(fullPrompt, null, 'write_normal', 4000);
+    if(!result && window.ContentGenerator){
+      result = window.ContentGenerator.continueStory(content, work, '续写');
+    }
+    
+    if(result){
+      document.getElementById('editor').value = result;
+      updateWordCount();
+      
+      // 保存章节
+      if(work.chapters && work.chapters[chapterIdx]){
+        work.chapters[chapterIdx].content = result;
+        work.chapters[chapterIdx].wordCount = result.length;
+        DB.saveWork(work);
+      }
+      
+      var progress = '🚀 流水线生成中...（第' + (i+1) + '/' + count + '章）· ' + result.length + '字';
+      if(statusBar) statusBar.textContent = progress;
+      showToast('✅ 第' + (chapterIdx + 1) + '章完成 · ' + result.length + '字', 1000);
+    } else {
+      showToast('⚠️ 第' + (chapterIdx + 1) + '章生成失败', 2000);
+    }
+    
+    // 等待一小段时间，避免请求过快
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  
+  window._writePipeline.running = false;
+  hideLoading();
+  showToast('✅ 流水线生成完成！共' + count + '章', 3000);
+}
+
+// v59: 停止流水线
+function stopWritePipeline(){
+  window._writePipeline.stopRequested = true;
+  showToast('⏹️ 已请求停止流水线，将在当前章完成后停止', 2000);
 }
 
 // 提取当前内容为模板
@@ -7434,7 +7530,7 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   prompt += '一、核心设定回顾\n';
   prompt += '—— 主角身份、金手指、核心目标、最大弱点\n\n';
   prompt += '二、全书结构规划\n';
-  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约3500字、总字数估算\n\n';
+  prompt += '—— 卷数（10-15卷）、每卷约150章、每章约2500字、总字数估算\n\n';
   prompt += '三、分卷大纲（每卷详细，每卷至少500字）\n';
   prompt += '—— 每卷标题、核心任务、关键事件（15-20个阶段）、卷末钩子\n';
   prompt += '—— 明确每卷的剧情阶段划分（如：第1-30章、第31-60章等）\n\n';
@@ -8087,7 +8183,7 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
     prompt += '\n';
   }
   
-  prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约3500-4000字。\n\n';
+  prompt += '请为本卷设计详细的章节细纲，目标规模：72章，每章约2500字。\n\n';
   prompt += '每章必须包含以下内容（严格按照此格式）：\n\n';
   prompt += '### 【第N章】章节标题\n';
   prompt += '**情绪基调**：本章的整体情绪走向（从以上参考中选择或自定义）\n';
@@ -8105,10 +8201,10 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   prompt += '**【兑现链】**\n';
   prompt += '- 钩子1 → 第X章回收（兑现）\n';
   prompt += '- 钩子2 → 第Y章回收（兑现）\n';
-  prompt += '**字数建议**：4000-5000字\n\n';
+  prompt += '**字数建议**：2000-3000字\n\n';
   
   prompt += '【输出要求】\n';
-  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少15000字\n';
+  prompt += '1. 本卷设计72章细纲，每章详细写出，每章至少500字\n';
   prompt += '2. 总字数不少于1000000字（100万字）\n';
   prompt += '3. 结构清晰，使用标题分隔，分幕输出（如：第一幕、第二幕等）\n';
   prompt += '4. 每个章节要有15-20个硬节点，每个节点必须具体、可执行\n';
