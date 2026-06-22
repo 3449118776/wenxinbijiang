@@ -3725,6 +3725,10 @@ async function aiWriteChapter(){
   const statusBar = document.getElementById('api-status-bar');
   const config = DB.getApiConfig();
   
+  // 显示加载进度条
+  showLoading('正在准备生成...');
+  updateLoadingProgress(5, '构建提示词...');
+  
   // 构建章节prompt（已含流派expertise和longMemory上下文）
   // 读取用户指令框内容，确保用户的提示词在生成时生效
   var userCmd = (document.getElementById('ai-input')?.value || '').trim();
@@ -3737,6 +3741,7 @@ async function aiWriteChapter(){
     statusBar.style.background = '#fef3c7';
     statusBar.style.color = '#92400e';
     statusBar.textContent = '🧠 先生成章纲骨架，检查是否符合你的指令…';
+    updateLoadingProgress(10, '生成章纲骨架...');
     
     var skeletonPrompt = '你是一位网文写手。请为以下章节先生成一个简要骨架（100-200字），然后自检是否符合用户指令。\n\n';
     skeletonPrompt += '【用户指令 · 最高优先级】\n' + userCmd + '\n\n';
@@ -3777,6 +3782,7 @@ async function aiWriteChapter(){
       // 将骨架注入 prompt 开头，作为生成指引
       prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skText + '\n\n' + prompt;
     }
+    updateLoadingProgress(20, '章纲骨架检查完成');
   }
 
   // 显示输入token估算
@@ -3786,6 +3792,7 @@ async function aiWriteChapter(){
   statusBar.style.background = '#dbeafe';
   statusBar.style.color = '#1e40af';
   statusBar.textContent = '🤖 正在生成「' + (work.chapters[chapterIdx]?.title || '第'+(chapterIdx+1)+'章') + '」... 输入约' + estTokensDisplay + ' tokens';
+  updateLoadingProgress(25, 'AI 正在写作中...');
   
   // 备份旧内容
   var oldContent = content;
@@ -3794,6 +3801,7 @@ async function aiWriteChapter(){
   // v46：多AI模式时使用 callMultiAI 并行请求
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   let result = await aiCaller(prompt, null, 'write_normal', 3000); // 目标 3000 字
+  updateLoadingProgress(80, '内容生成完成，正在校验...');
   if(result){
     // ===== AI结果校验 =====
     var validationError = null;
@@ -3818,12 +3826,14 @@ async function aiWriteChapter(){
       statusBar.style.color = '#92400e';
       statusBar.textContent = '⚠️ ' + validationError + ' — 已保留旧内容，可点撤销恢复';
       showToast('⚠️ ' + validationError, 5000);
+      hideLoading();
       // 不覆盖编辑器，保留旧内容
       return;
     }
     
     // === v29: 质量打分 ===
     var _qReport = null;
+    updateLoadingProgress(90, '质量评估中...');
     try {
       if (typeof QualityEngine !== 'undefined') {
         var _prev = chapterIdx > 0 && work.chapters[chapterIdx-1] ? (work.chapters[chapterIdx-1].content || '') : '';
@@ -3910,6 +3920,7 @@ async function aiWriteChapter(){
     
     DB.saveWork(work);
     // 通知可撤销
+    hideLoading();
     showToast('✅ 生成完成 — 不满意可点右上角 <撤销> 按钮恢复原文', 5000);
     
     // 触发润色推荐
@@ -3919,6 +3930,7 @@ async function aiWriteChapter(){
     statusBar.style.background = '#fef3c7';
     statusBar.style.color = '#92400e';
     statusBar.textContent = 'API调用失败，使用本地模板生成。请检查设置中的API密钥。';
+    hideLoading();
     if(window.ContentGenerator){
       result = window.ContentGenerator.continueStory(content, work, '续写1000字');
     }
