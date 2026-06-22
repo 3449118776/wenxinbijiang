@@ -7784,9 +7784,11 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   if (iteration === 0) {
     if (typeof resetLoading === 'function') resetLoading(statusMsg);
     else showLoading(statusMsg);
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '正在生成 ' + statusMsg);
   } else {
     if (typeof resetLoading === 'function') resetLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
     else showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(30 + iteration * 20, '第' + (iteration + 1) + '轮 · ' + statusMsg);
   }
   
   try {
@@ -7811,6 +7813,7 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
       
       var currentScore = 0;
       var qReport = null;
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(70, '🔍 质量评价中…');
       if (typeof evaluateText === 'function') {
         try {
           qReport = evaluateText(result, type, work);
@@ -7837,6 +7840,7 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
       
       applyArchResult(type, work, finalResult);
       
+      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(100, '✅ 保存完成');
       showToast('✅ ' + statusMsg.replace('正在生成', '生成完成') + ' · ' + finalResult.length + '字 · 共' + (iteration + 1) + '轮', 5000);
     } else {
       showToast('⚠️ 生成内容过短，可能是API异常', 5000);
