@@ -3838,14 +3838,28 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
-  // 关键：已生成的卡片内容（所有前面的卡片完整注入，确保上下文连贯）
+  // 关键：已生成的卡片内容（提取骨架而非全文，同时保证完整性和控制token量）
   if(prevCards && prevCards.length > 0){
     prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
     
-    // 所有已生成的卡片都完整注入
+    // 每张卡片提取：首段（定义/概述）、含【】的节标题及对应行、末段（收束/衔接）
     for(var pi2 = 0; pi2 < prevCards.length; pi2++){
       var pc2 = prevCards[pi2];
-      prompt += '■ ' + pc2.label + '：\n' + pc2.content.trim() + '\n\n';
+      var _cardSections = pc2.content.split(/(?=【)/);
+      var _sectionTexts = [];
+      for(var _si = 0; _si < _cardSections.length; _si++){
+        var _sec = _cardSections[_si].trim();
+        if(!_sec) continue;
+        // 含【】标题的段落保留前400字（含标题+核心内容）
+        if(/^【/.test(_sec)){
+          _sectionTexts.push(_sec.substring(0, 400));
+        } else if(_si === 0 || _si === _cardSections.length - 1){
+          // 首段和末段保留
+          _sectionTexts.push(_sec.substring(0, 200));
+        }
+      }
+      prompt += '■ ' + pc2.label + '（摘要' + _sectionTexts.length + '段）：\n';
+      prompt += _sectionTexts.join('\n\n').substring(0, 2500) + '\n\n';
     }
   }
 
