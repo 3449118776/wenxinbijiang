@@ -2947,6 +2947,34 @@ window.generateArchModule = async function(opts){
             if(typeof showToast === 'function') showToast('⚠️ 精准修复未生效，使用原始内容', {duration: 3000});
           }
         }
+
+        // ⭐ 保底机制：当评分极低（<70）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
+        if(_curScore < 70){
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🛡️ ' + moduleName + ' · 保底一致性修复中…');
+          
+          var _backupPrompt = '你是一位资深网文编辑。当前生成的内容存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
+          _backupPrompt += '【⚠️ 修复目标】\n1. 所有人名、地名、设定必须与作品已有设定一致\n2. 时间线必须连续无矛盾\n3. 前文已埋伏笔必须承接\n4. 修复后内容保持完整，不得删减\n\n';
+          
+          // 注入已有模块内容作为保底上下文
+          var _backupCtx = '';
+          if(module !== 'world' && work && work.world && work.world.trim()) _backupCtx += '【世界观】\n' + smartTruncate(work.world, 4000) + '\n\n';
+          if(module !== 'chars' && work && work.chars && work.chars.trim()) _backupCtx += '【人设】\n' + smartTruncate(work.chars, 4000) + '\n\n';
+          if(module !== 'outline' && work && work.outline && work.outline.trim()) _backupCtx += '【大纲】\n' + smartTruncate(work.outline, 4000) + '\n\n';
+          if(_backupCtx) _backupPrompt += '【作品已有设定 — 以此为基准进行一致性修复】\n' + _backupCtx;
+          
+          _backupPrompt += '\n【需要修复的内容】\n' + smartTruncate(result, 8000) + '\n\n直接输出修复后的完整内容。';
+          
+          if(!_checkStillSameWork()) return;
+          
+          try {
+            var _backupResult = await callRealAPIWithFallback(_backupPrompt, null, taskType, result.length, true);
+            if(_backupResult && _backupResult.trim() && _backupResult.trim().length > 100){
+              result = _backupResult.trim();
+              totalChars = result.length;
+              if(typeof showToast === 'function') showToast('🛡️ 保底一致性修复完成', {duration: 3000});
+            }
+          } catch(_backupErr) { console.warn('[保底修复] 失败:', _backupErr); }
+        }
       }
     } catch(evalErr) { console.warn('[质量评价] 异常:', evalErr); }
 
@@ -4741,6 +4769,27 @@ window.generateDetailForVolume = async function(volNum) {
               result = _fixResult.trim();
             }
           } catch(fixErr) { console.warn('[精准修复] 失败:', fixErr); }
+        }
+
+        // ⭐ 保底机制：细纲严重不一致时注入世界观/人设/大纲做全面修复
+        if(_curScore < 70){
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🛡️ 细纲 · 保底一致性修复中…');
+          var _backupPrompt = '你是一位资深网文编辑。当前细纲存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
+          _backupPrompt += '【修复目标】\n1. 章节编号必须连续\n2. 人物姓名、设定必须与已有设定一致\n3. 本卷内容必须与前后卷衔接自然\n4. 修复后内容保持完整\n\n';
+          var _backupCtx = '';
+          if(work && work.world && work.world.trim()) _backupCtx += '【世界观】\n' + smartTruncate(work.world, 3000) + '\n\n';
+          if(work && work.chars && work.chars.trim()) _backupCtx += '【人设】\n' + smartTruncate(work.chars, 3000) + '\n\n';
+          if(work && work.outline && work.outline.trim()) _backupCtx += '【大纲】\n' + smartTruncate(work.outline, 3000) + '\n\n';
+          if(work && work.detail && work.detail.trim()) _backupCtx += '【已有细纲全文】\n' + smartTruncate(work.detail, 3000) + '\n\n';
+          if(_backupCtx) _backupPrompt += '【作品已有设定】\n' + _backupCtx;
+          _backupPrompt += '\n【需要修复的内容】\n' + result + '\n\n直接输出修复后的完整内容。';
+          if(!_checkStillSameWork()) return;
+          try {
+            var _backupResult = await callRealAPIWithFallback(_backupPrompt, null, 'detail_base', result.length, true);
+            if(_backupResult && _backupResult.trim() && _backupResult.trim().length > 100){
+              result = _backupResult.trim();
+            }
+          } catch(_backupErr) { console.warn('[保底修复] 失败:', _backupErr); }
         }
       }
     } catch(evalErr) { console.warn('[质量评价] 失败:', evalErr); }
