@@ -641,7 +641,6 @@ function saveModuleEdit() {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
-    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -670,12 +669,15 @@ function toggleMemoryItem(el) {
 }
 
 // 生成一个可展开的记忆项
-function expItem(label, shortText, fullText) {
-  var canExpand = (fullText && fullText.length > (shortText ? shortText.length : 0) + 2);
+function expItem(label, text) {
+  // 架构生成已使用记忆提取模式，记忆本身就是精简精要，无需再区分"精简版/完整版"
+  // 直接显示完整内容，超长时用展开功能
+  var canExpand = text && text.length > 200;
+  var displayText = canExpand ? text.substring(0, 200) + '…' : text;
   if (canExpand) {
-    return '<div class="memory-item expandable" onclick="toggleMemoryItem(this)"><span class="mi-label">' + label + '</span><span class="mi-value" data-short="' + he(shortText) + '" data-full="' + he(fullText) + '">' + he(shortText) + '</span><span class="mi-toggle">展开</span></div>';
+    return '<div class="memory-item expandable" onclick="toggleMemoryItem(this)"><span class="mi-label">' + label + '</span><span class="mi-value" data-short="' + he(displayText) + '" data-full="' + he(text) + '">' + he(displayText) + '</span><span class="mi-toggle">展开</span></div>';
   }
-  return '<div class="memory-item"><span class="mi-label">' + label + '</span><span class="mi-value">' + he(shortText || '') + '</span></div>';
+  return '<div class="memory-item"><span class="mi-label">' + label + '</span><span class="mi-value">' + he(text || '') + '</span></div>';
 }
 
 function renderMemoryPage() {
@@ -708,8 +710,8 @@ function renderMemoryPage() {
     if (summaries[k] && summaries[k].trim()) {
       hasAny = true;
       var full = summaries[k].trim();
-      var short = full.substring(0, 300) + (full.length > 300 ? '...' : '');
-      html += expItem(sumLabels[k], short, full);
+      // 直接传入完整内容，expItem内部处理超长时截断
+      html += expItem(sumLabels[k], full);
     }
   });
   if (!hasAny) html += '<div class="memory-item"><span class="mi-label">状态</span><span class="mi-value" style="color:#9ca3af;">尚未生成。去架构页生成后保存，或编辑保存模块时自动重建。</span></div>';
@@ -734,21 +736,14 @@ function renderMemoryPage() {
     var arr = Array.isArray(ma[b.key]) ? ma[b.key] : [];
     if (arr.length > 0) {
       hasAnchor = true;
-      // 生成精简版
-      var shortItems = [];
-      arr.slice(0, 5).forEach(function(it) {
-        var txt = (typeof it === 'string') ? it : (it.text || it.desc || it.name || JSON.stringify(it).substring(0, 60));
-        shortItems.push('• ' + txt.toString().substring(0, 60));
-      });
-      var shortText = arr.length + '条：\n' + shortItems.join('\n') + (arr.length > 5 ? '\n... 点击展开查看全部' : '');
-      // 生成完整版
-      var fullItems = [];
+      // 直接传入完整内容（记忆提取本身就是精简的，无需再截断）
+      var allItems = [];
       arr.forEach(function(it) {
         var txt = (typeof it === 'string') ? it : (it.text || it.desc || it.name || JSON.stringify(it));
-        fullItems.push('• ' + txt.toString());
+        allItems.push('• ' + txt.toString());
       });
-      var fullText = arr.length + '条：\n' + fullItems.join('\n');
-      html += expItem(b.label, shortText, fullText);
+      var fullText = arr.length + '条：\n' + allItems.join('\n');
+      html += expItem(b.label, fullText);
     }
   });
   if (!hasAnchor) html += '<div class="memory-item"><span class="mi-label">状态</span><span class="mi-value" style="color:#9ca3af;">尚未同步。架构页编辑后保存即自动提取。</span></div>';
@@ -1158,7 +1153,6 @@ function addChapter() {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
-    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1180,7 +1174,6 @@ function moveChapter(idx, dir) {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
-    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1199,7 +1192,6 @@ function deleteChapter(idx) {
   try { if (DB.flush) DB.flush(); } catch(e) {}
   try {
     var _c = window.cloud;
-    if (!_c) { try { _c = _getCloud(); } catch(e) {} }
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
       _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
@@ -1279,14 +1271,9 @@ async function confirmDelete() {
   
   try {
     var cloudDeleted = false;
-    // 确保 cloud 对象已初始化
-    var _cloud = window.cloud;
-    if (!_cloud) {
-      try { _cloud = _getCloud(); } catch(e) {}
-    }
-    if (_cloud && _cloud.isLoggedIn()) {
+    if (window.cloud && window.cloud.isLoggedIn()) {
       try {
-        await _cloud.deleteWork(deleteTargetId);
+        await window.cloud.deleteWork(deleteTargetId);
         cloudDeleted = true;
       } catch(e) {
         console.warn('云端删除失败:', e);
@@ -1299,15 +1286,6 @@ async function confirmDelete() {
           if (DB && DB.flush) DB.flush();
         } catch(listErr) {}
       }
-    } else {
-      // 未登录时也要记录到待删除列表，等登录后重试
-      try {
-        if (DB && !DB._cloudDeleteList) DB._cloudDeleteList = [];
-        if (DB && DB._cloudDeleteList.indexOf(deleteTargetId) < 0) {
-          DB._cloudDeleteList.push(deleteTargetId);
-        }
-        if (DB && DB.flush) DB.flush();
-      } catch(listErr) {}
     }
     
     DB.deleteWork(deleteTargetId);
@@ -1433,7 +1411,6 @@ window.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('cloud-sync-btn-wl');
       if (!btn) return;
       var cloud = window.cloud;
-      if (!cloud) { try { cloud = _getCloud(); } catch(e) {} }
       if (cloud && cloud.isLoggedIn && cloud.isLoggedIn()) {
         btn.style.display = '';
         var user = cloud.user || {};
@@ -1449,7 +1426,6 @@ window.addEventListener('DOMContentLoaded', function() {
   window.triggerCloudSync_wl = function() {
     try {
       var cloud = window.cloud;
-      if (!cloud) { try { cloud = _getCloud(); } catch(e) {} }
       if (!cloud) { showToast('云同步未初始化'); return; }
       if (!cloud.isLoggedIn()) {
         showToast('请先在首页登录');

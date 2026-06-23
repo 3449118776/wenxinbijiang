@@ -1236,8 +1236,8 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
   var dynamicMaxTokens = null;
   if(targetChars && targetChars > 0){
-    // 中文约 1.5 token/字，10倍余量确保充分展开不截断
-    var charsToTokens = Math.floor(targetChars * 10.0);
+    // 中文约 1.5 token/字，留 30% 余量
+    var charsToTokens = Math.floor(targetChars * 1.5 * 1.3);
     // 取「字数需求」和「模型最大输出」中的较小值，确保不超模型限制
     var modelMaxTokens = getModelMaxOutputTokens();
     dynamicMaxTokens = Math.min(charsToTokens, modelMaxTokens);
@@ -1312,15 +1312,17 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
           var contPrompt = '请继续上文，从断点处直接接着写，不要重复已有内容，保持文风和叙事节奏一致：\n\n...' + tail + '\n\n请直接继续：';
           try {
             if (!silent) showLoading('输出被截断，自动续写中…(' + (cr + 1) + '/' + maxRounds + ')', true);
+            // 续写时用较小的 targetChars，避免又截断
             var contOpts = { provider: provider, silent: true, maxTokens: Math.min((callOpts.maxTokens || 4096) / 2, 4096) };
             var contResult = await callRealAPI(contPrompt, null, contOpts);
             if (contResult && contResult.length > 20) {
               continued = continued + '\n\n' + contResult;
+              // 检查续写结果是否也被截断
               if (_callOnce._lastFinishReason === 'length' || _callOnce._lastFinishReason === 'max_tokens') {
-                continue;
+                continue; // 继续下一轮续写
               }
             }
-            break;
+            break; // 续写完成或失败，退出循环
           } catch(e) { break; }
         }
         if (continued.length > result.length) {
