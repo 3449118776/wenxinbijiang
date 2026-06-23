@@ -315,29 +315,7 @@ body{display:flex;flex-direction:column;}
 .level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
 .level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
 
-/* v62: 卡片选择面板 — AI自动选择，替代骨架生成 */
-.card-select-panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin:8px 12px;overflow:hidden;display:none;}
-.card-select-panel.show{display:block;}
-.card-select-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8f9ff;border-bottom:1px solid #e8e8f0;}
-.card-select-header .csh-title{font-size:13px;font-weight:600;color:#6366f1;}
-.card-select-header .csh-count{font-size:11px;color:#9ca3af;}
-.card-select-body{padding:4px 0;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.card-select-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background .1s;}
-.card-select-item:last-child{border-bottom:none;}
-.card-select-item:active{background:#f0f2ff;}
-.card-select-item .csi-check{width:18px;height:18px;border:2px solid #d1d5db;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-.card-select-item .csi-check.checked{background:#6366f1;border-color:#6366f1;}
-.card-select-item .csi-check.checked::after{content:'✓';color:#fff;font-size:11px;font-weight:700;}
-.card-select-item .csi-label{flex:1;font-size:12px;color:#333;min-width:0;}
-.card-select-item .csi-chars{font-size:10px;color:#9ca3af;flex-shrink:0;}
-.card-select-item.unfit{opacity:0.4;}
-.card-select-item.unfit .csi-label{text-decoration:line-through;}
-.card-select-item.supplement .csi-label{color:#059669;}
-.card-select-actions{display:flex;gap:6px;padding:8px 14px;border-top:1px solid #f0f0f0;flex-wrap:wrap;}
-.card-select-actions button{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#666;cursor:pointer;font-family:inherit;}
-.card-select-actions button:active{background:#f3f4f6;}
-.card-select-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;font-weight:600;padding:6px 16px;font-size:12px;}
-.card-select-actions .ai-suggest{color:#6366f1;border-color:#6366f1;}
+
 </style>
 </head>
 <body>
@@ -415,13 +393,13 @@ body{display:flex;flex-direction:column;}
   </div>
   <div class="level4-body" id="level4-body">
 
-    <!-- 阅读预览全屏overlay -->
-    <div class="reader-overlay" id="reader-overlay">
+    <!-- 阅读预览全屏overlay — 点击背景区域退出 -->
+    <div class="reader-overlay" id="reader-overlay" onclick="if(event.target===this)closeReader()">
       <div class="reader-header">
         <span class="reader-title" id="reader-title">阅读模式</span>
-        <button class="reader-close-btn" onclick="closeReader()">← 退出阅读</button>
+        <button class="reader-close-btn" onclick="closeReader();event.stopPropagation();">← 退出阅读</button>
       </div>
-      <div class="reader-content">
+      <div class="reader-content" onclick="event.stopPropagation();">
         <div class="reader-text" id="reader-text"></div>
       </div>
     </div>
@@ -432,19 +410,6 @@ body{display:flex;flex-direction:column;}
       <div class="idea-bar">
         <textarea id="idea-world" placeholder="输入构思，AI补全世界观..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-world')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
-      </div>
-      <div class="card-select-panel" id="card-select-world">
-        <div class="card-select-header">
-          <span class="csh-title">📋 选择要生成的卡片</span>
-          <span class="csh-count" id="csc-world"></span>
-        </div>
-        <div class="card-select-body" id="csb-world"></div>
-        <div class="card-select-actions">
-          <button onclick="cardToggleAll('world')">全选/取消</button>
-          <button onclick="cardToggleFit('world')">仅选匹配指令</button>
-          <button class="ai-suggest" onclick="aiSuggestCards('world')" id="csb-btn-world">🤖 AI补充建议</button>
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
-        </div>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -472,19 +437,6 @@ body{display:flex;flex-direction:column;}
       <div class="idea-bar">
         <textarea id="idea-chars" placeholder="输入构思，AI补全人物人设..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-chars')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
-      </div>
-      <div class="card-select-panel" id="card-select-chars">
-        <div class="card-select-header">
-          <span class="csh-title">📋 选择要生成的卡片</span>
-          <span class="csh-count" id="csc-chars"></span>
-        </div>
-        <div class="card-select-body" id="csb-chars"></div>
-        <div class="card-select-actions">
-          <button onclick="cardToggleAll('chars')">全选/取消</button>
-          <button onclick="cardToggleFit('chars')">仅选匹配指令</button>
-          <button class="ai-suggest" onclick="aiSuggestCards('chars')" id="csb-btn-chars">🤖 AI补充建议</button>
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
-        </div>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -517,19 +469,6 @@ body{display:flex;flex-direction:column;}
       <div class="page-count-selector" id="count-select-outline">
         <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
         <span class="count-hint">（3-20卷）</span>
-      </div>
-      <div class="card-select-panel" id="card-select-outline">
-        <div class="card-select-header">
-          <span class="csh-title">📋 选择要生成的卡片</span>
-          <span class="csh-count" id="csc-outline"></span>
-        </div>
-        <div class="card-select-body" id="csb-outline"></div>
-        <div class="card-select-actions">
-          <button onclick="cardToggleAll('outline')">全选/取消</button>
-          <button onclick="cardToggleFit('outline')">仅选匹配指令</button>
-          <button class="ai-suggest" onclick="aiSuggestCards('outline')" id="csb-btn-outline">🤖 AI补充建议</button>
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
-        </div>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -957,10 +896,7 @@ window.switchArchModule = function(mod) {
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
 
-  // v62: 显示并渲染卡片选择面板（world/chars/outline）
-    if(mod !== 'detail' && typeof renderCardCheckboxes === 'function'){
-      renderCardCheckboxes(mod);
-    }
+  // v62: AI卡片选择在 generateArchModule 内部自动完成，无需用户手动选择
 
   // 如果在四级视图中，确保在level4
   if (_currentLevel !== 4) {
@@ -1248,6 +1184,7 @@ window.openReader = function(module) {
 
 window.closeReader = function() {
   var overlay = document.getElementById('reader-overlay');
+  if(!overlay) return;
   overlay.classList.remove('active');
   document.body.style.overflow = '';
 };
@@ -2958,9 +2895,8 @@ window.generateArchModule = async function(opts){
               }
             }
 
-            // 渲染面板展示AI选择结果
-            renderCardCheckboxes(module);
-            if(typeof showToast === 'function') showToast('📋 AI已自动选择卡片，可手动调整后点击生成', {duration: 3000});
+            // v62: AI已自动选择卡片，直接进入生成流程
+            if(typeof showToast === 'function') showToast('✅ AI已自动选择卡片，共' + Object.keys(cs.selected).filter(function(k){return cs.selected[k];}).length + '张', {duration: 2000});
           }
         } catch(selectErr){
           console.warn('[AI卡片选择] 失败，使用默认全部卡片:', selectErr);
@@ -2968,7 +2904,6 @@ window.generateArchModule = async function(opts){
           var cs2 = _cardCheckState[module];
           cs2.batches = allBatches;
           for(var i = 0; i < allBatches.length; i++) cs2.selected[i] = true;
-          renderCardCheckboxes(module);
         }
       }
     }
@@ -4335,10 +4270,6 @@ window.initArchPage = function(){
       initArchPager(m);
     });
     initDetailPager();
-    // v62: 渲染卡片选择面板（world/chars/outline）
-    ['world','chars','outline'].forEach(function(m){
-      if(typeof renderCardCheckboxes === 'function') renderCardCheckboxes(m);
-    });
   }catch(e){}
 };
 
