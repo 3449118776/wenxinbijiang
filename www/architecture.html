@@ -4116,17 +4116,36 @@ window.generateAllPipeline = async function(){
         if(target) target.classList.add('current');
       }catch(e){}
 
-      var overallPct = Math.round((i / modules.length) * 100);
-      // 第1个模块：从0起步；其他：保持进度连续推进
-      if(i === 0){
-        if(typeof resetLoading === 'function') resetLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
-        else if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+      // 计算预估总字符数，用于更准确的进度显示
+      var totalEstimatedChars = 0;
+      // 世界观约2万字，人设约2万字，大纲约3万字，读者约10万字
+      var moduleWeightMap = {world: 20000, chars: 20000, outline: 30000, detail: 100000};
+      for(var wi = 0; wi < modules.length; wi++){
+        totalEstimatedChars += moduleWeightMap[modules[wi]] || 30000;
       }
-      if(typeof updateLoadingProgress === 'function'){
-        updateLoadingProgress(overallPct, '🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+
+      var processedChars = 0;
+      for(var i = 0; i < modules.length; i++){
+        // 显示模块进度（预估进度，不是精确值）
+        var moduleWeight = moduleWeightMap[modules[i]] || 30000;
+        var moduleStartPct = Math.round((processedChars / totalEstimatedChars) * 100);
+        processedChars += moduleWeight;
+        var moduleEndPct = Math.round((processedChars / totalEstimatedChars) * 100);
+
+        if(i === 0){
+          if(typeof resetLoading === 'function') resetLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+          else if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+        }
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(moduleStartPct, '🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）' + moduleStartPct + '%');
+        }
+        await window.generateArchModule();
+
+        // 模块完成后更新到模块结束进度
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(moduleEndPct, '✅ 已完成 ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）' + moduleEndPct + '%');
+        }
       }
-      await window.generateArchModule();
-    }
 
     if(typeof updateLoadingProgress === 'function'){
       updateLoadingProgress(100, '✅ 全部完成');
