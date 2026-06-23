@@ -315,24 +315,29 @@ body{display:flex;flex-direction:column;}
 .level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
 .level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
 
-/* v61: 卡片选择面板 — 自动筛选，不手动勾选 */
+/* v62: 卡片选择面板 — 替代骨架生成，用户勾选卡片 */
 .card-select-panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin:8px 12px;overflow:hidden;display:none;}
 .card-select-panel.show{display:block;}
 .card-select-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8f9ff;border-bottom:1px solid #e8e8f0;}
 .card-select-header .csh-title{font-size:13px;font-weight:600;color:#6366f1;}
 .card-select-header .csh-count{font-size:11px;color:#9ca3af;}
-.card-select-body{padding:6px 0;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.card-select-item{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f5f5f5;font-size:12px;}
+.card-select-body{padding:4px 0;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.card-select-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background .1s;}
 .card-select-item:last-child{border-bottom:none;}
-.card-select-item .csi-icon{font-size:14px;flex-shrink:0;}
-.card-select-item .csi-label{flex:1;color:#333;min-width:0;}
+.card-select-item:active{background:#f0f2ff;}
+.card-select-item .csi-check{width:18px;height:18px;border:2px solid #d1d5db;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.card-select-item .csi-check.checked{background:#6366f1;border-color:#6366f1;}
+.card-select-item .csi-check.checked::after{content:'✓';color:#fff;font-size:11px;font-weight:700;}
+.card-select-item .csi-label{flex:1;font-size:12px;color:#333;min-width:0;}
 .card-select-item .csi-chars{font-size:10px;color:#9ca3af;flex-shrink:0;}
-.card-select-item.skipped{opacity:0.35;}
-.card-select-item.skipped .csi-label{text-decoration:line-through;}
-.card-select-item.skipped .csi-reason{font-size:10px;color:#ef4444;flex-shrink:0;}
-.card-select-actions{padding:8px 14px;border-top:1px solid #f0f0f0;}
-.card-select-actions .primary{font-size:12px;padding:8px 20px;border-radius:8px;background:#6366f1;color:#fff;border:none;cursor:pointer;font-weight:600;font-family:inherit;width:100%;}
-.card-select-actions .primary:active{background:#4f46e5;}
+.card-select-item.unfit{opacity:0.4;}
+.card-select-item.unfit .csi-label{text-decoration:line-through;}
+.card-select-item.supplement .csi-label{color:#059669;}
+.card-select-actions{display:flex;gap:6px;padding:8px 14px;border-top:1px solid #f0f0f0;flex-wrap:wrap;}
+.card-select-actions button{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#666;cursor:pointer;font-family:inherit;}
+.card-select-actions button:active{background:#f3f4f6;}
+.card-select-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;font-weight:600;padding:6px 16px;font-size:12px;}
+.card-select-actions .ai-suggest{color:#6366f1;border-color:#6366f1;}
 </style>
 </head>
 <body>
@@ -430,14 +435,15 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="card-select-panel" id="card-select-world">
         <div class="card-select-header">
-          <span class="csh-title">📋 AI 卡片筛选</span>
-          <span class="csh-count" id="csc-world">等待分析...</span>
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-world"></span>
         </div>
-        <div class="card-select-body" id="csb-world">
-          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
-        </div>
+        <div class="card-select-body" id="csb-world"></div>
         <div class="card-select-actions">
-          <button class="primary" onclick="aiSelectCards('world')" id="csb-btn-world">🔍 AI 分析指令 · 筛选卡片</button>
+          <button onclick="cardToggleAll('world')">全选/取消</button>
+          <button onclick="cardToggleFit('world')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('world')" id="csb-btn-world">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -469,14 +475,15 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="card-select-panel" id="card-select-chars">
         <div class="card-select-header">
-          <span class="csh-title">📋 AI 卡片筛选</span>
-          <span class="csh-count" id="csc-chars">等待分析...</span>
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-chars"></span>
         </div>
-        <div class="card-select-body" id="csb-chars">
-          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
-        </div>
+        <div class="card-select-body" id="csb-chars"></div>
         <div class="card-select-actions">
-          <button class="primary" onclick="aiSelectCards('chars')" id="csb-btn-chars">🔍 AI 分析指令 · 筛选卡片</button>
+          <button onclick="cardToggleAll('chars')">全选/取消</button>
+          <button onclick="cardToggleFit('chars')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('chars')" id="csb-btn-chars">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -513,14 +520,15 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="card-select-panel" id="card-select-outline">
         <div class="card-select-header">
-          <span class="csh-title">📋 AI 卡片筛选</span>
-          <span class="csh-count" id="csc-outline">等待分析...</span>
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-outline"></span>
         </div>
-        <div class="card-select-body" id="csb-outline">
-          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
-        </div>
+        <div class="card-select-body" id="csb-outline"></div>
         <div class="card-select-actions">
-          <button class="primary" onclick="aiSelectCards('outline')" id="csb-btn-outline">🔍 AI 分析指令 · 筛选卡片</button>
+          <button onclick="cardToggleAll('outline')">全选/取消</button>
+          <button onclick="cardToggleFit('outline')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('outline')" id="csb-btn-outline">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -949,9 +957,10 @@ window.switchArchModule = function(mod) {
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
 
-  // v61: 显示卡片筛选面板（world/chars/outline）
-  var panel = document.getElementById('card-select-' + mod);
-  if(panel) panel.classList.add('show');
+  // v62: 显示并渲染卡片选择面板（world/chars/outline）
+    if(mod !== 'detail' && typeof renderCardCheckboxes === 'function'){
+      renderCardCheckboxes(mod);
+    }
 
   // 如果在四级视图中，确保在level4
   if (_currentLevel !== 4) {
@@ -2473,136 +2482,186 @@ function buildModuleSummaryContext(work, currentModule){
   return ctx.trim();
 }
 
-// v61: AI 卡片筛选 — 让AI根据用户指令自动选择/跳过/补充卡片
-var _selectedCards = {}; // { module: { selected: [0,1,2..], skipped: [{idx,reason}], supplement: [{label,targetChars,focus}] } }
-var _cardPanels = {}; // 缓存各模块的可用卡片列表
+// v62: 卡片选择 — 替代骨架生成，用户勾选卡片后直接生成
+var _cardCheckState = {}; // { module: { selected: {idx:true}, batches: [...], supplement: [...] } }
 
-// 构建卡片列表HTML（供 AI 筛选后渲染）
-function renderCardSelection(module, result){
+function _esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// 渲染卡片选择面板
+function renderCardCheckboxes(module){
   var panel = document.getElementById('card-select-' + module);
   if(!panel) return;
   panel.classList.add('show');
 
   var body = document.getElementById('csb-' + module);
   var countEl = document.getElementById('csc-' + module);
-  var btnEl = document.getElementById('csb-btn-' + module);
   if(!body) return;
 
-  var sel = result.selected || [];
-  var skip = result.skipped || [];
-  var supp = result.supplement || [];
-  var total = sel.length + skip.length + supp.length;
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  var work = getCurrentWork();
+  var batches = buildArchCardBatchesV48(module, work, idea);
 
-  if(countEl) countEl.textContent = '选中' + sel.length + '张 · 跳过' + skip.length + '张' + (supp.length ? ' · 补充' + supp.length + '张' : '');
+  // 初始化勾选状态
+  if(!_cardCheckState[module]) _cardCheckState[module] = { selected: {}, batches: batches, supplement: [] };
+  else _cardCheckState[module].batches = batches;
+  var state = _cardCheckState[module];
+
+  // 根据指令判断是否匹配
+  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
+  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
 
   var html = '';
-  // 选中卡片
-  for(var i = 0; i < sel.length; i++){
-    var s = sel[i];
-    html += '<div class="card-select-item"><span class="csi-icon">✅</span><span class="csi-label">' + _esc(s.label || s) + '</span><span class="csi-chars">' + (s.targetChars || '') + '字</span></div>';
-  }
-  // 跳过卡片
-  for(var j = 0; j < skip.length; j++){
-    var sk = skip[j];
-    html += '<div class="card-select-item skipped"><span class="csi-icon">⏭️</span><span class="csi-label">' + _esc(sk.label || sk) + '</span><span class="csi-reason">' + _esc(sk.reason || '不符合指令') + '</span></div>';
-  }
-  // 补充卡片
-  for(var k = 0; k < supp.length; k++){
-    var sp = supp[k];
-    html += '<div class="card-select-item"><span class="csi-icon">➕</span><span class="csi-label" style="color:#059669;">' + _esc(sp.label || sp) + '</span><span class="csi-chars">新增</span></div>';
-  }
-  body.innerHTML = html;
+  var checkedCount = 0;
+  for(var i = 0; i < batches.length; i++){
+    var b = batches[i];
+    var label = b.label || '';
+    // 判断是否匹配指令
+    var unfit = false;
+    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
+    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
 
-  // 更新按钮
-  if(btnEl){
-    btnEl.textContent = '🤖 生成选中卡片（' + (sel.length + supp.length) + '张）';
-    btnEl.onclick = function(){ generateArchModule(); };
+    // 默认：匹配的选中，不匹配的不选
+    if(state.selected[i] === undefined) state.selected[i] = !unfit;
+    if(state.selected[i]) checkedCount++;
+
+    var cls = (unfit && !state.selected[i]) ? ' unfit' : '';
+    html += '<div class="card-select-item' + cls + '" onclick="cardToggleItem(\'' + module + '\',' + i + ')">';
+    html += '<div class="csi-check' + (state.selected[i] ? ' checked' : '') + '" id="cs-check-' + module + '-' + i + '"></div>';
+    html += '<span class="csi-label">' + _esc(label) + '</span>';
+    html += '<span class="csi-chars">' + (b.targetChars || '') + '字</span>';
+    if(unfit) html += '<span style="font-size:10px;color:#f59e0b;flex-shrink:0;">不符</span>';
+    html += '</div>';
+  }
+
+  // 渲染补充卡片
+  if(state.supplement && state.supplement.length > 0){
+    for(var si = 0; si < state.supplement.length; si++){
+      var sp = state.supplement[si];
+      var spIdx = batches.length + si;
+      if(state.selected[spIdx] === undefined) state.selected[spIdx] = true;
+      if(state.selected[spIdx]) checkedCount++;
+      html += '<div class="card-select-item supplement" onclick="cardToggleItem(\'' + module + '\',' + spIdx + ')">';
+      html += '<div class="csi-check' + (state.selected[spIdx] ? ' checked' : '') + '" id="cs-check-' + module + '-' + spIdx + '"></div>';
+      html += '<span class="csi-label">➕ ' + _esc(sp.label) + '</span>';
+      html += '<span class="csi-chars">' + (sp.targetChars || '') + '字</span>';
+      html += '</div>';
+    }
+  }
+
+  body.innerHTML = html;
+  if(countEl) countEl.textContent = '已选' + checkedCount + '/' + (batches.length + (state.supplement ? state.supplement.length : 0)) + '张';
+}
+
+// 勾选/取消单个卡片
+function cardToggleItem(module, idx){
+  var state = _cardCheckState[module];
+  if(!state) return;
+  state.selected[idx] = !state.selected[idx];
+  var el = document.getElementById('cs-check-' + module + '-' + idx);
+  if(el){
+    if(state.selected[idx]) el.classList.add('checked');
+    else el.classList.remove('checked');
+  }
+  // 更新计数
+  var countEl = document.getElementById('csc-' + module);
+  if(countEl){
+    var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
+    var checked = 0;
+    for(var k in state.selected){ if(state.selected[k]) checked++; }
+    countEl.textContent = '已选' + checked + '/' + total + '张';
   }
 }
 
-function _esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// 全选/取消全选
+function cardToggleAll(module){
+  var state = _cardCheckState[module];
+  if(!state) return;
+  var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
+  var allChecked = true;
+  for(var i = 0; i < total; i++){ if(!state.selected[i]){ allChecked = false; break; } }
+  var newVal = !allChecked;
+  for(var i = 0; i < total; i++){ state.selected[i] = newVal; }
+  renderCardCheckboxes(module);
+}
 
-// AI 分析用户指令，自动筛选卡片
-window.aiSelectCards = async function(module){
+// 仅选匹配指令的卡片
+function cardToggleFit(module){
+  var state = _cardCheckState[module];
+  if(!state) return;
   var ideaEl = document.getElementById('idea-' + module);
   var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
-  if(!idea){
-    showToast('请先在上方输入构思/指令', {error:true});
-    return;
+  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
+  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
+  for(var i = 0; i < state.batches.length; i++){
+    var label = state.batches[i].label || '';
+    var unfit = false;
+    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
+    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
+    state.selected[i] = !unfit;
   }
+  renderCardCheckboxes(module);
+  showToast('已按指令筛选卡片');
+}
+
+// AI补充建议
+window.aiSuggestCards = async function(module){
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  if(!idea){ showToast('请先在上方输入构思/指令', {error:true}); return; }
 
   var btnEl = document.getElementById('csb-btn-' + module);
-  if(btnEl){ btnEl.textContent = '⏳ AI 分析中...'; btnEl.disabled = true; }
+  if(btnEl){ btnEl.textContent = '⏳ AI思考中...'; btnEl.disabled = true; }
+
+  var state = _cardCheckState[module];
+  if(!state || !state.batches) return;
+
+  var cardList = '';
+  for(var i = 0; i < state.batches.length; i++){
+    cardList += (i+1) + '. ' + state.batches[i].label + '\n';
+  }
+
+  var prompt = '根据用户指令，判断当前卡片列表是否满足需求。如有缺失，建议补充卡片（最多3张）。\n\n';
+  prompt += '【用户指令】\n' + idea + '\n\n【已有卡片】\n' + cardList + '\n';
+  prompt += '输出JSON: {"hasGap":true/false,"suggestions":[{"label":"卡片名","targetChars":2500,"focus":"建议该卡片应包含的内容"}]}';
 
   try {
-    // 获取模块的所有卡片
-    var work = getCurrentWork();
-    var batches = buildArchCardBatchesV48(module, work, idea);
-    _cardPanels[module] = batches;
-
-    // 构建卡片列表
-    var cardList = '';
-    for(var i = 0; i < batches.length; i++){
-      cardList += (i+1) + '. ' + batches[i].label + '（' + batches[i].targetChars + '字）\n';
-    }
-
-    // AI 筛选 prompt
-    var selectPrompt = '你是网文架构师。根据用户指令，从以下卡片列表中选择必须生成的卡片。\n\n';
-    selectPrompt += '【用户指令】\n' + idea + '\n\n';
-    selectPrompt += '【可用卡片列表】\n' + cardList + '\n';
-    selectPrompt += '【筛选规则】\n';
-    selectPrompt += '1. 如果用户指令中有"无魔""无魔法""无超自然"等，跳过"力量体系""宗教""灵兽"等魔法相关卡片\n';
-    selectPrompt += '2. 如果用户指令中有"纯粹中世纪""写实"等，用更贴合的视角看待卡片（如"力量体系"→军事力量），但卡片本身仍可保留\n';
-    selectPrompt += '3. 如果某张卡片与用户指令完全无关或冲突，标记为跳过\n';
-    selectPrompt += '4. 如果缺少用户指令所需的关键卡片，补充建议（最多3张）\n\n';
-    selectPrompt += '【输出格式 — 严格JSON，不要加任何其他文字】\n';
-    selectPrompt += '{"selected":[{"idx":0,"label":"卡片名","targetChars":3000}],"skipped":[{"idx":2,"label":"卡片名","reason":"原因"}],"supplement":[{"label":"新卡片名","targetChars":3000,"focus":"卡片焦点描述"}]}\n';
-    selectPrompt += 'idx 是卡片在列表中的索引（从0开始）。supplement 可选，没有就空数组。';
-
-    var result = await callRealAPIWithFallback(selectPrompt, null, '卡片筛选', 500, true);
-    if(!result){
-      showToast('AI 筛选失败，请重试', {error:true});
-      if(btnEl){ btnEl.textContent = '🔍 AI 分析指令 · 筛选卡片'; btnEl.disabled = false; }
-      return;
-    }
-
-    // 解析 JSON
-    var parsed = null;
-    try {
+    var result = await callRealAPIWithFallback(prompt, null, '卡片建议', 300, true);
+    if(result){
       var jsonStr = result.trim();
-      // 容错：提取第一个 { 到最后一个 }
-      var start = jsonStr.indexOf('{');
-      var end = jsonStr.lastIndexOf('}');
+      var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
       if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
-      parsed = JSON.parse(jsonStr);
-    } catch(e){
-      console.warn('[AI卡片筛选] JSON解析失败:', result.substring(0,200));
-      showToast('AI 筛选结果解析失败，请重试', {error:true});
-      if(btnEl){ btnEl.textContent = '🔍 AI 分析指令 · 筛选卡片'; btnEl.disabled = false; }
-      return;
-    }
-
-    // 补充卡片添加到 batches
-    var allBatches = batches.slice();
-    if(parsed.supplement && parsed.supplement.length > 0){
-      for(var si = 0; si < parsed.supplement.length; si++){
-        var sp = parsed.supplement[si];
-        allBatches.push({ label: sp.label, targetChars: sp.targetChars || 2500, focus: sp.focus || '', _supplement: true });
+      var parsed = JSON.parse(jsonStr);
+      if(parsed.suggestions && parsed.suggestions.length > 0){
+        state.supplement = parsed.suggestions;
+        renderCardCheckboxes(module);
+        showToast('✅ AI建议补充' + parsed.suggestions.length + '张卡片');
+      } else {
+        showToast('✅ 当前卡片已满足需求');
       }
     }
-
-    _cardPanels[module] = allBatches;
-    _selectedCards[module] = parsed;
-
-    renderCardSelection(module, parsed);
-    showToast('✅ AI 已筛选：' + (parsed.selected ? parsed.selected.length : 0) + '张选中，' + (parsed.skipped ? parsed.skipped.length : 0) + '张跳过', {duration: 2500});
-
-  } catch(e){
-    console.error('[AI卡片筛选] 异常:', e);
-    showToast('AI 筛选出错：' + (e.message || '未知错误'), {error:true});
-  }
-  if(btnEl){ btnEl.disabled = false; }
+  } catch(e){ showToast('AI建议失败，请重试', {error:true}); }
+  if(btnEl){ btnEl.textContent = '🤖 AI补充建议'; btnEl.disabled = false; }
 };
+
+// 获取用户勾选的卡片
+function getCheckedCards(module){
+  var state = _cardCheckState[module];
+  if(!state) return null;
+  var result = [];
+  var total = state.batches.length + (state.supplement ? state.supplement.length : 0);
+  for(var i = 0; i < total; i++){
+    if(state.selected[i]){
+      if(i < state.batches.length){
+        result.push(state.batches[i]);
+      } else {
+        var sp = state.supplement[i - state.batches.length];
+        result.push({ label: sp.label, targetChars: sp.targetChars || 2500, focus: sp.focus || '', _supplement: true });
+      }
+    }
+  }
+  return result;
+}
 window.generateArchModule = async function(opts){
   opts = opts || {};
   try{
@@ -2737,87 +2796,8 @@ window.generateArchModule = async function(opts){
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
 
-    // 2.7 骨架生成 + AI自检：最多尝试3次，自检不通过自动重写
-    // —— 骨架是后续内容生成的基础，必须先通过
-    if(idea && idea.trim()){
-      var _skBasePrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
-      _skBasePrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
-      _skBasePrompt += '【作品题材】' + (genre || '通用') + '\n';
-      var sMem2 = work && work.longMemory && work.longMemory.moduleSummaries;
-      if(sMem2 && Object.keys(sMem2).length > 0){
-        var _skBig = isLargeContextModel();
-        var _skWorld = _skBig ? 3000 : 1200;
-        var _skChars = _skBig ? 3000 : 1000;
-        var _skOutline = _skBig ? 3000 : 1200;
-        if(sMem2.world && module !== 'world') _skBasePrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, _skWorld) + '\n\n';
-        if(sMem2.chars && module !== 'chars') _skBasePrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, _skChars) + '\n\n';
-        if(sMem2.outline && module === 'detail') _skBasePrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, _skOutline) + '\n\n';
-      } else {
-        var _skBig2 = isLargeContextModel();
-        var _skFallback = _skBig2 ? 2000 : 500;
-        if(work && work.world && module !== 'world') _skBasePrompt += '【已有世界观】' + smartTruncate(work.world, _skFallback) + '\n\n';
-        if(work && work.chars && module !== 'chars') _skBasePrompt += '【已有人设】' + smartTruncate(work.chars, _skFallback) + '\n\n';
-        if(work && work.outline && module === 'detail') _skBasePrompt += '【已有大纲】' + smartTruncate(work.outline, _skFallback) + '\n\n';
-      }
-      _skBasePrompt += '\n请按以下格式输出：\n';
-      _skBasePrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
-      _skBasePrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
-      _skBasePrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
-      _skBasePrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
-      _skBasePrompt += '\n直接输出，不要加对话语前缀。';
-
-      var _skSucceeded = false;
-      var _skFeedback = '';
-      for(var skAttempt = 1; skAttempt <= 3; skAttempt++){
-        // 改用 updateLoadingProgress，保持进度连续
-        var skPct = 15 + (skAttempt - 1) * 5;
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架自检 ' + skAttempt + '/3…');
-
-        var skPrompt = _skBasePrompt;
-        if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
-
-        var skResult = null;
-        try {
-          if(typeof callRealAPIWithFallback === 'function'){
-            skResult = await callRealAPIWithFallback(skPrompt, null, 'default', 400, true);
-          }
-        } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
-
-        if(skResult && skResult.trim()){
-          var skText = skResult.trim();
-          var conclusionMatch2 = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-          var conclusion2 = conclusionMatch2 ? conclusionMatch2[1].trim() : '';
-
-          if(conclusion2 && (conclusion2.indexOf('不通过') >= 0 || conclusion2.indexOf('不符合') >= 0)){
-            var reason2 = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
-            _skFeedback = skText;
-            if(skAttempt < 3){
-              if(typeof showToast === 'function') showToast('第' + skAttempt + '次骨架自检不通过，正在自动重写…', {duration: 3000});
-              continue;
-            } else {
-              // 最后一次仍不通过，注入警告但继续
-              if(typeof showToast === 'function') showToast('⚠️ 骨架3次自检均不通过，将按最后一版继续生成', {duration: 5000});
-              marketResearch = (marketResearch || '') + '\n\n【骨架（3次自检均不通过，建议修改提示词后重试）】\n' + skText;
-            }
-          } else {
-            // 通过
-            if(typeof showToast === 'function') showToast('✅ 骨架自检通过（第' + skAttempt + '次），开始生成…', {duration: 2000});
-            marketResearch = (marketResearch || '') + '\n\n【骨架蓝图（已通过用户诉求自检）】\n' + skText;
-            _skSucceeded = true;
-            break;
-          }
-        } else {
-          if(skAttempt === 3){
-            // 最后一次失败，放弃骨架
-            break;
-          }
-        }
-      }
-      // 如果 _skFeedback 仍不为空但没通过，也注入到上下文中让AI知道
-      if(!_skSucceeded && _skFeedback){
-        marketResearch = (marketResearch || '') + '\n\n【骨架自检反馈（AI需自行修正）】\n' + _skFeedback;
-      }
-    }
+    // v62: 卡片选择替代骨架生成 — 用户勾选卡片后直接生成
+    // 卡片列表在 buildArchCardBatchesV48 中生成，在 generateArchModule 中使用
 
     // 3. 细纲专用：按卷选择生成（取消全部自动生成，改由用户点击具体卷号）
     // v60: 移除逐卷循环，用户点击下方卷按钮单独生成
@@ -2836,33 +2816,13 @@ window.generateArchModule = async function(opts){
 
     // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
     if(module !== 'detail'){
-      batches = buildArchCardBatchesV48(module, work, idea);
-
-      // v61: 如果AI已筛选卡片，只生成选中的卡片
-      if(_selectedCards[module] && _selectedCards[module].selected){
-        var _sel = _selectedCards[module];
-        var _selIdx = {};
-        for(var _si = 0; _si < _sel.selected.length; _si++){ _selIdx[_sel.selected[_si].idx] = true; }
-        // 补充卡片已在 _cardPanels 中，直接使用
-        if(_cardPanels[module] && _cardPanels[module].length > 0){
-          batches = _cardPanels[module].filter(function(b, i){
-            return _selIdx[i] || b._supplement;
-          });
-        } else {
-          var _filtered = [];
-          for(var _fi = 0; _fi < batches.length; _fi++){
-            if(_selIdx[_fi]) _filtered.push(batches[_fi]);
-          }
-          // 追加补充卡片
-          if(_sel.supplement){
-            for(var _spi = 0; _spi < _sel.supplement.length; _spi++){
-              var _sp = _sel.supplement[_spi];
-              _filtered.push({ label: _sp.label, targetChars: _sp.targetChars || 2500, focus: _sp.focus || '', _supplement: true });
-            }
-          }
-          batches = _filtered;
-        }
-        if(typeof showToast === 'function') showToast('📋 按AI筛选生成 ' + batches.length + ' 张卡片', {duration: 2000});
+      // v62: 卡片选择 — 获取用户勾选的卡片，优先使用勾选结果
+      var checkedBatches = getCheckedCards(module);
+      if(checkedBatches && checkedBatches.length > 0){
+        batches = checkedBatches;
+        if(typeof showToast === 'function') showToast('📋 按选中卡片生成 ' + batches.length + ' 张', {duration: 2000});
+      } else {
+        batches = buildArchCardBatchesV48(module, work, idea);
       }
 
       totalChars = 0;
@@ -4181,6 +4141,10 @@ window.initArchPage = function(){
       initArchPager(m);
     });
     initDetailPager();
+    // v62: 渲染卡片选择面板（world/chars/outline）
+    ['world','chars','outline'].forEach(function(m){
+      if(typeof renderCardCheckboxes === 'function') renderCardCheckboxes(m);
+    });
   }catch(e){}
 };
 

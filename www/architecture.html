@@ -9,34 +9,30 @@
 <title>架构设计 - 四级导航版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
-html,body{width:100%;height:100dvh;overflow:hidden;background:#f0f2f5;color:#333;}
+html,body{width:100%;height:100dvh;overflow:hidden;background:#f6f7f9;color:#333;}
 body{display:flex;flex-direction:column;}
 
 /* ===== 固定顶部区域 ===== */
-.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
+.top-shell{flex-shrink:0;background:#fff;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
 
-.page-header{height:44px;display:flex;align-items:center;padding:0 16px;gap:10px;}
-.back-btn{font-size:22px;color:#1a1a1a;cursor:pointer;width:28px;transition:transform .15s;}
-.back-btn:active{transform:scale(0.85);}
+.page-header{height:42px;display:flex;align-items:center;padding:0 16px;gap:10px;}
+.back-btn{font-size:20px;color:#1a1a1a;cursor:pointer;width:24px;}
 .page-title{font-size:16px;font-weight:600;flex:1;}
-.more-btn{color:#6366f1;font-size:18px;cursor:pointer;transition:transform .15s;}
-.more-btn:active{transform:scale(0.9);}
+.more-btn{color:#6366f1;font-size:16px;cursor:pointer;}
 
 .select-wrap{display:flex;align-items:center;padding:6px 16px 8px;gap:8px;}
 .select-wrap .select-label{font-size:13px;color:#666;white-space:nowrap;}
-.select-wrap select{border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;min-width:120px;background:#fff;outline:none;transition:border-color .2s;}
-.select-wrap select:focus{border-color:#6366f1;}
+.select-wrap select{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px;min-width:120px;background:#fff;outline:none;}
 
-.btn-pipeline{padding:7px 16px;border:none;border-radius:22px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 10px rgba(99,102,241,0.3);transition:all .2s;}
-.btn-pipeline:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(99,102,241,0.4);}
-.btn-pipeline:active{transform:scale(0.96);}
+.btn-pipeline{padding:6px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;}
+.btn-pipeline:hover{transform:scale(1.03);box-shadow:0 4px 16px rgba(99,102,241,0.4);}
+.btn-pipeline:active{transform:scale(0.97);}
 
 /* 架构标签 — 固定于顶部 */
 .arch-tab{display:flex;margin:0;border-top:1px solid #f0f0f0;}
-.arch-tab-item{flex:1;text-align:center;padding:11px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;transition:all .2s;}
-.arch-tab-item:hover{background:#f0f2ff;}
+.arch-tab-item{flex:1;text-align:center;padding:10px 2px;font-size:12px;color:#777;position:relative;cursor:pointer;border-right:1px solid #eee;background:#fafafa;}
 .arch-tab-item:last-child{border-right:none;}
-.arch-tab-item.active{background:#6366f1;color:#fff;font-weight:600;}
+.arch-tab-item.active{background:#6366f1;color:#fff;}
 .arch-tab-item.finish{background:#f0fdf4;}
 .arch-tab-item.finish::after{content:"✓";position:absolute;top:2px;right:3px;font-size:9px;color:#10b981;}
 .arch-tab-item.lock{background:#f3f4f6;color:#aaa;cursor:not-allowed;}
@@ -153,19 +149,18 @@ body{display:flex;flex-direction:column;}
 .arch-more-item strong{color:#6366f1;}
 
 /* 进度条 */
-.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
-.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.page-progress .prog-title{font-size:13px;color:#6366f1;font-weight:600;}
-.page-progress .prog-cancel{padding:3px 12px;border:1px solid #ef4444;border-radius:6px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;transition:all .15s;}
-.page-progress .prog-cancel:hover{background:#fef2f2;}
-.page-progress .prog-bg-btn{padding:3px 12px;border:1px solid #6366f1;border-radius:6px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;transition:all .15s;}
-.page-progress .prog-bg-btn:hover{background:#e0e7ff;}
+.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
+.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.page-progress .prog-title{font-size:12px;color:#6366f1;font-weight:600;}
+.page-progress .prog-cancel{padding:2px 10px;border:1px solid #ef4444;border-radius:5px;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;}
+.page-progress .prog-bg-btn{padding:2px 10px;border:1px solid #6366f1;border-radius:5px;background:#eef0ff;color:#6366f1;font-size:11px;cursor:pointer;}
 #bg-gen-indicator{transition:all 0.3s;}
-.page-progress .prog-bar-wrap{background:#e5e7eb;border-radius:8px;height:8px;overflow:hidden;}
-.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s cubic-bezier(.4,0,.2,1);}
-.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
+.page-progress .prog-bar-wrap{background:#eee;border-radius:8px;height:6px;overflow:hidden;}
+.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s ease;}
+.page-progress .prog-bar.working{animation:shimmer 1.5s infinite;}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:#999;}
+.page-progress .prog-bar.working{background:linear-gradient(90deg,#6366f1 25%,#a78bfa 50%,#6366f1 75%);background-size:200% 100%;}
+.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#999;}
 
 /* 前置预览条 */
 .preview-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;margin:0 12px 8px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;cursor:pointer;font-size:12px;color:#b45309;}
@@ -267,18 +262,15 @@ body{display:flex;flex-direction:column;}
 
 /* 一级：架构设计入口 */
 .level1-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
-.level1-body .l1-icon{font-size:72px;margin-bottom:20px;line-height:1;animation:float 3s ease-in-out infinite;}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.level1-body .l1-title{font-size:24px;font-weight:700;color:#1a1a2e;margin-bottom:10px;}
-.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.7;margin-bottom:28px;max-width:320px;}
-.level1-body .l1-start{padding:15px 44px;border:none;border-radius:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,.35);transition:all .2s;}
-.level1-body .l1-start:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(99,102,241,.45);}
+.level1-body .l1-icon{font-size:64px;margin-bottom:16px;line-height:1;}
+.level1-body .l1-title{font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px;}
+.level1-body .l1-desc{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;max-width:300px;}
+.level1-body .l1-start{padding:14px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.3);transition:all .2s;}
 .level1-body .l1-start:active{transform:scale(.96);box-shadow:0 2px 8px rgba(99,102,241,.2);}
 
 /* 二级：选择作品 */
 .level2-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
-.work-card{display:flex;align-items:center;gap:12px;padding:15px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,0.03);}
-.work-card:hover{background:#f8f9ff;border-color:#c7d2fe;box-shadow:0 4px 12px rgba(99,102,241,0.06);}
+.work-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
 .work-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
 .work-card .wc-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;}
 .work-card .wc-info{flex:1;min-width:0;}
@@ -297,8 +289,7 @@ body{display:flex;flex-direction:column;}
 /* 三级：模块选择 */
 .level3-body{flex:1;overflow-y:auto;padding:12px 16px 76px;-webkit-overflow-scrolling:touch;}
 .level3-work-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f2ff;border-radius:10px;margin-bottom:12px;font-size:13px;color:#6366f1;font-weight:500;}
-.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
-.module-card:hover{background:#f8f9ff;border-color:#c7d2fe;transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.08);}
+.module-card{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
 .module-card:active{background:#f0f2ff;border-color:#6366f1;transform:scale(.98);}
 .module-card .mc-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
 .module-card .mc-icon.world-icon{background:#eff6ff;color:#2563eb;}
@@ -323,6 +314,30 @@ body{display:flex;flex-direction:column;}
 .level4-header .l4-back:active{background:#f3f4f6;}
 .level4-header .l4-title{flex:1;font-size:14px;font-weight:600;color:#1a1a2e;text-align:center;}
 .level4-header .l4-action{font-size:13px;color:#6366f1;cursor:pointer;font-weight:500;}
+
+/* v62: 卡片选择面板 — 替代骨架生成，用户勾选卡片 */
+.card-select-panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin:8px 12px;overflow:hidden;display:none;}
+.card-select-panel.show{display:block;}
+.card-select-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8f9ff;border-bottom:1px solid #e8e8f0;}
+.card-select-header .csh-title{font-size:13px;font-weight:600;color:#6366f1;}
+.card-select-header .csh-count{font-size:11px;color:#9ca3af;}
+.card-select-body{padding:4px 0;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.card-select-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background .1s;}
+.card-select-item:last-child{border-bottom:none;}
+.card-select-item:active{background:#f0f2ff;}
+.card-select-item .csi-check{width:18px;height:18px;border:2px solid #d1d5db;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.card-select-item .csi-check.checked{background:#6366f1;border-color:#6366f1;}
+.card-select-item .csi-check.checked::after{content:'✓';color:#fff;font-size:11px;font-weight:700;}
+.card-select-item .csi-label{flex:1;font-size:12px;color:#333;min-width:0;}
+.card-select-item .csi-chars{font-size:10px;color:#9ca3af;flex-shrink:0;}
+.card-select-item.unfit{opacity:0.4;}
+.card-select-item.unfit .csi-label{text-decoration:line-through;}
+.card-select-item.supplement .csi-label{color:#059669;}
+.card-select-actions{display:flex;gap:6px;padding:8px 14px;border-top:1px solid #f0f0f0;flex-wrap:wrap;}
+.card-select-actions button{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#666;cursor:pointer;font-family:inherit;}
+.card-select-actions button:active{background:#f3f4f6;}
+.card-select-actions button.primary{background:#6366f1;color:#fff;border-color:#6366f1;font-weight:600;padding:6px 16px;font-size:12px;}
+.card-select-actions .ai-suggest{color:#6366f1;border-color:#6366f1;}
 </style>
 </head>
 <body>
@@ -418,6 +433,19 @@ body{display:flex;flex-direction:column;}
         <textarea id="idea-world" placeholder="输入构思，AI补全世界观..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-world')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
       </div>
+      <div class="card-select-panel" id="card-select-world">
+        <div class="card-select-header">
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-world"></span>
+        </div>
+        <div class="card-select-body" id="csb-world"></div>
+        <div class="card-select-actions">
+          <button onclick="cardToggleAll('world')">全选/取消</button>
+          <button onclick="cardToggleFit('world')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('world')" id="csb-btn-world">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+        </div>
+      </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
@@ -444,6 +472,19 @@ body{display:flex;flex-direction:column;}
       <div class="idea-bar">
         <textarea id="idea-chars" placeholder="输入构思，AI补全人物人设..."></textarea>
         <button class="speech-btn" onclick="toggleSpeechInput('idea-chars')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
+      </div>
+      <div class="card-select-panel" id="card-select-chars">
+        <div class="card-select-header">
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-chars"></span>
+        </div>
+        <div class="card-select-body" id="csb-chars"></div>
+        <div class="card-select-actions">
+          <button onclick="cardToggleAll('chars')">全选/取消</button>
+          <button onclick="cardToggleFit('chars')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('chars')" id="csb-btn-chars">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+        </div>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -476,6 +517,19 @@ body{display:flex;flex-direction:column;}
       <div class="page-count-selector" id="count-select-outline">
         <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
         <span class="count-hint">（3-20卷）</span>
+      </div>
+      <div class="card-select-panel" id="card-select-outline">
+        <div class="card-select-header">
+          <span class="csh-title">📋 选择要生成的卡片</span>
+          <span class="csh-count" id="csc-outline"></span>
+        </div>
+        <div class="card-select-body" id="csb-outline"></div>
+        <div class="card-select-actions">
+          <button onclick="cardToggleAll('outline')">全选/取消</button>
+          <button onclick="cardToggleFit('outline')">仅选匹配指令</button>
+          <button class="ai-suggest" onclick="aiSuggestCards('outline')" id="csb-btn-outline">🤖 AI补充建议</button>
+          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+        </div>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -605,7 +659,6 @@ body{display:flex;flex-direction:column;}
 <script src="assets/js/speech.js"></script>
 <script src="assets/js/cards.js"></script>
 <script src="assets/js/quality.js"></script>
-<script src="assets/js/template-eval.js"></script>
 <script src="assets/js/eval-ui.js"></script>
 <script src="assets/js/architecture.js"></script>
 <script src="assets/js/engines-rag.js"></script>
@@ -849,7 +902,6 @@ function renderLevel3() {
 
   // 一键全部生成按钮
   html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;" onclick="generateAllPipeline()" title="4位AI专家协作：世界观→人设→大纲→细纲 全自动生成">🚀 一键全部生成</button>';
-  html += '<button class="btn-pipeline" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);" onclick="generateBookTitleAndSynopsis()" title="基于全书内容生成商业书名和简介">📖 生成书名+简介</button>';
 
   var moduleKeys = ['world', 'chars', 'outline', 'detail'];
   moduleKeys.forEach(function(key) {
@@ -904,6 +956,11 @@ window.switchArchModule = function(mod) {
   pages.forEach(function(p){ p.classList.remove('current'); });
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
+
+  // v62: 显示并渲染卡片选择面板（world/chars/outline）
+    if(mod !== 'detail' && typeof renderCardCheckboxes === 'function'){
+      renderCardCheckboxes(mod);
+    }
 
   // 如果在四级视图中，确保在level4
   if (_currentLevel !== 4) {
@@ -2425,7 +2482,186 @@ function buildModuleSummaryContext(work, currentModule){
   return ctx.trim();
 }
 
-// v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
+// v62: 卡片选择 — 替代骨架生成，用户勾选卡片后直接生成
+var _cardCheckState = {}; // { module: { selected: {idx:true}, batches: [...], supplement: [...] } }
+
+function _esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// 渲染卡片选择面板
+function renderCardCheckboxes(module){
+  var panel = document.getElementById('card-select-' + module);
+  if(!panel) return;
+  panel.classList.add('show');
+
+  var body = document.getElementById('csb-' + module);
+  var countEl = document.getElementById('csc-' + module);
+  if(!body) return;
+
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  var work = getCurrentWork();
+  var batches = buildArchCardBatchesV48(module, work, idea);
+
+  // 初始化勾选状态
+  if(!_cardCheckState[module]) _cardCheckState[module] = { selected: {}, batches: batches, supplement: [] };
+  else _cardCheckState[module].batches = batches;
+  var state = _cardCheckState[module];
+
+  // 根据指令判断是否匹配
+  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
+  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
+
+  var html = '';
+  var checkedCount = 0;
+  for(var i = 0; i < batches.length; i++){
+    var b = batches[i];
+    var label = b.label || '';
+    // 判断是否匹配指令
+    var unfit = false;
+    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
+    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
+
+    // 默认：匹配的选中，不匹配的不选
+    if(state.selected[i] === undefined) state.selected[i] = !unfit;
+    if(state.selected[i]) checkedCount++;
+
+    var cls = (unfit && !state.selected[i]) ? ' unfit' : '';
+    html += '<div class="card-select-item' + cls + '" onclick="cardToggleItem(\'' + module + '\',' + i + ')">';
+    html += '<div class="csi-check' + (state.selected[i] ? ' checked' : '') + '" id="cs-check-' + module + '-' + i + '"></div>';
+    html += '<span class="csi-label">' + _esc(label) + '</span>';
+    html += '<span class="csi-chars">' + (b.targetChars || '') + '字</span>';
+    if(unfit) html += '<span style="font-size:10px;color:#f59e0b;flex-shrink:0;">不符</span>';
+    html += '</div>';
+  }
+
+  // 渲染补充卡片
+  if(state.supplement && state.supplement.length > 0){
+    for(var si = 0; si < state.supplement.length; si++){
+      var sp = state.supplement[si];
+      var spIdx = batches.length + si;
+      if(state.selected[spIdx] === undefined) state.selected[spIdx] = true;
+      if(state.selected[spIdx]) checkedCount++;
+      html += '<div class="card-select-item supplement" onclick="cardToggleItem(\'' + module + '\',' + spIdx + ')">';
+      html += '<div class="csi-check' + (state.selected[spIdx] ? ' checked' : '') + '" id="cs-check-' + module + '-' + spIdx + '"></div>';
+      html += '<span class="csi-label">➕ ' + _esc(sp.label) + '</span>';
+      html += '<span class="csi-chars">' + (sp.targetChars || '') + '字</span>';
+      html += '</div>';
+    }
+  }
+
+  body.innerHTML = html;
+  if(countEl) countEl.textContent = '已选' + checkedCount + '/' + (batches.length + (state.supplement ? state.supplement.length : 0)) + '张';
+}
+
+// 勾选/取消单个卡片
+function cardToggleItem(module, idx){
+  var state = _cardCheckState[module];
+  if(!state) return;
+  state.selected[idx] = !state.selected[idx];
+  var el = document.getElementById('cs-check-' + module + '-' + idx);
+  if(el){
+    if(state.selected[idx]) el.classList.add('checked');
+    else el.classList.remove('checked');
+  }
+  // 更新计数
+  var countEl = document.getElementById('csc-' + module);
+  if(countEl){
+    var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
+    var checked = 0;
+    for(var k in state.selected){ if(state.selected[k]) checked++; }
+    countEl.textContent = '已选' + checked + '/' + total + '张';
+  }
+}
+
+// 全选/取消全选
+function cardToggleAll(module){
+  var state = _cardCheckState[module];
+  if(!state) return;
+  var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
+  var allChecked = true;
+  for(var i = 0; i < total; i++){ if(!state.selected[i]){ allChecked = false; break; } }
+  var newVal = !allChecked;
+  for(var i = 0; i < total; i++){ state.selected[i] = newVal; }
+  renderCardCheckboxes(module);
+}
+
+// 仅选匹配指令的卡片
+function cardToggleFit(module){
+  var state = _cardCheckState[module];
+  if(!state) return;
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
+  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
+  for(var i = 0; i < state.batches.length; i++){
+    var label = state.batches[i].label || '';
+    var unfit = false;
+    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
+    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
+    state.selected[i] = !unfit;
+  }
+  renderCardCheckboxes(module);
+  showToast('已按指令筛选卡片');
+}
+
+// AI补充建议
+window.aiSuggestCards = async function(module){
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  if(!idea){ showToast('请先在上方输入构思/指令', {error:true}); return; }
+
+  var btnEl = document.getElementById('csb-btn-' + module);
+  if(btnEl){ btnEl.textContent = '⏳ AI思考中...'; btnEl.disabled = true; }
+
+  var state = _cardCheckState[module];
+  if(!state || !state.batches) return;
+
+  var cardList = '';
+  for(var i = 0; i < state.batches.length; i++){
+    cardList += (i+1) + '. ' + state.batches[i].label + '\n';
+  }
+
+  var prompt = '根据用户指令，判断当前卡片列表是否满足需求。如有缺失，建议补充卡片（最多3张）。\n\n';
+  prompt += '【用户指令】\n' + idea + '\n\n【已有卡片】\n' + cardList + '\n';
+  prompt += '输出JSON: {"hasGap":true/false,"suggestions":[{"label":"卡片名","targetChars":2500,"focus":"建议该卡片应包含的内容"}]}';
+
+  try {
+    var result = await callRealAPIWithFallback(prompt, null, '卡片建议', 300, true);
+    if(result){
+      var jsonStr = result.trim();
+      var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
+      if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
+      var parsed = JSON.parse(jsonStr);
+      if(parsed.suggestions && parsed.suggestions.length > 0){
+        state.supplement = parsed.suggestions;
+        renderCardCheckboxes(module);
+        showToast('✅ AI建议补充' + parsed.suggestions.length + '张卡片');
+      } else {
+        showToast('✅ 当前卡片已满足需求');
+      }
+    }
+  } catch(e){ showToast('AI建议失败，请重试', {error:true}); }
+  if(btnEl){ btnEl.textContent = '🤖 AI补充建议'; btnEl.disabled = false; }
+};
+
+// 获取用户勾选的卡片
+function getCheckedCards(module){
+  var state = _cardCheckState[module];
+  if(!state) return null;
+  var result = [];
+  var total = state.batches.length + (state.supplement ? state.supplement.length : 0);
+  for(var i = 0; i < total; i++){
+    if(state.selected[i]){
+      if(i < state.batches.length){
+        result.push(state.batches[i]);
+      } else {
+        var sp = state.supplement[i - state.batches.length];
+        result.push({ label: sp.label, targetChars: sp.targetChars || 2500, focus: sp.focus || '', _supplement: true });
+      }
+    }
+  }
+  return result;
+}
 window.generateArchModule = async function(opts){
   opts = opts || {};
   try{
@@ -2560,202 +2796,18 @@ window.generateArchModule = async function(opts){
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
 
-    // 2.7 骨架生成 + AI自检：最多尝试3次，自检不通过自动重写
-    // —— 骨架是后续内容生成的基础，必须先通过
-    if(idea && idea.trim()){
-      var _skBasePrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的' + moduleName + '骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
-      _skBasePrompt += '【用户核心诉求 · 最高优先级】\n' + idea.trim() + '\n\n';
-      _skBasePrompt += '【作品题材】' + (genre || '通用') + '\n';
-      var sMem2 = work && work.longMemory && work.longMemory.moduleSummaries;
-      if(sMem2 && Object.keys(sMem2).length > 0){
-        var _skBig = isLargeContextModel();
-        var _skWorld = _skBig ? 3000 : 1200;
-        var _skChars = _skBig ? 3000 : 1000;
-        var _skOutline = _skBig ? 3000 : 1200;
-        if(sMem2.world && module !== 'world') _skBasePrompt += '【世界观记忆精要】\n' + smartTruncate(sMem2.world, _skWorld) + '\n\n';
-        if(sMem2.chars && module !== 'chars') _skBasePrompt += '【人设记忆精要】\n' + smartTruncate(sMem2.chars, _skChars) + '\n\n';
-        if(sMem2.outline && module === 'detail') _skBasePrompt += '【大纲记忆精要】\n' + smartTruncate(sMem2.outline, _skOutline) + '\n\n';
-      } else {
-        var _skBig2 = isLargeContextModel();
-        var _skFallback = _skBig2 ? 2000 : 500;
-        if(work && work.world && module !== 'world') _skBasePrompt += '【已有世界观】' + smartTruncate(work.world, _skFallback) + '\n\n';
-        if(work && work.chars && module !== 'chars') _skBasePrompt += '【已有人设】' + smartTruncate(work.chars, _skFallback) + '\n\n';
-        if(work && work.outline && module === 'detail') _skBasePrompt += '【已有大纲】' + smartTruncate(work.outline, _skFallback) + '\n\n';
-      }
-      _skBasePrompt += '\n请按以下格式输出：\n';
-      _skBasePrompt += '【骨架】\n（200-300字的简要大纲，列出你要生成的核心内容要点）\n\n';
-      _skBasePrompt += '【自检】\n逐条对照用户核心诉求，说明每一条诉求在骨架中是如何体现的。\n';
-      _skBasePrompt += '如果某条诉求无法在当前' + moduleName + '中体现，请说明原因。\n\n';
-      _skBasePrompt += '【结论】\n写"通过"或"不通过"。如果不通过，说明需要调整什么。\n';
-      _skBasePrompt += '\n直接输出，不要加对话语前缀。';
+    // v62: 卡片选择替代骨架生成 — 用户勾选卡片后直接生成
+    // 卡片列表在 buildArchCardBatchesV48 中生成，在 generateArchModule 中使用
 
-      var _skSucceeded = false;
-      var _skFeedback = '';
-      var _skeletonBlueprint = ''; // 骨架存入独立变量，不污染 marketResearch（保证缓存命中）
-      for(var skAttempt = 1; skAttempt <= 1; skAttempt++){
-        // 改用 updateLoadingProgress，保持进度连续
-        var skPct = 15 + (skAttempt - 1) * 5;
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(skPct, '🧠 骨架生成中…');
-
-        var skPrompt = _skBasePrompt;
-        if(_skFeedback) skPrompt += '\n\n【⚠️ 上一次骨架自检发现的问题】\n' + _skFeedback + '\n请在本次骨架中修正这些问题。';
-
-        var skResult = null;
-        try {
-          if(typeof callRealAPIWithFallback === 'function'){
-            skResult = await callRealAPIWithFallback(skPrompt, null, 'default', 400, true);
-          }
-        } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
-
-        if(skResult && skResult.trim()){
-          var skText = skResult.trim();
-          var conclusionMatch2 = skText.match(/【结论】\s*\n?\s*(.+?)(?:\n|$)/);
-          var conclusion2 = conclusionMatch2 ? conclusionMatch2[1].trim() : '';
-
-          if(conclusion2 && (conclusion2.indexOf('不通过') >= 0 || conclusion2.indexOf('不符合') >= 0)){
-            var reason2 = skText.substring(skText.indexOf('【结论】')).replace('【结论】', '').trim();
-            _skFeedback = skText;
-            if(skAttempt < 3){
-              if(typeof showToast === 'function') showToast('第' + skAttempt + '次骨架自检不通过，正在自动重写…', {duration: 3000});
-              continue;
-            } else {
-              // 最后一次仍不通过，注入警告但继续
-              if(typeof showToast === 'function') showToast('⚠️ 骨架3次自检均不通过，将按最后一版继续生成', {duration: 5000});
-              _skeletonBlueprint = '【骨架（3次自检均不通过，建议修改提示词后重试）】\n' + skText;
-            }
-          } else {
-            // 通过
-            if(typeof showToast === 'function') showToast('✅ 骨架自检通过（第' + skAttempt + '次），开始生成…', {duration: 2000});
-            _skeletonBlueprint = '【骨架蓝图（已通过用户诉求自检）】\n' + skText;
-            _skSucceeded = true;
-            break;
-          }
-        } else {
-          if(skAttempt === 3){
-            // 最后一次失败，放弃骨架
-            break;
-          }
-        }
-      }
-      // 如果 _skFeedback 仍不为空但没通过，也注入到上下文中让AI知道
-      if(!_skSucceeded && _skFeedback){
-        _skeletonBlueprint = '【骨架自检反馈（AI需自行修正）】\n' + _skFeedback;
-      }
-    }
-
-    // 3. v56: 细纲专用逐卷生成分支（细纲内容最多、对作品把控最严格）
-    // —— 无论大模型/小模型，统一改为"逐卷调用 AI"，每一卷都携带：
-    //    (a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲
+    // 3. 细纲专用：按卷选择生成（取消全部自动生成，改由用户点击具体卷号）
+    // v60: 移除逐卷循环，用户点击下方卷按钮单独生成
     if(module === 'detail'){
-      // 3a. 读取卷数/每卷章节数（与 buildArchCardBatchesV48 的 detail 分支保持一致的解析逻辑）
-      var userVolCount2 = 9;
-      var userChPerVol = 12;
-
-      var volInputEl3 = document.getElementById('vol-count-detail');
-      if(volInputEl3){
-        var v3 = parseInt(volInputEl3.value);
-        if(v3 >= 3 && v3 <= 20) userVolCount2 = v3;
-      }
-      var chInputEl2 = document.getElementById('ch-count-detail');
-      if(chInputEl2){
-        var c2 = parseInt(chInputEl2.value);
-        if(c2 >= 1000 && c2 <= 20000) userChPerVol = Math.max(8, Math.round(c2 / userVolCount2));
-      }
-
-      // 3b. 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
-      var actualTotalVols = userVolCount2;
-      if(work && work.outline){
-        var volMatches2 = work.outline.match(/第[一二三四五六七八九十百零〇\d]+\s*卷/g);
-        if(volMatches2 && volMatches2.length > 0) actualTotalVols = volMatches2.length;
-      }
-
-      // 3c. 从大纲中提取每一卷的核心目标（作为硬性约束）
-      var volTargets = extractOutlineTargetsV52(work);
-
-      // 3d. 逐卷生成
-      var fullDetailResult = '';
-      var prevVolDetail = '';
-      var detailAllCards = [];
-      var volTargetChars = userChPerVol * 220; // 约每章 220 字
-
-      for(var vi56 = 1; vi56 <= actualTotalVols; vi56++){
-        // ===== 每次卷生成前校验：作品被切换则立即中止 =====
-        if(!_checkStillSameWork()) return;
-
-        // 进度提示（只更新百分比+文字，不再重置进度条）
-        var volLabel = '第 ' + vi56 + ' / ' + actualTotalVols + ' 卷';
-        if(typeof startAutoLoadingProgress === 'function'){
-          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
-          startAutoLoadingProgress(Math.min(98, detPct + 8), '正在生成细纲 · ' + volLabel);
-        } else if(typeof updateLoadingProgress === 'function'){
-          var detPct = 30 + Math.round(vi56 / actualTotalVols * 60);
-          updateLoadingProgress(detPct, '正在生成细纲 · ' + volLabel);
-        }
-
-        // 本卷目标：优先从大纲提取到的目标；否则用 fallback 提示 AI 自行从大纲推断
-        var thisVolTarget = '';
-        if(volTargets && volTargets[vi56 - 1] && volTargets[vi56 - 1].goal){
-          thisVolTarget = volTargets[vi56 - 1].goal;
-        } else {
-          thisVolTarget = '（请从"全书大纲"中自行抽取本卷的核心目标，并围绕其展开）';
-        }
-
-        // 构建本卷 prompt
-        var volPrompt = buildDetailVolumePromptV52(
-          work,
-          vi56,
-          actualTotalVols,
-          thisVolTarget,
-          prevVolDetail,
-          idea,
-          opts && opts.extraHint,
-          marketResearch,
-          memoryContext,
-          userChPerVol,
-          _skeletonBlueprint
-        );
-
-        // 调用 AI 生成本卷
-        var volResultText = null;
-        try{
-          if(typeof callRealAPIWithFallback === 'function'){
-            volResultText = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            volResultText = await callRealAPI(volPrompt, null, {});
-          }
-        }catch(ve){
-          console.warn('细纲 ' + volLabel + ' 生成失败:', ve);
-          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
-        }
-        if(!volResultText || !volResultText.trim()){
-          volResultText = '（' + volLabel + ' 生成失败，请重试）\n';
-        }
-        if(typeof stopAutoLoadingProgress === 'function') stopAutoLoadingProgress();
-
-        // 组装：卷标题 + 卷内容
-        var volHeader = '【第 ' + vi56 + ' 卷 · 章节细纲】\n';
-        var volBlock = volHeader + volResultText.trim() + '\n\n';
-
-        fullDetailResult += volBlock;
-        prevVolDetail += volBlock;  // 下一卷能读到前序所有卷的完整内容
-        detailAllCards.push({ label: volLabel, content: volResultText });
-        totalChars += volResultText.length;
-
-        // 卷之间轻微节流
-        if(vi56 < actualTotalVols){
-          await new Promise(function(res56){ setTimeout(res56, 50); });
-        }
-      }
-
-      // 3e. 完成细纲：后续与通用的"写入编辑区 + 保存到作品"流程对接
-      result = fullDetailResult.trim();
-      allCards = detailAllCards;
-      useSingleShot = false;  // 让后续的 toast 提示显示自定义文本
-      batches = detailAllCards;
+      if(typeof showToast === 'function') showToast('请在细纲页面点击具体卷号生成', {duration: 2500});
+      if(typeof hideLoading === 'function') hideLoading();
+      return;
     }
 
-    // 4. v48: 非 detail 模块 —— 保持原有的"大模型一次性 / 小模型分批卡片"策略
-    // 注意：如果上面进入了 detail 分支，allCards/result/batches 已经填充，下面不会再生成内容
+    // 4. 非 detail 模块 —— 逐卡片分批生成
     var taskType = 'default';
     if(module === 'world') taskType = 'world_rules';
     else if(module === 'chars') taskType = 'chars_core';
@@ -2764,34 +2816,27 @@ window.generateArchModule = async function(opts){
 
     // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
     if(module !== 'detail'){
-      batches = buildArchCardBatchesV48(module, work, idea);
+      // v62: 卡片选择 — 获取用户勾选的卡片，优先使用勾选结果
+      var checkedBatches = getCheckedCards(module);
+      if(checkedBatches && checkedBatches.length > 0){
+        batches = checkedBatches;
+        if(typeof showToast === 'function') showToast('📋 按选中卡片生成 ' + batches.length + ' 张', {duration: 2000});
+      } else {
+        batches = buildArchCardBatchesV48(module, work, idea);
+      }
+
       totalChars = 0;
       allCards = [];
     }
 
-    // 4b. 逐卡片分批生成（仅非 detail 模块执行；detail 模块已在上面逐卷生成完毕）
+    // 4b. 逐卡片分批生成（所有非 detail 模块执行）+ QualityEngine 评价 + 精准修复
     // v60: 移除一次性生成，按卡片生成后走评价→方案→修复流程
-    if(module !== 'detail'){
     for(var bi = 0; bi < batches.length; bi++){
       if(!_checkStillSameWork()) return;
 
       var card = batches[bi];
-      var progressLabel2;
-      var progressPct;
-      
-      // 计算当前卡片在整个批次中的进度位置
-      var cardProgress = (bi + 1) / batches.length; // 0~1
-      progressPct = 30 + Math.round(cardProgress * 45); // 30%~75%，留空间给评价和修复
-      
-      // 细纲模块：显示卷·卡序号
-      if(module === 'detail' && card.volume){
-        var volNum = card.volume;
-        var cardIdx = card.cardIndex || 1;
-        var totalCards = card.totalCards || 1;
-        progressLabel2 = '[第' + volNum + '卷·' + cardIdx + '/' + totalCards + '卡] ' + card.label;
-      } else {
-        progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
-      }
+      var progressLabel2 = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
+      var progressPct = 35 + Math.round((bi / batches.length) * 55);
 
       if(typeof startAutoLoadingProgress === 'function'){
         startAutoLoadingProgress(progressPct + 12, '正在生成 ' + moduleName + ' · ' + progressLabel2);
@@ -2799,7 +2844,7 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, opts && opts.extraHint, marketResearch, _skeletonBlueprint);
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -2811,29 +2856,7 @@ window.generateArchModule = async function(opts){
         }
       }catch(e){
         console.warn('卡片 ' + card.label + ' 生成失败:', e);
-        cardResult = null;
-      }
-
-      // 保底机制：未命中缓存或结果异常（null/空/过短），注入上下文重试一次
-      if(!cardResult || !cardResult.trim() || cardResult.trim().length < 50){
-        console.warn('[cache miss] ' + card.label + ' 未命中缓存，注入上下文重试');
-        var retryPrompt = cardPrompt + '\n\n【⚠️ 保底上下文 — 仅在缓存未命中时提供】\n';
-        if(work && work[module] && work[module].trim()){
-          retryPrompt += '■ 当前模块已有内容（摘要）：\n' + smartTruncate(work[module], 3000) + '\n\n';
-        }
-        if(memoryContext && memoryContext.trim()){
-          retryPrompt += '■ 设定上下文（摘要）：\n' + memoryContext.substring(0, 1500) + '\n';
-        }
-        try {
-          if(typeof callRealAPIWithFallback === 'function'){
-            cardResult = await callRealAPIWithFallback(retryPrompt, null, taskType, cardTargetChars, true);
-          } else if(typeof callRealAPI === 'function'){
-            cardResult = await callRealAPI(retryPrompt, null, {});
-          }
-        } catch(retryErr){
-          console.warn('[保底重试] ' + card.label + ' 失败:', retryErr);
-          cardResult = '（本卡片生成失败）\n';
-        }
+        cardResult = '（本卡片生成失败）\n';
       }
 
       if(!cardResult || !cardResult.trim()){
@@ -2844,14 +2867,10 @@ window.generateArchModule = async function(opts){
       allCards.push({ label: card.label, content: cardResult });
       totalChars += cardResult.length;
 
-      // 模板自动入库：评分>=90自动收录
-      try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(cardResult, module, 'auto'); } catch(te){}
-
       if(bi < batches.length - 1){
         await new Promise(function(res){ setTimeout(res, 50); });
       }
     }
-    } // end of if(module !== 'detail') - 细纲已在逐卷分支生成完毕
 
     // 合并所有卡片为完整结果
     var mergedResult = '';
@@ -2890,7 +2909,7 @@ window.generateArchModule = async function(opts){
         var _curScore = evalResult.totalScore || 0;
         var _needFix = false;
 
-        // 检查是否需要修复：总分<90 或 任何维度<9/10
+        // 检查是否需要修复：总分<90 或 任何维度<9
         if(_curScore < 90){
           _needFix = true;
         } else if(evalResult.dimensions && evalResult.dimensions.length){
@@ -2921,10 +2940,14 @@ window.generateArchModule = async function(opts){
             });
           }
 
-          // 构建精准修复 prompt
-          var _fixPrompt = '你是一位资深网文编辑，必须一次性精准修复到目标（仅此一次修复机会，没有第二次）。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100 （目标：≥90/100，每个维度≥9/10）\n';
-          _fixPrompt += '【修复规则 — 务必一次性全部解决】\n';
+          // v61: 构建精准修复 prompt
+          // 核心修复：不再截断原文(smartTruncate→8000)，改为发送完整内容
+          // targetChars 设为原文长度，配合截断续写机制让AI输出完整内容
+          // 兜底：如果修复结果比原文短30%以上，保留原文不替换
+          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
+          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
+          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
+          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
           for(var _fi = 0; _fi < _fixIssues.length; _fi++){
             _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
           }
@@ -2937,18 +2960,17 @@ window.generateArchModule = async function(opts){
             }
           } catch(e){}
 
-          if(idea && idea.trim()){
-            _fixPrompt += '\n【用户核心诉求 — 修复时不得偏离此方向】\n' + idea.trim().substring(0, 500) + '\n';
-          }
-
-          _fixPrompt += '\n【⚠️ 一次性精准修复规则 — 仅此一轮，没有第二次机会】\n';
-          _fixPrompt += '1. 一次性修复所有低分维度的问题，一个不漏\n';
+          _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
+          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
           _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 章节编号、人名、地名、格式必须保持不变\n';
-          _fixPrompt += '4. 不得改变原始用户核心诉求和整体方向\n';
-          _fixPrompt += '5. 修复后必须达到：每个维度≥9/10，总分≥90/100\n\n';
-          _fixPrompt += '【待修复的完整内容 — 保持原文不变，只改问题部分】\n' + result + '\n\n';
-          _fixPrompt += '直接输出修复后的完整内容（全文输出，不要只输出修改的部分）。不要加任何对话语前缀。';
+          _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
+          _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
+          // 发送完整原文，不截断 — AI上下文窗口足够大，关键是输出侧
+          _fixPrompt += '【待修复的完整内容 — 请仔细阅读，所有内容都需要保留】\n' + result + '\n\n';
+          _fixPrompt += '【输出要求】\n';
+          _fixPrompt += '输出修复后的完整内容。必须保留原文的全部结构和细节，不得删减、缩短或省略任何部分。\n';
+          _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
+          _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
 
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
 
@@ -2957,45 +2979,24 @@ window.generateArchModule = async function(opts){
           var _fixResult = null;
           try {
             if(typeof callRealAPIWithFallback === 'function'){
-              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, result.length, true);
+              // 用原文长度作为 targetChars，让 max_tokens 尽可能大
+              // 配合截断续写机制，AI会自动补齐超出max_tokens的内容
+              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, Math.max(result.length, 30000), true);
             }
           } catch(_fixErr) { console.warn('[精准修复] 失败:', _fixErr); }
 
           if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
-            result = _fixResult.trim();
-            totalChars = result.length;
-            if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
+            // v61: 如果修复结果比原文短超过30%，说明AI删减了内容，保留原文
+            if(_fixResult.trim().length < result.length * 0.7){
+              if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水（' + result.length + '→' + _fixResult.trim().length + '字），已保留原文。请手动编辑或缩小修复范围。', {duration: 5000});
+            } else {
+              result = _fixResult.trim();
+              totalChars = result.length;
+              if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
+            }
           } else {
             if(typeof showToast === 'function') showToast('⚠️ 精准修复未生效，使用原始内容', {duration: 3000});
           }
-        }
-
-        // ⭐ 保底机制：当评分极低（<70）说明存在严重不一致/断裂，注入已有模块上下文做全面修复
-        if(_curScore < 70){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🛡️ ' + moduleName + ' · 保底一致性修复中…');
-          
-          var _backupPrompt = '你是一位资深网文编辑。当前生成的内容存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
-          _backupPrompt += '【⚠️ 修复目标】\n1. 所有人名、地名、设定必须与作品已有设定一致\n2. 时间线必须连续无矛盾\n3. 前文已埋伏笔必须承接\n4. 修复后内容保持完整，不得删减\n\n';
-          
-          // 注入已有模块内容作为保底上下文
-          var _backupCtx = '';
-          if(module !== 'world' && work && work.world && work.world.trim()) _backupCtx += '【世界观】\n' + smartTruncate(work.world, 4000) + '\n\n';
-          if(module !== 'chars' && work && work.chars && work.chars.trim()) _backupCtx += '【人设】\n' + smartTruncate(work.chars, 4000) + '\n\n';
-          if(module !== 'outline' && work && work.outline && work.outline.trim()) _backupCtx += '【大纲】\n' + smartTruncate(work.outline, 4000) + '\n\n';
-          if(_backupCtx) _backupPrompt += '【作品已有设定 — 以此为基准进行一致性修复】\n' + _backupCtx;
-          
-          _backupPrompt += '\n【需要修复的内容】\n' + smartTruncate(result, 8000) + '\n\n直接输出修复后的完整内容。';
-          
-          if(!_checkStillSameWork()) return;
-          
-          try {
-            var _backupResult = await callRealAPIWithFallback(_backupPrompt, null, taskType, result.length, true);
-            if(_backupResult && _backupResult.trim() && _backupResult.trim().length > 100){
-              result = _backupResult.trim();
-              totalChars = result.length;
-              if(typeof showToast === 'function') showToast('🛡️ 保底一致性修复完成', {duration: 3000});
-            }
-          } catch(_backupErr) { console.warn('[保底修复] 失败:', _backupErr); }
         }
       }
     } catch(evalErr) { console.warn('[质量评价] 异常:', evalErr); }
@@ -3058,7 +3059,7 @@ window.generateArchModule = async function(opts){
     if(module === 'detail'){
       batchInfo = '逐卷生成（共 ' + actualTotalVols + ' 卷）';
     } else {
-      batchInfo = useSingleShot ? '一次性完整生成' : batches.length + ' 张卡片';
+      batchInfo = batches.length + ' 张卡片';
     }
     var completionMsg = '✅ ' + moduleName + ' 生成完成（' + batchInfo + ' · ' + result.length + '字）';
     showToast(completionMsg, {duration:5000});
@@ -3076,82 +3077,94 @@ function buildArchCardBatchesV48(module, work, idea){
   var batches = [];
 
   if(module === 'world'){
+    // v61: 根据用户指令判断是否为"无魔"设定，调整世界观卡片内容
+    var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
+    var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
+
     // 世界观：8 张卡片，每张聚焦一个维度，极度精细，覆盖大型世界观需求
     batches.push({
       label: '世界观·时代定位与历史脉络',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '时间线与历史背景 — 精确到年号/纪元的时代定位（可用架空纪年）、至少4个改变世界格局的重大历史事件（每件写清：起因→经过→后果→对当前时代活的直接影响，必须能用在后文剧情中）、当前时代的核心特征（为什么这个时代能产生好故事——是乱世出英雄？还是盛世藏暗流？）、历史遗留的未解之谜（至少3个，将成为跨卷伏笔）、时代特有的禁忌与规则（触碰会怎样，谁在维护这些规则）'
     });
     batches.push({
       label: '世界观·地理环境与生态资源',
-      targetChars: 8000,
-      focus: '地理设定与自然资源 — 核心区域（至少5个，每个写清：名称、地理位置、气候特征、资源特产、交通路线、与主角的关联）、边缘地带/禁地/秘境（至少3个，为什么危险、隐藏什么秘密、谁在探索）、自然资源分布（什么资源稀缺、什么资源是争夺焦点）、生态链（有哪些关键物种/灵兽/魔兽，它们与人类/文明的关系）、对文明发展的影响（地理如何塑造了各地区的发展路径和文化差异）'
+      targetChars: 3000,
+      focus: _isNoMagic
+        ? '地理设定与自然资源（写实设定） — 核心区域（至少5个，每个写清：名称、地理位置、气候特征、资源特产、交通路线、与主角的关联）、边缘地带/禁地/秘境（至少3个，为什么危险——写实原因如极端气候、地形险恶、疾病瘟疫、野兽出没、匪患横行，而非魔法诅咒；隐藏什么秘密——失落的矿脉、古代遗迹、战略要地、珍稀资源；谁在探索）、自然资源分布（什么资源稀缺、什么资源是争夺焦点，如铁矿、金矿、盐、马匹、木材、水源）、生态链（有哪些关键野生动物/驯养动物，它们的经济和军事价值，如战马、信鸽、猎犬、驮兽）、对文明发展的影响（地理如何塑造了各地区的发展路径和文化差异，如山地→尚武、平原→农耕、沿海→贸易）'
+        : '地理设定与自然资源 — 核心区域（至少5个，每个写清：名称、地理位置、气候特征、资源特产、交通路线、与主角的关联）、边缘地带/禁地/秘境（至少3个，为什么危险、隐藏什么秘密、谁在探索）、自然资源分布（什么资源稀缺、什么资源是争夺焦点）、生态链（有哪些关键物种/灵兽/魔兽，它们与人类/文明的关系）、对文明发展的影响（地理如何塑造了各地区的发展路径和文化差异）'
     });
     batches.push({
       label: '世界观·文明体系与文化特征',
-      targetChars: 8000,
-      focus: '文明与文化体系 — 主流文明（至少2个，每个写清：核心理念、发展历程、代表性建筑/艺术/科技、与其他文明的交流或冲突）、宗教/信仰体系（至少2个，每个写清：核心教义、信徒群体、神职人员、圣地、对政治的影响）、语言与文字（是否统一语言、是否有失传的古文字、是否有只有特定种族/阶层才能读的语言）、节日与习俗（至少3个重要节日，每个写清：起源、庆祝方式、谁参与谁排斥、是否有潜在的故事冲突）、文化禁忌（至少3个，触碰的后果是什么）'
+      targetChars: 3000,
+      focus: _isNoMagic
+        ? '文明与文化体系（无魔/世俗设定） — 主流文明/势力（至少2个，每个写清：核心理念、发展历程、代表性建筑/艺术/科技、与其他文明的关系）。' + (_isNoReligion ? '' : '世俗化的信仰/传统习俗（非超自然宗教，而是基于历史、祖先、英雄的纪念性传统，每个写清：起源故事、纪念方式、谁参与谁排斥）。') + '语言与文字（是否统一语言、是否有失传的古文字、是否有只属于特定阶层的密语）。节日与习俗（至少3个重要节日，每个写清：起源、庆祝方式、谁参与谁排斥、是否有潜在的故事冲突）。文化禁忌（至少3个，触碰的后果，谁在维护）。世俗权力结构（王权、贵族、商人行会、军事组织之间的关系，权力如何传承和制约）。'
+        : '文明与文化体系 — 主流文明（至少2个，每个写清：核心理念、发展历程、代表性建筑/艺术/科技、与其他文明的交流或冲突）、宗教/信仰体系（至少2个，每个写清：核心教义、信徒群体、神职人员、圣地、对政治的影响）、语言与文字（是否统一语言、是否有失传的古文字、是否有只有特定种族/阶层才能读的语言）、节日与习俗（至少3个重要节日，每个写清：起源、庆祝方式、谁参与谁排斥、是否有潜在的故事冲突）、文化禁忌（至少3个，触碰的后果是什么）'
     });
     batches.push({
-      label: '世界观·力量体系完整规则',
-      targetChars: 8000,
-      focus: '力量体系与规则 — 完整等级划分（每级：名称、标志性能力、突破条件、突破失败代价、在总人口中的占比）、力量的来源（来自修炼/血脉/科技/契约/信仰？来源是否有限？）、力量的限制（天花板在哪、为什么不能无限升级、是否有副作用/代价）、力量的分类（至少3种不同类型的力量体系，它们之间的克制/互补关系）、力量体系对社会的影响（强者如何统治、弱者如何生存、力量等级是否决定社会地位）、力量体系对剧情的推动（至少3个与力量体系直接相关的冲突点和转折点）'
+      label: _isNoMagic ? '世界观·军事与权力体系' : '世界观·力量体系完整规则',
+      targetChars: 3000,
+      focus: _isNoMagic
+        ? '军事与权力体系（无魔设定） — 军事力量（各国军队编制、兵种构成、精锐部队、常备军vs征召兵、核心战术）、军事科技（当前时代的武器技术前沿：冶铁/炼钢水平、弓弩/攻城器械/火药/海军技术、谁的军工最强）、权力来源（不是魔法/修炼，而是：土地所有权、军事指挥权、经济控制权、血统宣称、政治联姻、情报网络、民众支持）、权力博弈的核心资源（兵力、粮食、铁矿、黄金、情报、工匠、贸易路线，每种标注谁掌控、谁需要、如何获取）、权力天花板（一个人能爬到的最高位置靠什么、有哪些不可逾越的壁垒）、关键冲突类型（王位继承战争、领土争端、贸易封锁、宗教/意识形态冲突、民族起义、贵族叛乱、农民暴动，每种标注在当前世界可能怎么爆发）、权力对剧情推动（至少3个由权力博弈直接引发的关键转折点）'
+        : '力量体系与规则 — 完整等级划分（每级：名称、标志性能力、突破条件、突破失败代价、在总人口中的占比）、力量的来源（来自修炼/血脉/科技/契约/信仰？来源是否有限？）、力量的限制（天花板在哪、为什么不能无限升级、是否有副作用/代价）、力量的分类（至少3种不同类型的力量体系，它们之间的克制/互补关系）、力量体系对社会的影响（强者如何统治、弱者如何生存、力量等级是否决定社会地位）、力量体系对剧情的推动（至少3个与力量体系直接相关的冲突点和转折点）'
     });
     batches.push({
       label: '世界观·势力分布与政治格局',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '社会结构与势力分布 — 主要势力（至少5个，每个写清：名称、首领、崛起历史、核心理念、势力范围、核心资源、内部派系、对外关系）、势力间的对立关系（至少4组对立，每组写清：表面关系vs暗地关系、利益冲突点、即将爆发的导火索、谁在调停谁在拱火）、政治体制（各势力的统治方式：君主制/议会制/长老会/宗教统治/强者独裁？）、底层民众的生存状态（他们如何被卷入势力斗争、有没有自己的组织或反抗力量）、隐藏势力/第三方力量（至少2个，在关键时刻搅局，谁也不知道它们的存在）'
     });
     batches.push({
       label: '世界观·经济体系与资源博弈',
-      targetChars: 5000,
+      targetChars: 2500,
       focus: '经济与资源体系 — 货币体系（统一货币还是各势力各自发行？货币名称、兑换率、购买力、是否有稀缺物资充当特殊货币）、贸易网络（至少3条主要贸易路线，每条写清：起点→终点、运输什么、谁掌控、风险是什么）、稀有资源（至少3种，每种写清：名称、用途、产地、谁垄断、为什么稀缺）、经济命脉（谁掌控世界经济命脉、经济不平等如何加剧社会矛盾）、黑市与地下交易（有没有地下经济、谁在运营、交易什么）'
     });
     batches.push({
       label: '世界观·种族与阶层',
-      targetChars: 5000,
-      focus: '种族与社会阶层 — 主要种族/物种（至少3个，每个写清：外形特征、寿命、天赋/弱点、社会地位、与其他种族的关系、是否有种族歧视或结盟）、社会阶层划分（至少4个阶层，每个写清：构成人群、生活状态、上升通道、与主角的关联）、阶层间的矛盾（贫富差距、种族歧视、新旧贵族之争、平民与特权阶层的冲突）、边缘群体（有没有被社会排斥的群体、他们的生存方式、会不会成为主角的盟友或敌人）、主角所处的阶层（他/她出身的阶层、有哪些限制、如何突破）'
+      targetChars: 2500,
+      focus: _isNoMagic
+        ? '民族/族群与社会阶层（无魔设定） — 主要民族/族群（至少3个，每个写清：外貌特征、文化传统、聚居地、社会地位、与其他族群的关系，注意：不是奇幻种族，而是人类的不同民族/部落/文化群体，其差异来自地理隔离和历史演变而非超自然原因）、社会阶层划分（至少4个阶层，每个写清：构成人群、生活状态、上升通道、与主角的关联）、阶层间的矛盾（贫富差距、民族矛盾、新旧贵族之争、平民与特权阶层的冲突、商人阶层vs土地贵族）、边缘群体（有没有被社会排斥的群体、他们的生存方式、会不会成为主角的盟友或敌人）、主角所处的阶层（他/她出身的阶层、有哪些限制、如何突破，穿越者身份带来的认知优势是什么）'
+        : '种族与社会阶层 — 主要种族/物种（至少3个，每个写清：外形特征、寿命、天赋/弱点、社会地位、与其他种族的关系、是否有种族歧视或结盟）、社会阶层划分（至少4个阶层，每个写清：构成人群、生活状态、上升通道、与主角的关联）、阶层间的矛盾（贫富差距、种族歧视、新旧贵族之争、平民与特权阶层的冲突）、边缘群体（有没有被社会排斥的群体、他们的生存方式、会不会成为主角的盟友或敌人）、主角所处的阶层（他/她出身的阶层、有哪些限制、如何突破）'
     });
     batches.push({
       label: '世界观·核心矛盾与悬念钩子',
-      targetChars: 5000,
+      targetChars: 2500,
       focus: '世界观矛盾与悬念钩子 — 核心矛盾（表层矛盾：谁和谁在打+为什么；深层矛盾：真正的原因是什么，99%的人不知道，这个真相何时揭露）、势力间的暗流（至少4条暗线，每条写清：谁在策划什么、为什么不被发现、什么时候浮出水面）、世界观级悬念钩子（至少5个未解之谜，每个标注：谁在追查、预计何时揭晓、揭晓后会引发什么连锁反应）、主角与世界规则的冲突点（主角为什么是打破规则的人、他/她的存在本身是不是对世界规则的威胁）、世界即将面临的变局（至少2个大事件即将发生，改变一切，它们是什么、谁在推动、主角如何被卷入）'
     });
   } else if(module === 'chars'){
     // 人设：7 张卡片，覆盖主角、反派、配角、关系角色 + 关系网
     batches.push({
       label: '主角·核心设定',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '主角（1位，最核心的那位）：姓名（含含义/外号）、年龄、完整外貌描写（3个辨识点，如伤疤/纹身/习惯动作）、核心动机（不是"变强"，而是具体到"为XX报仇/找到XX/证明XX"，必须能失败）、最大执念（执念到偏执的程度，让他做出不理性选择）、最大弱点/缺陷（性格缺陷，不是能力缺陷，让读者又爱又恨）、人物弧光（起点状态→终点状态，中间至少2次动摇）、核心能力/资源（初始能力+隐藏潜力，标注限制条件）、外在面具 vs 真实自我（他装出来的样子和他真正是什么人）、标志性台词/口头禅（至少2句，读者一看就知道是他说的）、3个让读者记住的细节瞬间'
     });
     batches.push({
       label: '主角·成长轨迹',
-      targetChars: 6000,
+      targetChars: 2500,
       focus: '主角成长轨迹 — 开局状态（他一无所有/被压制/被误解的具体处境）、第1次觉醒（什么事件触发、他获得了什么、付出了什么代价）、第1次挫折（他失败在哪里、如何爬起来、心态变化）、第1次重大选择（两难抉择，无论选什么都失去重要的东西）、中期转折（他发现自己一直被蒙蔽/利用）、后期蜕变（他真正成为什么样的人，和开局的反差）、最终结局（他得到了什么、失去了什么、他是否还是原来的自己）'
     });
     batches.push({
       label: '反派·核心设定',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '主要反派（1位）：姓名、身份/地位、核心目标（他认为自己在做正确的事，写出他的正义观）、与主角的根本冲突（不是简单的善恶对立，而是理念/立场/利益的不可调和）、反派的人设亮点（至少2个让读者觉得"他也有道理"的点）、弱点/软肋（他最在乎的人或事，这是打败他的关键）、与主角的旧关系或镜像关系（他们曾经是朋友/师徒/同类人？）、反派的3步计划（他已经做了什么、正在做什么、最终要做什么）、反派的结局预想（他最终会怎样，是悔悟/毁灭/还是另一种结局）'
     });
     batches.push({
       label: '反派·阵营与暗线',
-      targetChars: 5000,
+      targetChars: 2000,
       focus: '反派阵营 — 核心手下2-3位（每人：姓名、职位、能力、对反派的忠诚度、个人小算盘）、反派阵营的内部矛盾（谁可能背叛、为什么）、反派隐藏的底牌（至少2张，在关键时刻翻出来）、反派与主角阵营的暗线交集（谁其实是双面间谍/谁有隐藏身份）'
     });
     batches.push({
       label: '关键配角（盟友系）',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '主角阵营关键配角 3-4 位，每人必须写清：姓名、身份、与主角的关系（怎么认识的、为什么跟着主角）、独特作用（战斗/情报/情感/搞笑，至少一个不可替代的功能）、一句话标签（读者秒记）、性格辨识点（说话方式/习惯动作/口头禅）、个人秘密（至少1个，在关键时刻揭露）、他/她的成长线（从什么状态到什么状态）、如果这个角色死了对主角的打击'
     });
     batches.push({
       label: '关键配角（对手/中立系）',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '对手/中立系关键配角 2-3 位（每人同上格式：姓名、身份、与主角的关系、独特作用、性格辨识点、个人秘密、成长线）+ 中立势力的关键人物（至少1位，他/她为什么保持中立、在什么情况下会倒向主角或反派）'
     });
     batches.push({
       label: '重要关系角色 + 全人物关系网',
-      targetChars: 6000,
+      targetChars: 2500,
       focus: '（1）恋爱对象/CP角色（如果有）：姓名、外貌、性格、与主角的相遇方式、感情线推进节奏（暧昧→确认→考验→结局）、两人关系中的核心矛盾（不是小三，而是价值观/立场/隐瞒的冲突）、如果BE/如果HE分别是什么结局。（2）导师/引路人（如果有）：姓名、身份、教给主角什么、对主角的期望、最终结局（牺牲/退隐/背叛？）。（3）家族/亲缘关系（如果有）：父母/兄弟姐妹/家族背景，这些关系如何影响主角的行为和选择。（4）完整人物关系网：画出所有主要角色间的张力线（至少10条），每条线标注：关系类型（爱情/亲情/师徒/敌对/合作/利用/暗恋）、当前状态（亲密/疏远/对立/暧昧）、冲突点（什么会让这条关系破裂或转变）、转折预期（这条关系最终走向何方）'
     });
   } else if(module === 'outline'){
@@ -3172,7 +3185,7 @@ function buildArchCardBatchesV48(module, work, idea){
     
     batches.push({
       label: '开篇设计（前3章）',
-      targetChars: 5000,
+      targetChars: 3000,
       focus: '开篇3章精设计 — 第1章：开场画面（具体场景+感官细节）、主角出场方式（让读者3秒内记住他）、核心冲突引入（主角面临的第一个危机）、钩子设计（章末必须让读者想翻下一页）；第2章：世界观初窥（通过事件而非说明展示）、第一个爽点/虐点、新角色引入；第3章：第一个小高潮（主角的第一次胜利或第一次惨败）、主线任务明确（主角的目标是什么）、留下3个悬念。每章必须标注：情绪曲线（紧张→释放→更紧张）、读者预期管理（读者以为会怎样→实际怎样）'
     });
     for(var vi = 0; vi < userVolCount; vi++){
@@ -3180,22 +3193,21 @@ function buildArchCardBatchesV48(module, work, idea){
       var phase = volPhases[vi] || '';
       batches.push({
         label: '第 ' + volNum + ' 卷（' + phase + '）',
-        targetChars: 5000,
+        targetChars: 2000,
         focus: '第 ' + volNum + ' 卷（' + phase + '期）：【本卷核心冲突】主角外部对手是谁+内心挣扎是什么，两者必须交织。【本卷主角阶段性目标】具体可检验可失败的目标，不是"变强"而是"在XX之前拿到XX/阻止XX/救出XX"。【本卷核心事件】6-8个转折点，每个写清：触发原因→主角选择→后果→对后续影响，标注哪些是爽点/虐点/泪点。【本卷结束后】主角获得/失去了什么（物质+精神双重变化）、世界发生了什么变化、主角的处境是上升还是恶化。【本卷伏笔】至少3条跨卷伏笔，标注预计在哪一卷回收。【本卷爽点设计】完整的"压抑→爆发"链路，不是突然变强而是有铺垫。【本卷情感线推进】主角与关键角色的关系发生了什么变化。' + (volNum > 1 ? '【承接上卷】上卷末的状态如何延续到本卷，上卷的悬念如何在本卷解开或深化。' : ''),
         volume: volNum
       });
     }
     batches.push({
       label: '终卷·大结局 + 跨卷伏笔总览',
-      targetChars: 8000,
+      targetChars: 3000,
       focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前' + userVolCount + '卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
     });
   } else if(module === 'detail'){
-    // 细纲：每卷分成多张卡片，每张卡片包含指定章数
-    // 读取用户设置的卷数、总章数和每卡片章数
+    // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
+    // 读取用户设置的卷数和总章数
     var volumeCount = 9;
     var chaptersPerVolume = 10;
-    var chaptersPerCard = 10; // 每张卡片写多少章，可根据总章节数自动调整
     
     var volInputEl2 = document.getElementById('vol-count-detail');
     if(volInputEl2){
@@ -3207,19 +3219,6 @@ function buildArchCardBatchesV48(module, work, idea){
     if(chInputEl){
       var c = parseInt(chInputEl.value);
       if(c >= 1000 && c <= 20000) chaptersPerVolume = Math.max(10, Math.round(c / volumeCount));
-    }
-    
-    // 根据总章节数自动调整每卡片章数（总章节越多，每卡片章数越少）
-    // 1500章左右建议每卡片5-8章，避免单卡内容过多
-    var totalChFromIdea = 0;
-    if(idea && idea.trim()){
-      var chMatch = idea.match(/(\d+)\s*[章话回]/);
-      if(chMatch) totalChFromIdea = parseInt(chMatch[1]);
-    }
-    if(totalChFromIdea >= 1000){
-      chaptersPerCard = 5; // 千章以上每卡5章
-    } else if(totalChFromIdea >= 500){
-      chaptersPerCard = 8; // 500章以上每卡8章
     }
     
     // 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
@@ -3237,37 +3236,21 @@ function buildArchCardBatchesV48(module, work, idea){
       }
     }
     
-    // 按卷按卡片分组生成细纲
+    // 每卷生成一张细纲卡片
     var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
     for(var vi = 0; vi < volumeCount; vi++){
       var volNum = vi + 1;
-      var volChStart = (vi * chaptersPerVolume) + 1;
-      var volChEnd = (vi + 1) * chaptersPerVolume;
+      var chStart = (vi * chaptersPerVolume) + 1;
+      var chEnd = (vi + 1) * chaptersPerVolume;
       var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
       
-      // 计算本卷需要多少张卡片
-      var cardsCount = Math.ceil(chaptersPerVolume / chaptersPerCard);
-      
-      for(var ci = 0; ci < cardsCount; ci++){
-        var cardNum = ci + 1;
-        var cardChStart = volChStart + (ci * chaptersPerCard);
-        var cardChEnd = Math.min(volChStart + ((ci + 1) * chaptersPerCard) - 1, volChEnd);
-        var cardChapterCount = cardChEnd - cardChStart + 1;
-        
-        // 判断是否为卷的首卡或尾卡
-        var isFirstCard = (ci === 0);
-        var isLastCard = (ci === cardsCount - 1);
-        
-        batches.push({
-          label: '第 ' + volNum + ' 卷·' + cardNum + '/' + cardsCount + '（第' + cardChStart + '-' + cardChEnd + '章）',
-          targetChars: 5000,
-          focus: '第 ' + volNum + ' 卷细纲（第 ' + cardChStart + ' 到第 ' + cardChEnd + ' 章，共 ' + cardChapterCount + ' 章）。\n\n' + (isFirstCard ? '⚠️ 本卷第一组，请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲。\n' : '') + '每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么\n爆点/悬念钩子：章末留下什么\n伏笔：标注预计何时回收\n\n' + (isFirstCard ? '卷级要求：\n- 前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷结束时为下一卷埋下至少1条跨卷伏笔\n' : '') + (isLastCard ? '卷末要求：\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标\n' : '') + '组内要求：\n- 每2章设计一个转折点并标注【转折】\n- 章与章之间要有因果推进，不能孤立\n- 标注本组内的"情绪波浪"',
-          volume: volNum,
-          cardIndex: cardNum,
-          totalCards: cardsCount,
-          chapterRange: cardChStart + '-' + cardChEnd + '章'
-        });
-      }
+      batches.push({
+        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
+        targetChars: 3000,
+        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
+        volume: volNum,
+        chapterRange: chStart + '-' + chEnd + '章'
+      });
     }
   } else {
     // 其他未知模块：默认 1 张卡片
@@ -3279,7 +3262,7 @@ function buildArchCardBatchesV48(module, work, idea){
 
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResearch, skeleton){
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
   idea = idea || '';
   // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
   try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
@@ -3291,25 +3274,33 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
 
   var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
 
-  // 用户核心诉求放在第一位，优先级最高——这是唯一权威的创作方向
+  // 用户核心诉求放在第一位，优先级最高
   if(idea && idea.trim()){
-    prompt += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
-    prompt += '用户指令：' + idea.trim() + '\n\n';
-    prompt += '⚠️ 请按以下规则理解并执行用户指令：\n\n';
-    prompt += '【理解规则1：区分"世界约束"和"角色特质"】\n';
-    prompt += '  - 世界约束：用户描述的世界是什么样的。如"中世纪"→世界科技水平停留在中世纪，但穿越者主角可以拥有现代知识，这是个优势不是bug\n';
-    prompt += '  - 角色特质：用户描述的主角是什么样的。如"穿越者"→主角拥有跨时代知识，可以用现代思维解决问题\n';
-    prompt += '  - 世界约束不能锁主角特质：世界是中世纪 ≠ 主角不能有现代知识（如果他是穿越者）\n\n';
-    prompt += '【理解规则2：区分"全局锁"和"开放空间"】\n';
-    prompt += '  - 全局锁（用户明确说了"所有人""最强""唯一""不能"等）：所有模块所有角色都受此约束。如"最强的就是普通人"→没有任何人拥有超自然力量，世界观中不能有修炼/魔法/超能力\n';
-    prompt += '  - 结构事实（用户明确说了数量/名称）：必须严格遵循。如"四个王国"→就是四个，不多不少\n';
-    prompt += '  - 开放空间（用户没说的）：用focus模板扩展，用市场趋势填补。如用户没说王国名称→你来命名；没说地理→你来设计\n\n';
-    prompt += '【理解规则3：用户没说的才是自由发挥空间】\n';
-    prompt += '  - 用户明确提到的 → 锁定，逐字落实\n';
-    prompt += '  - 用户暗示的方向 → 沿方向扩展，不引入无关内容\n';
-    prompt += '  - 用户完全没提的 → 参考市场趋势和focus模板自由发挥\n\n';
+    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+
+    // v61: 从用户指令中提取禁止项，防止AI生成违规内容
+    var _forbiddenChecks = [];
+    var _ideaLower = idea.toLowerCase();
+    if(/无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神/.test(idea)) _forbiddenChecks.push('魔法、法术、魔力、元素、咒语、结界、传送门、神器、神迹、神祇');
+    if(/纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪/.test(idea)) _forbiddenChecks.push('任何超自然元素、神话生物、预言、天选之人、宿命、神权宗教');
+    if(/无系统|无面板|无金手指|无外挂|无穿越福利/.test(idea)) _forbiddenChecks.push('系统面板、属性加点、任务系统、签到奖励、抽奖、商城兑换');
+    if(/无修仙|无修真|无仙侠/.test(idea)) _forbiddenChecks.push('修仙、修真、渡劫、飞升、元婴、金丹、灵气、灵根');
+
+    if(_forbiddenChecks.length > 0){
+      prompt += '【🚫 禁止出现 — 以下内容绝对不允许出现在输出中，出现即视为生成失败】\n';
+      for(var _fci = 0; _fci < _forbiddenChecks.length; _fci++){
+        prompt += '- ' + _forbiddenChecks[_fci] + '\n';
+      }
+      prompt += '\n';
+    }
+
+    prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证】\n';
+    prompt += '1. 逐条对照上述用户核心诉求，确认每一条都已满足\n';
+    prompt += '2. 逐条对照上述禁止项，确认没有任何违规内容\n';
+    prompt += '3. 如果发现违规：删除违规内容，用符合用户指令的替代方案填补\n';
+    prompt += '4. 自检通过后再输出，不要输出未自检的内容\n\n';
   } else {
-    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材和市场趋势自由发挥】\n\n';
+    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
   }
 
   prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
@@ -3324,21 +3315,100 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
-  // ⭐ AI命中缓存机制：不注入动态上下文（prevCards/work[module]/memoryContext）
-  // 大模型自身超强上下文能力 + 缓存命中保证卡片间的一致性和完整性
-
-  // 骨架蓝图（扩展框架，以用户指令为核心展开）
-  if(skeleton && skeleton.trim()){
-    prompt += '【🧠 骨架蓝图（扩展框架，以用户指令为核心展开，填补用户未提及的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
+  // ⭐ v56：注入当前模块的已有内容 —— 让AI基于已有内容做迭代/加强，而不是每次从头生成
+  // 特别注意：当有 extraHint 时，这是针对性修改而非重新生成
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLimit = 6000;
+    if(extraHint && extraHint.trim()){
+      prompt += '【📖 当前模块已有内容 —— 请在此基础上针对问题部分做精准修改，其他部分保持不变。不是重新生成，是迭代加强】\n';
+    } else {
+      prompt += '【📖 当前模块已有内容 —— 请在此基础上扩展、深化细节而不是推倒重来。核心设定必须保留】\n';
+    }
+    prompt += smartTruncate(work[module], _cardExistingLimit) + '\n\n';
+    prompt += '【已有内容处理原则】\n';
+    prompt += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻或改名\n';
+    prompt += '2. 已有信息不充分的部分请补充扩展，但不得替换原有内容\n';
+    prompt += '3. 前后不一致的地方以更合理的一方为准统一修正\n';
+    prompt += '4. 如果本次有"加强意见"，只针对问题部分修改，保留其他部分不变\n';
+    prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // 趋势和市场调研：始终注入，用于填补用户指令未提及的空白
+  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
+  if(module !== 'world'){
+    if(module === 'detail'){
+      // 细纲是生成正文的底层基础，必须用原文确保准确完整
+      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+      if(work && work.world && work.world.trim()){
+        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+      }
+      if(work && work.chars && work.chars.trim()){
+        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+      }
+      if(work && work.outline && work.outline.trim()){
+        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+      }
+    } else {
+      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
+      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
+      if(sumCtx && sumCtx.trim()){
+        prompt += sumCtx + '\n\n';
+      } else {
+        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
+        if(work && work.world && work.world.trim()){
+          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
+        }
+        if(module !== 'chars' && work && work.chars && work.chars.trim()){
+          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
+        }
+      }
+    }
+  }
+
   var trend = getTrendHint2026(work);
   if(trend){
-    prompt += '【📊 市场趋势参考 — 填补用户指令未提及的空白，为用户指令的扩展提供背景】\n' + smartTruncate(trend, 400) + '\n\n';
+    // v59: 题材趋势必须过滤，只选与用户指令相符的方向
+    prompt += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
   }
+
+  // AI分工搜索：市场调研报告（必须严格基于用户指令方向，不得推荐违背指令的内容）
   if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 市场调研参考 — 填补用户指令未提及的空白，为用户指令的扩展提供背景】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
+    prompt += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
+  }
+
+  // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
+  if(memoryContext && memoryContext.trim()){
+    prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
+  }
+
+  // 关键：已生成的卡片内容（最近2张给完整摘要确保连贯，更早的只列标题——内容已提炼到记忆精要）
+  if(prevCards && prevCards.length > 0){
+    prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
+    
+    // v52: 最近 2 张卡片给更长的完整摘要（首段 + 末段），保持上下文连贯——大模型给更多
+    var _rcBig = isLargeContextModel();
+    var _rcLimit = _rcBig ? 2000 : 800;
+    var _rcFirst = _rcBig ? 800 : 300;
+    var _rcLast = _rcBig ? 400 : 200;
+    var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
+    for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
+      var pc2 = prevCards[pi2];
+      var snip2 = '';
+      if(pc2.content.length > _rcLimit){
+        snip2 = pc2.content.substring(0, _rcFirst) + '\n...（中间略）...\n' + pc2.content.slice(-_rcLast);
+      } else {
+        snip2 = pc2.content;
+      }
+      prompt += '■ ' + pc2.label + '：\n' + snip2.trim() + '\n\n';
+    }
+    
+    // 更早的卡片：只列标题（内容已提炼到记忆精要，避免 prompt 爆炸）
+    if(recentLimit > 0){
+      prompt += '【更早的卡片（标题参考，内容已提炼到记忆精要）】\n';
+      for(var oi2 = 0; oi2 < recentLimit; oi2++){
+        prompt += '· ' + prevCards[oi2].label + '\n';
+      }
+      prompt += '\n';
+    }
   }
 
   // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高
@@ -3349,9 +3419,6 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   // 本卡片目标
   prompt += '【本卡片任务】\n';
   prompt += '正在生成本模块中的卡片：**' + card.label + '**\n';
-  if(idea && idea.trim()){
-    prompt += '⚠️ 请以用户创作指令为核心，使用以下 focus 作为扩展框架，将用户指令展开为详细内容。用户指令是种子，focus 是扩展方向。\n';
-  }
   prompt += '请专注于以下内容：\n' + card.focus + '\n\n';
 
   // 格式与字数要求
@@ -3359,13 +3426,15 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
   prompt += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
   prompt += '2. 不要输出与本卡片无关的内容（如创作思路、解释说明）\n';
   prompt += '3. 段落清晰，用「■」标记关键子项\n';
-  prompt += '4. **目标字数：本卡片必须输出不少于 ' + card.targetChars + ' 字，这是硬性要求，不得压缩内容，充分展开每一个细节**\n';
-  prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
-  if(idea && idea.trim()){
-    prompt += '6. 以用户指令为核心，用 focus 框架扩展。用户指令明确要求的 → 必须落实；用户指令暗示的 → 沿方向扩展；用户指令未提及的 → 结合市场趋势自由填补\n';
+
+  // ⭐ v56：当有已有内容时，确保字数不低于已有内容对应部分
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLen = work[module].trim().length;
+    prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字。当前模块已有内容约 ' + _cardExistingLen + ' 字，本卡片内容不得压缩，应适当扩展细节**\n';
   } else {
-    prompt += '6. 按照上述 focus 要求组织内容，保证结构完整\n';
+    prompt += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
   }
+  prompt += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
   if(module === 'detail' && card.volume){
     prompt += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
     prompt += '7. 本卷细纲的章节编号从第 ' + card.chapterRange + ' 章开始\n';
@@ -3376,6 +3445,133 @@ function buildArchCardPromptV48(module, card, work, idea, extraHint, marketResea
 }
 
 // ===== v52: 大模型一次性生成完整模块 =====
+// 不拆卡片任务，让 AI 自己内部连贯规划，避免"逐张卡片+截断摘要"导致的上下文断裂
+// 生成后直接写入 work[module]，UI 层 splitContentIntoSemanticPages 自动分页
+function buildArchSinglePromptV52(module, batches, work, idea, extraHint, marketResearch, memoryContext){
+  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+  var title = (work && work.title) || '未命名作品';
+  var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+  var platform = '起点';
+  try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
+
+  // 计算总目标字数（所有卡片之和）
+  var totalTarget = 0;
+  for(var ti = 0; ti < batches.length; ti++){
+    totalTarget += batches[ti].targetChars || 800;
+  }
+
+  // ===== 系统消息（固定前缀，跨模块共享，服务商自动缓存）=====
+  var sysMsg = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+  sysMsg += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
+  sysMsg += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
+  sysMsg += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
+  sysMsg += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
+  sysMsg += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须在后续承接\n';
+  sysMsg += '5. 你将一次性完整输出全部内容，请内部自己规划结构，避免前后重复、前后矛盾\n\n';
+  sysMsg += '【作品基础信息】\n';
+  sysMsg += '作品名称：' + title + '\n';
+  if(genre) sysMsg += '一级题材：' + genre + '\n';
+  sysMsg += '发布平台：' + platform + '\n';
+  sysMsg += '当前模块：' + moduleName + '\n';
+
+  // ===== 用户消息1：上下文（模块特定，但共享前缀可被服务商缓存）=====
+  var ctxMsg = '';
+
+  // 用户核心诉求
+  if(idea && idea.trim()){
+    ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+  } else {
+    ctxMsg += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+  }
+
+  // 已有内容
+  if(work && work[module] && work[module].trim()){
+    var _existingLimit = 8000;
+    var _existingHintLabel = extraHint && extraHint.trim()
+      ? '【📖 当前模块已有内容 — 请在此基础上加强/修改/扩展，不要完全重新生成。保留好的部分，只针对问题部分修改】\n'
+      : '【📖 当前模块已有内容 — 请在此基础上进一步丰富、完善、加深细节，而不是推倒重来。如果已有内容有不一致之处，请统一修正但保留核心设定】\n';
+    ctxMsg += _existingHintLabel;
+    ctxMsg += smartTruncate(work[module], _existingLimit) + '\n\n';
+    ctxMsg += '【已有内容处理原则】\n';
+    ctxMsg += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻\n';
+    ctxMsg += '2. 已有信息不充分的部分，请补充扩展而不是替换\n';
+    ctxMsg += '3. 前后不一致的地方以更合理的一方为准，统一修正\n';
+    ctxMsg += '4. 空缺的部分可以新增内容，但不得与已有设定矛盾\n';
+    ctxMsg += '5. 如果本次有"加强意见"，优先按加强意见修改对应部分，同时保留其他部分不变\n\n';
+  }
+
+  // 前置架构上下文
+  if(module !== 'world'){
+    ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+    if(work && work.world && work.world.trim()){
+      ctxMsg += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+    }
+    if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      ctxMsg += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+    }
+    if((module === 'detail' || module === 'outline') && work && work.outline && work.outline.trim()){
+      ctxMsg += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+    }
+  }
+
+  // 2026 题材趋势
+  var trend3 = getTrendHint2026(work);
+  if(trend3){
+    ctxMsg += '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' + smartTruncate(trend3, 600) + '\n\n';
+  }
+
+  // 市场调研
+  if(marketResearch && marketResearch.trim()){
+    ctxMsg += '【📊 题材市场调研报告 · 灵感来源，不是硬性要求】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
+  }
+
+  // 长记忆上下文
+  if(memoryContext && memoryContext.trim()){
+    ctxMsg += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
+  }
+
+  // ===== 用户消息2：任务（模块特定，每次变化）=====
+  var taskMsg = '';
+
+  // 结构规划
+  taskMsg += '【📝 本次要完整输出的内容结构 — 你将一次性写完所有部分，请自己内部规划，避免重复与遗漏】\n';
+  for(var si2 = 0; si2 < batches.length; si2++){
+    var c2 = batches[si2];
+    taskMsg += '第' + (si2+1) + '部分 · ' + c2.label + '：' + (c2.focus || '') + '\n';
+  }
+  taskMsg += '\n';
+
+  // 加强意见
+  if(extraHint && extraHint.trim()){
+    taskMsg += '【★ 本次生成特别关注 — 来自编辑评价的加强意见，必须优先处理】\n' + smartTruncate(extraHint.trim(), 1200) + '\n\n';
+  }
+
+  // 格式与字数要求
+  taskMsg += '【⚠️ 输出格式与字数约束】\n';
+  taskMsg += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
+  taskMsg += '2. 不要输出与内容无关的创作思路、解释说明\n';
+  taskMsg += '3. 用「【XX】」作为每一部分的大标题，用「■」标记关键子项，段落清晰\n';
+
+  if(work && work[module] && work[module].trim()){
+    var _existingLen = work[module].trim().length;
+    var _minTarget = Math.max(totalTarget, _existingLen);
+    taskMsg += '4. **目标总字数：整份' + moduleName + '至少 ' + _minTarget + ' 字。当前已有内容约 ' + _existingLen + ' 字，本次输出不得少于该字数。请充分展开细节，不要压缩、不要精简**\n';
+  } else {
+    taskMsg += '4. **目标总字数：整份' + moduleName + '至少 ' + totalTarget + ' 字，请充分展开细节，不要压缩内容**\n';
+  }
+  taskMsg += '5. 各部分之间保持人物名称、设定、风格的一致性；前文埋的设定后文必须呼应\n';
+  if(module === 'detail'){
+    taskMsg += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
+  }
+
+  // v59: 返回 messages 数组，让服务商缓存固定前缀（system + ctx 前缀）
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: ctxMsg },
+    { role: 'user', content: taskMsg }
+  ];
+}
+
 // ========== v56: 细纲专用 — 从大纲提取每一卷的核心目标（作为硬性约束）==========
 // 输入：work.outline 文本
 // 输出：Array<{ volIndex:number, volName:string, goal:string, rawBlock:string }> — 每卷一条
@@ -3445,7 +3641,7 @@ function extractOutlineTargetsV52(work){
 // 设计原则：细纲内容最多、对作品把控最严格，所以每一卷都独立调用 AI；
 // 但每次调用都携带：(a) 完整世界观/人设 (b) 全书大纲+本卷核心目标 (c) 前序所有卷的完整细纲。
 // 这样即使大模型也不会在"一次性完整输出"时出现上下文断裂、伏笔遗忘、人设漂移。
-function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVolDetail, idea, extraHint, marketResearch, memoryContext, chaptersPerVol, skeleton){
+function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVolDetail, idea, extraHint, marketResearch, memoryContext, chaptersPerVol){
   var title = (work && work.title) || '未命名作品';
   var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
   var platform = '起点';
@@ -3474,12 +3670,9 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   // ===== 用户消息1：上下文（模块特定，共享前缀可被缓存）=====
   var ctxMsg = '';
 
-  // 用户核心诉求放在第一位——唯一权威
+  // 用户核心诉求
   if(idea && idea.trim()){
-    ctxMsg += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
-    ctxMsg += '用户指令：' + idea.trim() + '\n';
-    ctxMsg += '⚠️ 执行规则：用户指令明确提到的设定/人物/风格/情节 → 必须严格遵循；用户指令明确提到的限制 → 全球锁定所有模块；用户指令未明确的部分 → 参考市场调研自由发挥\n';
-    ctxMsg += '⚠️ 跨模块锁：用户指令规定的核心约束（如"普通人""无超能力"）必须贯穿所有模块，本卷细纲的情节设计不得突破此约束\n\n';
+    ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
   }
 
   // 前置架构：世界观 + 人设 + 大纲
@@ -3498,18 +3691,13 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
     ctxMsg += smartTruncate(volTarget, 2500) + '\n\n';
   }
 
-  // 趋势 + 市场调研（仅填补用户指令未覆盖的空白）
+  // 趋势 + 市场调研
   var trend = getTrendHint2026(work);
   if(trend){
-    ctxMsg += '【📊 市场趋势参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(trend, 600) + '\n\n';
+    ctxMsg += '【2026 年题材趋势参考】\n' + smartTruncate(trend, 600) + '\n\n';
   }
   if(marketResearch && marketResearch.trim()){
-    ctxMsg += '【📊 市场调研参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
-  }
-
-  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
-  if(skeleton && skeleton.trim()){
-    ctxMsg += '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + smartTruncate(skeleton, 600) + '\n\n';
+    ctxMsg += '【📊 题材市场调研报告 · 灵感来源】\n' + smartTruncate(marketResearch, 2000) + '\n\n';
   }
 
   // 共享长记忆上下文
@@ -3888,9 +4076,17 @@ window.generateAllPipeline = async function(){
       return;
     }
 
-    // 循环生成：每一个模块都优先读取对应的 user idea
+    // 循环生成：前3个模块自动生成，细纲需用户手动点选卷号
     for(var i=0;i<modules.length;i++){
       _selectedModule = modules[i];
+      // 细纲：跳过自动生成，提示用户手动点卷
+      if(modules[i] === 'detail'){
+        if(typeof updateLoadingProgress === 'function'){
+          updateLoadingProgress(90, '⏸ 细纲 · 请在下方点击具体卷号生成');
+        }
+        showToast('细纲需手动点击卷号生成', {duration: 3000});
+        continue;
+      }
       // 尝试切换到对应 tab 的 UI（如果存在）
       try{
         var pages = document.querySelectorAll('.module-page');
@@ -3916,87 +4112,11 @@ window.generateAllPipeline = async function(){
     }
     if(typeof hideLoading === 'function') hideLoading();
     showToast('✅ 四个模块全部生成完成！', {duration:3500});
-
-    // 自动生成商业书名+简介
-    try { await generateBookTitleAndSynopsis(true); } catch(e) {}
-
     _selectedModule = 'world';
   }catch(err){
     if(typeof hideLoading === 'function') hideLoading();
     console.error('generateAllPipeline error:', err);
     showToast('流水线生成异常：' + (err && err.message ? err.message : err));
-  }
-};
-
-// ===== 商业书名 + 简介生成 =====
-// 基于世界观、人设、大纲、细纲的完整内容，生成符合网文市场的商业书名和简介
-window.generateBookTitleAndSynopsis = async function(silent){
-  try {
-    var work = getCurrentWork();
-    if(!work){ showToast('请先选择作品'); return; }
-    if(!work.world && !work.chars && !work.outline && !work.detail){
-      showToast('请先生成至少一个模块的内容'); return;
-    }
-
-    if(!silent){
-      if(typeof resetLoading === 'function') resetLoading('📖 生成书名+简介…');
-      else if(typeof showLoading === 'function') showLoading('📖 生成书名+简介…');
-    }
-
-    var genre = work.genre || (work.category && work.category.cat1) || '';
-    var platform = '起点';
-    try { if(work._platform === 'fanqie') platform = '番茄'; } catch(e){}
-
-    var prompt = '你是一位资深网文编辑和营销专家，擅长为网络小说定名和撰写简介。请基于以下作品完整设定，生成符合市场需求的商业书名和简介。\n\n';
-    prompt += '【作品题材】' + (genre || '通用') + '\n';
-    prompt += '【发布平台】' + platform + '\n\n';
-
-    if(work.world && work.world.trim()){
-      prompt += '【世界观（精要）】\n' + smartTruncate(work.world, 2000) + '\n\n';
-    }
-    if(work.chars && work.chars.trim()){
-      prompt += '【人设（精要）】\n' + smartTruncate(work.chars, 2000) + '\n\n';
-    }
-    if(work.outline && work.outline.trim()){
-      prompt += '【全书大纲（精要）】\n' + smartTruncate(work.outline, 2000) + '\n\n';
-    }
-    if(work.detail && work.detail.trim()){
-      prompt += '【细纲（精要，前3卷）】\n' + smartTruncate(work.detail, 2000) + '\n\n';
-    }
-
-    prompt += '请生成以下内容：\n\n';
-    prompt += '【推荐书名】（5个）\n';
-    prompt += '1. 每个书名单独一行，标注类型（如：爽文向/设定向/悬念向/情感向）\n';
-    prompt += '2. 书名要朗朗上口、有记忆点、符合' + platform + '平台风格\n';
-    prompt += '3. 至少包含1个"反差型"书名（如《我在修仙界当卷王》——修仙+卷的反差）\n';
-    prompt += '4. 每个书名后面用小括号标注推荐理由（15字以内）\n\n';
-    prompt += '【商业简介】（1个，300-400字）\n';
-    prompt += '1. 开头第一句必须是"悬念钩子"——让读者3秒内产生好奇\n';
-    prompt += '2. 中间展示：世界观亮点 + 主角核心卖点 + 核心冲突\n';
-    prompt += '3. 结尾用一句话制造"不读可惜"的紧迫感\n';
-    prompt += '4. 必须包含：1个金句（适合做标语）、1个爆点（读者最期待的场景）\n';
-    prompt += '5. 不要堆砌设定，要用"事件+冲突+悬念"的方式讲故事\n\n';
-    prompt += '【营销标签】（5个）\n';
-    prompt += '1. 用#标签格式，如：#系统流 #无敌流 #反套路\n';
-    prompt += '2. 前3个标签必须是平台热门的\n\n';
-    prompt += '直接输出成品内容，不要加对话语前缀。';
-
-    var result = await callRealAPIWithFallback(prompt, null, 'default', 2000, silent);
-
-    if(result && result.trim()){
-      work.bookTitle = result.trim();
-      try { if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); } catch(e){}
-
-      // 显示在 toast 中
-      if(!silent){
-        if(typeof hideLoading === 'function') hideLoading();
-        showToast('✅ 书名+简介已生成并保存', {duration: 3000});
-      }
-      console.log('[书名+简介] 已保存到 work.bookTitle');
-    }
-  } catch(e) {
-    console.error('generateBookTitleAndSynopsis error:', e);
-    if(!silent) showToast('书名生成失败', {error: true});
   }
 };
 
@@ -4021,6 +4141,10 @@ window.initArchPage = function(){
       initArchPager(m);
     });
     initDetailPager();
+    // v62: 渲染卡片选择面板（world/chars/outline）
+    ['world','chars','outline'].forEach(function(m){
+      if(typeof renderCardCheckboxes === 'function') renderCardCheckboxes(m);
+    });
   }catch(e){}
 };
 
@@ -4536,7 +4660,7 @@ function initDetailPager() {
   }
 }
 
-// 用户点击选卷 - 按卡片生成细纲（每卷分成多张卡片，每张卡片只生成，合并后一次性评价+精准修改）
+// 用户点击选卷 - 单卷独立生成（v59: 使用完整上下文 + QualityEngine 精准修复）
 window.generateDetailForVolume = async function(volNum) {
   try {
     var work = getCurrentWork();
@@ -4551,75 +4675,41 @@ window.generateDetailForVolume = async function(volNum) {
     if (volMatches && volMatches.length > 0) totalVols = volMatches.length;
     if (volNum < 1 || volNum > totalVols) { showToast('卷号超出范围 1-' + totalVols); return; }
 
+    var chInputEl = document.getElementById('ch-count-detail');
+    var totalCh = chInputEl && chInputEl.value ? parseInt(chInputEl.value) : 3000;
+    var chPerVol = Math.max(10, Math.round(totalCh / totalVols));
+    var chStart = ((volNum - 1) * chPerVol) + 1;
+    var chEnd = volNum * chPerVol;
+
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
-    var _detSkeleton = ''; // 骨架独立变量，不污染 marketResearch
 
     if(typeof resetLoading === 'function') resetLoading('正在生成第 ' + volNum + ' 卷细纲…');
     else if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…');
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
-    // ===== 构建本卷的卡片批次 =====
-    var chInputEl = document.getElementById('ch-count-detail');
-    var totalCh = chInputEl && chInputEl.value ? parseInt(chInputEl.value) : 3000;
-    var chaptersPerVolume = Math.max(10, Math.round(totalCh / totalVols));
-    var chaptersPerCard = 10;
-    if(totalCh >= 1000) chaptersPerCard = 5;
-    else if(totalCh >= 500) chaptersPerCard = 8;
-    
-    var volChStart = ((volNum - 1) * chaptersPerVolume) + 1;
-    var volChEnd = volNum * chaptersPerVolume;
-    var cardsCount = Math.ceil(chaptersPerVolume / chaptersPerCard);
-    
-    // 构建本卷的卡片数组
-    var volCards = [];
-    for(var ci = 0; ci < cardsCount; ci++){
-      var cardChStart = volChStart + (ci * chaptersPerCard);
-      var cardChEnd = Math.min(volChStart + ((ci + 1) * chaptersPerCard) - 1, volChEnd);
-      var isFirstCard = (ci === 0);
-      var isLastCard = (ci === cardsCount - 1);
-      volCards.push({
-        label: '第 ' + volNum + ' 卷·' + (ci+1) + '/' + cardsCount + '（第' + cardChStart + '-' + cardChEnd + '章）',
-        volume: volNum,
-        cardIndex: ci + 1,
-        totalCards: cardsCount,
-        chapterRange: cardChStart + '-' + cardChEnd + '章',
-        targetChars: 2500,
-        isFirstCard: isFirstCard,
-        isLastCard: isLastCard,
-        chStart: cardChStart,
-        chEnd: cardChEnd
-      });
-    }
-
-    // ===== 1. 市场调研（一次，命中缓存） =====
-    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(5, '🔍 搜索题材市场趋势…');
-    var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
-    var plotType = (work && work.plotType) || (work && work.category && work.category.cat2) || '';
-    var platform = '起点';
-    try { if(work && work._platform === 'fanqie') platform = '番茄'; } catch(e){}
-    
-    var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份严格围绕用户核心诉求的市场调研报告。\n\n';
-    researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
-    if(plotType) researchPrompt += '【二级细分】' + plotType + '\n';
-    researchPrompt += '【发布平台】' + platform + '\n';
-    if(idea && idea.trim()) researchPrompt += '【用户核心诉求】\n' + idea.trim() + '\n';
-    researchPrompt += '\n请分析：匹配代表作、读者买单的卖点、已厌倦的套路、差异化机会、3条创作建议。控制在1200字以内。';
-    
+    // 1. 市场调研
     var marketResearch = '';
     try {
+      var genre = (work && work.genre) || (work && work.category && work.category.cat1) || '';
+      var researchPrompt = '你是一位网文市场分析师。请基于以下信息，给出一份严格围绕用户核心诉求的市场调研报告。\n\n';
+      researchPrompt += '【作品题材】' + (genre || '通用') + '\n';
+      researchPrompt += '【发布平台】起点\n';
+      if(idea && idea.trim()) researchPrompt += '【用户核心诉求】\n' + idea.trim() + '\n';
+      researchPrompt += '\n请分析：匹配代表作、读者买单的卖点、已厌倦的套路、差异化机会、3条创作建议。控制在1200字以内。';
       var researchResult = await callRealAPIWithFallback(researchPrompt, null, 'quality_consist', 1200, true);
       if(researchResult && researchResult.trim().length > 50) marketResearch = researchResult.trim();
     } catch(reErr) { console.warn('[市场调研] 失败:', reErr); }
-    
+
     if(!_checkStillSameWork()) return;
 
-    // ===== 2. 长记忆上下文（命中已有模块内容） =====
+    // 2. 长记忆上下文
     var memoryContext = '';
     try {
       if(typeof buildArchMemoryContext === 'function') memoryContext = buildArchMemoryContext(work, 'detail');
     } catch(e) {}
-    
-    // ===== 3. 本卷目标 + 前序卷细纲 =====
+
+    // 3. 本卷目标
     var volTargets = extractOutlineTargetsV52(work);
     var thisVolTarget = '';
     if(volTargets && volTargets[volNum - 1] && volTargets[volNum - 1].goal){
@@ -4627,10 +4717,11 @@ window.generateDetailForVolume = async function(volNum) {
     } else {
       thisVolTarget = '（请从"全书大纲"中自行抽取本卷的核心目标，并围绕其展开）';
     }
-    
-    // 前序卷细纲
+
+    // 4. 前序卷细纲（已生成的部分）
     var prevVolDetail = '';
     var existingDetail = work.detail || '';
+    // 只取本卷之前的卷
     for(var pv = 1; pv < volNum; pv++){
       var pvMarker = '【第 ' + pv + ' 卷';
       var pvIdx = existingDetail.indexOf(pvMarker);
@@ -4642,101 +4733,49 @@ window.generateDetailForVolume = async function(volNum) {
       }
     }
 
-    // ===== 4. 骨架生成（一次，命中缓存） =====
-    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🧠 骨架生成中…');
-    var skPrompt = '你是一位网文架构师。请根据以下信息，先生成一个简要的细纲骨架（200-300字），然后自检是否完全符合用户的核心诉求。\n\n';
-    skPrompt += '【用户核心诉求】\n' + (idea || '无特殊要求') + '\n\n';
-    skPrompt += '【作品题材】' + (genre || '通用') + '\n\n';
-    if(memoryContext) skPrompt += '【已有记忆上下文】\n' + memoryContext.substring(0, 2000) + '\n\n';
-    if(prevVolDetail) skPrompt += '【前序卷细纲】\n' + prevVolDetail.substring(0, 1500) + '\n\n';
-    skPrompt += '【本卷目标】第 ' + volNum + ' 卷，章节 ' + volChStart + '-' + volChEnd + '，目标：' + thisVolTarget + '\n\n';
-    skPrompt += '请按以下格式输出：\n【骨架】（200-300字的简要大纲）\n【自检】（逐条对照用户诉求）\n【结论】通过或不通过\n直接输出，不要加对话语前缀。';
-    
-    var skeletonResult = '';
-    try {
-      var skR = await callRealAPIWithFallback(skPrompt, null, 'default', 400, true);
-      if(skR && skR.trim()) skeletonResult = skR.trim();
-    } catch(skErr) { console.warn('[骨架生成] 失败:', skErr); }
-    
-    if(skeletonResult) _detSkeleton = skeletonResult; // 存入独立变量，不污染 marketResearch
+    if(typeof updateLoadingProgress === 'function') updateLoadingProgress(35, '正在生成第 ' + volNum + ' 卷细纲…');
+
+    // 5. 构建 prompt（完整上下文）
+    var volPrompt = buildDetailVolumePromptV52(
+      work, volNum, totalVols, thisVolTarget, prevVolDetail,
+      idea, null, marketResearch, memoryContext, chPerVol
+    );
+
+    // 6. 调用 AI
+    var volTargetChars = chPerVol * 220;
+    var result = await callRealAPIWithFallback(volPrompt, null, 'detail_base', volTargetChars, true);
+
     if(!_checkStillSameWork()) return;
 
-    // ===== 5. 逐卡片生成（只生成，不评价） =====
-    var allCards = [];
-    var totalChars = 0;
-    
-    for(var bi = 0; bi < volCards.length; bi++){
-      if(!_checkStillSameWork()) return;
-      
-      var card = volCards[bi];
-      var cardProgress = (bi + 1) / volCards.length;
-      var progressPct = 15 + Math.round(cardProgress * 65); // 15%~80%
-      
-      if(typeof updateLoadingProgress === 'function') updateLoadingProgress(progressPct, '正在生成细纲 · [第' + volNum + '卷·' + card.cardIndex + '/' + card.totalCards + '卡]');
-      
-      // 构建卡片 prompt
-      var cardPrompt = buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, thisVolTarget, prevVolDetail, totalVols, chaptersPerVolume, _detSkeleton);
-      
-      var cardResult = '';
-      try {
-        var cardR = await callRealAPIWithFallback(cardPrompt, null, 'detail_base', card.targetChars || 2500, true);
-        if(cardR && cardR.trim()) cardResult = cardR.trim();
-      } catch(cardErr) { console.warn('[卡片生成] 失败:', cardErr); }
-      
-      if(!cardResult) cardResult = '（本卡片生成失败）\n';
-      
-      allCards.push({ label: card.label, content: cardResult });
-      totalChars += cardResult.length;
-
-      // 模板自动入库：评分>=90自动收录
-      try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(cardResult, module, 'auto'); } catch(te){}
-      
-      if(bi < volCards.length - 1){
-        await new Promise(function(res){ setTimeout(res, 50); });
-      }
-    }
-    
-    // ===== 6. 合并所有卡片 =====
-    var mergedResult = '';
-    for(var mi = 0; mi < allCards.length; mi++){
-      var mc = allCards[mi];
-      mergedResult += mc.content.trim() + '\n\n';
-    }
-    var result = mergedResult.trim();
-    
-    if(!result || totalChars < 100){
+    if(!result || !result.trim()){
+      showToast('生成失败，请重试', { error: true, duration: 3000 });
       if(typeof hideLoading === 'function') hideLoading();
-      showToast('⚠️ 生成失败，请检查 API 设置后重试', {error:true, duration:4000});
       return;
     }
-    
-    if(!_checkStillSameWork()) return;
+    result = result.trim();
 
-    // ===== 7. 一次性质量评价 + 精准修复 =====
+    // 7. QualityEngine 评价 + 精准修复
     var evalResult = null;
     try {
       if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(82, '🔍 细纲 · 质量评价中…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(80, '🔍 细纲 · 质量评价中…');
         evalResult = QualityEngine.evaluate(result, 'detail');
       }
-      
+
       if(evalResult && evalResult.totalScore !== undefined){
         var _curScore = evalResult.totalScore || 0;
         var _needFix = false;
-        
         if(_curScore < 90) _needFix = true;
-        else if(evalResult.dimensions && evalResult.dimensions.length){
+        else if(evalResult.dimensions){
           for(var _di = 0; _di < evalResult.dimensions.length; _di++){
             var _d = evalResult.dimensions[_di];
-            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.9){
-              _needFix = true; break;
-            }
+            if(_d.score !== undefined && _d.max !== undefined && (_d.score / _d.max) < 0.9){ _needFix = true; break; }
           }
         }
-        
+
         if(_needFix){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(86, '🎯 细纲 · 生成精准修复方案…');
-          
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(85, '🎯 细纲 · 生成精准修复方案…');
+
           var _fixIssues = [];
           if(evalResult.dimensions){
             for(var _di2 = 0; _di2 < evalResult.dimensions.length; _di2++){
@@ -4751,67 +4790,41 @@ window.generateDetailForVolume = async function(volNum) {
               if(_fixIssues.indexOf(iss) === -1) _fixIssues.push(iss);
             });
           }
-          
+
           var _fixGuide = '';
           try { if(typeof QualityEngine.getFixGuide === 'function') _fixGuide = QualityEngine.getFixGuide(evalResult.dimensions); } catch(e){}
-          
-          var _fixPrompt = '你是一位资深网文编辑，必须一次性精准修复到目标（仅此一次修复机会，没有第二次）。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100 （目标：≥90/100，每个维度≥9/10）\n';
-          _fixPrompt += '【修复规则 — 务必一次性全部解决】\n';
+
+          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
+          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
+          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
+          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
           for(var _fi = 0; _fi < _fixIssues.length; _fi++){
-            _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
+            _fixPrompt += '- ' + _fixIssues[_fi] + '\n';
           }
-          if(_fixGuide) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fixGuide, 1500) + '\n';
-          if(idea && idea.trim()){
-            _fixPrompt += '\n【用户核心诉求 — 修复时不得偏离此方向】\n' + idea.trim().substring(0, 500) + '\n';
-          }
-          _fixPrompt += '\n【⚠️ 一次性精准修复规则 — 仅此一轮，没有第二次机会】\n';
-          _fixPrompt += '1. 一次性修复所有低分维度的问题，一个不漏\n';
+          if(_fixGuide) _fixPrompt += '\n【好坏标准学习指南】\n' + _fixGuide + '\n';
+          _fixPrompt += '\n【⚠️ 精准修复规则】\n';
+          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
           _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n';
-          _fixPrompt += '4. 不得改变原始用户核心诉求和整体方向\n';
-          _fixPrompt += '5. 修复后必须达到：每个维度≥9/10，总分≥90/100\n\n';
-          _fixPrompt += '【待修复的完整内容 — 保持原文不变，只改问题部分】\n' + result + '\n\n';
-          _fixPrompt += '直接输出修复后的完整内容（全文输出，不要只输出修改的部分）。不要加任何对话语前缀。';
-          
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(90, '🔧 细纲 · 执行精准修复…');
+          _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n\n';
+          _fixPrompt += '【当前内容】\n' + result;
+
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 细纲 · 执行精准修复…');
           if(!_checkStillSameWork()) return;
-          
+
           try {
-            var _fixResult = await callRealAPIWithFallback(_fixPrompt, null, 'detail_base', result.length, true);
+            var _fixResult = await callRealAPIWithFallback(_fixPrompt, null, 'detail_base', volTargetChars, true);
             if(_fixResult && _fixResult.trim().length > 100){
               result = _fixResult.trim();
             }
           } catch(fixErr) { console.warn('[精准修复] 失败:', fixErr); }
         }
-
-        // ⭐ 保底机制：细纲严重不一致时注入世界观/人设/大纲做全面修复
-        if(_curScore < 70){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🛡️ 细纲 · 保底一致性修复中…');
-          var _backupPrompt = '你是一位资深网文编辑。当前细纲存在严重不一致问题（评分仅' + _curScore + '/100）。请基于作品已有设定做全面一致性修复。\n\n';
-          _backupPrompt += '【修复目标】\n1. 章节编号必须连续\n2. 人物姓名、设定必须与已有设定一致\n3. 本卷内容必须与前后卷衔接自然\n4. 修复后内容保持完整\n\n';
-          var _backupCtx = '';
-          if(work && work.world && work.world.trim()) _backupCtx += '【世界观】\n' + smartTruncate(work.world, 3000) + '\n\n';
-          if(work && work.chars && work.chars.trim()) _backupCtx += '【人设】\n' + smartTruncate(work.chars, 3000) + '\n\n';
-          if(work && work.outline && work.outline.trim()) _backupCtx += '【大纲】\n' + smartTruncate(work.outline, 3000) + '\n\n';
-          if(work && work.detail && work.detail.trim()) _backupCtx += '【已有细纲全文】\n' + smartTruncate(work.detail, 3000) + '\n\n';
-          if(_backupCtx) _backupPrompt += '【作品已有设定】\n' + _backupCtx;
-          _backupPrompt += '\n【需要修复的内容】\n' + result + '\n\n直接输出修复后的完整内容。';
-          if(!_checkStillSameWork()) return;
-          try {
-            var _backupResult = await callRealAPIWithFallback(_backupPrompt, null, 'detail_base', result.length, true);
-            if(_backupResult && _backupResult.trim() && _backupResult.trim().length > 100){
-              result = _backupResult.trim();
-            }
-          } catch(_backupErr) { console.warn('[保底修复] 失败:', _backupErr); }
-        }
       }
     } catch(evalErr) { console.warn('[质量评价] 失败:', evalErr); }
-    
+
     if(!_checkStillSameWork()) return;
 
-    // ===== 8. 插入/更新到细纲全文 =====
-    insertOrReplaceVolumeContent(volNum, volChStart, volChEnd, result, totalVols, chaptersPerVolume);
+    // 8. 插入/更新到细纲全文
+    insertOrReplaceVolumeContent(volNum, chStart, chEnd, result, totalVols, chPerVol);
     try { syncArchToMemory(getCurrentWork(), 'detail'); } catch(e) {}
     try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(getCurrentWork()); } catch(e) {}
 
@@ -4821,65 +4834,6 @@ window.generateDetailForVolume = async function(volNum) {
     initDetailPager();
   } catch(e) { console.error('generateDetailForVolume error:', e); showToast('生成失败', { error: true, duration: 3000 }); if(typeof hideLoading === 'function') hideLoading(); }
 };
-
-// 为选卷生成构建卡片 prompt（不注入动态上下文，命中缓存保证一致性）
-function buildDetailCardPromptForVolume(work, volNum, card, idea, marketResearch, volTarget, prevVolDetail, totalVols, chaptersPerVolume, skeleton){
-  var prompt = '你是一位资深网文架构师，擅长拆解和构建章节细纲。\n\n';
-  
-  // 用户核心诉求放在第一位——唯一权威
-  if(idea && idea.trim()){
-    prompt += '【🎯 唯一权威·用户创作指令 — 以下所有内容必须以本指令为核心展开，不得偏离】\n';
-    prompt += '用户指令：' + idea.trim() + '\n';
-    prompt += '⚠️ 执行规则：用户指令明确提到的设定/人物/风格/情节 → 必须严格遵循；用户指令明确提到的限制 → 全球锁定所有模块；用户指令未明确的部分 → 参考市场调研自由发挥\n';
-    prompt += '⚠️ 跨模块锁：用户指令规定的核心约束（如"普通人""无超能力"）必须贯穿所有模块，细纲中的情节设计不得突破此约束\n\n';
-  }
-  
-  // 骨架蓝图（仅当用户指令未覆盖时作为参考框架）
-  if(skeleton && skeleton.trim()){
-    prompt += '【🧠 骨架蓝图（参考框架，仅填补用户指令未覆盖的空白）】\n' + skeleton.substring(0, 600) + '\n\n';
-  }
-  
-  // 市场调研（仅填补用户指令未覆盖的空白）
-  if(marketResearch){
-    prompt += '【📊 市场调研参考 — 仅用于填补用户指令未明确定义的部分，与用户指令冲突时必须以用户指令为准】\n' + marketResearch.substring(0, 1200) + '\n\n';
-  }
-  
-  // 本卷目标
-  prompt += '【本卷核心目标】第 ' + volNum + ' 卷：' + volTarget + '\n\n';
-  
-  // 前序卷细纲（衔接参考，仅当已生成时注入）
-  if(prevVolDetail){
-    prompt += '【前序卷细纲（衔接参考）】\n' + prevVolDetail.substring(0, 1500) + '\n\n';
-  }
-  
-  // 本卡片目标章节
-  prompt += '【本卡片目标章节】第 ' + card.chStart + ' 到第 ' + card.chEnd + ' 章（共 ' + (card.chEnd - card.chStart + 1) + ' 章）\n\n';
-  
-  if(card.isFirstCard){
-    prompt += '⚠️ 本卷第一组，请严格遵循本卷核心目标，确保与前序卷衔接自然。\n\n';
-  }
-  if(card.isLastCard){
-    prompt += '⚠️ 本卷最后一组，必须设计卷末钩子，为下一卷埋下伏笔。\n\n';
-  }
-  
-  prompt += '【每章格式要求】\n';
-  prompt += '■ 第N章《标题》\n';
-  prompt += '场景：具体地点+时间+氛围\n';
-  prompt += '人物：出场角色\n';
-  prompt += '开场画面：用一个感官细节开场\n';
-  prompt += '剧情节点（含起承转合4个节点）\n';
-  prompt += '对话亮点：本章最精彩的一句对话\n';
-  prompt += '爽点/虐点：具体是什么\n';
-  prompt += '爆点/悬念钩子：章末留下什么\n';
-  prompt += '伏笔：标注预计何时回收\n\n';
-  
-  prompt += '【组内要求】\n';
-  prompt += '- 每2章设计一个转折点并标注【转折】\n';
-  prompt += '- 章与章之间要有因果推进，不能孤立\n';
-  prompt += '- 标注本组内的"情绪波浪"\n';
-  
-  return prompt;
-}
 
 // 把指定卷的内容插入/合并到细纲全文（按卷分段保留其他卷内容）
 function insertOrReplaceVolumeContent(volNum, chStart, chEnd, volumeContent, totalVols, chPerVol) {
@@ -4983,11 +4937,13 @@ function generateArchCardSingle(module, card, idea, callback){
     }
   }
 
-  // 市场调研
+  // 市场调研/记忆上下文
   var marketResearch = '';
   try { if (typeof MarketResearchEngine !== 'undefined' && typeof MarketResearchEngine.summarize === 'function') { var mr = MarketResearchEngine.summarize(work.genre || work.category && work.category.cat1 || ''); if (mr) marketResearch = mr.substring(0, 1500); } } catch(e){}
+  var memoryContext = '';
+  try { if (typeof buildMemoryContextString === 'function') { var mctx = buildMemoryContextString(work); if (mctx) memoryContext = mctx.substring(0, 2000); } } catch(e){}
 
-  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, null, marketResearch, '');
+  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext);
   var cardTargetChars = card.targetChars || 3000;
 
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
@@ -5005,10 +4961,7 @@ function generateArchCardSingle(module, card, idea, callback){
   }
 
   Promise.resolve(apiCall).then(function(text){
-    var result = text || '';
-    // 模板自动入库
-    try { if(typeof TemplateEval !== 'undefined' && TemplateEval.autoCollect) TemplateEval.autoCollect(result, module, 'auto'); } catch(te){}
-    callback(result);
+    callback(text || '');
   }).catch(function(e){
     console.warn('单卡片生成失败:', e);
     callback('');
