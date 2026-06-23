@@ -2810,19 +2810,24 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
-  // ===== v48: 世界观规则自证（让写作前主动验证是否违反世界观规则）=====
-  // 优先级：longMemory.moduleSummaries > work.world 原文；文本上限大幅降低，避免 token 浪费
+  // ===== v48: 世界观规则自证 =====
+  // 大模型(archLimits=null)：直接注入完整原文，利用大上下文长记忆
+  // 小模型：优先 moduleSummaries 缓存，否则 archLimits 截断
   var worldContent = '';
-  try {
-    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.world) {
-      worldContent = work.longMemory.moduleSummaries.world.trim();
-    }
-  } catch(_e) {}
+  if (archLimits) {
+    try {
+      if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.world) {
+        worldContent = work.longMemory.moduleSummaries.world.trim();
+      }
+    } catch(_e) {}
+  }
   if (!worldContent && work.world) worldContent = work.world;
   if (worldContent && worldContent.length > 200) {
-    // 只保留精华，不做全量注入
-    var worldInjected = worldContent.length > 3000 ? worldContent.substring(0, 3000) + '...' : worldContent;
-    prompt += '【世界观设定】\n' + worldInjected + '\n\n';
+    if (archLimits) {
+      var wLimit = archLimits.world || 50000;
+      worldContent = worldContent.length > wLimit ? worldContent.substring(0, wLimit) + '...' : worldContent;
+    }
+    prompt += '【世界观设定】\n' + worldContent + '\n\n';
     // 从世界观中提取"规则/代价/限制"关键词附近的句子
     var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
     var rules = [];
@@ -2839,17 +2844,22 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【写作时必须遵守】本章的人物行为/能力/社会反应是否符合上述规则？若不符合，是否有合理的解释或情节需要？\n\n';
     }
   }
-  // 人物设定：优先 moduleSummaries 摘要，次选原文截断
+  // 人物设定：大模型直接原文，小模型优先 moduleSummaries 缓存
   var charsContent = '';
-  try {
-    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
-      charsContent = work.longMemory.moduleSummaries.chars.trim();
-    }
-  } catch(_e2) {}
+  if (archLimits) {
+    try {
+      if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
+        charsContent = work.longMemory.moduleSummaries.chars.trim();
+      }
+    } catch(_e2) {}
+  }
   if (!charsContent && work.chars) charsContent = work.chars;
   if (charsContent && charsContent.length > 100) {
-    var charsInjected = charsContent.length > 2500 ? charsContent.substring(0, 2500) + '...' : charsContent;
-    prompt += '【人物人设】\n' + charsInjected + '\n\n';
+    if (archLimits) {
+      var cLimit = archLimits.chars || 30000;
+      charsContent = charsContent.length > cLimit ? charsContent.substring(0, cLimit) + '...' : charsContent;
+    }
+    prompt += '【人物人设】\n' + charsContent + '\n\n';
   }
   
   // ===== v52: 素材库 · 从 work.materialLib 读取（AI 提取的 12 类结构化素材） =====
@@ -2923,62 +2933,99 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '2. 如果确实需要新元素，必须在细纲中事先定义\n\n';
     }
   }
-  // ===== v57: 大纲按卷注入 — 不再塞入全书大纲，只注入当前卷目标 + moduleSummaries 摘要 =====
+  // ===== v57: 大纲按卷注入 =====
+  // 大模型(archLimits=null)：直接注入完整大纲原文
+  // 小模型：优先 moduleSummaries，否则 archLimits 截断
   var outlineInjected = false;
-  // 1. 先尝试从 moduleSummaries 取大纲摘要（覆盖全书主线）
   var outlineSum = '';
-  try {
-    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.outline) {
-      outlineSum = work.longMemory.moduleSummaries.outline.trim();
-    }
-  } catch(_e3) {}
-  // 2. 再取当前卷大纲（覆盖本卷具体事件）
-  var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
-  if (outlineSum || outlineVol.body) {
-    if (outlineSum && outlineSum.length > 200) {
-      var outlineSumInjected = outlineSum.length > 2500 ? outlineSum.substring(0, 2500) + '...' : outlineSum;
-      prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSumInjected + '\n\n';
-      outlineInjected = true;
-    }
-    if (outlineVol.body && outlineVol.body.length > 100) {
-      var curVolOut = outlineVol.body.length > 3500 ? outlineVol.body.substring(0, 3500) + '...' : outlineVol.body;
-      prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
-      if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
-      if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
-      prompt += '\n';
-      outlineInjected = true;
-    }
-    // 3. 兜底：如果没切到卷，则用完整大纲但截断上限
-    if (!outlineInjected && work.outline) {
-      var fallback = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
-      prompt += '【全书大纲】\n' + fallback + '\n\n';
-    }
-  } else if (work.outline) {
-    var fallback2 = work.outline.length > 2000 ? work.outline.substring(0, 2000) + '...' : work.outline;
-    prompt += '【全书大纲】\n' + fallback2 + '\n\n';
+
+  if (archLimits) {
+    try {
+      if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.outline) {
+        outlineSum = work.longMemory.moduleSummaries.outline.trim();
+      }
+    } catch(_e3) {}
   }
 
-  // ===== v57: 细纲按卷注入 — 只让 AI 看到本卷细纲 + 本章相邻几章 =====
-  // 好处：(a) token 用量大幅降低 (b) 聚焦本卷剧情，不易串到其他卷 (c) 仍能看到本章的具体设计
+  if (archLimits === null && work.outline && work.outline.length > 100) {
+    // 大模型：直接注入完整大纲
+    prompt += '【全书大纲】\n' + work.outline + '\n\n';
+    outlineInjected = true;
+  } else {
+    var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
+    if (outlineSum || (outlineVol && outlineVol.body)) {
+      if (outlineSum && outlineSum.length > 200) {
+        if (archLimits) {
+          var oSumLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500;
+          outlineSum = outlineSum.length > oSumLimit ? outlineSum.substring(0, oSumLimit) + '...' : outlineSum;
+        }
+        prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSum + '\n\n';
+        outlineInjected = true;
+      }
+      if (outlineVol && outlineVol.body && outlineVol.body.length > 100) {
+        var curVolOut = outlineVol.body;
+        if (archLimits) {
+          var ovLimit = archLimits.outline || 40000;
+          curVolOut = curVolOut.length > ovLimit ? curVolOut.substring(0, ovLimit) + '...' : curVolOut;
+        }
+        prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
+        if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
+        if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
+        prompt += '\n';
+        outlineInjected = true;
+      }
+      if (!outlineInjected && work.outline) {
+        var fallback = work.outline;
+        if (archLimits) {
+          var fbLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
+          fallback = fallback.length > fbLimit ? fallback.substring(0, fbLimit) + '...' : fallback;
+        }
+        prompt += '【全书大纲】\n' + fallback + '\n\n';
+      }
+    } else if (work.outline) {
+      var fallback2 = work.outline;
+      if (archLimits) {
+        var fb2Limit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
+        fallback2 = fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2;
+      }
+      prompt += '【全书大纲】\n' + fallback2 + '\n\n';
+    }
+  }
+
+  // ===== v57: 细纲按卷注入 =====
+  // 大模型(archLimits=null)：注入完整细纲原文
+  // 小模型：按卷切分注入，archLimits 控制上限
   if (work.detail) {
+    if (archLimits === null) {
+      // 大模型：直接注入完整细纲
+      prompt += '【📑 全书细纲】\n' + work.detail + '\n\n';
+      prompt += '【核心指令 · 细纲最高优先级】\n';
+      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+      prompt += '1. 从细纲中找到对应剧情节点，严格按那部分来写\n';
+      prompt += '2. 细纲中的"爆点/悬念钩子"务必写出\n';
+      prompt += '3. 细纲中的"场景""人物"字段不得编造\n';
+      prompt += '4. 字数灵活控制，以剧情完整性为先\n\n';
+    } else {
     var detailVol = getCurrentVolumeDetail(work, chapterIdx);
     var hasDetail = detailVol && detailVol.volBody;
 
     if (hasDetail) {
-      // 注入：本卷细纲全文（上限 5000 字，一卷足够）
-      var volDetailText = detailVol.volBody.length > 5000
-        ? detailVol.volBody.substring(0, 5000) + '...(本卷细纲过长，已截断)'
-        : detailVol.volBody;
+      var volDetailText = detailVol.volBody;
+      if (archLimits) {
+        var vdLimit = archLimits.detail || 35000;
+        volDetailText = volDetailText.length > vdLimit ? volDetailText.substring(0, vdLimit) + '...(本卷细纲过长，已截断)' : volDetailText;
+      }
 
       prompt += '【📑 当前卷细纲：' + (detailVol.volLabel || '本卷') + '（第' + (detailVol.volStartChapter || 1) + '-' + (detailVol.volEndChapter || detailVol.volSize || '?') + '章）】\n';
       prompt += volDetailText + '\n\n';
 
-      // 如果切到了相邻几章的片段，再强调这几章
       if (detailVol.neighbor && detailVol.neighbor.trim()) {
-        var neighborLimit = detailVol.neighbor.length > 2500
-          ? detailVol.neighbor.substring(0, 2500) + '...'
-          : detailVol.neighbor;
-        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborLimit + '\n\n';
+        var neighborText = detailVol.neighbor;
+        if (archLimits) {
+          var nbLimit = Math.floor((archLimits.detail || 35000) * 0.5);
+          neighborText = neighborText.length > nbLimit ? neighborText.substring(0, nbLimit) + '...' : neighborText;
+        }
+        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborText + '\n\n';
       }
 
       prompt += '【核心指令 · 细纲最高优先级】\n';
@@ -2991,7 +3038,6 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
       prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
     } else {
-      // 兜底：细纲没分卷，直接按章节标题精准匹配 + 大幅截断
       var detailText = work.detail;
       if (archLimits && detailText.length > archLimits.detail) {
         var idxInDetail = detailText.indexOf(chTitle);
@@ -3000,10 +3046,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
           var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
           detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
         } else {
-          detailText = detailText.substring(0, 8000) + '...(细纲过长已截断)';
+          detailText = detailText.substring(0, archLimits.detail) + '...(细纲过长已截断)';
         }
-      } else if (detailText.length > 10000) {
-        detailText = detailText.substring(0, 10000) + '...(细纲过长已截断)';
       }
       prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
       prompt += '【核心指令 · 细纲最高优先级】\n';
@@ -3012,6 +3056,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
       prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
       prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
+    }
     }
   }
   
