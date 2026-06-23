@@ -106,11 +106,22 @@ function getPlatinumRulesHint(work){
       selected[idx] = '【视角锁定】本作品为第一人称（"我"）叙事。所有叙述必须从"我"的感官出发，"我"不在场的场景绝对不能写（只能通过后续对话/信/报告间接获知）。严禁跳转到其他角色的内心活动。';
     }
   }
-  // 随机选2条补充（少而精，不挤掉核心）
-  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; });
+  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; }).sort();
+  function _hashStr(s){
+    s = (s || '').toString();
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+    return (h >>> 0);
+  }
+  var seedStr = (work && (work._fingerprint || work.id) ? (work._fingerprint || work.id) : '') + '|write';
+  var seed = _hashStr(seedStr || 'default');
+  function _next(){
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed;
+  }
   var addCount = 2;
   for(var j = 0; j < addCount && remaining.length > 0; j++){
-    var idx2 = Math.floor(Math.random() * remaining.length);
+    var idx2 = _next() % remaining.length;
     selected.push(PLATINUM_RULES[remaining[idx2]]);
     remaining.splice(idx2, 1);
   }
@@ -4633,11 +4644,20 @@ async function aiWriteChapter(opts){
   // 进度按迭代轮次分段推进：第1轮 5→45%，第2轮 45→75%，第3轮 75→95%，最后100%
   if (typeof updateLoadingProgress === 'function') {
     var _startPct = 5 + _writeIteration * 35;
-    updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
+    var _pl = 0;
+    try {
+      if (Array.isArray(prompt)) {
+        for (var _pi = 0; _pi < prompt.length; _pi++) _pl += (prompt[_pi] && prompt[_pi].content ? (prompt[_pi].content + '').length : 0);
+      } else {
+        _pl = (prompt + '').length;
+      }
+    } catch(e) { _pl = (prompt + '').length; }
+    updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(_pl * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   // v59: 转为 messages 数组，让服务商缓存固定前缀
-  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  var _writeSys = '你是一位资深网文写作与润色专家。只输出成品正文，不要输出解释、分析或对话式前缀。必须保持设定一致、情节推进明确、章节末尾保留悬念钩子。';
+  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'system', content: _writeSys }, { role: 'user', content: prompt }];
   let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;

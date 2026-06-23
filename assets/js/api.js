@@ -1368,7 +1368,16 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
 // 本地兜底
 function generateLocal(prompt) {
   // 不再静默返回 null，给一个明确的占位让上层界面不挂死
+  var p = prompt;
+  try {
+    if (Array.isArray(prompt)) {
+      p = prompt.map(function(m){ return (m && m.content) ? m.content : ''; }).join('\n\n');
+    }
+  } catch(e) { p = ''; }
   var hint = '【AI 暂不可用】\n\n本次未能生成内容，可能原因：\n1. 当前未配置任何 API 密钥\n2. 网络阻塞或服务商超时\n3. 密钥额度耗尽或被风控\n\n请前往「设置 → API 密钥管理」检查后重试。';
+  if (p && p.length > 0) {
+    return hint + '\n\n【本次请求摘要】\n' + p.slice(0, 600);
+  }
   return hint;
 }
 

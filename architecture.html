@@ -1453,8 +1453,7 @@ var PLATINUM_RULES = {
   'one_line_pitch': '【2026·一句话卖点】谁（主角）+ 陷入什么死局 + 靠什么翻盘 + 最后爽到什么程度。'
 };
 
-// 获取白金作家创作法则提示（随机选取9-11条注入）
-function getPlatinumRulesHint(){
+function getPlatinumRulesHint(seedStr){
   var keys = Object.keys(PLATINUM_RULES);
   var selected = [];
   // 必选：冰山对话3条 + 禁读心 + 视角锁 + 句式节奏 + 标点节奏 + 延迟释放 + 目标感 + 章末钩子 + 正文公式 + 地文对话循环（2026核心12条）
@@ -1462,11 +1461,21 @@ function getPlatinumRulesHint(){
   for(var i = 0; i < mustSelect.length; i++){
     if(PLATINUM_RULES[mustSelect[i]]) selected.push(PLATINUM_RULES[mustSelect[i]]);
   }
-  // 随机选3-4条补充
-  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; });
-  var addCount = 3 + Math.floor(Math.random() * 2);
+  var remaining = keys.filter(function(k){ return mustSelect.indexOf(k) === -1; }).sort();
+  function _hashStr(s){
+    s = (s || '').toString();
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+    return (h >>> 0);
+  }
+  var seed = _hashStr(seedStr || 'default');
+  function _next(){
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed;
+  }
+  var addCount = 3;
   for(var j = 0; j < addCount && remaining.length > 0; j++){
-    var idx = Math.floor(Math.random() * remaining.length);
+    var idx = _next() % remaining.length;
     selected.push(PLATINUM_RULES[remaining[idx]]);
     remaining.splice(idx, 1);
   }
@@ -1531,8 +1540,8 @@ function buildArchPrompt(module, idea, work, extraHint){
   head += '发布平台：' + platformTxt + '\n';
   head += '\n';
 
-  // ===== 白金作家创作法则（2025 年最新，每次随机注入 5 条）=====
-  var platinumBlock = '【白金作家创作法则 — 必须遵循】\n' + getPlatinumRulesHint() + '\n\n';
+  var platinumSeed = (work && (work._fingerprint || work.id) ? (work._fingerprint || work.id) : '') + '|' + (module || '');
+  var platinumBlock = '【白金作家创作法则 — 必须遵循】\n' + getPlatinumRulesHint(platinumSeed) + '\n\n';
 
   // ===== 2026 题材趋势参考（作为灵感来源，权重次于用户诉求；压缩到 400 字）=====
   var trendBlock = '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' +
@@ -2748,7 +2757,7 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, null, opts && opts.extraHint, marketResearch, memoryContext);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -3203,7 +3212,8 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   var platform = '起点';
   try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
 
-  var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+  var sysMsg = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。';
+  var prompt = '';
 
   // 用户核心诉求放在第一位，优先级最高
   if(idea && idea.trim()){
@@ -3392,7 +3402,10 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   }
 
   prompt += '\n【开始生成本卡片】\n';
-  return prompt;
+  return [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: prompt }
+  ];
 }
 
 // ===== v52: 大模型一次性生成完整模块 =====
@@ -4890,7 +4903,7 @@ function generateArchCardSingle(module, card, idea, callback){
   var memoryContext = '';
   try { if (typeof buildMemoryContextString === 'function') { var mctx = buildMemoryContextString(work); if (mctx) memoryContext = mctx.substring(0, 2000); } } catch(e){}
 
-  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext);
+  var cardPrompt = buildArchCardPromptV48(module, card, work, idea, null, null, marketResearch, memoryContext);
   var cardTargetChars = card.targetChars || 3000;
 
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
