@@ -4637,9 +4637,11 @@ async function aiWriteChapter(opts){
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   // v66: 转为 messages 数组，让服务商缓存固定前缀
-  // v66: 提高到 131072 (128K)，确保长文本不被截断
+  // v66: Token限制符合章节目标字数 + 20%余量，确保不截断
   var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
-  let result = await aiCaller(_msgPrompt, null, 'write_normal', 131072); // v66: 目标 8万字+，确保长文本不被截断
+  // 章节目标约 2000-3000 字，按 1.5 倍估算 token (约 3000-4500)，加 20% 余量
+  var _chapterTargetChars = Math.floor((work.chapters[chapterIdx]?.targetChars || 3000) * 1.5 * 1.2);
+  let result = await aiCaller(_msgPrompt, null, 'write_normal', _chapterTargetChars);
 
   if(!_checkStillSameWork('正文生成中')) return;
 

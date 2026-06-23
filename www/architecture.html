@@ -2721,8 +2721,8 @@ window.generateArchModule = async function(opts){
         { role: 'system', content: _sharedSystemPrefix },
         { role: 'user', content: _cardUserContent }
       ];
-      // v66: 提高到 131072 (128K)，确保长文本不被截断
-      var cardTargetChars = card.targetChars || 131072;
+      // v66: Token限制符合卡片大小 (targetChars) + 20%余量，确保不截断
+      var cardTargetChars = Math.floor((card.targetChars || 2000) * 1.2);
 
       var cardResult = null;
       try{
@@ -4985,8 +4985,8 @@ function generateArchCardSingle(module, card, idea, callback){
   try { if (typeof buildMemoryContextString === 'function') { var mctx = buildMemoryContextString(work); if (mctx) memoryContext = mctx.substring(0, 2000); } } catch(e){}
 
   var cardPrompt = buildArchCardPromptV48(module, card, work, idea, anchorCards, null, marketResearch, memoryContext);
-  // v66: 提高到 131072 (128K)，确保长文本不被截断
-  var cardTargetChars = card.targetChars || 131072;
+  // v66: Token限制符合卡片大小 (targetChars) + 20%余量，确保不截断
+  var cardTargetChars = Math.floor((card.targetChars || 2000) * 1.2);
 
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
 
