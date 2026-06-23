@@ -2944,6 +2944,15 @@ window.generateArchModule = async function(opts){
       }
     } catch(sumErr) { console.warn('[记忆精要提取] 异常:', sumErr); }
     
+    // 更新架构状态
+    try {
+      if(!work.archStatus) work.archStatus = { world: 'pending', chars: 'locked', outline: 'locked', detail: 'locked' };
+      work.archStatus[module] = 'done';
+      if (module === 'world' && work.archStatus.chars === 'locked') work.archStatus.chars = 'pending';
+      if (module === 'chars' && work.archStatus.outline === 'locked') work.archStatus.outline = 'pending';
+      if (module === 'outline' && work.archStatus.detail === 'locked') work.archStatus.detail = 'pending';
+    } catch(e) {}
+    
     try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
 
     // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
@@ -4122,6 +4131,12 @@ window.saveArchModule = function(){
     // ===== 强一致性：一次保存，三层同步 =====
     // 第一层：保存原始内容
     work[module] = content;
+    // 更新架构状态：当前模块标记为 done，下一个模块标记为 pending（如果还 locked）
+    if (!work.archStatus) work.archStatus = { world: 'pending', chars: 'locked', outline: 'locked', detail: 'locked' };
+    work.archStatus[module] = 'done';
+    if (module === 'world' && work.archStatus.chars === 'locked') work.archStatus.chars = 'pending';
+    if (module === 'chars' && work.archStatus.outline === 'locked') work.archStatus.outline = 'pending';
+    if (module === 'outline' && work.archStatus.detail === 'locked') work.archStatus.detail = 'pending';
     // 第二层：从最终保存内容重建 moduleSummaries（确保 summary 与实际内容一致，不受手动编辑影响）
     try {
       if(!work.longMemory) work.longMemory = {};
