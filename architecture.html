@@ -2653,8 +2653,9 @@ window.aiSuggestCards = async function(module){
     cardList += (i+1) + '. ' + state.batches[i].label + '\n';
   }
 
-  var prompt = '根据用户指令，判断当前卡片列表是否满足需求。如有缺失，建议补充卡片（最多3张）。\n\n';
+  var prompt = '根据用户指令，判断当前卡片列表是否满足需求。如有缺失，建议补充卡片。\n\n';
   prompt += '【用户指令】\n' + idea + '\n\n【已有卡片】\n' + cardList + '\n';
+  prompt += '请仔细分析用户指令的每个维度，找出已有卡片没有覆盖的内容。鼓励多补充（最多5张），不要漏掉任何用户要求。\n';
   prompt += '输出JSON: {"hasGap":true/false,"suggestions":[{"label":"卡片名","targetChars":2500,"focus":"建议该卡片应包含的内容"}]}';
 
   try {
@@ -2845,8 +2846,11 @@ window.generateArchModule = async function(opts){
         selectPrompt += '【作品题材】' + (genre || '通用') + '\n';
         selectPrompt += '【当前模块】' + moduleName + '\n\n';
         selectPrompt += '【可选卡片列表 — 用序号引用】\n' + cardListForAI + '\n';
-        selectPrompt += '请分析用户指令，选择匹配的卡片。如果某些卡片明确不符合指令，跳过它们。';
-        selectPrompt += '如果指令要求的内容在卡片列表中没有覆盖，请补充建议（最多3张）。\n\n';
+        selectPrompt += '选择规则：\n';
+        selectPrompt += '1. 选择与用户指令匹配的卡片（默认全部选中，只跳过明确冲突的）\n';
+        selectPrompt += '2. 不要因为"无魔"而跳过军事、地理、文明等卡片——这些卡片在无魔设定下会自动切换为写实内容\n';
+        selectPrompt += '3. 如果用户指令要求的内容在卡片列表中没有覆盖，请补充建议（最多5张，鼓励多补充）\n';
+        selectPrompt += '4. 补充卡片应填补用户指令中的独特要求，不能与已有卡片重复\n\n';
         selectPrompt += '输出JSON（不要输出其他内容）：\n';
         selectPrompt += '{"selected":[0,1,3...],"supplement":[{"label":"卡片名","targetChars":2500,"focus":"应包含的内容"}],"reason":"简要说明选择逻辑"}';
 
@@ -3457,18 +3461,38 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     if(/无修仙|无修真|无仙侠/.test(idea)) _forbiddenChecks.push('修仙、修真、渡劫、飞升、元婴、金丹、灵气、灵根');
 
     if(_forbiddenChecks.length > 0){
-      prompt += '【🚫 禁止出现 — 以下内容绝对不允许出现在输出中，出现即视为生成失败】\n';
+      prompt += '【🚫 禁止项 — 不可出现，但必须用等效替代填补，不得因此缩小篇幅】\n';
       for(var _fci = 0; _fci < _forbiddenChecks.length; _fci++){
         prompt += '- ' + _forbiddenChecks[_fci] + '\n';
       }
-      prompt += '\n';
+      prompt += '⚠️ 核心原则：禁止项是为了引导你走向用户想要的方向，不是让你删减内容。\n';
+      prompt += '每删除一个禁止项，必须用同等篇幅的合规内容填补。整体字数不得因禁止项而减少。\n\n';
+
+      // 给出替代方向
+      if(/无魔|禁魔|无魔法/.test(idea)){
+        prompt += '【替代方案指南 — 无魔设定下应该用什么替代】\n';
+        prompt += '- 魔法/法术 → 军事战术、兵器科技、谋略、政治手腕、经济手段\n';
+        prompt += '- 修炼体系 → 军事晋升体系、权力等级、工匠技艺等级、学术成就体系\n';
+        prompt += '- 魔兽/灵兽 → 战马、猎犬、信鸽、驯鹰、战象（写实动物，强调其军事/经济价值）\n';
+        prompt += '- 神器 → 精良兵器（名匠锻造的剑/弓/甲）、战略资源（铁矿/金矿/盐）、技术专利（攻城器械/造船术）\n';
+        prompt += '- 神祇/预言 → 历史传说、祖先崇拜、英雄史诗、民间智慧格言（非超自然的文化传统）\n';
+        prompt += '- 结界/传送门 → 关隘、要塞、运河、驰道（写实地理和交通设施）\n\n';
+      }
+      if(/无系统|无面板|无金手指/.test(idea)){
+        prompt += '【替代方案指南 — 无系统设定下应该用什么替代】\n';
+        prompt += '- 系统面板 → 主角通过观察、经验、请教他人来认知自身能力\n';
+        prompt += '- 属性加点 → 通过训练、实战、学习逐步成长，写出成长过程而非数值变化\n';
+        prompt += '- 任务系统 → 来自他人委托、自身目标、外部压力驱动的行动\n';
+        prompt += '- 签到/抽奖 → 通过努力、机遇、交易、掠夺获得资源\n\n';
+      }
     }
 
-    prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证】\n';
-    prompt += '1. 逐条对照上述用户核心诉求，确认每一条都已满足\n';
-    prompt += '2. 逐条对照上述禁止项，确认没有任何违规内容\n';
-    prompt += '3. 如果发现违规：删除违规内容，用符合用户指令的替代方案填补\n';
-    prompt += '4. 自检通过后再输出，不要输出未自检的内容\n\n';
+    prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证，重点是补充而非删除】\n';
+    prompt += '1. 逐条对照用户核心诉求，确认每一条都已满足\n';
+    prompt += '2. 逐条对照禁止项，确认没有违规内容\n';
+    prompt += '3. 如果发现违规：不是简单删除，而是用等效合规内容替代，保持总字数不降\n';
+    prompt += '4. 检查是否因禁止项导致内容空洞——如果是，请扩展合规内容补足\n';
+    prompt += '5. 自检通过后再输出，不要输出未自检的内容\n\n';
   } else {
     prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
   }
