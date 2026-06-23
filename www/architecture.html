@@ -4289,7 +4289,14 @@ window.addEventListener('DOMContentLoaded',function(){
   function triggerCloudSync() {
     try {
       var cloud = window.cloud;
-      if (!cloud) { showToast('云同步未初始化'); return; }
+      if (!cloud) { 
+        showToast('云同步模块未初始化，请刷新页面', {error: true, duration: 4000}); 
+        return; 
+      }
+      if (typeof cloud.isLoggedIn !== 'function') {
+        showToast('云同步模块异常，请刷新页面', {error: true, duration: 4000});
+        return;
+      }
       if (!cloud.isLoggedIn()) {
         showToast('请先在首页登录');
         setTimeout(function() { window.location.href = 'index.html'; }, 1200);
@@ -4302,16 +4309,27 @@ window.addEventListener('DOMContentLoaded',function(){
         var count = 0;
         if (report && report.pushed) { count += report.pushed; }
         if (report && report.pulled) { count += report.pulled; }
-        if (report && report.errors) { msg += '，' + report.errors + '个失败'; }
-        else if (count > 0) { msg += '，' + count + '部作品'; }
-        else msg += '，无更新';
-        showToast(msg);
+        if (report && report.errors) { 
+          msg += '，' + report.errors + '个失败'; 
+          showToast(msg, {error: false, duration: 4000});
+        } else if (count > 0) { 
+          msg += '，' + count + '部作品'; 
+          showToast(msg, {error: false, duration: 3000});
+        } else {
+          msg += '，无更新';
+          showToast(msg, {error: false, duration: 2000});
+        }
       }).catch(function(e) {
-        showToast('同步失败：' + (e && e.message ? e.message : e));
+        var errMsg = '同步失败：' + (e && e.message ? e.message : e);
+        console.error('Cloud sync error:', e);
+        showToast(errMsg, {error: true, duration: 5000});
       }).finally(function() {
         setTimeout(refreshCloudStatus, 300);
       });
-    } catch(e) { showToast('同步异常'); }
+    } catch(e) { 
+      console.error('Sync trigger error:', e);
+      showToast('同步触发异常: ' + (e.message || e), {error: true, duration: 5000}); 
+    }
   }
   refreshCloudStatus();
   // 监听同步完成事件：自动刷新当前页面UI（作品列表/模块内容）

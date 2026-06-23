@@ -184,46 +184,65 @@ function updateCat3(){
 }
 function submitNewBook(){
   try {
-  var name=document.getElementById('book-name').value.trim();
-  var desc=document.getElementById('book-desc').value.trim();
-  // 清除之前的错误高亮
-  document.getElementById('book-name').style.border='';
-  var cat2List = document.getElementById('cat2-list');
-  // 兼容旧浏览器的 forEach
-  var tags = cat2List.querySelectorAll('.tag');
-  for (var ti = 0; ti < tags.length; ti++) { tags[ti].style.border = ''; }
-  
-  if(!name){
-    document.getElementById('book-name').style.border='2px solid #ef4444';
-    document.getElementById('book-name').focus();
-    showToast('请输入作品名称', {error: true, duration: 3000});
-    return;
-  }
-  if(!selectedCat2){
-    // 高亮二级品类区域
-    for (var tj = 0; tj < tags.length; tj++) { tags[tj].style.border = '1px solid #ef4444'; }
-    showToast('请选择二级细分品类（点击上方标签）', {error: true, duration: 3000});
-    return;
-  }
-
-  var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStylesArr(selectedStyles)});
-
-  work.genre = selectedCat1;
-  work.plotType = selectedCat2;
-  work._platform = selectedPlatform;
-  DB.flush();
-  try {
-    var _c = window.cloud;
-    if (_c && _c.isLoggedIn()) {
-      if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 1500);
+    var name=document.getElementById('book-name').value.trim();
+    var desc=document.getElementById('book-desc').value.trim();
+    
+    // 清除之前的错误高亮
+    document.getElementById('book-name').style.border='';
+    var cat2List = document.getElementById('cat2-list');
+    var tags = cat2List ? cat2List.querySelectorAll('.tag') : [];
+    for (var ti = 0; ti < tags.length; ti++) { tags[ti].style.border = ''; }
+    
+    // 验证 DB 是否可用
+    if (typeof DB === 'undefined') {
+      showToast('数据库未初始化，请刷新页面重试', {error: true, duration: 5000});
+      return;
     }
-  } catch(e){}
+    
+    if(!name){
+      document.getElementById('book-name').style.border='2px solid #ef4444';
+      document.getElementById('book-name').focus();
+      showToast('请输入作品名称', {error: true, duration: 3000});
+      return;
+    }
+    if(!selectedCat2){
+      for (var tj = 0; tj < tags.length; tj++) { tags[tj].style.border = '1px solid #ef4444'; }
+      showToast('请选择二级细分品类（点击上方标签）', {error: true, duration: 3000});
+      return;
+    }
 
-  showToast('创建成功，正在同步云端…');
-  setTimeout(function(){location.href='architecture.html';},1200);
+    var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStylesArr(selectedStyles)});
+
+    if (!work) {
+      showToast('作品创建失败，请重试', {error: true, duration: 5000});
+      return;
+    }
+
+    work.genre = selectedCat1;
+    work.plotType = selectedCat2;
+    work._platform = selectedPlatform;
+    DB.flush();
+    
+    // 云端同步
+    try {
+      var _c = window.cloud;
+      if (_c && typeof _c.isLoggedIn === 'function' && _c.isLoggedIn()) {
+        if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
+        _c._pushTimer = setTimeout(function(){ 
+          try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn('Sync failed:', e); }); } 
+          catch(e){ console.warn('Sync timer error:', e); } 
+        }, 1500);
+      }
+    } catch(e){
+      console.warn('Cloud sync init error:', e);
+    }
+
+    showToast('创建成功，正在同步云端…');
+    setTimeout(function(){location.href='architecture.html';},1200);
+    
   } catch(e) {
     var errMsg = '创建失败：' + (e.message || '未知错误');
+    console.error('Create book error:', e);
     try { showToast(errMsg, {error: true, duration: 5000}); } catch(e2) {}
     alert(errMsg);
   }
@@ -239,8 +258,24 @@ function selectedStylesArr(ss) {
 }
 
 function initAll(){
-  try { if(typeof DB !== 'undefined' && !DB._initialized){ DB.init(); DB._initialized = true; } } catch(e) { console.error('DB init:', e); }
-  try { initCategories(); } catch(e) { console.error('Categories init:', e); }
+  try {
+    if(typeof DB !== 'undefined'){
+      if(!DB._initialized){ 
+        DB.init(); 
+        DB._initialized = true; 
+      }
+    } else {
+      showToast('数据库模块加载失败，请刷新页面', {error: true, duration: 5000});
+      console.error('DB is undefined');
+    }
+  } catch(e) { 
+    console.error('DB init:', e); 
+    showToast('数据库初始化失败: ' + e.message, {error: true, duration: 5000});
+  }
+  try { initCategories(); } catch(e) { 
+    console.error('Categories init:', e); 
+    showToast('分类初始化失败: ' + e.message, {error: true, duration: 5000});
+  }
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initAll);
