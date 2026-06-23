@@ -2912,6 +2912,22 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+
+    // v66: 保存对话历史（用于后续调用时AI能记住之前的内容）
+    // 只保存本次的指令摘要和结果摘要，不保存完整内容以节省token
+    try {
+      if(!work._conversationHistory) work._conversationHistory = [];
+      var historyEntry = {
+        module: module,
+        idea: idea ? idea.substring(0, 200) : '',  // 只保存指令摘要
+        timestamp: Date.now()
+      };
+      work._conversationHistory.push(historyEntry);
+      // 保持历史不超过20条
+      if(work._conversationHistory.length > 20) {
+        work._conversationHistory = work._conversationHistory.slice(-20);
+      }
+    } catch(histErr) { console.warn('[对话历史] 异常:', histErr); }
     
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
     try {
@@ -3488,23 +3504,26 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   sysMsg += '当前模块：' + moduleName + '\n';
 
   // ===== 用户消息1：上下文（模块特定，但共享前缀可被服务商缓存）=====
+  // v66: 检查是否有对话历史，如果有则不需要重复传入上下文（AI已记住）
   var ctxMsg = '';
+  var hasConversationHistory = work._conversationHistory && work._conversationHistory.length > 0;
 
-  // 用户核心诉求
+  // 用户核心诉求（始终传入）
   if(idea && idea.trim()){
     ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
   } else {
     ctxMsg += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
   }
 
-  // 已有内容
+  // 已有内容（只有没有对话历史时才传入完整内容）
   if(work && work[module] && work[module].trim()){
-    var _existingLimit = 8000;
-    var _existingHintLabel = extraHint && extraHint.trim()
-      ? '【📖 当前模块已有内容 — 请在此基础上加强/修改/扩展，不要完全重新生成。保留好的部分，只针对问题部分修改】\n'
-      : '【📖 当前模块已有内容 — 请在此基础上进一步丰富、完善、加深细节，而不是推倒重来。如果已有内容有不一致之处，请统一修正但保留核心设定】\n';
-    ctxMsg += _existingHintLabel;
-    ctxMsg += smartTruncate(work[module], _existingLimit) + '\n\n';
+    if(hasConversationHistory){
+      // 有对话历史：AI已记住，只需简单提及
+      ctxMsg += '【📖 当前模块已有内容】本模块已有内容已在之前的对话中生成并记住，请在此基础上继续完善。\n\n';
+    } else {
+      // 无对话历史：传入完整内容
+      ctxMsg += '【📖 当前模块已有内容 — 请在此基础上加强/修改/扩展，不要完全重新生成】\n' + work[module] + '\n\n';
+    }
     ctxMsg += '【已有内容处理原则】\n';
     ctxMsg += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻\n';
     ctxMsg += '2. 已有信息不充分的部分，请补充扩展而不是替换\n';
@@ -3688,16 +3707,22 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
     ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
   }
 
-  // 前置架构：世界观 + 人设 + 大纲（v66: 直接传完整原文，不截断）
+  // v66: 检查是否有对话历史，如果有则不需要重复传入上下文（AI已记住）
+  var hasConvHistory = work._conversationHistory && work._conversationHistory.length > 0;
+
+  // 前置架构：世界观 + 人设 + 大纲（只有没有对话历史时才传入完整内容）
   ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-  if(work && work.world && work.world.trim()){
-    ctxMsg += '■ 世界观（原文）：\n' + work.world.trim() + '\n\n';
-  }
-  if(work && work.chars && work.chars.trim()){
-    ctxMsg += '■ 人设（原文）：\n' + work.chars.trim() + '\n\n';
-  }
-  if(work && work.outline && work.outline.trim()){
-    ctxMsg += '■ 全书大纲（原文）：\n' + work.outline.trim() + '\n\n';
+  if(!hasConvHistory){
+    // 无对话历史：传入完整内容
+    if(work.world) ctxMsg += '■ 世界观（原文）：\n' + work.world + '\n\n';
+    if(work.chars) ctxMsg += '■ 人设（原文）：\n' + work.chars + '\n\n';
+    if(work.outline) ctxMsg += '■ 全书大纲（原文）：\n' + work.outline + '\n\n';
+  } else {
+    // 有对话历史：AI已记住，只需简单提及
+    ctxMsg += '【前置模块内容已在之前的对话中生成并记住，请直接使用】\n';
+    if(work.world) ctxMsg += '■ 世界观：已有（已记住）\n';
+    if(work.chars) ctxMsg += '■ 人设：已有（已记住）\n';
+    if(work.outline) ctxMsg += '■ 大纲：已有（已记住）\n\n';
   }
   if(volTarget && volTarget.trim()){
     ctxMsg += '【🎯 本卷核心目标 — 硬性约束，本卷细纲必须围绕以下目标展开，未达成即失败】\n';
