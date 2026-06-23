@@ -2735,8 +2735,6 @@ window.generateArchModule = async function(opts){
           console.warn('[AI卡片检查] 失败，使用默认卡片:', selectErr);
         }
       }
-    }
-
     // 3. 细纲专用：按卷选择生成（取消全部自动生成，改由用户点击具体卷号）
     // v60: 移除逐卷循环，用户点击下方卷按钮单独生成
     if(module === 'detail'){
