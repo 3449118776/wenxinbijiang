@@ -2597,144 +2597,88 @@ window.generateArchModule = async function(opts){
       allCards = [];
     }
 
+    // ===== v66: 生成前骨架卡片评价 =====
+    // 检查骨架卡片（batches）是否符合用户指令，不符合一次性修改骨架卡片定义
+    // 目的：确保生成方向正确，避免生成后才发现不符合用户指令
     if(!opts.isFix && idea && idea.trim() && module !== 'detail' && batches && batches.length > 0){
         var _marketResearchForCheck = '';
         if(marketResearch && marketResearch.trim()){
           _marketResearchForCheck = smartTruncate(marketResearch, 1200);
         }
 
-        var cardListForAI = '';
+        // 构建骨架卡片清单
+        var skeletonCardList = '';
         for(var ci = 0; ci < batches.length; ci++){
-          cardListForAI += (ci) + '. ' + batches[ci].label + ' — ' + smartTruncate(batches[ci].focus || '', 100) + '\n';
+          skeletonCardList += (ci + 1) + '. 【' + batches[ci].label + '】\n';
+          skeletonCardList += '   重点：' + smartTruncate(batches[ci].focus || '', 120) + '\n';
+          skeletonCardList += '   目标字数：' + (batches[ci].targetChars || 800) + '字\n\n';
         }
 
-        var checkPrompt = '你是一位网文架构审核师。请逐张检查以下卡片的内容是否匹配用户指令，并确保覆盖市场调研中的关键卖点。\n\n';
-        checkPrompt += '【用户指令 · 最高优先级 — 必须100%覆盖，遗漏任何一条都算不通过】\n' + idea.trim() + '\n\n';
+        // 一次性评价骨架卡片是否符合用户指令
+        var skeletonCheckPrompt = '你是一位网文架构审核师。请一次性检查以下骨架卡片是否完全符合用户指令。\n\n';
+        skeletonCheckPrompt += '【用户指令 · 最高优先级】\n' + idea.trim() + '\n\n';
         if(_marketResearchForCheck){
-          checkPrompt += '【📊 市场调研 — 卡片应融入这些卖点和读者偏好】\n' + _marketResearchForCheck + '\n\n';
+          skeletonCheckPrompt += '【📊 市场调研参考】\n' + _marketResearchForCheck + '\n\n';
         }
-        checkPrompt += '【当前模块】' + moduleName + '，共' + batches.length + '张卡片\n';
-        checkPrompt += '【卡片列表 — 逐张检查】\n' + cardListForAI + '\n';
-        checkPrompt += '【✅ 需求覆盖度检查表】\n';
-        checkPrompt += '请先从用户指令中提取3-8条核心需求点，然后检查每张卡片是否覆盖了对应需求。\n';
-        checkPrompt += '如果某条核心需求没有任何卡片覆盖，必须补充到最相关的卡片中。\n\n';
-        checkPrompt += '检查规则：\n';
-        checkPrompt += '1. 先提取用户指令中的核心需求点（列出来）\n';
-        checkPrompt += '2. 逐张判断卡片内容是否匹配用户指令，是否融入了市场调研中的相关卖点\n';
-        checkPrompt += '3. 不匹配的卡片：给出替换方案（保持卡片数量不变，不删不减）\n';
-        checkPrompt += '4. 例如"无魔"设定下，"力量体系"应替换为"军事与权力体系"（不是删除）\n';
-        checkPrompt += '5. 用户指令中明确要求但卡片没覆盖的，补充到最相关的卡片中\n';
-        checkPrompt += '6. 市场调研中提到的热门元素，如果与用户指令方向一致，应融入对应卡片\n';
-        checkPrompt += '输出JSON：{"matches":true/false,"coreRequirements":["提取的核心需求点列表"],"coverage":{"需求点":"覆盖的卡片序号列表"},"replacements":[{"index":不匹配的卡片序号,"newLabel":"新卡片名","newFocus":"新卡片应包含的内容"}],"reason":"检查说明"}';
+        skeletonCheckPrompt += '【当前模块】' + moduleName + '\n';
+        skeletonCheckPrompt += '【骨架卡片列表（共' + batches.length + '张）】\n' + skeletonCardList + '\n';
+        skeletonCheckPrompt += '【评价要求】\n';
+        skeletonCheckPrompt += '1. 提取用户指令中的核心需求点（3-8条）\n';
+        skeletonCheckPrompt += '2. 检查每张骨架卡片是否覆盖了对应需求\n';
+        skeletonCheckPrompt += '3. 检查是否有遗漏的核心需求\n';
+        skeletonCheckPrompt += '4. 检查是否有与用户指令冲突的卡片\n\n';
+        skeletonCheckPrompt += '【输出格式】一次性输出JSON：\n';
+        skeletonCheckPrompt += '{\n';
+        skeletonCheckPrompt += '  "passed": true/false,\n';
+        skeletonCheckPrompt += '  "coreRequirements": ["提取的核心需求1", "需求2", ...],\n';
+        skeletonCheckPrompt += '  "coverage": {"需求1": "卡片序号", "需求2": "卡片序号", ...},\n';
+        skeletonCheckPrompt += '  "issues": ["问题1", "问题2", ...],\n';
+        skeletonCheckPrompt += '  "fixes": [{"index": 卡片序号(从0开始), "newLabel": "新卡片名", "newFocus": "新重点内容", "reason": "修改原因"}]\n';
+        skeletonCheckPrompt += '}\n';
+        skeletonCheckPrompt += '注意：如果passed为false，fixes必须包含所有需要修改的卡片，一次性给出完整修改方案。';
 
         try {
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🤖 AI检查卡片是否匹配指令…');
-          var checkResult = await callRealAPIWithFallback(checkPrompt, null, 'default', 600, true);
-          if(checkResult && checkResult.trim()){
-            var jsonStr = checkResult.trim();
-            var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
-            if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
-            var parsed = JSON.parse(jsonStr);
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🔍 生成前骨架卡片评价…');
+          var skeletonCheckResult = await callRealAPIWithFallback(skeletonCheckPrompt, null, 'default', 800, true);
+          
+          if(skeletonCheckResult && skeletonCheckResult.trim()){
+            var skJsonStr = skeletonCheckResult.trim();
+            var skStart = skJsonStr.indexOf('{'), skEnd = skJsonStr.lastIndexOf('}');
+            if(skStart >= 0 && skEnd > skStart) skJsonStr = skJsonStr.substring(skStart, skEnd + 1);
+            var skParsed = JSON.parse(skJsonStr);
 
-            if(parsed.replacements && parsed.replacements.length > 0){
-              for(var ri = 0; ri < parsed.replacements.length; ri++){
-                var rep = parsed.replacements[ri];
-                var idx = rep.index;
-                if(idx >= 0 && idx < batches.length){
-                  batches[idx].label = rep.newLabel || batches[idx].label;
-                  batches[idx].focus = rep.newFocus || batches[idx].focus;
-                  batches[idx]._replaced = true;
+            // 一次性应用所有修改
+            if(skParsed.fixes && skParsed.fixes.length > 0){
+              for(var fi = 0; fi < skParsed.fixes.length; fi++){
+                var fix = skParsed.fixes[fi];
+                var fixIdx = fix.index;
+                if(fixIdx >= 0 && fixIdx < batches.length){
+                  if(fix.newLabel) batches[fixIdx].label = fix.newLabel;
+                  if(fix.newFocus) batches[fixIdx].focus = fix.newFocus;
+                  batches[fixIdx]._fixed = true;
                 }
               }
-              if(typeof showToast === 'function') showToast('🔧 AI已替换' + parsed.replacements.length + '张不匹配的卡片', {duration: 2000});
+              if(typeof showToast === 'function') showToast('🔧 骨架卡片已修改' + skParsed.fixes.length + '张，确保符合用户指令', {duration: 2500});
             }
 
-            if(!parsed.matches || parsed.replacements.length > 0){
-              var checkPassed = false;
-              for(var ckAttempt = 1; ckAttempt <= 3; ckAttempt++){
-                if(typeof updateLoadingProgress === 'function') updateLoadingProgress(22 + ckAttempt * 3, '🔍 卡片自检 ' + ckAttempt + '/3…');
+            // 保存修改后的骨架卡片
+            if(skParsed.fixes && skParsed.fixes.length > 0){
+              saveCardSupplements(module, skParsed.fixes.map(function(f){ 
+                return {label: f.newLabel || '', targetChars: 2500, focus: f.newFocus || ''}; 
+              }));
+            }
 
-                var cardList2 = '';
-                for(var ci2 = 0; ci2 < batches.length; ci2++){
-                  cardList2 += (ci2) + '. ' + batches[ci2].label + ' — ' + smartTruncate(batches[ci2].focus || '', 80) + '\n';
-                }
-
-                var verifyPrompt = '请确认以下' + batches.length + '张卡片是否全部匹配用户指令，并覆盖所有核心需求。\n\n';
-                verifyPrompt += '【用户指令】\n' + idea.trim() + '\n\n';
-                if(parsed.coreRequirements && parsed.coreRequirements.length > 0){
-                  verifyPrompt += '【核心需求清单 — 必须全部覆盖】\n';
-                  for(var _cri = 0; _cri < parsed.coreRequirements.length; _cri++){
-                    verifyPrompt += '- ' + parsed.coreRequirements[_cri] + '\n';
-                  }
-                  verifyPrompt += '\n';
-                }
-                verifyPrompt += '【当前卡片】\n' + cardList2 + '\n';
-                verifyPrompt += '检查：每张卡片是否符合指令，所有核心需求是否都有卡片覆盖。\n';
-                verifyPrompt += '输出JSON：{"passed":true/false,"uncoveredRequirements":["未覆盖的需求"],"issues":["其他问题"],"fix":"修复建议"}';
-
-                var vResult = null;
-                try { vResult = await callRealAPIWithFallback(verifyPrompt, null, 'default', 400, true); } catch(e){}
-
-                if(vResult && vResult.trim()){
-                  var vjStr = vResult.trim();
-                  var vStart = vjStr.indexOf('{'), vEnd = vjStr.lastIndexOf('}');
-                  if(vStart >= 0 && vEnd > vStart) vjStr = vjStr.substring(vStart, vEnd + 1);
-                  try {
-                    var vParsed = JSON.parse(vjStr);
-                    if(vParsed.passed){
-                      checkPassed = true;
-                      if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + batches.length + '张', {duration: 2000});
-                      break;
-                    } else {
-                      var _uncovered = vParsed.uncoveredRequirements && vParsed.uncoveredRequirements.length > 0
-                        ? '未覆盖需求: ' + vParsed.uncoveredRequirements.join('; ')
-                        : '';
-                      var _otherIssues = vParsed.issues && vParsed.issues.length > 0
-                        ? '其他问题: ' + vParsed.issues.join('; ')
-                        : '';
-                      var issues = [_uncovered, _otherIssues].filter(Boolean).join(' | ') + (vParsed.fix ? ' | 建议: ' + vParsed.fix : '');
-                      if(ckAttempt < 3){
-                        if(typeof showToast === 'function') showToast('第' + ckAttempt + '次自检不通过，自动修正…', {duration: 2500});
-                        var fixPrompt = '根据以下问题修正卡片。\n【问题】\n' + issues + '\n【卡片列表】\n' + cardList2 + '\n输出JSON：{"replacements":[{"index":序号,"newLabel":"名","newFocus":"内容"}]}';
-                        try {
-                          var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'default', 400, true);
-                          if(fixResult){
-                            var fjStr = fixResult.trim();
-                            var fStart = fjStr.indexOf('{'), fEnd = fjStr.lastIndexOf('}');
-                            if(fStart >= 0 && fEnd > fStart) fjStr = fjStr.substring(fStart, fEnd + 1);
-                            var fParsed = JSON.parse(fjStr);
-                            if(fParsed.replacements){
-                              for(var fri = 0; fri < fParsed.replacements.length; fri++){
-                                var fr = fParsed.replacements[fri];
-                                if(fr.index >= 0 && fr.index < batches.length){
-                                  if(fr.newLabel) batches[fr.index].label = fr.newLabel;
-                                  if(fr.newFocus) batches[fr.index].focus = fr.newFocus;
-                                }
-                              }
-                            }
-                          }
-                        } catch(fixErr){}
-                      } else {
-                        if(typeof showToast === 'function') showToast('⚠️ 卡片3次自检未通过，将按最后一版生成', {duration: 5000});
-                      }
-                    }
-                  } catch(parseErr2){ break; }
-                } else {
-                  if(ckAttempt === 3) break;
-                }
-              }
+            if(skParsed.passed){
+              if(typeof showToast === 'function') showToast('✅ 骨架卡片符合用户指令，开始生成', {duration: 2000});
             } else {
-              if(typeof showToast === 'function') showToast('✅ 所有卡片匹配用户指令', {duration: 2000});
-            }
-
-            if(parsed.replacements && parsed.replacements.length > 0){
-              saveCardSupplements(module, parsed.replacements.map(function(r){ return {label: r.newLabel || '', targetChars: 2500, focus: r.newFocus || ''}; }));
+              // 不符合但已修改，继续生成（不再循环检查）
+              if(typeof showToast === 'function') showToast('⚠️ 骨架卡片已修正，继续生成', {duration: 2000});
             }
           }
-        } catch(selectErr){
-          console.warn('[AI卡片检查] 失败，使用默认卡片:', selectErr);
+        } catch(skErr){
+          console.warn('[骨架卡片评价] 异常:', skErr);
+          if(typeof showToast === 'function') showToast('⚠️ 骨架卡片评价失败，使用默认卡片', {duration: 2000});
         }
-      }
     }
 
     // 3. 细纲专用：按卷选择生成（取消全部自动生成，改由用户点击具体卷号）
@@ -2857,7 +2801,10 @@ window.generateArchModule = async function(opts){
         }
 
         if(_needFix){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 ' + moduleName + ' · 卡片级精准修复…');
+          // ===== v66: 全部卡片拼接完成后整体评价，不达标一次性修复整个内容 =====
+          // 目的：保证完整性和一致性，避免卡片级修复导致内容碎片化
+          // 使用 messages 格式：system = 共享前缀 + 修复指令 → 前缀缓存命中
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 ' + moduleName + ' · 整体质量修复…');
 
           // 收集低分维度问题
           var _fixIssues = [];
@@ -2884,136 +2831,58 @@ window.generateArchModule = async function(opts){
             }
           } catch(e){}
 
-          // v65: 卡片级拼接修复 — 只修复有问题的卡片，保留好的卡片不变
-          // 优势：1) 保持大部分内容不变，确保一致性 2) 利用前缀缓存命中 3) 速度更快
-          var _fixHint = _fixIssues.join('\n');
-          if(_fixGuide) _fixHint += '\n修复参考：' + smartTruncate(_fixGuide, 1000);
+          // 构建修复用的 system 消息（基于共享前缀 + 修复指令）
+          var _fixSystemPrefix = buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext);
+          _fixSystemPrefix += '\n\n【★ 本次修复目标 — 必须达到以下评分标准】\n';
+          _fixSystemPrefix += '当前评分：' + _curScore + '/100\n';
+          _fixSystemPrefix += '目标评分：≥90/100，每个单项维度≥9/10分\n\n';
+          _fixSystemPrefix += '【低分维度 · 必须修复】\n';
+          for(var _fi = 0; _fi < _fixIssues.length; _fi++){
+            _fixSystemPrefix += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
+          }
+          if(_fixGuide){
+            _fixSystemPrefix += '\n【修复参考指南】\n' + smartTruncate(_fixGuide, 1500) + '\n';
+          }
+          _fixSystemPrefix += '\n【⚠️ 修复规则 — 必须遵守】\n';
+          _fixSystemPrefix += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+          _fixSystemPrefix += '2. 不得删减、缩短、压缩任何内容\n';
+          _fixSystemPrefix += '3. 修复后篇幅必须≥原文篇幅\n';
+          _fixSystemPrefix += '4. 保持原有卡片结构（【卡片名】标记）\n';
 
-          var _problemCards = [];
+          // user 消息 = 完整拼接后的内容
+          var _fixUserContent = '【待修复的完整内容 — 请仔细阅读后输出修复版本】\n\n' + result + '\n\n';
+          _fixUserContent += '请输出修复后的完整内容。要求：\n';
+          _fixUserContent += '1. 保持原有卡片结构（用【卡片名】标记每个卡片）\n';
+          _fixUserContent += '2. 只修复上述低分维度问题，其他内容原样保留\n';
+          _fixUserContent += '3. 修复后总字数≥' + result.length + '字，不得截断或压缩';
+
+          var _fixMessages = [
+            { role: 'system', content: _fixSystemPrefix },
+            { role: 'user', content: _fixUserContent }
+          ];
+
+          if(!_checkStillSameWork()) return;
+
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 一次性整体修复…');
+
+          var _fixResult = null;
           try {
-            // 步骤1：AI分析哪几张卡片有问题
-            var _analyzePrompt = '你是一位资深网文编辑。请分析以下内容中，哪些卡片存在质量问题需要修复。\n\n';
-            _analyzePrompt += '【问题清单】\n' + _fixHint + '\n\n';
-            _analyzePrompt += '【所有卡片列表】\n';
-            for(var _aci = 0; _aci < allCards.length; _aci++){
-              _analyzePrompt += (_aci + 1) + '. ' + allCards[_aci].label + '\n';
-            }
-            _analyzePrompt += '\n【任务】\n请逐张分析，判断哪些卡片需要修复。\n';
-            _analyzePrompt += '输出JSON格式：{"needsFix": [需要修复的卡片序号列表，从0开始], "reason": "分析说明"}';
-            _analyzePrompt += '\n注意：只标记确实有问题的卡片，没问题的不要选。';
+            // targetChars = 原文长度 + 20%余量，确保不截断
+            var _fixTargetChars = Math.floor(result.length * 1.2);
+            _fixResult = await callRealAPIWithFallback(_fixMessages, null, taskType, _fixTargetChars, true);
+          } catch(_fixErr) { console.warn('[整体修复] 失败:', _fixErr); }
 
-            var _analyzeResult = await callRealAPIWithFallback(_analyzePrompt, null, 'default', 200, true);
-            if(_analyzeResult && _analyzeResult.trim()){
-              var _aStr = _analyzeResult.trim();
-              var _aStart = _aStr.indexOf('{'), _aEnd = _aStr.lastIndexOf('}');
-              if(_aStart >= 0 && _aEnd > _aStart) _aStr = _aStr.substring(_aStart, _aEnd + 1);
-              try {
-                var _aParsed = JSON.parse(_aStr);
-                if(_aParsed.needsFix && _aParsed.needsFix.length){
-                  _problemCards = _aParsed.needsFix.filter(function(idx){ return idx >= 0 && idx < allCards.length; });
-                }
-              } catch(_pe){}
-            }
-          } catch(_analyzeErr){ console.warn('[卡片问题分析] 异常:', _analyzeErr); }
-
-          // 如果无法确定问题卡片数量太多（超过一半），退化为全文修复
-          var _useFullFix = _problemCards.length === 0 || _problemCards.length > Math.max(2, Math.floor(allCards.length * 0.6));
-
-          if(_useFullFix){
-            // 全文修复模式（兜底方案）
-            if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 全文精准修复…');
-
-            var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
-            _fixPrompt += '【当前评分】' + _curScore + '/100\n';
-            _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
-            _fixPrompt += '【低分维度 · 必须修复的问题】\n';
-            for(var _fi = 0; _fi < _fixIssues.length; _fi++){
-              _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
-            }
-            if(_fixGuide) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fixGuide, 1500);
-            _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
-            _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
-            _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-            _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
-            _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
-            _fixPrompt += '【待修复的完整内容 — 请仔细阅读，所有内容都需要保留】\n' + result + '\n\n';
-            _fixPrompt += '【输出要求】\n输出修复后的完整内容。必须保留原文的全部结构和细节，不得删减、缩短或省略任何部分。\n';
-            _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
-            _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
-
-            if(!_checkStillSameWork()) return;
-
-            var _fixResult = null;
-            try {
-              if(typeof callRealAPIWithFallback === 'function'){
-                _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, Math.max(result.length, 30000), true);
-              }
-            } catch(_fixErr) { console.warn('[全文修复] 失败:', _fixErr); }
-
-            if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
-              if(_fixResult.trim().length < result.length * 0.9){
-                if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水，已保留原文', {duration: 4000});
-              } else {
-                result = _fixResult.trim();
-                totalChars = result.length;
-                if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
-              }
+          if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
+            // 检查修复后内容是否完整（不能比原文短超过10%）
+            if(_fixResult.trim().length < result.length * 0.9){
+              if(typeof showToast === 'function') showToast('⚠️ 修复后内容缩水，已保留原文（' + result.length + '→' + _fixResult.trim().length + '字）', {duration: 4000});
+            } else {
+              result = _fixResult.trim();
+              totalChars = result.length;
+              if(typeof showToast === 'function') showToast('✅ 整体修复完成（' + _curScore + '分→目标90分，' + result.length + '字）', {duration: 3000});
             }
           } else {
-            // 卡片级拼接修复
-            if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 修复' + _problemCards.length + '张卡片…');
-
-            var _fixExtraHint = '【质量修复指令】\n' + _fixHint + '\n\n请针对上述问题，在本卡片中进行精准修复，其他卡片内容保持不变。';
-
-            for(var _pci = 0; _pci < _problemCards.length; _pci++){
-              if(!_checkStillSameWork()) return;
-              var _cardIdx = _problemCards[_pci];
-              var _cardToFix = batches[_cardIdx];
-              if(!_cardToFix) continue;
-
-              if(typeof updateLoadingProgress === 'function'){
-                updateLoadingProgress(95 + Math.round((_pci / _problemCards.length) * 3), '🔧 修复' + (_pci + 1) + '/' + _problemCards.length + '：' + _cardToFix.label);
-              }
-
-              // 使用 messages 格式，共享 system 前缀 → 前缀缓存命中
-              var _fixUserContent = buildArchCardUserContentV48(
-                module,
-                _cardToFix,
-                work,
-                allCards.slice(0, _cardIdx),
-                _fixExtraHint
-              );
-              var _fixCardMessages = [
-                { role: 'system', content: _sharedSystemPrefix },
-                { role: 'user', content: _fixUserContent }
-              ];
-
-              var _fixCardResult = null;
-              try {
-                _fixCardResult = await callRealAPIWithFallback(_fixCardMessages, null, taskType, Math.max(_cardToFix.targetChars || 800, 2000), true);
-              } catch(_fce){ console.warn('[卡片修复] ' + _cardToFix.label + ' 失败:', _fce); }
-
-              if(_fixCardResult && _fixCardResult.trim() && _fixCardResult.trim().length > 50){
-                allCards[_cardIdx].content = _fixCardResult.trim();
-              }
-            }
-
-            // 重新合并所有卡片
-            var _reMerged = '';
-            var _reTotal = 0;
-            for(var _rci = 0; _rci < allCards.length; _rci++){
-              var _rc = allCards[_rci];
-              var _rheader = '';
-              if(batches.length > 1){
-                _rheader = '【' + _rc.label + '】\n';
-              }
-              _reMerged += _rheader + _rc.content.trim() + '\n\n';
-              _reTotal += _rc.content.length;
-            }
-            result = _reMerged.trim();
-            totalChars = _reTotal;
-
-            if(typeof showToast === 'function') showToast('✅ 卡片级拼接修复完成（修复' + _problemCards.length + '张，保留' + (allCards.length - _problemCards.length) + '张不变）', {duration: 4000});
+            if(typeof showToast === 'function') showToast('⚠️ 整体修复未生效，使用原始内容', {duration: 3000});
           }
 
           // 指令一致性校验
@@ -3023,7 +2892,6 @@ window.generateArchModule = async function(opts){
               consistencyCheck += '【用户指令】\n' + idea.trim().substring(0, 300) + '\n\n';
               consistencyCheck += '【修复后内容摘要】\n' + result.substring(0, 800) + '\n\n';
               consistencyCheck += '请回答：修复后内容是否仍符合用户指令？只回答"符合"或"偏差"，并给出10字以内理由。';
-              consistencyCheck += '\n格式：符合/偏差 | 理由';
               var consistencyResult = await callRealAPIWithFallback(consistencyCheck, null, 'quality_consist', 100, true);
               if(consistencyResult && consistencyResult.trim()){
                 var isDeviated = consistencyResult.trim().indexOf('偏差') === 0 || consistencyResult.trim().indexOf('不符') >= 0;
