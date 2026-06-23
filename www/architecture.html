@@ -3504,9 +3504,9 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   sysMsg += '当前模块：' + moduleName + '\n';
 
   // ===== 用户消息1：上下文（模块特定，但共享前缀可被服务商缓存）=====
-  // v66: 检查是否有对话历史，如果有则不需要重复传入上下文（AI已记住）
+  // v66: 检查当前模块是否有对话历史（区分模块），有则不需要重复传入上下文（AI已记住）
   var ctxMsg = '';
-  var hasConversationHistory = work._conversationHistory && work._conversationHistory.length > 0;
+  var hasConversationHistory = work._conversationHistory && work._conversationHistory.some && work._conversationHistory.some(function(h){ return h.module === module; });
 
   // 用户核心诉求（始终传入）
   if(idea && idea.trim()){
