@@ -248,33 +248,34 @@ const API_MAX_KEY_RETRY  = 999;
 // 跨服务商总尝试上限（防死循环，适配更多服务商）
 const API_MAX_TOTAL_TRY  = 40;
 const DEFAULT_TIMEOUT_MS = 90 * 1000;
-const DEFAULT_MAX_TOKENS = 65536; // v56: 默认最大输出提升到 64K tokens，适配大模型长文本生成需求
+// v66: 默认最大输出提升到 128K tokens，确保长文本不被截断
+const DEFAULT_MAX_TOKENS = 131072;
 
-// 各模型的最大输出 token 数（按模型名前缀匹配）v56: 按模型实际支持的能力调整
+// 各模型的最大输出 token 数（按模型名前缀匹配）v66: 全部提升到 128K+，确保长文本不被截断
 // 说明：max_tokens 只是上限，模型不会每次都填满，按需生成
-// 1 token ≈ 0.6~0.7 中文字，32K tokens ≈ 2 万中文字，64K ≈ 4 万中文字
+// 1 token ≈ 0.6~0.7 中文字，64K ≈ 4 万中文字，128K ≈ 8 万中文字
 var MODEL_MAX_OUTPUT = {
-  // DeepSeek —— 128K 上下文，实测支持 64K 输出
-  'deepseek-chat': 65536,
-  'deepseek-reasoner': 65536,
-  'deepseek-coder': 65536,
+  // DeepSeek —— 128K 上下文，支持 128K 输出
+  'deepseek-chat': 131072,
+  'deepseek-reasoner': 131072,
+  'deepseek-coder': 131072,
   // 通义千问 (DashScope)
-  'qwen-max': 65536,
-  'qwen-plus': 65536,
-  'qwen-turbo': 32768,
-  'qwen-long': 65536,
-  'qwen-max-latest': 65536,
+  'qwen-max': 131072,
+  'qwen-plus': 131072,
+  'qwen-turbo': 65536,
+  'qwen-long': 131072,
+  'qwen-max-latest': 131072,
   // QwenLM
   'qwen3-max': 131072,
-  'qwen3-coder': 65536,
-  // OpenAI
-  'gpt-4o': 16384,
+  'qwen3-coder': 131072,
+  // OpenAI (GPT-4o 支持 16K，GPT-4.5 Turbo 支持 32K)
+  'gpt-4o': 32768,
   'gpt-4o-mini': 16384,
-  'gpt-4-turbo': 16384,
+  'gpt-4-turbo': 32768,
   'gpt-4': 8192,
   'gpt-3.5-turbo': 4096,
   // Claude / Anthropic
-  'claude-sonnet-4': 65536,
+  'claude-sonnet-4': 131072,
   'claude-3-5-sonnet': 32768,
   'claude-3-5-haiku': 32768,
   'claude-3-opus': 16384,

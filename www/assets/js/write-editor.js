@@ -4636,9 +4636,10 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  // v59: 转为 messages 数组，让服务商缓存固定前缀
+  // v66: 转为 messages 数组，让服务商缓存固定前缀
+  // v66: 提高到 131072 (128K)，确保长文本不被截断
   var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
-  let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
+  let result = await aiCaller(_msgPrompt, null, 'write_normal', 131072); // v66: 目标 8万字+，确保长文本不被截断
 
   if(!_checkStillSameWork('正文生成中')) return;
 
