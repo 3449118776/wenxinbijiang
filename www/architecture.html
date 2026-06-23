@@ -2576,19 +2576,24 @@ window.generateArchModule = async function(opts){
 
     // v63: AI卡片检查 — 8张卡片检查是否匹配用户指令，不匹配的替换内容，不删不减
     // 卡片数量不变（世界观8张、人物7张、大纲动态），只替换不匹配的卡片内容
-    if(!opts.isFix && idea && idea.trim() && module !== 'detail'){
-      var allBatches = buildArchCardBatchesV48(module, work, idea);
-      if(allBatches && allBatches.length > 0){
+    // 注意：batches 必须在AI检查之前构建，AI直接修改它，避免后面被覆盖
+    if(module !== 'detail'){
+      batches = buildArchCardBatchesV48(module, work, idea);
+      totalChars = 0;
+      allCards = [];
+    }
+
+    if(!opts.isFix && idea && idea.trim() && module !== 'detail' && batches && batches.length > 0){
         // 构建卡片清单供AI分析
         var cardListForAI = '';
-        for(var ci = 0; ci < allBatches.length; ci++){
-          cardListForAI += (ci) + '. ' + allBatches[ci].label + ' — ' + smartTruncate(allBatches[ci].focus || '', 100) + '\n';
+        for(var ci = 0; ci < batches.length; ci++){
+          cardListForAI += (ci) + '. ' + batches[ci].label + ' — ' + smartTruncate(batches[ci].focus || '', 100) + '\n';
         }
 
         // 步骤1：AI检查每张卡片内容是否匹配用户指令
         var checkPrompt = '你是一位网文架构审核师。请逐张检查以下卡片的内容是否匹配用户指令。\n\n';
         checkPrompt += '【用户指令 · 最高优先级】\n' + idea.trim() + '\n\n';
-        checkPrompt += '【当前模块】' + moduleName + '，共' + allBatches.length + '张卡片\n';
+        checkPrompt += '【当前模块】' + moduleName + '，共' + batches.length + '张卡片\n';
         checkPrompt += '【卡片列表 — 逐张检查】\n' + cardListForAI + '\n';
         checkPrompt += '检查规则：\n';
         checkPrompt += '1. 逐张判断卡片内容是否匹配用户指令\n';
@@ -2606,15 +2611,15 @@ window.generateArchModule = async function(opts){
             if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
             var parsed = JSON.parse(jsonStr);
 
-            // 替换不匹配的卡片
+            // 替换不匹配的卡片 — 直接修改 batches，持久生效
             if(parsed.replacements && parsed.replacements.length > 0){
               for(var ri = 0; ri < parsed.replacements.length; ri++){
                 var rep = parsed.replacements[ri];
                 var idx = rep.index;
-                if(idx >= 0 && idx < allBatches.length){
-                  allBatches[idx].label = rep.newLabel || allBatches[idx].label;
-                  allBatches[idx].focus = rep.newFocus || allBatches[idx].focus;
-                  allBatches[idx]._replaced = true;
+                if(idx >= 0 && idx < batches.length){
+                  batches[idx].label = rep.newLabel || batches[idx].label;
+                  batches[idx].focus = rep.newFocus || batches[idx].focus;
+                  batches[idx]._replaced = true;
                 }
               }
               if(typeof showToast === 'function') showToast('🔧 AI已替换' + parsed.replacements.length + '张不匹配的卡片', {duration: 2000});
@@ -2627,11 +2632,11 @@ window.generateArchModule = async function(opts){
                 if(typeof updateLoadingProgress === 'function') updateLoadingProgress(22 + ckAttempt * 3, '🔍 卡片自检 ' + ckAttempt + '/3…');
 
                 var cardList2 = '';
-                for(var ci2 = 0; ci2 < allBatches.length; ci2++){
-                  cardList2 += (ci2) + '. ' + allBatches[ci2].label + '\n';
+                for(var ci2 = 0; ci2 < batches.length; ci2++){
+                  cardList2 += (ci2) + '. ' + batches[ci2].label + '\n';
                 }
 
-                var verifyPrompt = '请确认以下' + allBatches.length + '张卡片是否全部匹配用户指令。\n\n';
+                var verifyPrompt = '请确认以下' + batches.length + '张卡片是否全部匹配用户指令。\n\n';
                 verifyPrompt += '【用户指令】\n' + idea.trim() + '\n\n';
                 verifyPrompt += '【当前卡片】\n' + cardList2 + '\n';
                 verifyPrompt += '输出JSON：{"passed":true/false,"issues":["问题"],"fix":"修复建议"}';
@@ -2647,13 +2652,12 @@ window.generateArchModule = async function(opts){
                     var vParsed = JSON.parse(vjStr);
                     if(vParsed.passed){
                       checkPassed = true;
-                      if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + allBatches.length + '张', {duration: 2000});
+                      if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + batches.length + '张', {duration: 2000});
                       break;
                     } else {
                       var issues = (vParsed.issues || []).join('; ') + (vParsed.fix ? ' | ' + vParsed.fix : '');
                       if(ckAttempt < 3){
                         if(typeof showToast === 'function') showToast('第' + ckAttempt + '次自检不通过，自动修正…', {duration: 2500});
-                        // 让AI修正不匹配的卡片
                         var fixPrompt = '根据以下问题修正卡片。\n【问题】\n' + issues + '\n【卡片列表】\n' + cardListForAI + '\n输出JSON：{"replacements":[{"index":序号,"newLabel":"名","newFocus":"内容"}]}';
                         try {
                           var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'default', 400, true);
@@ -2665,9 +2669,9 @@ window.generateArchModule = async function(opts){
                             if(fParsed.replacements){
                               for(var fri = 0; fri < fParsed.replacements.length; fri++){
                                 var fr = fParsed.replacements[fri];
-                                if(fr.index >= 0 && fr.index < allBatches.length){
-                                  if(fr.newLabel) allBatches[fr.index].label = fr.newLabel;
-                                  if(fr.newFocus) allBatches[fr.index].focus = fr.newFocus;
+                                if(fr.index >= 0 && fr.index < batches.length){
+                                  if(fr.newLabel) batches[fr.index].label = fr.newLabel;
+                                  if(fr.newFocus) batches[fr.index].focus = fr.newFocus;
                                 }
                               }
                             }
@@ -2712,14 +2716,8 @@ window.generateArchModule = async function(opts){
     else if(module === 'outline') taskType = 'outline_logic';
     else if(module === 'detail') taskType = 'detail_base';
 
-    // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
-    if(module !== 'detail'){
-      // v63: 直接使用全部卡片，AI已在上面检查并替换了不匹配的卡片内容
-      batches = buildArchCardBatchesV48(module, work, idea);
-
-      totalChars = 0;
-      allCards = [];
-    }
+    // 4a. 卡片已在上面构建并经过AI检查，直接使用（无需重复构建）
+    // batches 在 AI 卡片检查前已初始化，totalChars/allCards 也已初始化
 
     // 4b. 逐卡片分批生成（所有非 detail 模块执行）+ QualityEngine 评价 + 精准修复
     // v60: 移除一次性生成，按卡片生成后走评价→方案→修复流程
@@ -2790,7 +2788,7 @@ window.generateArchModule = async function(opts){
     var evalResult = null;
     try {
       if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(80, '🔍 ' + moduleName + ' · 质量评价中…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔍 ' + moduleName + ' · 质量评价中…');
         evalResult = QualityEngine.evaluate(result, module);
       }
 
@@ -2814,7 +2812,7 @@ window.generateArchModule = async function(opts){
         }
 
         if(_needFix){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(85, '🎯 ' + moduleName + ' · 生成精准修复方案…');
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 ' + moduleName + ' · 生成精准修复方案…');
 
           // 收集低分维度问题
           var _fixIssues = [];
@@ -2864,7 +2862,7 @@ window.generateArchModule = async function(opts){
           _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
           _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
 
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 ' + moduleName + ' · 执行精准修复…');
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 执行精准修复…');
 
           if(!_checkStillSameWork()) return;
 
@@ -2878,8 +2876,8 @@ window.generateArchModule = async function(opts){
           } catch(_fixErr) { console.warn('[精准修复] 失败:', _fixErr); }
 
           if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
-            // v61: 如果修复结果比原文短超过30%，说明AI删减了内容，保留原文
-            if(_fixResult.trim().length < result.length * 0.7){
+            // v63: 如果修复结果比原文短超过10%，说明AI删减了内容，保留原文
+            if(_fixResult.trim().length < result.length * 0.9){
               if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水（' + result.length + '→' + _fixResult.trim().length + '字），已保留原文。请手动编辑或缩小修复范围。', {duration: 5000});
             } else {
               result = _fixResult.trim();
@@ -4666,7 +4664,7 @@ window.generateDetailForVolume = async function(volNum) {
     var evalResult = null;
     try {
       if(typeof QualityEngine !== 'undefined' && QualityEngine.evaluate){
-        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(80, '🔍 细纲 · 质量评价中…');
+        if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔍 细纲 · 质量评价中…');
         evalResult = QualityEngine.evaluate(result, 'detail');
       }
 
@@ -4682,7 +4680,7 @@ window.generateDetailForVolume = async function(volNum) {
         }
 
         if(_needFix){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(85, '🎯 细纲 · 生成精准修复方案…');
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 细纲 · 生成精准修复方案…');
 
           var _fixIssues = [];
           if(evalResult.dimensions){
@@ -4716,7 +4714,7 @@ window.generateDetailForVolume = async function(volNum) {
           _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n\n';
           _fixPrompt += '【当前内容】\n' + result;
 
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(88, '🔧 细纲 · 执行精准修复…');
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 细纲 · 执行精准修复…');
           if(!_checkStillSameWork()) return;
 
           try {
