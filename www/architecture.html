@@ -4807,27 +4807,44 @@ window.generateDetailForVolume = async function(volNum) {
           var _fixGuide = '';
           try { if(typeof QualityEngine.getFixGuide === 'function') _fixGuide = QualityEngine.getFixGuide(evalResult.dimensions); } catch(e){}
 
-          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
-          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
-          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
+          // v66: 使用 messages 格式（细纲共享 system 前缀 → 缓存命中）
+          var _fixSystemMsg = '你是一位资深网文编辑。请基于以下评价结果，对第 ' + volNum + ' 卷细纲进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
+          _fixSystemMsg += '【当前评分】' + _curScore + '/100\n';
+          _fixSystemMsg += '【目标评分】≥90/100，每个维度≥9/10\n\n';
+          _fixSystemMsg += '【低分维度 · 必须修复的问题】\n';
           for(var _fi = 0; _fi < _fixIssues.length; _fi++){
-            _fixPrompt += '- ' + _fixIssues[_fi] + '\n';
+            _fixSystemMsg += '- ' + _fixIssues[_fi] + '\n';
           }
-          if(_fixGuide) _fixPrompt += '\n【好坏标准学习指南】\n' + _fixGuide + '\n';
-          _fixPrompt += '\n【⚠️ 精准修复规则】\n';
-          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
-          _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 章节编号、格式、字段必须保持不变\n\n';
-          _fixPrompt += '【当前内容】\n' + result;
+          if(_fixGuide) _fixSystemMsg += '\n【好坏标准学习指南】\n' + _fixGuide + '\n';
+          _fixSystemMsg += '\n【⚠️ 精准修复规则】\n';
+          _fixSystemMsg += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+          _fixSystemMsg += '2. 不是重新生成，是在现有内容上精准修补\n';
+          _fixSystemMsg += '3. 章节编号、格式、字段必须保持不变\n';
+          _fixSystemMsg += '4. 修复后篇幅必须≥' + result.length + '字，不得截断或压缩\n';
+
+          var _fixUserMsg = '【待修复的完整内容】\n' + result + '\n\n';
+          _fixUserMsg += '请输出修复后的完整内容，保持原有章节格式（■ 第N章...），修复后总字数≥' + result.length + '字。';
+
+          var _fixMessages = [
+            { role: 'system', content: _fixSystemMsg },
+            { role: 'user', content: _fixUserMsg }
+          ];
 
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 细纲 · 执行精准修复…');
           if(!_checkStillSameWork()) return;
 
           try {
-            var _fixResult = await callRealAPIWithFallback(_fixPrompt, null, 'detail_base', volTargetChars, true);
+            // v66: targetChars = 原文长度×1.2，确保不截断
+            var _fixTargetChars = Math.floor(result.length * 1.2);
+            var _fixResult = await callRealAPIWithFallback(_fixMessages, null, 'detail_base', _fixTargetChars, true);
             if(_fixResult && _fixResult.trim().length > 100){
-              result = _fixResult.trim();
+              // v66: 检查修复后内容是否完整（不能比原文短超过10%）
+              if(_fixResult.trim().length >= result.length * 0.9){
+                result = _fixResult.trim();
+                if(typeof showToast === 'function') showToast('✅ 细纲修复完成（' + result.length + '字）', {duration: 3000});
+              } else {
+                if(typeof showToast === 'function') showToast('⚠️ 修复后内容缩水，已保留原文', {duration: 3000});
+              }
             }
           } catch(fixErr) { console.warn('[精准修复] 失败:', fixErr); }
         }
