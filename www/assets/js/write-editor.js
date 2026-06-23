@@ -2811,55 +2811,47 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   }
 
   // ===== v48: 世界观规则自证 =====
-  // 大模型(archLimits=null)：直接注入完整原文，利用大上下文长记忆
+  // 大模型(archLimits=null)：跳过 — 模型对话上下文自带记忆，无需重复注入
+  //  例外：用户修改过(work._archCache 与当前内容不一致)才注入修改后原文
   // 小模型：优先 moduleSummaries 缓存，否则 archLimits 截断
-  var worldContent = '';
-  if (archLimits) {
+  if (archLimits !== null) {
+    var worldContent = '';
     try {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.world) {
         worldContent = work.longMemory.moduleSummaries.world.trim();
       }
     } catch(_e) {}
-  }
-  if (!worldContent && work.world) worldContent = work.world;
-  if (worldContent && worldContent.length > 200) {
-    if (archLimits) {
+    if (!worldContent && work.world) worldContent = work.world;
+    if (worldContent && worldContent.length > 200) {
       var wLimit = archLimits.world || 50000;
       worldContent = worldContent.length > wLimit ? worldContent.substring(0, wLimit) + '...' : worldContent;
+      prompt += '【世界观设定】\n' + worldContent + '\n\n';
     }
-    prompt += '【世界观设定】\n' + worldContent + '\n\n';
-    // 从世界观中提取"规则/代价/限制"关键词附近的句子
-    var ruleRE = /[^。\n]{0,40}(代价|规则|限制|不能|不可|必须|才能|除非|体系|等级)[^。\n]{0,120}[。\n]/g;
-    var rules = [];
-    var rm;
-    while ((rm = ruleRE.exec(worldContent)) !== null) {
-      var r = rm[0].trim();
-      if (r.length > 20 && rules.indexOf(r) === -1 && rules.length < 4) rules.push(r);
-    }
-    if (rules.length > 0) {
-      prompt += '【⚠️ 世界观规则自证 · 写作前请先确认以下规则】\n';
-      for (var ri = 0; ri < rules.length; ri++) {
-        prompt += '- ' + (ri + 1) + '. ' + rules[ri] + '\n';
-      }
-      prompt += '【写作时必须遵守】本章的人物行为/能力/社会反应是否符合上述规则？若不符合，是否有合理的解释或情节需要？\n\n';
+  } else {
+    var worldCached = work._archCache && work._archCache.world && work._archCache.world.content;
+    if (work.world && worldCached && work.world !== worldCached) {
+      prompt += '【世界观设定（用户已修改）】\n' + work.world + '\n\n';
     }
   }
-  // 人物设定：大模型直接原文，小模型优先 moduleSummaries 缓存
-  var charsContent = '';
-  if (archLimits) {
+  // 人物设定：大模型跳过，小模型优先 moduleSummaries 缓存
+  if (archLimits !== null) {
+    var charsContent = '';
     try {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
         charsContent = work.longMemory.moduleSummaries.chars.trim();
       }
     } catch(_e2) {}
-  }
-  if (!charsContent && work.chars) charsContent = work.chars;
-  if (charsContent && charsContent.length > 100) {
-    if (archLimits) {
+    if (!charsContent && work.chars) charsContent = work.chars;
+    if (charsContent && charsContent.length > 100) {
       var cLimit = archLimits.chars || 30000;
       charsContent = charsContent.length > cLimit ? charsContent.substring(0, cLimit) + '...' : charsContent;
+      prompt += '【人物人设】\n' + charsContent + '\n\n';
     }
-    prompt += '【人物人设】\n' + charsContent + '\n\n';
+  } else {
+    var charsCached = work._archCache && work._archCache.chars && work._archCache.chars.content;
+    if (work.chars && charsCached && work.chars !== charsCached) {
+      prompt += '【人物人设（用户已修改）】\n' + work.chars + '\n\n';
+    }
   }
   
   // ===== v52: 素材库 · 从 work.materialLib 读取（AI 提取的 12 类结构化素材） =====
@@ -2934,40 +2926,29 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     }
   }
   // ===== v57: 大纲按卷注入 =====
-  // 大模型(archLimits=null)：直接注入完整大纲原文
+  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆，用户修改过才注入
   // 小模型：优先 moduleSummaries，否则 archLimits 截断
-  var outlineInjected = false;
-  var outlineSum = '';
-
-  if (archLimits) {
+  if (archLimits !== null) {
+    var outlineInjected = false;
+    var outlineSum = '';
     try {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.outline) {
         outlineSum = work.longMemory.moduleSummaries.outline.trim();
       }
     } catch(_e3) {}
-  }
 
-  if (archLimits === null && work.outline && work.outline.length > 100) {
-    // 大模型：直接注入完整大纲
-    prompt += '【全书大纲】\n' + work.outline + '\n\n';
-    outlineInjected = true;
-  } else {
     var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
     if (outlineSum || (outlineVol && outlineVol.body)) {
       if (outlineSum && outlineSum.length > 200) {
-        if (archLimits) {
-          var oSumLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500;
-          outlineSum = outlineSum.length > oSumLimit ? outlineSum.substring(0, oSumLimit) + '...' : outlineSum;
-        }
+        var oSumLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500;
+        outlineSum = outlineSum.length > oSumLimit ? outlineSum.substring(0, oSumLimit) + '...' : outlineSum;
         prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSum + '\n\n';
         outlineInjected = true;
       }
       if (outlineVol && outlineVol.body && outlineVol.body.length > 100) {
         var curVolOut = outlineVol.body;
-        if (archLimits) {
-          var ovLimit = archLimits.outline || 40000;
-          curVolOut = curVolOut.length > ovLimit ? curVolOut.substring(0, ovLimit) + '...' : curVolOut;
-        }
+        var ovLimit = archLimits.outline || 40000;
+        curVolOut = curVolOut.length > ovLimit ? curVolOut.substring(0, ovLimit) + '...' : curVolOut;
         prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
         if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
         if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
@@ -2976,87 +2957,86 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       }
       if (!outlineInjected && work.outline) {
         var fallback = work.outline;
-        if (archLimits) {
-          var fbLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
-          fallback = fallback.length > fbLimit ? fallback.substring(0, fbLimit) + '...' : fallback;
-        }
+        var fbLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
+        fallback = fallback.length > fbLimit ? fallback.substring(0, fbLimit) + '...' : fallback;
         prompt += '【全书大纲】\n' + fallback + '\n\n';
       }
     } else if (work.outline) {
       var fallback2 = work.outline;
-      if (archLimits) {
-        var fb2Limit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
-        fallback2 = fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2;
-      }
+      var fb2Limit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
+      fallback2 = fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2;
       prompt += '【全书大纲】\n' + fallback2 + '\n\n';
+    }
+  } else {
+    var outlineCached = work._archCache && work._archCache.outline && work._archCache.outline.content;
+    if (work.outline && outlineCached && work.outline !== outlineCached) {
+      prompt += '【全书大纲（用户已修改）】\n' + work.outline + '\n\n';
     }
   }
 
   // ===== v57: 细纲按卷注入 =====
-  // 大模型(archLimits=null)：注入完整细纲原文
+  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆，用户修改过才注入
   // 小模型：按卷切分注入，archLimits 控制上限
   if (work.detail) {
-    if (archLimits === null) {
-      // 大模型：直接注入完整细纲
-      prompt += '【📑 全书细纲】\n' + work.detail + '\n\n';
-      prompt += '【核心指令 · 细纲最高优先级】\n';
-      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
-      prompt += '1. 从细纲中找到对应剧情节点，严格按那部分来写\n';
-      prompt += '2. 细纲中的"爆点/悬念钩子"务必写出\n';
-      prompt += '3. 细纲中的"场景""人物"字段不得编造\n';
-      prompt += '4. 字数灵活控制，以剧情完整性为先\n\n';
-    } else {
-    var detailVol = getCurrentVolumeDetail(work, chapterIdx);
-    var hasDetail = detailVol && detailVol.volBody;
+    if (archLimits !== null) {
+      var detailVol = getCurrentVolumeDetail(work, chapterIdx);
+      var hasDetail = detailVol && detailVol.volBody;
 
-    if (hasDetail) {
-      var volDetailText = detailVol.volBody;
-      if (archLimits) {
+      if (hasDetail) {
+        var volDetailText = detailVol.volBody;
         var vdLimit = archLimits.detail || 35000;
         volDetailText = volDetailText.length > vdLimit ? volDetailText.substring(0, vdLimit) + '...(本卷细纲过长，已截断)' : volDetailText;
-      }
 
-      prompt += '【📑 当前卷细纲：' + (detailVol.volLabel || '本卷') + '（第' + (detailVol.volStartChapter || 1) + '-' + (detailVol.volEndChapter || detailVol.volSize || '?') + '章）】\n';
-      prompt += volDetailText + '\n\n';
+        prompt += '【📑 当前卷细纲：' + (detailVol.volLabel || '本卷') + '（第' + (detailVol.volStartChapter || 1) + '-' + (detailVol.volEndChapter || detailVol.volSize || '?') + '章）】\n';
+        prompt += volDetailText + '\n\n';
 
-      if (detailVol.neighbor && detailVol.neighbor.trim()) {
-        var neighborText = detailVol.neighbor;
-        if (archLimits) {
+        if (detailVol.neighbor && detailVol.neighbor.trim()) {
+          var neighborText = detailVol.neighbor;
           var nbLimit = Math.floor((archLimits.detail || 35000) * 0.5);
           neighborText = neighborText.length > nbLimit ? neighborText.substring(0, nbLimit) + '...' : neighborText;
+          prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborText + '\n\n';
         }
-        prompt += '【⚠️ 本章前后几章细纲（剧情锚点）】\n' + neighborText + '\n\n';
-      }
 
-      prompt += '【核心指令 · 细纲最高优先级】\n';
-      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
-      prompt += '1. 从上面的【当前卷细纲】中找到「第' + (chapterIdx + 1) + '章」或「' + chTitle + '」对应的剧情节点，【严格按那部分来写】——场景、人物、剧情节点、爆点/悬念钩子不能改动\n';
-      prompt += '2. 绝对不要写细纲中其他卷的剧情；不要提前透露后续卷的内容\n';
-      prompt += '3. 如果细纲中找不到「第' + (chapterIdx + 1) + '章」的明确标注，就顺着细纲的节奏写本卷中合适位置的一段剧情\n';
-      prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
-      prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
-      prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
-      prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
-    } else {
-      var detailText = work.detail;
-      if (archLimits && detailText.length > archLimits.detail) {
-        var idxInDetail = detailText.indexOf(chTitle);
-        if (idxInDetail >= 0) {
-          var dStart = Math.max(0, idxInDetail - 3000);
-          var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
-          detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
-        } else {
-          detailText = detailText.substring(0, archLimits.detail) + '...(细纲过长已截断)';
+        prompt += '【核心指令 · 细纲最高优先级】\n';
+        prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+        prompt += '1. 从上面的【当前卷细纲】中找到「第' + (chapterIdx + 1) + '章」或「' + chTitle + '」对应的剧情节点，【严格按那部分来写】——场景、人物、剧情节点、爆点/悬念钩子不能改动\n';
+        prompt += '2. 绝对不要写细纲中其他卷的剧情；不要提前透露后续卷的内容\n';
+        prompt += '3. 如果细纲中找不到「第' + (chapterIdx + 1) + '章」的明确标注，就顺着细纲的节奏写本卷中合适位置的一段剧情\n';
+        prompt += '4. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
+        prompt += '5. 细纲中的"场景"字段是本章时间地点锚点，【必须严格遵守】\n';
+        prompt += '6. 细纲中的"人物"字段是本章登场角色名单，【不能编造新角色】\n';
+        prompt += '7. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
+      } else {
+        var detailText = work.detail;
+        if (archLimits && detailText.length > archLimits.detail) {
+          var idxInDetail = detailText.indexOf(chTitle);
+          if (idxInDetail >= 0) {
+            var dStart = Math.max(0, idxInDetail - 3000);
+            var dEnd = Math.min(detailText.length, idxInDetail + Math.floor(archLimits.detail * 0.6));
+            detailText = '...(前略)\n' + detailText.substring(dStart, dEnd) + '\n(后略)...';
+          } else {
+            detailText = detailText.substring(0, archLimits.detail) + '...(细纲过长已截断)';
+          }
         }
+        prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
+        prompt += '【核心指令 · 细纲最高优先级】\n';
+        prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+        prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
+        prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
+        prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
+        prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
       }
-      prompt += '【📑 细纲摘要】\n' + detailText + '\n\n';
-      prompt += '【核心指令 · 细纲最高优先级】\n';
-      prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
-      prompt += '1. 从细纲中找到「' + chTitle + '」对应的剧情节点，【严格按那部分来写】\n';
-      prompt += '2. 细纲中的"爆点/悬念钩子"字段是本章结尾钩子，请务必写出来\n';
-      prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
-      prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
-    }
+    } else {
+      var detailCached = work._archCache && work._archCache.detail && work._archCache.detail.content;
+      if (detailCached && work.detail !== detailCached) {
+        prompt += '【📑 细纲（用户已修改）】\n' + work.detail + '\n\n';
+        prompt += '【核心指令 · 细纲最高优先级】\n';
+        prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
+        prompt += '1. 从细纲中找到对应剧情节点，严格按那部分来写\n';
+        prompt += '2. 细纲中的"爆点/悬念钩子"务必写出\n';
+        prompt += '3. 细纲中的"场景""人物"字段不得编造\n';
+        prompt += '4. 字数灵活控制，以剧情完整性为先\n\n';
+      }
     }
   }
   
