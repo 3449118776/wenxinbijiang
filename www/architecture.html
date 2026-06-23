@@ -3524,17 +3524,17 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     ctxMsg += '5. 如果本次有"加强意见"，优先按加强意见修改对应部分，同时保留其他部分不变\n\n';
   }
 
-  // 前置架构上下文
+  // 前置架构上下文（v66: 直接传完整原文，不截断）
   if(module !== 'world'){
     ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
     if(work && work.world && work.world.trim()){
-      ctxMsg += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+      ctxMsg += '■ 世界观（原文）：\n' + work.world.trim() + '\n\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      ctxMsg += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+      ctxMsg += '■ 人设（原文）：\n' + work.chars.trim() + '\n\n';
     }
     if((module === 'detail' || module === 'outline') && work && work.outline && work.outline.trim()){
-      ctxMsg += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+      ctxMsg += '■ 全书大纲（原文）：\n' + work.outline.trim() + '\n\n';
     }
   }
 
@@ -3699,20 +3699,20 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
     ctxMsg += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
   }
 
-  // 前置架构：世界观 + 人设 + 大纲
+  // 前置架构：世界观 + 人设 + 大纲（v66: 直接传完整原文，不截断）
   ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
   if(work && work.world && work.world.trim()){
-    ctxMsg += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+    ctxMsg += '■ 世界观（原文）：\n' + work.world.trim() + '\n\n';
   }
   if(work && work.chars && work.chars.trim()){
-    ctxMsg += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+    ctxMsg += '■ 人设（原文）：\n' + work.chars.trim() + '\n\n';
   }
   if(work && work.outline && work.outline.trim()){
-    ctxMsg += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+    ctxMsg += '■ 全书大纲（原文）：\n' + work.outline.trim() + '\n\n';
   }
   if(volTarget && volTarget.trim()){
     ctxMsg += '【🎯 本卷核心目标 — 硬性约束，本卷细纲必须围绕以下目标展开，未达成即失败】\n';
-    ctxMsg += smartTruncate(volTarget, 2500) + '\n\n';
+    ctxMsg += volTarget.trim() + '\n\n';
   }
 
   // 趋势 + 市场调研
@@ -3955,15 +3955,12 @@ window.strengthenDetailOutlineV46 = async function(){
       batches.push({ label: '全量补强', startIdx: 0, endIdx: totalChapters, targetChars: 1500 });
     }
 
-    // 3. 通用上下文（给每批卡片共享）
+    // 3. 通用上下文（给每批卡片共享）（v66: 直接传完整原文，不截断）
     var contextBlock = '';
-    var largeModel = isLargeContextModel();
     contextBlock += '【作品题材】' + (work.genre || '未知') + '\n';
-    // v52: 大模型也需要上限保护——几万字全文注入会导致 prompt 爆炸，但保持大模型用更宽松的限制
-    var _ctxCB = isLargeContextModel() ? 10000 : 3000;
-    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + smartTruncate(work.world, _ctxCB) + '\n';
-    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + smartTruncate(work.chars, _ctxCB) + '\n';
-    if(work.outline) contextBlock += '【全书大纲参考】\n' + smartTruncate(work.outline, _ctxCB) + '\n';
+    if(work.world) contextBlock += '【世界观参考（必须严格遵守）】\n' + work.world + '\n';
+    if(work.chars) contextBlock += '【人物参考（人物名必须从此列表中挑选）】\n' + work.chars + '\n';
+    if(work.outline) contextBlock += '【全书大纲参考】\n' + work.outline + '\n';
 
     // 4. 每批卡片独立调用 AI
     var allCards = [];
