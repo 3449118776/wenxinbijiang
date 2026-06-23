@@ -2598,34 +2598,44 @@ window.generateArchModule = async function(opts){
     }
 
     if(!opts.isFix && idea && idea.trim() && module !== 'detail' && batches && batches.length > 0){
-        // 构建卡片清单供AI分析
+        var _marketResearchForCheck = '';
+        if(marketResearch && marketResearch.trim()){
+          _marketResearchForCheck = smartTruncate(marketResearch, 1200);
+        }
+
         var cardListForAI = '';
         for(var ci = 0; ci < batches.length; ci++){
           cardListForAI += (ci) + '. ' + batches[ci].label + ' — ' + smartTruncate(batches[ci].focus || '', 100) + '\n';
         }
 
-        // 步骤1：AI检查每张卡片内容是否匹配用户指令
-        var checkPrompt = '你是一位网文架构审核师。请逐张检查以下卡片的内容是否匹配用户指令。\n\n';
-        checkPrompt += '【用户指令 · 最高优先级】\n' + idea.trim() + '\n\n';
+        var checkPrompt = '你是一位网文架构审核师。请逐张检查以下卡片的内容是否匹配用户指令，并确保覆盖市场调研中的关键卖点。\n\n';
+        checkPrompt += '【用户指令 · 最高优先级 — 必须100%覆盖，遗漏任何一条都算不通过】\n' + idea.trim() + '\n\n';
+        if(_marketResearchForCheck){
+          checkPrompt += '【📊 市场调研 — 卡片应融入这些卖点和读者偏好】\n' + _marketResearchForCheck + '\n\n';
+        }
         checkPrompt += '【当前模块】' + moduleName + '，共' + batches.length + '张卡片\n';
         checkPrompt += '【卡片列表 — 逐张检查】\n' + cardListForAI + '\n';
+        checkPrompt += '【✅ 需求覆盖度检查表】\n';
+        checkPrompt += '请先从用户指令中提取3-8条核心需求点，然后检查每张卡片是否覆盖了对应需求。\n';
+        checkPrompt += '如果某条核心需求没有任何卡片覆盖，必须补充到最相关的卡片中。\n\n';
         checkPrompt += '检查规则：\n';
-        checkPrompt += '1. 逐张判断卡片内容是否匹配用户指令\n';
-        checkPrompt += '2. 不匹配的卡片：给出替换方案（保持卡片数量不变，不删不减）\n';
-        checkPrompt += '3. 例如"无魔"设定下，"力量体系"应替换为"军事与权力体系"（不是删除）\n';
-        checkPrompt += '4. 用户指令中明确要求但卡片没覆盖的，补充到最相关的卡片中\n';
-        checkPrompt += '输出JSON：{"matches":true/false,"replacements":[{"index":不匹配的卡片序号,"newLabel":"新卡片名","newFocus":"新卡片应包含的内容"}],"reason":"检查说明"}';
+        checkPrompt += '1. 先提取用户指令中的核心需求点（列出来）\n';
+        checkPrompt += '2. 逐张判断卡片内容是否匹配用户指令，是否融入了市场调研中的相关卖点\n';
+        checkPrompt += '3. 不匹配的卡片：给出替换方案（保持卡片数量不变，不删不减）\n';
+        checkPrompt += '4. 例如"无魔"设定下，"力量体系"应替换为"军事与权力体系"（不是删除）\n';
+        checkPrompt += '5. 用户指令中明确要求但卡片没覆盖的，补充到最相关的卡片中\n';
+        checkPrompt += '6. 市场调研中提到的热门元素，如果与用户指令方向一致，应融入对应卡片\n';
+        checkPrompt += '输出JSON：{"matches":true/false,"coreRequirements":["提取的核心需求点列表"],"coverage":{"需求点":"覆盖的卡片序号列表"},"replacements":[{"index":不匹配的卡片序号,"newLabel":"新卡片名","newFocus":"新卡片应包含的内容"}],"reason":"检查说明"}';
 
         try {
           if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🤖 AI检查卡片是否匹配指令…');
-          var checkResult = await callRealAPIWithFallback(checkPrompt, null, 'default', 500, true);
+          var checkResult = await callRealAPIWithFallback(checkPrompt, null, 'default', 600, true);
           if(checkResult && checkResult.trim()){
             var jsonStr = checkResult.trim();
             var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
             if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
             var parsed = JSON.parse(jsonStr);
 
-            // 替换不匹配的卡片 — 直接修改 batches，持久生效
             if(parsed.replacements && parsed.replacements.length > 0){
               for(var ri = 0; ri < parsed.replacements.length; ri++){
                 var rep = parsed.replacements[ri];
@@ -2639,7 +2649,6 @@ window.generateArchModule = async function(opts){
               if(typeof showToast === 'function') showToast('🔧 AI已替换' + parsed.replacements.length + '张不匹配的卡片', {duration: 2000});
             }
 
-            // 步骤2：卡片自检 — 替换后再次确认是否全部匹配
             if(!parsed.matches || parsed.replacements.length > 0){
               var checkPassed = false;
               for(var ckAttempt = 1; ckAttempt <= 3; ckAttempt++){
@@ -2647,16 +2656,24 @@ window.generateArchModule = async function(opts){
 
                 var cardList2 = '';
                 for(var ci2 = 0; ci2 < batches.length; ci2++){
-                  cardList2 += (ci2) + '. ' + batches[ci2].label + '\n';
+                  cardList2 += (ci2) + '. ' + batches[ci2].label + ' — ' + smartTruncate(batches[ci2].focus || '', 80) + '\n';
                 }
 
-                var verifyPrompt = '请确认以下' + batches.length + '张卡片是否全部匹配用户指令。\n\n';
+                var verifyPrompt = '请确认以下' + batches.length + '张卡片是否全部匹配用户指令，并覆盖所有核心需求。\n\n';
                 verifyPrompt += '【用户指令】\n' + idea.trim() + '\n\n';
+                if(parsed.coreRequirements && parsed.coreRequirements.length > 0){
+                  verifyPrompt += '【核心需求清单 — 必须全部覆盖】\n';
+                  for(var _cri = 0; _cri < parsed.coreRequirements.length; _cri++){
+                    verifyPrompt += '- ' + parsed.coreRequirements[_cri] + '\n';
+                  }
+                  verifyPrompt += '\n';
+                }
                 verifyPrompt += '【当前卡片】\n' + cardList2 + '\n';
-                verifyPrompt += '输出JSON：{"passed":true/false,"issues":["问题"],"fix":"修复建议"}';
+                verifyPrompt += '检查：每张卡片是否符合指令，所有核心需求是否都有卡片覆盖。\n';
+                verifyPrompt += '输出JSON：{"passed":true/false,"uncoveredRequirements":["未覆盖的需求"],"issues":["其他问题"],"fix":"修复建议"}';
 
                 var vResult = null;
-                try { vResult = await callRealAPIWithFallback(verifyPrompt, null, 'default', 300, true); } catch(e){}
+                try { vResult = await callRealAPIWithFallback(verifyPrompt, null, 'default', 400, true); } catch(e){}
 
                 if(vResult && vResult.trim()){
                   var vjStr = vResult.trim();
@@ -2669,10 +2686,16 @@ window.generateArchModule = async function(opts){
                       if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + batches.length + '张', {duration: 2000});
                       break;
                     } else {
-                      var issues = (vParsed.issues || []).join('; ') + (vParsed.fix ? ' | ' + vParsed.fix : '');
+                      var _uncovered = vParsed.uncoveredRequirements && vParsed.uncoveredRequirements.length > 0
+                        ? '未覆盖需求: ' + vParsed.uncoveredRequirements.join('; ')
+                        : '';
+                      var _otherIssues = vParsed.issues && vParsed.issues.length > 0
+                        ? '其他问题: ' + vParsed.issues.join('; ')
+                        : '';
+                      var issues = [_uncovered, _otherIssues].filter(Boolean).join(' | ') + (vParsed.fix ? ' | 建议: ' + vParsed.fix : '');
                       if(ckAttempt < 3){
                         if(typeof showToast === 'function') showToast('第' + ckAttempt + '次自检不通过，自动修正…', {duration: 2500});
-                        var fixPrompt = '根据以下问题修正卡片。\n【问题】\n' + issues + '\n【卡片列表】\n' + cardListForAI + '\n输出JSON：{"replacements":[{"index":序号,"newLabel":"名","newFocus":"内容"}]}';
+                        var fixPrompt = '根据以下问题修正卡片。\n【问题】\n' + issues + '\n【卡片列表】\n' + cardList2 + '\n输出JSON：{"replacements":[{"index":序号,"newLabel":"名","newFocus":"内容"}]}';
                         try {
                           var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'default', 400, true);
                           if(fixResult){
@@ -2704,7 +2727,6 @@ window.generateArchModule = async function(opts){
               if(typeof showToast === 'function') showToast('✅ 所有卡片匹配用户指令', {duration: 2000});
             }
 
-            // 持久化保存替换后的卡片（用于下次参考）
             if(parsed.replacements && parsed.replacements.length > 0){
               saveCardSupplements(module, parsed.replacements.map(function(r){ return {label: r.newLabel || '', targetChars: 2500, focus: r.newFocus || ''}; }));
             }
@@ -2734,7 +2756,10 @@ window.generateArchModule = async function(opts){
     // batches 在 AI 卡片检查前已初始化，totalChars/allCards 也已初始化
 
     // 4b. 逐卡片分批生成（所有非 detail 模块执行）+ QualityEngine 评价 + 精准修复
-    // v60: 移除一次性生成，按卡片生成后走评价→方案→修复流程
+    // v65: 前缀缓存优化 — 预先计算共享 system 前缀，用 messages 格式调用，让服务商端KV缓存命中
+    // 每张卡片的 system 消息完全相同，只有 user 消息不同 → 前缀缓存命中率接近100%
+    var _sharedSystemPrefix = buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext);
+
     for(var bi = 0; bi < batches.length; bi++){
       if(!_checkStillSameWork()) return;
 
@@ -2748,15 +2773,21 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      // 构建卡片专属的 user 内容
+      var _cardUserContent = buildArchCardUserContentV48(module, card, work, allCards, opts && opts.extraHint);
+      // messages 格式：[system, user] — system 前缀完全相同 → 服务商端前缀缓存命中
+      var cardMessages = [
+        { role: 'system', content: _sharedSystemPrefix },
+        { role: 'user', content: _cardUserContent }
+      ];
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
       try{
         if(typeof callRealAPIWithFallback === 'function'){
-          cardResult = await callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+          cardResult = await callRealAPIWithFallback(cardMessages, null, taskType, cardTargetChars, true);
         } else if(typeof callRealAPI === 'function'){
-          cardResult = await callRealAPI(cardPrompt, null, {});
+          cardResult = await callRealAPI(cardMessages, null, {});
         }
       }catch(e){
         console.warn('卡片 ' + card.label + ' 生成失败:', e);
@@ -2826,7 +2857,7 @@ window.generateArchModule = async function(opts){
         }
 
         if(_needFix){
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 ' + moduleName + ' · 生成精准修复方案…');
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(92, '🎯 ' + moduleName + ' · 卡片级精准修复…');
 
           // 收集低分维度问题
           var _fixIssues = [];
@@ -2844,81 +2875,164 @@ window.generateArchModule = async function(opts){
             });
           }
 
-          // v61: 构建精准修复 prompt
-          // 核心修复：不再截断原文(smartTruncate→8000)，改为发送完整内容
-          // targetChars 设为原文长度，配合截断续写机制让AI输出完整内容
-          // 兜底：如果修复结果比原文短30%以上，保留原文不替换
-          var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
-          _fixPrompt += '【当前评分】' + _curScore + '/100\n';
-          _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
-          _fixPrompt += '【低分维度 · 必须修复的问题】\n';
-          for(var _fi = 0; _fi < _fixIssues.length; _fi++){
-            _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
-          }
-
           // 获取 QualityEngine 的修复指导
+          var _fixGuide = '';
           try {
             if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && evalResult.dimensions){
               var _fg = QualityEngine.getFixGuide(evalResult.dimensions);
-              if(_fg) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fg, 1500);
+              if(_fg) _fixGuide = _fg;
             }
           } catch(e){}
 
-          _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
-          _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
-          _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
-          _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
-          _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
-          // 发送完整原文，不截断 — AI上下文窗口足够大，关键是输出侧
-          _fixPrompt += '【待修复的完整内容 — 请仔细阅读，所有内容都需要保留】\n' + result + '\n\n';
-          _fixPrompt += '【输出要求】\n';
-          _fixPrompt += '输出修复后的完整内容。必须保留原文的全部结构和细节，不得删减、缩短或省略任何部分。\n';
-          _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
-          _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
+          // v65: 卡片级拼接修复 — 只修复有问题的卡片，保留好的卡片不变
+          // 优势：1) 保持大部分内容不变，确保一致性 2) 利用前缀缓存命中 3) 速度更快
+          var _fixHint = _fixIssues.join('\n');
+          if(_fixGuide) _fixHint += '\n修复参考：' + smartTruncate(_fixGuide, 1000);
 
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 执行精准修复…');
-
-          if(!_checkStillSameWork()) return;
-
-          var _fixResult = null;
+          var _problemCards = [];
           try {
-            if(typeof callRealAPIWithFallback === 'function'){
-              // 用原文长度作为 targetChars，让 max_tokens 尽可能大
-              // 配合截断续写机制，AI会自动补齐超出max_tokens的内容
-              _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, Math.max(result.length, 30000), true);
+            // 步骤1：AI分析哪几张卡片有问题
+            var _analyzePrompt = '你是一位资深网文编辑。请分析以下内容中，哪些卡片存在质量问题需要修复。\n\n';
+            _analyzePrompt += '【问题清单】\n' + _fixHint + '\n\n';
+            _analyzePrompt += '【所有卡片列表】\n';
+            for(var _aci = 0; _aci < allCards.length; _aci++){
+              _analyzePrompt += (_aci + 1) + '. ' + allCards[_aci].label + '\n';
             }
-          } catch(_fixErr) { console.warn('[精准修复] 失败:', _fixErr); }
+            _analyzePrompt += '\n【任务】\n请逐张分析，判断哪些卡片需要修复。\n';
+            _analyzePrompt += '输出JSON格式：{"needsFix": [需要修复的卡片序号列表，从0开始], "reason": "分析说明"}';
+            _analyzePrompt += '\n注意：只标记确实有问题的卡片，没问题的不要选。';
 
-          if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
-            // v63: 如果修复结果比原文短超过10%，说明AI删减了内容，保留原文
-            if(_fixResult.trim().length < result.length * 0.9){
-              if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水（' + result.length + '→' + _fixResult.trim().length + '字），已保留原文。请手动编辑或缩小修复范围。', {duration: 5000});
-            } else {
-              result = _fixResult.trim();
-              totalChars = result.length;
-              if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
-              
-              // v64: 修复后指令一致性校验 — 确认修复内容仍符合用户原始指令
-              if(idea && idea.trim() && result.length > 500){
-                try {
-                  var consistencyCheck = '你是一位内容审核专家。请检查以下修复后的内容是否仍然符合用户指令。\n\n';
-                  consistencyCheck += '【用户指令】\n' + idea.trim().substring(0, 300) + '\n\n';
-                  consistencyCheck += '【修复后内容摘要】\n' + result.substring(0, 800) + '\n\n';
-                  consistencyCheck += '请回答：修复后内容是否仍符合用户指令？只回答"符合"或"偏差"，并给出10字以内理由。';
-                  consistencyCheck += '\n格式：符合/偏差 | 理由';
-                  var consistencyResult = await callRealAPIWithFallback(consistencyCheck, null, 'quality_consist', 100, true);
-                  if(consistencyResult && consistencyResult.trim()){
-                    var isDeviated = consistencyResult.trim().indexOf('偏差') === 0 || consistencyResult.trim().indexOf('不符') >= 0;
-                    if(isDeviated){
-                      if(typeof showToast === 'function') showToast('⚠️ 修复后内容可能偏离用户指令：' + consistencyResult.trim().substring(0, 60), {duration: 5000});
-                      console.warn('[指令一致性] 修复后偏差:', consistencyResult.trim());
-                    }
-                  }
-                } catch(consistErr) { console.warn('[指令一致性校验] 异常:', consistErr); }
+            var _analyzeResult = await callRealAPIWithFallback(_analyzePrompt, null, 'default', 200, true);
+            if(_analyzeResult && _analyzeResult.trim()){
+              var _aStr = _analyzeResult.trim();
+              var _aStart = _aStr.indexOf('{'), _aEnd = _aStr.lastIndexOf('}');
+              if(_aStart >= 0 && _aEnd > _aStart) _aStr = _aStr.substring(_aStart, _aEnd + 1);
+              try {
+                var _aParsed = JSON.parse(_aStr);
+                if(_aParsed.needsFix && _aParsed.needsFix.length){
+                  _problemCards = _aParsed.needsFix.filter(function(idx){ return idx >= 0 && idx < allCards.length; });
+                }
+              } catch(_pe){}
+            }
+          } catch(_analyzeErr){ console.warn('[卡片问题分析] 异常:', _analyzeErr); }
+
+          // 如果无法确定问题卡片数量太多（超过一半），退化为全文修复
+          var _useFullFix = _problemCards.length === 0 || _problemCards.length > Math.max(2, Math.floor(allCards.length * 0.6));
+
+          if(_useFullFix){
+            // 全文修复模式（兜底方案）
+            if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 全文精准修复…');
+
+            var _fixPrompt = '你是一位资深网文编辑。请基于以下评价结果，对内容进行精准修复，目标是每个维度达到9/10分、总分达到90/100分。\n\n';
+            _fixPrompt += '【当前评分】' + _curScore + '/100\n';
+            _fixPrompt += '【目标评分】≥90/100，每个维度≥9/10\n\n';
+            _fixPrompt += '【低分维度 · 必须修复的问题】\n';
+            for(var _fi = 0; _fi < _fixIssues.length; _fi++){
+              _fixPrompt += (_fi + 1) + '. ' + _fixIssues[_fi] + '\n';
+            }
+            if(_fixGuide) _fixPrompt += '\n【修复参考指南】\n' + smartTruncate(_fixGuide, 1500);
+            _fixPrompt += '\n【⚠️ 精准修复规则 · 必须遵守】\n';
+            _fixPrompt += '1. 只修复上述低分维度的问题，其他部分保持原样不变\n';
+            _fixPrompt += '2. 不是重新生成，是在现有内容上精准修补\n';
+            _fixPrompt += '3. 不得改变原始用户核心诉求和整体方向\n';
+            _fixPrompt += '4. 修复后目标：每个维度≥9/10，总分≥90/100\n\n';
+            _fixPrompt += '【待修复的完整内容 — 请仔细阅读，所有内容都需要保留】\n' + result + '\n\n';
+            _fixPrompt += '【输出要求】\n输出修复后的完整内容。必须保留原文的全部结构和细节，不得删减、缩短或省略任何部分。\n';
+            _fixPrompt += '只修改与低分维度问题相关的部分，其他内容原样保留。\n';
+            _fixPrompt += '修复后的篇幅应与原文相当或更长，不能更短。\n';
+
+            if(!_checkStillSameWork()) return;
+
+            var _fixResult = null;
+            try {
+              if(typeof callRealAPIWithFallback === 'function'){
+                _fixResult = await callRealAPIWithFallback(_fixPrompt, null, taskType, Math.max(result.length, 30000), true);
+              }
+            } catch(_fixErr) { console.warn('[全文修复] 失败:', _fixErr); }
+
+            if(_fixResult && _fixResult.trim() && _fixResult.trim().length > 100){
+              if(_fixResult.trim().length < result.length * 0.9){
+                if(typeof showToast === 'function') showToast('⚠️ 修复后内容大幅缩水，已保留原文', {duration: 4000});
+              } else {
+                result = _fixResult.trim();
+                totalChars = result.length;
+                if(typeof showToast === 'function') showToast('✅ 精准修复完成（' + _curScore + '→目标90分）', {duration: 3000});
               }
             }
           } else {
-            if(typeof showToast === 'function') showToast('⚠️ 精准修复未生效，使用原始内容', {duration: 3000});
+            // 卡片级拼接修复
+            if(typeof updateLoadingProgress === 'function') updateLoadingProgress(95, '🔧 ' + moduleName + ' · 修复' + _problemCards.length + '张卡片…');
+
+            var _fixExtraHint = '【质量修复指令】\n' + _fixHint + '\n\n请针对上述问题，在本卡片中进行精准修复，其他卡片内容保持不变。';
+
+            for(var _pci = 0; _pci < _problemCards.length; _pci++){
+              if(!_checkStillSameWork()) return;
+              var _cardIdx = _problemCards[_pci];
+              var _cardToFix = batches[_cardIdx];
+              if(!_cardToFix) continue;
+
+              if(typeof updateLoadingProgress === 'function'){
+                updateLoadingProgress(95 + Math.round((_pci / _problemCards.length) * 3), '🔧 修复' + (_pci + 1) + '/' + _problemCards.length + '：' + _cardToFix.label);
+              }
+
+              // 使用 messages 格式，共享 system 前缀 → 前缀缓存命中
+              var _fixUserContent = buildArchCardUserContentV48(
+                module,
+                _cardToFix,
+                work,
+                allCards.slice(0, _cardIdx),
+                _fixExtraHint
+              );
+              var _fixCardMessages = [
+                { role: 'system', content: _sharedSystemPrefix },
+                { role: 'user', content: _fixUserContent }
+              ];
+
+              var _fixCardResult = null;
+              try {
+                _fixCardResult = await callRealAPIWithFallback(_fixCardMessages, null, taskType, Math.max(_cardToFix.targetChars || 800, 2000), true);
+              } catch(_fce){ console.warn('[卡片修复] ' + _cardToFix.label + ' 失败:', _fce); }
+
+              if(_fixCardResult && _fixCardResult.trim() && _fixCardResult.trim().length > 50){
+                allCards[_cardIdx].content = _fixCardResult.trim();
+              }
+            }
+
+            // 重新合并所有卡片
+            var _reMerged = '';
+            var _reTotal = 0;
+            for(var _rci = 0; _rci < allCards.length; _rci++){
+              var _rc = allCards[_rci];
+              var _rheader = '';
+              if(batches.length > 1){
+                _rheader = '【' + _rc.label + '】\n';
+              }
+              _reMerged += _rheader + _rc.content.trim() + '\n\n';
+              _reTotal += _rc.content.length;
+            }
+            result = _reMerged.trim();
+            totalChars = _reTotal;
+
+            if(typeof showToast === 'function') showToast('✅ 卡片级拼接修复完成（修复' + _problemCards.length + '张，保留' + (allCards.length - _problemCards.length) + '张不变）', {duration: 4000});
+          }
+
+          // 指令一致性校验
+          if(idea && idea.trim() && result.length > 500){
+            try {
+              var consistencyCheck = '你是一位内容审核专家。请检查以下修复后的内容是否仍然符合用户指令。\n\n';
+              consistencyCheck += '【用户指令】\n' + idea.trim().substring(0, 300) + '\n\n';
+              consistencyCheck += '【修复后内容摘要】\n' + result.substring(0, 800) + '\n\n';
+              consistencyCheck += '请回答：修复后内容是否仍符合用户指令？只回答"符合"或"偏差"，并给出10字以内理由。';
+              consistencyCheck += '\n格式：符合/偏差 | 理由';
+              var consistencyResult = await callRealAPIWithFallback(consistencyCheck, null, 'quality_consist', 100, true);
+              if(consistencyResult && consistencyResult.trim()){
+                var isDeviated = consistencyResult.trim().indexOf('偏差') === 0 || consistencyResult.trim().indexOf('不符') >= 0;
+                if(isDeviated){
+                  if(typeof showToast === 'function') showToast('⚠️ 修复后内容可能偏离用户指令：' + consistencyResult.trim().substring(0, 60), {duration: 5000});
+                  console.warn('[指令一致性] 修复后偏差:', consistencyResult.trim());
+                }
+              }
+            } catch(consistErr) { console.warn('[指令一致性校验] 异常:', consistErr); }
           }
         }
       }
@@ -3183,9 +3297,10 @@ function buildArchCardBatchesV48(module, work, idea){
   return batches;
 }
 
-// ===== v48: 为单张卡片构建 prompt =====
-// 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+// ===== v65: 构建共享系统前缀（用于AI服务商前缀缓存，保证一致性+完整性+省token）=====
+// 策略：所有卡片共享完全相同的系统前缀（角色定义+用户诉求+作品信息+一致性铁律+市场调研+记忆上下文）
+// 只有"本卡片任务"是可变部分。这样AI服务商（如DeepSeek）的前缀缓存能命中，大幅提升一致性
+function buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext){
   idea = idea || '';
   // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
   try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
@@ -3195,11 +3310,11 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   var platform = '起点';
   try{ if(work && work._platform === 'fanqie') platform = '番茄'; else if(work && work._platform === 'jinjiang') platform = '晋江'; }catch(e){}
 
-  var prompt = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
+  var prefix = '你是一位资深网文架构师，擅长拆解和构建作品的世界观、人物、大纲与章节。你的设计必须服务于"能产生精彩故事"这一核心目标。\n\n';
 
   // 用户核心诉求放在第一位，优先级最高
   if(idea && idea.trim()){
-    prompt += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
+    prefix += '【⚠️ 最高优先级·用户核心诉求 — 必须严格执行，凌驾于所有其他指令之上】\n' + idea.trim() + '\n\n';
 
     // v61: 从用户指令中提取禁止项，防止AI生成违规内容
     var _forbiddenChecks = [];
@@ -3210,53 +3325,112 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     if(/无修仙|无修真|无仙侠/.test(idea)) _forbiddenChecks.push('修仙、修真、渡劫、飞升、元婴、金丹、灵气、灵根');
 
     if(_forbiddenChecks.length > 0){
-      prompt += '【🚫 禁止项 — 不可出现，但必须用等效替代填补，不得因此缩小篇幅】\n';
+      prefix += '【🚫 禁止项 — 不可出现，但必须用等效替代填补，不得因此缩小篇幅】\n';
       for(var _fci = 0; _fci < _forbiddenChecks.length; _fci++){
-        prompt += '- ' + _forbiddenChecks[_fci] + '\n';
+        prefix += '- ' + _forbiddenChecks[_fci] + '\n';
       }
-      prompt += '⚠️ 核心原则：禁止项是为了引导你走向用户想要的方向，不是让你删减内容。\n';
-      prompt += '每删除一个禁止项，必须用同等篇幅的合规内容填补。整体字数不得因禁止项而减少。\n\n';
+      prefix += '⚠️ 核心原则：禁止项是为了引导你走向用户想要的方向，不是让你删减内容。\n';
+      prefix += '每删除一个禁止项，必须用同等篇幅的合规内容填补。整体字数不得因禁止项而减少。\n\n';
 
       // 给出替代方向
       if(/无魔|禁魔|无魔法/.test(idea)){
-        prompt += '【替代方案指南 — 无魔设定下应该用什么替代】\n';
-        prompt += '- 魔法/法术 → 军事战术、兵器科技、谋略、政治手腕、经济手段\n';
-        prompt += '- 修炼体系 → 军事晋升体系、权力等级、工匠技艺等级、学术成就体系\n';
-        prompt += '- 魔兽/灵兽 → 战马、猎犬、信鸽、驯鹰、战象（写实动物，强调其军事/经济价值）\n';
-        prompt += '- 神器 → 精良兵器（名匠锻造的剑/弓/甲）、战略资源（铁矿/金矿/盐）、技术专利（攻城器械/造船术）\n';
-        prompt += '- 神祇/预言 → 历史传说、祖先崇拜、英雄史诗、民间智慧格言（非超自然的文化传统）\n';
-        prompt += '- 结界/传送门 → 关隘、要塞、运河、驰道（写实地理和交通设施）\n\n';
+        prefix += '【替代方案指南 — 无魔设定下应该用什么替代】\n';
+        prefix += '- 魔法/法术 → 军事战术、兵器科技、谋略、政治手腕、经济手段\n';
+        prefix += '- 修炼体系 → 军事晋升体系、权力等级、工匠技艺等级、学术成就体系\n';
+        prefix += '- 魔兽/灵兽 → 战马、猎犬、信鸽、驯鹰、战象（写实动物，强调其军事/经济价值）\n';
+        prefix += '- 神器 → 精良兵器（名匠锻造的剑/弓/甲）、战略资源（铁矿/金矿/盐）、技术专利（攻城器械/造船术）\n';
+        prefix += '- 神祇/预言 → 历史传说、祖先崇拜、英雄史诗、民间智慧格言（非超自然的文化传统）\n';
+        prefix += '- 结界/传送门 → 关隘、要塞、运河、驰道（写实地理和交通设施）\n\n';
       }
       if(/无系统|无面板|无金手指/.test(idea)){
-        prompt += '【替代方案指南 — 无系统设定下应该用什么替代】\n';
-        prompt += '- 系统面板 → 主角通过观察、经验、请教他人来认知自身能力\n';
-        prompt += '- 属性加点 → 通过训练、实战、学习逐步成长，写出成长过程而非数值变化\n';
-        prompt += '- 任务系统 → 来自他人委托、自身目标、外部压力驱动的行动\n';
-        prompt += '- 签到/抽奖 → 通过努力、机遇、交易、掠夺获得资源\n\n';
+        prefix += '【替代方案指南 — 无系统设定下应该用什么替代】\n';
+        prefix += '- 系统面板 → 主角通过观察、经验、请教他人来认知自身能力\n';
+        prefix += '- 属性加点 → 通过训练、实战、学习逐步成长，写出成长过程而非数值变化\n';
+        prefix += '- 任务系统 → 来自他人委托、自身目标、外部压力驱动的行动\n';
+        prefix += '- 签到/抽奖 → 通过努力、机遇、交易、掠夺获得资源\n\n';
       }
     }
 
-    prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证，重点是补充而非删除】\n';
-    prompt += '1. 逐条对照用户核心诉求，确认每一条都已满足\n';
-    prompt += '2. 逐条对照禁止项，确认没有违规内容\n';
-    prompt += '3. 如果发现违规：不是简单删除，而是用等效合规内容替代，保持总字数不降\n';
-    prompt += '4. 检查是否因禁止项导致内容空洞——如果是，请扩展合规内容补足\n';
-    prompt += '5. 自检通过后再输出，不要输出未自检的内容\n\n';
+    prefix += '【🔍 输出前自检 — 生成完成后必须逐条验证，重点是补充而非删除】\n';
+    prefix += '1. 逐条对照用户核心诉求，确认每一条都已满足\n';
+    prefix += '2. 逐条对照禁止项，确认没有违规内容\n';
+    prefix += '3. 如果发现违规：不是简单删除，而是用等效合规内容替代，保持总字数不降\n';
+    prefix += '4. 检查是否因禁止项导致内容空洞——如果是，请扩展合规内容补足\n';
+    prefix += '5. 自检通过后再输出，不要输出未自检的内容\n\n';
   } else {
-    prompt += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
+    prefix += '【用户核心诉求 — 本次无特殊要求，由你基于题材自由发挥】\n\n';
   }
 
-  prompt += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
-  prompt += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
-  prompt += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
-  prompt += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
-  prompt += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须承接\n';
-  prompt += '5. 如果本卡片内容与已有设定冲突，必须以已有设定为准，本卡片让步\n\n';
+  prefix += '【一致性铁律 — 违反任何一条即视为生成失败】\n';
+  prefix += '1. 人物姓名、身份、关系必须与已有设定完全一致，不得改名、不得新增未提及的核心人物\n';
+  prefix += '2. 世界观规则（力量体系、势力分布、地理名称）必须与已有设定完全一致，不得修改或矛盾\n';
+  prefix += '3. 时间线必须连续，不得出现时间倒流或事件顺序矛盾\n';
+  prefix += '4. 前文已确认的事实不得推翻，前文已埋的伏笔必须承接\n';
+  prefix += '5. 如果本卡片内容与已有设定冲突，必须以已有设定为准，本卡片让步\n\n';
 
-  prompt += '【作品基础信息】\n';
-  prompt += '作品名称：' + title + '\n';
-  if(genre) prompt += '一级题材：' + genre + '\n';
-  prompt += '发布平台：' + platform + '\n\n';
+  prefix += '【作品基础信息】\n';
+  prefix += '作品名称：' + title + '\n';
+  if(genre) prefix += '一级题材：' + genre + '\n';
+  prefix += '发布平台：' + platform + '\n\n';
+
+  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
+  if(module !== 'world'){
+    if(module === 'detail'){
+      // 细纲是生成正文的底层基础，必须用原文确保准确完整
+      prefix += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+      if(work && work.world && work.world.trim()){
+        prefix += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+      }
+      if(work && work.chars && work.chars.trim()){
+        prefix += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+      }
+      if(work && work.outline && work.outline.trim()){
+        prefix += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+      }
+    } else {
+      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
+      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
+      if(sumCtx && sumCtx.trim()){
+        prefix += sumCtx + '\n\n';
+      } else {
+        prefix += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
+        if(work && work.world && work.world.trim()){
+          prefix += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
+        }
+        if(module !== 'chars' && work && work.chars && work.chars.trim()){
+          prefix += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
+        }
+      }
+    }
+  }
+
+  var trend = getTrendHint2026(work);
+  if(trend){
+    // v59: 题材趋势必须过滤，只选与用户指令相符的方向
+    prefix += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
+  }
+
+  // AI分工搜索：市场调研报告（必须严格基于用户指令方向，不得推荐违背指令的内容）
+  if(marketResearch && marketResearch.trim()){
+    prefix += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
+  }
+
+  // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
+  if(memoryContext && memoryContext.trim()){
+    prefix += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
+  }
+
+  return prefix;
+}
+
+// ===== v48: 为单张卡片构建 prompt =====
+// v65重构：使用 buildArchSystemPrefix 构建共享前缀（支持前缀缓存），只追加卡片特定部分
+// 关键点：共享前缀（用户诉求+市场调研+记忆上下文）+ 已生成内容 + 本卡片具体目标 + 可选 extraHint（评价加强意见）
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+  var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
+
+  // v65: 使用共享系统前缀（便于AI服务商前缀缓存，保证一致性）
+  var prompt = buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext);
 
   // ⭐ v56：注入当前模块的已有内容 —— 让AI基于已有内容做迭代/加强，而不是每次从头生成
   // 特别注意：当有 extraHint 时，这是针对性修改而非重新生成
@@ -3274,53 +3448,6 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '3. 前后不一致的地方以更合理的一方为准统一修正\n';
     prompt += '4. 如果本次有"加强意见"，只针对问题部分修改，保留其他部分不变\n';
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
-  }
-
-  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
-  if(module !== 'world'){
-    if(module === 'detail'){
-      // 细纲是生成正文的底层基础，必须用原文确保准确完整
-      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-      if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-      }
-      if(work && work.chars && work.chars.trim()){
-        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-      }
-      if(work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-      }
-    } else {
-      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
-      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-      if(sumCtx && sumCtx.trim()){
-        prompt += sumCtx + '\n\n';
-      } else {
-        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
-        if(work && work.world && work.world.trim()){
-          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
-        }
-        if(module !== 'chars' && work && work.chars && work.chars.trim()){
-          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
-        }
-      }
-    }
-  }
-
-  var trend = getTrendHint2026(work);
-  if(trend){
-    // v59: 题材趋势必须过滤，只选与用户指令相符的方向
-    prompt += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
-  }
-
-  // AI分工搜索：市场调研报告（必须严格基于用户指令方向，不得推荐违背指令的内容）
-  if(marketResearch && marketResearch.trim()){
-    prompt += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
-  }
-
-  // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
-  if(memoryContext && memoryContext.trim()){
-    prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
   }
 
   // 关键：已生成的卡片内容（最近2张给完整摘要确保连贯，更早的只列标题——内容已提炼到记忆精要）
@@ -3385,6 +3512,85 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
 
   prompt += '\n【开始生成本卡片】\n';
   return prompt;
+}
+
+// ===== v65: 构建卡片的 user 消息内容（卡片特有部分，用于 messages 格式）=====
+// 配合 buildArchSystemPrefix 使用：system = buildArchSystemPrefix，user = 本函数
+// 目的：让所有卡片的 system 消息完全相同 → AI 服务商端前缀缓存命中
+function buildArchCardUserContentV48(module, card, work, prevCards, extraHint){
+  var userContent = '';
+
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLimit = 6000;
+    if(extraHint && extraHint.trim()){
+      userContent += '【📖 当前模块已有内容 —— 请在此基础上针对问题部分做精准修改，其他部分保持不变。不是重新生成，是迭代加强】\n';
+    } else {
+      userContent += '【📖 当前模块已有内容 —— 请在此基础上扩展、深化细节而不是推倒重来。核心设定必须保留】\n';
+    }
+    userContent += smartTruncate(work[module], _cardExistingLimit) + '\n\n';
+    userContent += '【已有内容处理原则】\n';
+    userContent += '1. 核心设定（姓名、势力、力量等级等）必须保留，不得推翻或改名\n';
+    userContent += '2. 已有信息不充分的部分请补充扩展，但不得替换原有内容\n';
+    userContent += '3. 前后不一致的地方以更合理的一方为准统一修正\n';
+    userContent += '4. 如果本次有"加强意见"，只针对问题部分修改，保留其他部分不变\n';
+    userContent += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
+  }
+
+  if(prevCards && prevCards.length > 0){
+    userContent += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
+    
+    var _rcBig = isLargeContextModel();
+    var _rcLimit = _rcBig ? 2000 : 800;
+    var _rcFirst = _rcBig ? 800 : 300;
+    var _rcLast = _rcBig ? 400 : 200;
+    var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
+    for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
+      var pc2 = prevCards[pi2];
+      var snip2 = '';
+      if(pc2.content.length > _rcLimit){
+        snip2 = pc2.content.substring(0, _rcFirst) + '\n...（中间略）...\n' + pc2.content.slice(-_rcLast);
+      } else {
+        snip2 = pc2.content;
+      }
+      userContent += '■ ' + pc2.label + '：\n' + snip2.trim() + '\n\n';
+    }
+    
+    if(recentLimit > 0){
+      userContent += '【更早的卡片（标题参考，内容已提炼到记忆精要）】\n';
+      for(var oi2 = 0; oi2 < recentLimit; oi2++){
+        userContent += '· ' + prevCards[oi2].label + '\n';
+      }
+      userContent += '\n';
+    }
+  }
+
+  if(extraHint && extraHint.trim()){
+    userContent += '【★ 本次生成特别关注 — 来自编辑评价的加强意见，必须优先处理】\n' + smartTruncate(extraHint.trim(), 800) + '\n\n';
+  }
+
+  userContent += '【本卡片任务】\n';
+  userContent += '正在生成本模块中的卡片：**' + card.label + '**\n';
+  userContent += '请专注于以下内容：\n' + card.focus + '\n\n';
+
+  userContent += '【⚠️ 输出格式与字数约束】\n';
+  userContent += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
+  userContent += '2. 不要输出与本卡片无关的内容（如创作思路、解释说明）\n';
+  userContent += '3. 段落清晰，用「■」标记关键子项\n';
+
+  if(work && work[module] && work[module].trim()){
+    var _cardExistingLen = work[module].trim().length;
+    userContent += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字。当前模块已有内容约 ' + _cardExistingLen + ' 字，本卡片内容不得压缩，应适当扩展细节**\n';
+  } else {
+    userContent += '4. **目标字数：本卡片至少 ' + card.targetChars + ' 字，请充分展开细节，不要压缩内容**\n';
+  }
+  userContent += '5. 与已生成内容保持人物名称、设定、风格的一致性\n';
+  if(module === 'detail' && card.volume){
+    userContent += '6. 细纲必须严格使用「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」格式，一行一章，章节编号必须连续\n';
+    userContent += '7. 本卷细纲的章节编号从第 ' + card.chapterRange + ' 章开始\n';
+  }
+
+  userContent += '\n【开始生成本卡片】\n';
+  return userContent;
 }
 
 // ===== v52: 大模型一次性生成完整模块 =====
