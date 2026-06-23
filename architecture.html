@@ -430,12 +430,14 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="card-select-panel" id="card-select-world">
         <div class="card-select-header">
-          <span class="csh-title">📋 将生成的卡片</span>
-          <span class="csh-count" id="csc-world">8张卡片</span>
+          <span class="csh-title">📋 AI 卡片筛选</span>
+          <span class="csh-count" id="csc-world">等待分析...</span>
         </div>
-        <div class="card-select-body" id="csb-world"></div>
+        <div class="card-select-body" id="csb-world">
+          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
+        </div>
         <div class="card-select-actions">
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+          <button class="primary" onclick="aiSelectCards('world')" id="csb-btn-world">🔍 AI 分析指令 · 筛选卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -467,12 +469,14 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="card-select-panel" id="card-select-chars">
         <div class="card-select-header">
-          <span class="csh-title">📋 将生成的卡片</span>
-          <span class="csh-count" id="csc-chars">7张卡片</span>
+          <span class="csh-title">📋 AI 卡片筛选</span>
+          <span class="csh-count" id="csc-chars">等待分析...</span>
         </div>
-        <div class="card-select-body" id="csb-chars"></div>
+        <div class="card-select-body" id="csb-chars">
+          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
+        </div>
         <div class="card-select-actions">
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+          <button class="primary" onclick="aiSelectCards('chars')" id="csb-btn-chars">🔍 AI 分析指令 · 筛选卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -508,17 +512,15 @@ body{display:flex;flex-direction:column;}
         <span class="count-hint">（3-20卷）</span>
       </div>
       <div class="card-select-panel" id="card-select-outline">
-        <div class="card-select-header" onclick="toggleCardSelect('outline')">
-          <span class="csh-title">📋 生成卡片选择</span>
-          <span class="csh-count" id="csc-outline">动态卡片</span>
-          <span class="csh-toggle" id="cst-outline">展开 ▾</span>
+        <div class="card-select-header">
+          <span class="csh-title">📋 AI 卡片筛选</span>
+          <span class="csh-count" id="csc-outline">等待分析...</span>
         </div>
-        <div class="card-select-body" id="csb-outline"></div>
+        <div class="card-select-body" id="csb-outline">
+          <div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">点击下方按钮，AI 将根据你的指令自动筛选卡片</div>
+        </div>
         <div class="card-select-actions">
-          <button onclick="cardSelectAll('outline')">全选</button>
-          <button onclick="cardSelectNone('outline')">取消全选</button>
-          <button onclick="cardSelectFit('outline')">仅选匹配指令</button>
-          <button class="primary" onclick="generateArchModule()">🤖 生成选中卡片</button>
+          <button class="primary" onclick="aiSelectCards('outline')" id="csb-btn-outline">🔍 AI 分析指令 · 筛选卡片</button>
         </div>
       </div>
       <div class="page-actions">
@@ -946,6 +948,10 @@ window.switchArchModule = function(mod) {
   pages.forEach(function(p){ p.classList.remove('current'); });
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
+
+  // v61: 显示卡片筛选面板（world/chars/outline）
+  var panel = document.getElementById('card-select-' + mod);
+  if(panel) panel.classList.add('show');
 
   // 如果在四级视图中，确保在level4
   if (_currentLevel !== 4) {
@@ -2467,7 +2473,136 @@ function buildModuleSummaryContext(work, currentModule){
   return ctx.trim();
 }
 
-// v48: 支持 extraHint（针对性加强提示），调用前后统一清理对话语前缀
+// v61: AI 卡片筛选 — 让AI根据用户指令自动选择/跳过/补充卡片
+var _selectedCards = {}; // { module: { selected: [0,1,2..], skipped: [{idx,reason}], supplement: [{label,targetChars,focus}] } }
+var _cardPanels = {}; // 缓存各模块的可用卡片列表
+
+// 构建卡片列表HTML（供 AI 筛选后渲染）
+function renderCardSelection(module, result){
+  var panel = document.getElementById('card-select-' + module);
+  if(!panel) return;
+  panel.classList.add('show');
+
+  var body = document.getElementById('csb-' + module);
+  var countEl = document.getElementById('csc-' + module);
+  var btnEl = document.getElementById('csb-btn-' + module);
+  if(!body) return;
+
+  var sel = result.selected || [];
+  var skip = result.skipped || [];
+  var supp = result.supplement || [];
+  var total = sel.length + skip.length + supp.length;
+
+  if(countEl) countEl.textContent = '选中' + sel.length + '张 · 跳过' + skip.length + '张' + (supp.length ? ' · 补充' + supp.length + '张' : '');
+
+  var html = '';
+  // 选中卡片
+  for(var i = 0; i < sel.length; i++){
+    var s = sel[i];
+    html += '<div class="card-select-item"><span class="csi-icon">✅</span><span class="csi-label">' + _esc(s.label || s) + '</span><span class="csi-chars">' + (s.targetChars || '') + '字</span></div>';
+  }
+  // 跳过卡片
+  for(var j = 0; j < skip.length; j++){
+    var sk = skip[j];
+    html += '<div class="card-select-item skipped"><span class="csi-icon">⏭️</span><span class="csi-label">' + _esc(sk.label || sk) + '</span><span class="csi-reason">' + _esc(sk.reason || '不符合指令') + '</span></div>';
+  }
+  // 补充卡片
+  for(var k = 0; k < supp.length; k++){
+    var sp = supp[k];
+    html += '<div class="card-select-item"><span class="csi-icon">➕</span><span class="csi-label" style="color:#059669;">' + _esc(sp.label || sp) + '</span><span class="csi-chars">新增</span></div>';
+  }
+  body.innerHTML = html;
+
+  // 更新按钮
+  if(btnEl){
+    btnEl.textContent = '🤖 生成选中卡片（' + (sel.length + supp.length) + '张）';
+    btnEl.onclick = function(){ generateArchModule(); };
+  }
+}
+
+function _esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// AI 分析用户指令，自动筛选卡片
+window.aiSelectCards = async function(module){
+  var ideaEl = document.getElementById('idea-' + module);
+  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
+  if(!idea){
+    showToast('请先在上方输入构思/指令', {error:true});
+    return;
+  }
+
+  var btnEl = document.getElementById('csb-btn-' + module);
+  if(btnEl){ btnEl.textContent = '⏳ AI 分析中...'; btnEl.disabled = true; }
+
+  try {
+    // 获取模块的所有卡片
+    var work = getCurrentWork();
+    var batches = buildArchCardBatchesV48(module, work, idea);
+    _cardPanels[module] = batches;
+
+    // 构建卡片列表
+    var cardList = '';
+    for(var i = 0; i < batches.length; i++){
+      cardList += (i+1) + '. ' + batches[i].label + '（' + batches[i].targetChars + '字）\n';
+    }
+
+    // AI 筛选 prompt
+    var selectPrompt = '你是网文架构师。根据用户指令，从以下卡片列表中选择必须生成的卡片。\n\n';
+    selectPrompt += '【用户指令】\n' + idea + '\n\n';
+    selectPrompt += '【可用卡片列表】\n' + cardList + '\n';
+    selectPrompt += '【筛选规则】\n';
+    selectPrompt += '1. 如果用户指令中有"无魔""无魔法""无超自然"等，跳过"力量体系""宗教""灵兽"等魔法相关卡片\n';
+    selectPrompt += '2. 如果用户指令中有"纯粹中世纪""写实"等，用更贴合的视角看待卡片（如"力量体系"→军事力量），但卡片本身仍可保留\n';
+    selectPrompt += '3. 如果某张卡片与用户指令完全无关或冲突，标记为跳过\n';
+    selectPrompt += '4. 如果缺少用户指令所需的关键卡片，补充建议（最多3张）\n\n';
+    selectPrompt += '【输出格式 — 严格JSON，不要加任何其他文字】\n';
+    selectPrompt += '{"selected":[{"idx":0,"label":"卡片名","targetChars":3000}],"skipped":[{"idx":2,"label":"卡片名","reason":"原因"}],"supplement":[{"label":"新卡片名","targetChars":3000,"focus":"卡片焦点描述"}]}\n';
+    selectPrompt += 'idx 是卡片在列表中的索引（从0开始）。supplement 可选，没有就空数组。';
+
+    var result = await callRealAPIWithFallback(selectPrompt, null, '卡片筛选', 500, true);
+    if(!result){
+      showToast('AI 筛选失败，请重试', {error:true});
+      if(btnEl){ btnEl.textContent = '🔍 AI 分析指令 · 筛选卡片'; btnEl.disabled = false; }
+      return;
+    }
+
+    // 解析 JSON
+    var parsed = null;
+    try {
+      var jsonStr = result.trim();
+      // 容错：提取第一个 { 到最后一个 }
+      var start = jsonStr.indexOf('{');
+      var end = jsonStr.lastIndexOf('}');
+      if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
+      parsed = JSON.parse(jsonStr);
+    } catch(e){
+      console.warn('[AI卡片筛选] JSON解析失败:', result.substring(0,200));
+      showToast('AI 筛选结果解析失败，请重试', {error:true});
+      if(btnEl){ btnEl.textContent = '🔍 AI 分析指令 · 筛选卡片'; btnEl.disabled = false; }
+      return;
+    }
+
+    // 补充卡片添加到 batches
+    var allBatches = batches.slice();
+    if(parsed.supplement && parsed.supplement.length > 0){
+      for(var si = 0; si < parsed.supplement.length; si++){
+        var sp = parsed.supplement[si];
+        allBatches.push({ label: sp.label, targetChars: sp.targetChars || 2500, focus: sp.focus || '', _supplement: true });
+      }
+    }
+
+    _cardPanels[module] = allBatches;
+    _selectedCards[module] = parsed;
+
+    renderCardSelection(module, parsed);
+    showToast('✅ AI 已筛选：' + (parsed.selected ? parsed.selected.length : 0) + '张选中，' + (parsed.skipped ? parsed.skipped.length : 0) + '张跳过', {duration: 2500});
+
+  } catch(e){
+    console.error('[AI卡片筛选] 异常:', e);
+    showToast('AI 筛选出错：' + (e.message || '未知错误'), {error:true});
+  }
+  if(btnEl){ btnEl.disabled = false; }
+};
 window.generateArchModule = async function(opts){
   opts = opts || {};
   try{
@@ -2702,6 +2837,34 @@ window.generateArchModule = async function(opts){
     // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
     if(module !== 'detail'){
       batches = buildArchCardBatchesV48(module, work, idea);
+
+      // v61: 如果AI已筛选卡片，只生成选中的卡片
+      if(_selectedCards[module] && _selectedCards[module].selected){
+        var _sel = _selectedCards[module];
+        var _selIdx = {};
+        for(var _si = 0; _si < _sel.selected.length; _si++){ _selIdx[_sel.selected[_si].idx] = true; }
+        // 补充卡片已在 _cardPanels 中，直接使用
+        if(_cardPanels[module] && _cardPanels[module].length > 0){
+          batches = _cardPanels[module].filter(function(b, i){
+            return _selIdx[i] || b._supplement;
+          });
+        } else {
+          var _filtered = [];
+          for(var _fi = 0; _fi < batches.length; _fi++){
+            if(_selIdx[_fi]) _filtered.push(batches[_fi]);
+          }
+          // 追加补充卡片
+          if(_sel.supplement){
+            for(var _spi = 0; _spi < _sel.supplement.length; _spi++){
+              var _sp = _sel.supplement[_spi];
+              _filtered.push({ label: _sp.label, targetChars: _sp.targetChars || 2500, focus: _sp.focus || '', _supplement: true });
+            }
+          }
+          batches = _filtered;
+        }
+        if(typeof showToast === 'function') showToast('📋 按AI筛选生成 ' + batches.length + ' 张卡片', {duration: 2000});
+      }
+
       totalChars = 0;
       allCards = [];
     }
