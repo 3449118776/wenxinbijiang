@@ -156,11 +156,11 @@ const DB = {
     this.ensureWorkFingerprint(work);
     // 严格双检：作品 ID + 指纹（_fingerprint 包含作品创建时间/标题等信息，作为对象引用错乱时的最后一道防线）
     var currentId = '';
-    try { currentId = localStorage.getItem('last_edit_work') || ''; } catch(e) {}
+    try { currentId = localStorage.getItem('last_edit_work') || ''; } catch(e) { console.warn("[db.js]", e); }
     if (currentId && currentId !== work.id) {
       if (!silent) console.warn('[DB] validateWorkIsolation: id mismatch, current=' + currentId + ' work.id=' + work.id);
       // 自动更新为当前作品 id，避免跨页面保存被阻止
-      try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
+      try { localStorage.setItem('last_edit_work', work.id); } catch(e) { console.warn("[db.js]", e); }
       return true;
     }
     // 确保传入对象仍在 DB.works 中（避免调用方缓存了过期对象引用）
@@ -170,7 +170,7 @@ const DB = {
         if (!silent) console.warn('[DB] validateWorkIsolation: work not found in DB.works, id=' + work.id);
         return false;
       }
-    } catch(_) {}
+    } catch(_) { console.warn("[db.js]", _); }
     return true;
   },
 
@@ -193,16 +193,16 @@ const DB = {
         }
         if (!db.objectStoreNames.contains(self._chapterStore)) {
           var chStore = db.createObjectStore(self._chapterStore, { keyPath: 'id' });
-          try { chStore.createIndex('workId', 'workId', { unique: false }); } catch(e) {}
+          try { chStore.createIndex('workId', 'workId', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
         }
         if (!db.objectStoreNames.contains(self._backupStore)) {
           var bkStore = db.createObjectStore(self._backupStore, { keyPath: 'id' });
-          try { bkStore.createIndex('createdAt', 'createdAt', { unique: false }); } catch(e) {}
+          try { bkStore.createIndex('createdAt', 'createdAt', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
         }
         if (!db.objectStoreNames.contains(self._historyStore)) {
           var hs = db.createObjectStore(self._historyStore, { keyPath: 'id' });
-          try { hs.createIndex('chapterKey', 'chapterKey', { unique: false }); } catch(e) {}
-          try { hs.createIndex('createdAt', 'createdAt', { unique: false }); } catch(e) {}
+          try { hs.createIndex('chapterKey', 'chapterKey', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
+          try { hs.createIndex('createdAt', 'createdAt', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
         }
       };
       req.onsuccess = function(e) { resolve(e.target.result); };
@@ -311,25 +311,25 @@ const DB = {
     var self = this;
     if (self._autoMaintenanceStarted) return;
     self._autoMaintenanceStarted = true;
-    setTimeout(function(){ try { self.saveAllChapterShards(); } catch(e) {} }, 3000);
+    setTimeout(function(){ try { self.saveAllChapterShards(); } catch(e) { console.warn("[db.js]", e); } }, 3000);
     self._autoShardTimer = setInterval(function(){
       try {
         self.flushDirtyChapterShards();
         self.saveAllChapterShards();
-      } catch(e) {}
+      } catch(e) { console.warn("[db.js]", e); }
     }, 60000);
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', function(){
         if (document.hidden) {
-          try { self.flush(); } catch(e) {}
-          try { self.flushDirtyChapterShards(); } catch(e) {}
+          try { self.flush(); } catch(e) { console.warn("[db.js]", e); }
+          try { self.flushDirtyChapterShards(); } catch(e) { console.warn("[db.js]", e); }
         }
       });
     }
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', function(){
-        try { self.flush(); } catch(e) {}
-        try { self.flushDirtyChapterShards(); } catch(e) {}
+        try { self.flush(); } catch(e) { console.warn("[db.js]", e); }
+        try { self.flushDirtyChapterShards(); } catch(e) { console.warn("[db.js]", e); }
       });
     }
   },
@@ -432,7 +432,7 @@ const DB = {
 
   // ========== v41：自动备份系统 ==========
   buildBackupPayload(includeApiKeys) {
-    try { this.ensureAllFingerprints(); } catch(e) {}
+    try { this.ensureAllFingerprints(); } catch(e) { console.warn("[db.js]", e); }
     return {
       _version: 44,
       backupType: 'auto-backup',
@@ -699,7 +699,7 @@ const DB = {
     this.ensureWorkFingerprint(w);
     this.works.push(w);
     this.saveWork(w);
-    try { localStorage.setItem('last_edit_work', w.id); } catch(e) {}
+    try { localStorage.setItem('last_edit_work', w.id); } catch(e) { console.warn("[db.js]", e); }
     return w;
   },
 
@@ -761,7 +761,7 @@ const DB = {
       if (!biggest || wc > biggest.words) biggest = {title:w.title || '未命名', words:wc, id:w.id};
     });
     var jsonSize = 0;
-    try { jsonSize = JSON.stringify({works:works}).length; } catch(e) {}
+    try { jsonSize = JSON.stringify({works:works}).length; } catch(e) { console.warn("[db.js]", e); }
     return {
       works: works.length,
       chapters: chapters,
@@ -863,7 +863,7 @@ const DB = {
           settings: self.settings,
           _trash: self._trash || []
         }));
-      } catch(e) {}
+      } catch(e) { console.warn("[db.js]", e); }
       return data;
     });
   },
@@ -874,7 +874,7 @@ const DB = {
     try {
       var v = localStorage.getItem('wxbj_data_v4') || '';
       localSize = v.length;
-    } catch(e) {}
+    } catch(e) { console.warn("[db.js]", e); }
     var works = self.works || [];
     var chapterCount = 0, wordCount = 0, memoryCount = 0;
     works.forEach(function(w) {
@@ -1021,7 +1021,7 @@ const DB = {
         var k = localStorage.key(i);
         if (k && k.indexOf(self._SPLIT_KEY_PREFIX) === 0) existingKeys.push(k);
       }
-    } catch(e) {}
+    } catch(e) { console.warn("[db.js]", e); }
     // 逐个写入作品重量级字段（每个子字段独立key），同时记录成功写入的key
     works.forEach(function(w) {
       if (!w || !w.id) return;
@@ -1083,7 +1083,7 @@ const DB = {
     // 仅清理已不存在的作品的旧key（即不在newKeys中的key），避免误删写入失败字段的旧数据
     existingKeys.forEach(function(oldKey) {
       if (newKeys.indexOf(oldKey) < 0) {
-        try { localStorage.removeItem(oldKey); } catch(e) {}
+        try { localStorage.removeItem(oldKey); } catch(e) { console.warn("[db.js]", e); }
       }
     });
   },
@@ -1139,7 +1139,7 @@ const DB = {
             lightWork[subKey] = JSON.parse(subStr);
             hasAnySubKey = true;
           }
-        } catch(e) {}
+        } catch(e) { console.warn("[db.js]", e); }
       });
       // 兼容旧格式：如果没找到子字段key，从主key读取
       if (!hasAnySubKey) {
@@ -1339,7 +1339,7 @@ const DB = {
     var w = this._trash[idx].work;
     this._trash.splice(idx, 1);
     // 恢复后标记为脏并递增版本号，确保云端能识别为需要重新推送
-    try { this.ensureWorkFingerprint(w); } catch(e) {}
+    try { this.ensureWorkFingerprint(w); } catch(e) { console.warn("[db.js]", e); }
     try {
       var oldV = parseInt(w._version) || 0;
       w._version = oldV + 1;
@@ -1440,7 +1440,7 @@ const DB = {
   // 获取当前作品
   getWork() {
     let id = null;
-    try { id = localStorage.getItem('last_edit_work'); } catch(e) {}
+    try { id = localStorage.getItem('last_edit_work'); } catch(e) { console.warn("[db.js]", e); }
     if (!id || !this.works) return null;
     return this.works.find(w => w.id === id) || this.works[0];
   },
@@ -1493,7 +1493,7 @@ const DB = {
     this.ensureWorkFingerprint(work);
     this.works.push(work);
     this.save();
-    try { localStorage.setItem('last_edit_work', work.id); } catch(e) {}
+    try { localStorage.setItem('last_edit_work', work.id); } catch(e) { console.warn("[db.js]", e); }
     try {
       var _c = window.cloud;
       if (_c && _c.isLoggedIn()) {
@@ -1521,7 +1521,7 @@ const DB = {
           // 最多保留 20 部
           if (this._trash.length > 20) this._trash = this._trash.slice(0, 20);
         }
-      } catch(e) {}
+      } catch(e) { console.warn("[db.js]", e); }
     }
     this.flush();
   },
@@ -1558,7 +1558,7 @@ const DB = {
       if (_cloud && _cloud.isLoggedIn() && _cloud.syncKeysAndSettings) {
         _cloud.syncKeysAndSettings().catch(function(){});
       }
-    } catch(e) {}
+    } catch(e) { console.warn("[db.js]", e); }
   },
 
   // 获取某个服务商的所有密钥

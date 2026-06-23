@@ -19,8 +19,10 @@ function getBcrypt() {
   return _bcryptPromise;
 }
 
-export const JWT_SECRET = globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2_production';
-globalThis.__JWT_SECRET = JWT_SECRET;
+function getJWTSecret() {
+  return globalThis.__JWT_SECRET || 'wxbj_cloud_secret_2026_v2_production';
+}
+const JWT_SECRET_DEFAULT = getJWTSecret();
 
 // ============ Base64URL ============
 function b64url_encode(strOrBytes) {
@@ -63,7 +65,7 @@ export async function jwt_sign(payload, secret, expiresInSec) {
   const body = { ...payload, iat: now, exp: now + expiresInSec };
   const enc = new TextEncoder();
   const signingInput = b64url_encode(JSON.stringify(header)) + '.' + b64url_encode(JSON.stringify(body));
-  const sig = await hmac_sha256(enc.encode(secret || JWT_SECRET), enc.encode(signingInput));
+  const sig = await hmac_sha256(enc.encode(secret || getJWTSecret()), enc.encode(signingInput));
   return signingInput + '.' + b64url_encode(sig);
 }
 
@@ -72,12 +74,15 @@ export async function jwt_verify(token, secret) {
   if (parts.length !== 3) return null;
   const enc = new TextEncoder();
   const signingInput = parts[0] + '.' + parts[1];
-  const expectedSig = b64url_decode(parts[2]);
-  const sig = await hmac_sha256(enc.encode(secret || JWT_SECRET), enc.encode(signingInput));
+  let expectedSig, sig;
+  try {
+    expectedSig = b64url_decode(parts[2]);
+    sig = await hmac_sha256(enc.encode(secret || getJWTSecret()), enc.encode(signingInput));
+  } catch (e) { return null; }
   if (sig.length !== expectedSig.length) return null;
-  let ok = true;
-  for (let i = 0; i < sig.length; i++) if (sig[i] !== expectedSig[i]) ok = false;
-  if (!ok) return null;
+  let ok = 0;
+  for (let i = 0; i < sig.length; i++) ok |= sig[i] ^ expectedSig[i];
+  if (ok !== 0) return null;
   try {
     const payload = JSON.parse(b64url_decode_str(parts[1]));
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
@@ -132,11 +137,11 @@ export async function verify_password(password, storedHash) {
     );
     const hashBytes = new Uint8Array(hash);
     if (hashBytes.length !== expectedHash.length) return false;
-    let ok = true;
+    let ok = 0;
     for (let i = 0; i < hashBytes.length; i++) {
-      if (hashBytes[i] !== expectedHash.charCodeAt(i)) ok = false;
+      ok |= hashBytes[i] ^ expectedHash.charCodeAt(i);
     }
-    return ok;
+    return ok === 0;
   }
   // bcrypt 格式（以 $2 开头）- 使用 bcryptjs 纯 JS 库验证
   if (storedHash.startsWith('$2')) {
@@ -154,14 +159,10 @@ export async function verify_password(password, storedHash) {
 const KV_USERS = () => globalThis.WXBJ_USERS || null;
 const KV_WORKS = () => globalThis.WXBJ_WORKS || null;
 
-// 如果没有单独命名空间，回退到 WXBJ_DATA 或 KV
 const KV = () => {
   if (globalThis.WXBJ_DATA) return globalThis.WXBJ_DATA;
   if (globalThis.WXBJ_USERS) return globalThis.WXBJ_USERS;
-  // 尝试通用的 KV binding 名称
-  for (const k of ['KV', 'DB', 'DATA', 'STORE']) {
-    if (globalThis[k]) return globalThis[k];
-  }
+  if (globalThis.WXBJ_WORKS) return globalThis.WXBJ_WORKS;
   return null;
 };
 
@@ -194,21 +195,33 @@ export async function db_get_user_by_id(id) {
 
 export async function db_create_user(email, password, nickname) {
   const store = KV();
-  if (!store) throw new Error('KV store not available');
-  const existing = await store.get(key_user_email(email), { type: 'json' });
+  if (!store) throw new Error('存储未配置');
+  const normalizedEmail = email.toLowerCase().trim();
+  const existing = await store.get(key_user_email(normalizedEmail), { type: 'json' });
   if (existing) throw new Error('该邮箱已注册');
-  const nextId = (await store.get(key_user_next_id(), { type: 'json' })) || 0;
-  const id = nextId + 1;
+  const id = await _atomicIncrement(store, key_user_next_id());
   const pwdHash = await hash_password(password);
   const user = {
-    id, email: email.toLowerCase().trim(), nickname: nickname || '',
+    id, email: normalizedEmail, nickname: nickname || '',
     passwordHash: pwdHash, visitCount: 0, lastVisitAt: null,
     resetToken: null, resetExpiresAt: null, createdAt: new Date().toISOString()
   };
   await store.put(key_user_email(user.email), JSON.stringify(user));
   await store.put(key_user_id(id), JSON.stringify(user));
-  await store.put(key_user_next_id(), id);
   return user;
+}
+
+// 原子递增（带重试，减轻 KV 竞态问题）
+async function _atomicIncrement(store, key) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const val = (await store.get(key, { type: 'json' })) || 0;
+    const next = val + 1;
+    await store.put(key, next);
+    if (attempt > 0) await new Promise(r => setTimeout(r, 50 << attempt));
+    const verify = await store.get(key, { type: 'json' });
+    if (verify === next) return next;
+  }
+  return ((await store.get(key, { type: 'json' })) || 0) + 1;
 }
 
 export async function db_update_user(user) {
@@ -254,7 +267,7 @@ export async function db_get_work(userId, workId) {
 
 export async function db_upsert_work(userId, body) {
   const store = KV();
-  if (!store) throw new Error('KV store not available');
+  if (!store) throw new Error('存储未配置');
   const workId = body.workId;
   if (!workId) throw new Error('缺少 workId');
   const now = new Date().toISOString();
@@ -269,25 +282,35 @@ export async function db_upsert_work(userId, body) {
       chapterCount: body.chapterCount || 0, totalWords: body.totalWords || 0,
       updatedAt: now, createdAt: now
     };
-    // 加入 works 列表
-    let list = await store.get(key_works_list(userId), { type: 'json' }) || [];
-    if (!list.includes(workId)) list.push(workId);
-    await store.put(key_works_list(userId), JSON.stringify(list));
     await store.put(key_work(userId, workId), JSON.stringify(rec));
+    let list = await store.get(key_works_list(userId), { type: 'json' }) || [];
+    if (!list.includes(workId)) {
+      list.push(workId);
+      await store.put(key_works_list(userId), JSON.stringify(list));
+    }
     return { status: 'created', version: 1 };
   }
 
-  // 始终接受推送并递增版本（前端已通过 _dirty 标记确保只推送有意义的更新）
   rec.title = body.title || rec.title;
   rec.category = body.category || rec.category;
   rec.synopsis = body.synopsis || rec.synopsis;
   rec.payload = payloadStr;
-  rec.version += 1;
+  rec.version = (rec.version || 0) + 1;
   rec.chapterCount = body.chapterCount || rec.chapterCount || 0;
   rec.totalWords = body.totalWords || rec.totalWords || 0;
   rec.updatedAt = now;
   await store.put(key_work(userId, workId), JSON.stringify(rec));
   return { status: 'updated', version: rec.version };
+}
+
+export async function db_delete_work(userId, workId) {
+  const store = KV();
+  if (!store) throw new Error('存储未配置');
+  await store.delete(key_work(userId, workId));
+  let list = await store.get(key_works_list(userId), { type: 'json' }) || [];
+  list = list.filter(id => id !== workId);
+  await store.put(key_works_list(userId), JSON.stringify(list));
+  return { ok: true };
 }
 
 // ============ Keys & Settings ============

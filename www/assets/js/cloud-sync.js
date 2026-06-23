@@ -24,10 +24,10 @@ function CloudSync(opts) {
   // 检测环境：本地开发/移动App用较短间隔，浏览器线上用5分钟
   // （免费KV每天1000次写入，1分钟间隔光keys/settings就消耗2880次/天，必须降低频率）
   var _hostname = '';
-  try { _hostname = (location.hostname || ''); } catch(e) {}
+  try { _hostname = (location.hostname || ''); } catch(e) { console.warn("[cloud-sync.js]", e); }
   var _isLocalDev = _hostname === 'localhost' || _hostname === '127.0.0.1';
   var _protocol = '';
-  try { _protocol = location.protocol || ''; } catch(e) {}
+  try { _protocol = location.protocol || ''; } catch(e) { console.warn("[cloud-sync.js]", e); }
   var _isMobileApp = (_protocol === 'capacitor:' || _protocol === 'ionic:' || _protocol === 'file:');
   var _activeInterval = _isLocalDev ? 30000 : (_isMobileApp ? 120000 : 300000); // 30s/2min/5min
   this.autoInterval = opts.autoInterval || _activeInterval;
@@ -103,15 +103,15 @@ CloudSync.prototype = {
   _saveToken: function(token, user) {
     this.token = token;
     this.user = user;
-    try { localStorage.setItem('wxbj_cloud_token', token); } catch(e) {}
-    try { localStorage.setItem('wxbj_cloud_user', JSON.stringify(user)); } catch(e) {}
+    try { localStorage.setItem('wxbj_cloud_token', token); } catch(e) { console.warn("[cloud-sync.js]", e); }
+    try { localStorage.setItem('wxbj_cloud_user', JSON.stringify(user)); } catch(e) { console.warn("[cloud-sync.js]", e); }
   },
 
   _clearToken: function() {
     this.token = null;
     this.user = null;
-    try { localStorage.removeItem('wxbj_cloud_token'); } catch(e) {}
-    try { localStorage.removeItem('wxbj_cloud_user'); } catch(e) {}
+    try { localStorage.removeItem('wxbj_cloud_token'); } catch(e) { console.warn("[cloud-sync.js]", e); }
+    try { localStorage.removeItem('wxbj_cloud_user'); } catch(e) { console.warn("[cloud-sync.js]", e); }
   },
 
   register: async function(email, password, nickname) {
@@ -252,7 +252,7 @@ CloudSync.prototype = {
         }
       } catch(e) { result.errors++; }
 
-      try { if (DB && DB.save) DB.save(); } catch(e) {}
+      try { if (DB && DB.save) DB.save(); } catch(e) { console.warn("[cloud-sync.js]", e); }
 
       result.ok = true;
       return result;
@@ -356,7 +356,7 @@ CloudSync.prototype = {
       var localWorks = [];
       try {
         if (DB && DB.works) localWorks = DB.works.slice();
-      } catch(e) {}
+      } catch(e) { console.warn("[cloud-sync.js]", e); }
 
       // 2. 获取云端作品列表
       var cloudResp = await this.getWorks();
@@ -387,7 +387,7 @@ CloudSync.prototype = {
       var trash = [];
       try {
         trash = DB._trash || [];
-      } catch(e) {}
+      } catch(e) { console.warn("[cloud-sync.js]", e); }
 
       // 获取云端待删除列表（hardDeleteWork 产生的记录）
       var cloudDeleteList = [];
@@ -395,7 +395,7 @@ CloudSync.prototype = {
         if (DB && DB._cloudDeleteList && DB._cloudDeleteList.length > 0) {
           cloudDeleteList = DB._cloudDeleteList.slice();
         }
-      } catch(e) {}
+      } catch(e) { console.warn("[cloud-sync.js]", e); }
 
       var toDeleteOnCloud = [];
       for (var k = 0; k < cloudWorks.length; k++) {
@@ -447,7 +447,7 @@ CloudSync.prototype = {
             DB._cloudDeleteList = DB._cloudDeleteList.filter(function(id) {
               return deletedIds.indexOf(id) < 0;
             });
-          } catch(e) {}
+          } catch(e) { console.warn("[cloud-sync.js]", e); }
         }
 
         cloudWorks = cloudWorks.filter(function(cw) {
@@ -551,7 +551,7 @@ CloudSync.prototype = {
       }
 
       // 保存本地（立即落盘，避免页面刷新导致拉取数据丢失）
-      try { if (DB && DB.flush) DB.flush(); } catch(e) {}
+      try { if (DB && DB.flush) DB.flush(); } catch(e) { console.warn("[cloud-sync.js]", e); }
 
       // 同时同步 keys 和 settings（仅当有实际作品变更时才做，避免浪费KV配额）
       if (report.pushed > 0 || report.pulled > 0 || report.deleted > 0) {
@@ -602,7 +602,7 @@ CloudSync.prototype = {
       }
       var qsResult = await this.pushWork(_packWork(w));
       var evt = { action: 'quickSync', ok: !qsResult.error, workId: workId, pushed: 1 };
-      try { for (var qk in qsResult) if (qsResult.hasOwnProperty(qk)) evt[qk] = qsResult[qk]; } catch(_) {}
+      try { for (var qk in qsResult) if (qsResult.hasOwnProperty(qk)) evt[qk] = qsResult[qk]; } catch(_) { console.warn("[cloud-sync.js]", _); }
       this._fireSync(evt);
       return qsResult;
     } catch(e) {

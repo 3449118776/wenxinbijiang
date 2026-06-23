@@ -26,7 +26,7 @@ router.post('/auth/register', async (req, res) => {
     var token = generateToken(user.id, user.email);
     res.json({ token: token, user: { id: user.id, email: user.email, nickname: user.nickname } });
   } catch (e) {
-    res.status(500).json({ error: '注册失败：' + e.message });
+    res.status(500).json({ error: '注册失败，请稍后重试' });
   }
 });
 
@@ -44,7 +44,8 @@ router.post('/auth/login', async (req, res) => {
     var token = generateToken(user.id, user.email);
     res.json({ token: token, user: { id: user.id, email: user.email, nickname: user.nickname } });
   } catch (e) {
-    res.status(500).json({ error: '登录失败：' + e.message });
+    console.error('login error:', e.message);
+    res.status(500).json({ error: '登录失败，请稍后重试' });
   }
 });
 
@@ -61,7 +62,7 @@ router.get('/works', authMiddleware, async (req, res) => {
     });
     res.json({ works: works });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -87,7 +88,7 @@ router.get('/works/:workId', authMiddleware, async (req, res) => {
       }
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -128,8 +129,13 @@ router.put('/works/:workId', authMiddleware, async (req, res) => {
       return res.json({ status: 'unchanged', version: rec.version });
     }
 
+    // 限制客户端版本号，防止版本号跳跃攻击
+    if (clientVersion > rec.version + 100) {
+      clientVersion = rec.version + 1;
+    }
+
     // 保存快照（内容去重）
-    var hash = crypto.createHash('sha256').update(payloadStr).digest('hex').substring(0, 12);
+    var hash = crypto.createHash('sha256').update(payloadStr).digest('hex');
     var lastSnap = await WorkSnapshot.findOne({
       where: { workId: rec.id },
       order: [['version', 'DESC']]
@@ -146,7 +152,7 @@ router.put('/works/:workId', authMiddleware, async (req, res) => {
     rec.category = body.category || rec.category;
     rec.synopsis = body.synopsis || rec.synopsis;
     rec.payload = payloadStr;
-    rec.version = Math.max(rec.version + 1, clientVersion);
+    rec.version = rec.version + 1;
     rec.chapterCount = body.chapterCount || rec.chapterCount || 0;
     rec.totalWords = body.totalWords || rec.totalWords || 0;
     await rec.save();
@@ -168,7 +174,7 @@ router.put('/works/:workId', authMiddleware, async (req, res) => {
     res.json({ status: 'updated', version: rec.version });
   } catch (e) {
     console.error('sync error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -188,10 +194,26 @@ router.post('/works/sync/batch', authMiddleware, async (req, res) => {
         where: { userId: req.userId, workId: it.workId }
       });
       if (rec) {
+        var clientVersion = parseInt(it.version) || 0;
+        if (clientVersion <= rec.version && rec.version > 0) {
+          results.push({ workId: it.workId, status: 'unchanged', version: rec.version });
+          continue;
+        }
+        var hash = crypto.createHash('sha256').update(payloadStr).digest('hex');
+        var lastSnap = await WorkSnapshot.findOne({
+          where: { workId: rec.id },
+          order: [['version', 'DESC']]
+        });
+        if (!lastSnap || lastSnap.payloadHash !== hash) {
+          await WorkSnapshot.create({
+            workId: rec.id, payload: payloadStr, payloadHash: hash,
+            version: rec.version, size: Buffer.byteLength(payloadStr, 'utf8')
+          });
+        }
         rec.title = it.title || rec.title;
         rec.category = it.category || rec.category;
         rec.payload = payloadStr;
-        rec.version = Math.max(rec.version + 1, parseInt(it.version) || 0);
+        rec.version = rec.version + 1;
         rec.chapterCount = it.chapterCount || rec.chapterCount || 0;
         rec.totalWords = it.totalWords || rec.totalWords || 0;
         await rec.save();
@@ -212,7 +234,7 @@ router.post('/works/sync/batch', authMiddleware, async (req, res) => {
     });
     res.json({ results: results });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -226,6 +248,7 @@ router.delete('/works/:workId', authMiddleware, async (req, res) => {
       where: { userId: req.userId, workId: req.params.workId }
     });
     if (!rec) return res.status(404).json({ error: '作品不存在' });
+    await WorkSnapshot.destroy({ where: { workId: rec.id } });
     await rec.destroy();
     await SyncLog.create({
       userId: req.userId, workId: req.params.workId,
@@ -233,7 +256,8 @@ router.delete('/works/:workId', authMiddleware, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('delete error:', e.message);
+    res.status(500).json({ error: '删除失败，请稍后重试' });
   }
 });
 
@@ -255,7 +279,7 @@ router.get('/works/:workId/snapshots', authMiddleware, async (req, res) => {
     });
     res.json({ snapshots: snaps });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -283,7 +307,7 @@ router.post('/works/:workId/snapshots/:snapId/restore', authMiddleware, async (r
       payload: p, version: rec.version, updatedAt: rec.updatedAt
     }});
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 
@@ -298,7 +322,7 @@ router.get('/user/profile', authMiddleware, async (req, res) => {
     });
     res.json({ user: user });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 });
 

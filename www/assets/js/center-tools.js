@@ -232,7 +232,7 @@ function loadMultiAISetting() {
     var s = DB.settings;
     el.checked = !!s.multiAI;
     toggleMultiAI(!!s.multiAI);
-  } catch(e) {}
+  } catch(e) { console.warn("[center-tools.js]", e); }
 }
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', loadMultiAISetting);
@@ -320,7 +320,7 @@ function _updateCloudUI() {
 // 配置后端地址
 function setCloudBase(base) {
   base = (base || '').replace(/\/$/, '');
-  try { localStorage.setItem('wxbj_cloud_base', base); } catch(e) {}
+  try { localStorage.setItem('wxbj_cloud_base', base); } catch(e) { console.warn("[center-tools.js]", e); }
   if (window.cloud) window.cloud.apiBase = base;
   showToast('后端地址已设置为：' + base, { duration: 2000 });
 }
@@ -470,7 +470,7 @@ async function cloudPullAll() {
       }
       count++;
     }
-    try { if (DB && DB.save) DB.save(); } catch(e) {}
+    try { if (DB && DB.save) DB.save(); } catch(e) { console.warn("[center-tools.js]", e); }
     showToast('拉取完成：' + count + ' 部作品，正在刷新…');
     setTimeout(function() { location.reload(); }, 1500);
   } catch(e) {

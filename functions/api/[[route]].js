@@ -2,7 +2,7 @@
 import {
   jwt_sign, jwt_verify, verify_password, hash_password,
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
-  db_list_works, db_get_work, db_upsert_work,
+  db_list_works, db_get_work, db_upsert_work, db_delete_work,
   db_get_user_keys, db_put_user_keys, db_get_user_settings, db_put_user_settings,
   random_hex, random_code, json_response
 } from './_shared.js';
@@ -64,7 +64,7 @@ async function handle_register(req) {
     const token = await jwt_sign({ userId: user.id, email: user.email }, null, 30 * 24 * 3600);
     return json_response({ token, user: { id: user.id, email: user.email, nickname: user.nickname } });
   } catch (e) {
-    return json_response({ error: e.message || '注册失败' }, 500);
+    return json_response({ error: '注册失败，请稍后重试' }, 500);
   }
 }
 
@@ -88,7 +88,7 @@ async function handle_login(req) {
     const token = await jwt_sign({ userId: user.id, email: user.email }, null, 30 * 24 * 3600);
     return json_response({ token, user: { id: user.id, email: user.email, nickname: user.nickname } });
   } catch (e) {
-    return json_response({ error: e.message || '登录失败' }, 500);
+    return json_response({ error: '登录失败，请稍后重试' }, 500);
   }
 }
 
@@ -143,7 +143,7 @@ async function handle_profile(userId) {
     if (!user) return json_response({ error: '用户不存在' }, 404);
     return json_response({ user: { id: user.id, email: user.email, nickname: user.nickname, visitCount: user.visitCount, lastVisitAt: user.lastVisitAt } });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -153,7 +153,7 @@ async function handle_keys_get(userId) {
     const data = await db_get_user_keys(userId);
     return json_response(data);
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -163,7 +163,7 @@ async function handle_keys_put(req, userId) {
     await db_put_user_keys(userId, body);
     return json_response({ ok: true });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -172,7 +172,7 @@ async function handle_settings_get(userId) {
     const data = await db_get_user_settings(userId);
     return json_response(data);
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -182,7 +182,7 @@ async function handle_settings_put(req, userId) {
     await db_put_user_settings(userId, body);
     return json_response({ ok: true });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -192,7 +192,7 @@ async function handle_works_list(userId) {
     const works = await db_list_works(userId);
     return json_response({ works });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -212,7 +212,7 @@ async function handle_work_get(userId, workId) {
       }
     });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -223,7 +223,7 @@ async function handle_work_upsert(req, userId, workId) {
     const result = await db_upsert_work(userId, body);
     return json_response(result, result.status === 'created' ? 201 : 200);
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
@@ -243,22 +243,15 @@ async function handle_batch(req, userId) {
     }
     return json_response({ results });
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '操作失败，请稍后重试' }, 500);
   }
 }
 
 async function handle_work_delete(userId, workId) {
   try {
-    const store = globalThis.WXBJ_DATA || globalThis.WXBJ_USERS || globalThis.KV || globalThis.DATA || null;
-    if (!store) return json_response({ error: '存储未配置' }, 500);
-    const key = 'work:' + userId + ':' + workId;
-    await store.delete(key);
-    // 从列表移除
-    let list = await store.get('works:' + userId, { type: 'json' }) || [];
-    list = list.filter(id => id !== workId);
-    await store.put('works:' + userId, JSON.stringify(list));
-    return json_response({ ok: true });
+    const result = await db_delete_work(userId, workId);
+    return json_response(result);
   } catch (e) {
-    return json_response({ error: e.message }, 500);
+    return json_response({ error: '删除失败，请稍后重试' }, 500);
   }
 }

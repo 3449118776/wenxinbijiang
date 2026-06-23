@@ -22,10 +22,9 @@ app.use(cors({ origin: true, credentials: true }));
 // 请求体解析（10MB 上限，大作品够用）
 app.use(express.json({ limit: '10mb' }));
 
-// 静态文件：前端产物
-// 开发时用 nginx 或 vite；部署时把 ../ 下的静态文件拷过来也可以直接访问
+// 静态文件：仅暴露前端 www 目录
 const path = require('path');
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '..', 'www')));
 
 // API 路由
 app.use('/api', routes);

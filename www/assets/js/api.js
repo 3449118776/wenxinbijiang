@@ -485,7 +485,7 @@ function getModelContextWindow() {
     var config = DB.getApiConfig() || {};
     var model = config.model || '';
     return _lookupContextWindow(model);
-  } catch(e) {}
+  } catch(e) { console.warn("[api.js]", e); }
   return 131072; // 默认 128K
 }
 
@@ -529,7 +529,7 @@ function getModelMaxOutputTokens() {
     var config = DB.getApiConfig() || {};
     var model = config.model || '';
     return _lookupModelMaxTokens(model);
-  } catch(e) {}
+  } catch(e) { console.warn("[api.js]", e); }
   return DEFAULT_MAX_TOKENS;
 }
 
@@ -557,7 +557,7 @@ function getApiTimeoutMs() {
     if (s.apiTimeoutSec && s.apiTimeoutSec >= 15 && s.apiTimeoutSec <= 300) {
       return s.apiTimeoutSec * 1000;
     }
-  } catch(e) {}
+  } catch(e) { console.warn("[api.js]", e); }
   return DEFAULT_TIMEOUT_MS;
 }
 
@@ -917,7 +917,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
       var customCfg = (DB.getApiConfig && DB.getApiConfig()) || {};
       if (customCfg.customUrl) targetUrl = customCfg.customUrl;
       if (customCfg.customModel) targetModel = customCfg.customModel;
-    } catch(e) {}
+    } catch(e) { console.warn("[api.js]", e); }
     if (!targetUrl) throw new Error('请在设置中填写自定义 API 地址');
   }
 
@@ -1124,7 +1124,7 @@ async function callRealAPI(prompt, onProgress, opts) {
     const key = (provider === 'free') ? 'free' : getAiKey(provider);
     if (!key) break;
     let ac = new AbortController();
-    if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){} }
+    if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){ console.warn("[api.js]", e); } }
     let aborted = false;
     let timeoutId = setTimeout(function() { aborted = true; ac.abort(); }, timeoutMs);
     try {
@@ -1361,8 +1361,7 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   }
 
   showToast(mainIssue + '。' + subHint, { error: true, duration: 5500 });
-  // 继续返回本地兜底文本，保证用户至少看到一个占位
-  return generateLocal(prompt);
+  return null;
 }
 
 // 本地兜底
@@ -1391,7 +1390,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
   try {
     var s = (DB && DB.settings) ? DB.settings : {};
     useMulti = !!s.multiAI;
-  } catch(e) {}
+  } catch(e) { console.warn("[api.js]", e); }
   if (!useMulti) {
     return callRealAPIWithFallback(prompt, onProgress, taskType);
   }
@@ -1438,7 +1437,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
   try {
     var winner = await Promise.race(promises);
     // 取到结果后立即取消其余请求
-    try { controller.abort(); } catch(e) {}
+    try { controller.abort(); } catch(e) { console.warn("[api.js]", e); }
     if (winner && winner.result) {
       if (winner.provider !== candidates[0]) {
         showToast('首服务商额度不足，' + API_PROVIDERS[winner.provider].name + ' 接力成功', { duration: 2000 });
@@ -1446,7 +1445,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
       return winner.result;
     }
   } catch(e) {
-    try { controller.abort(); } catch(_) {}
+    try { controller.abort(); } catch(_) { console.warn("[api.js]", _); }
     console.warn('[multiAI] 首请求失败，回退到串行回退', e && e.message);
   }
   

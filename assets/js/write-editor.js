@@ -303,7 +303,7 @@ function toggleToolbarMenu(menuId) {
         menu.style.maxHeight = (menuHeight - 4) + 'px';
         menu.style.overflowY = 'auto';
       }
-    } catch(e) {}
+    } catch(e) { console.warn("[write-editor.js]", e); }
   }
 }
 function closeToolbarMenus() {
@@ -551,7 +551,7 @@ function saveChapter(){
     if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
       if (window.cloud._syncTimer) clearTimeout(window.cloud._syncTimer);
       window.cloud._syncTimer = setTimeout(function() {
-        try { window.cloud.quickSync(work.id); } catch(e) {}
+        try { window.cloud.quickSync(work.id); } catch(e) { console.warn("[write-editor.js]", e); }
       }, 2000);
     }
   } catch(syncErr) {}
@@ -1423,7 +1423,7 @@ function buildFullChainLock(work, chapterIdx) {
   // L1：人设锁
   if (work.chars) {
     var names = [];
-    try { names = extractCharNameMap(work.chars).names || []; } catch(e) {}
+    try { names = extractCharNameMap(work.chars).names || []; } catch(e) { console.warn("[write-editor.js]", e); }
     if (names.length) {
       lock += '【L1 人设锁】优先使用已有人物：' + names.slice(0, 20).join('、') + '。新增人物必须是配角，并自然补入记忆。每个角色的说话风格、能力边界、视觉标签必须与人设一致。\n';
       has = true;
@@ -1530,7 +1530,7 @@ function checkFullChainConsistency(work, chapterIdx, content) {
   // L1：人物承接检查
   if (work && work.chars) {
     var names = [];
-    try { names = extractCharNameMap(work.chars).names || []; } catch(e) {}
+    try { names = extractCharNameMap(work.chars).names || []; } catch(e) { console.warn("[write-editor.js]", e); }
     var appeared = names.filter(function(n){ return n && content.indexOf(n) >= 0; });
     if (names.length && appeared.length === 0) { issues.push('[L1] 本章未出现任何已登记人物'); score -= 18; }
     else if (appeared.length) hits.push('人物承接(' + appeared.length + '人)');
@@ -1868,7 +1868,7 @@ function extractChapterContext(work, content, chapterIdx) {
         if (allChars.indexOf(cn) === -1) allChars.push(cn);
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn("[write-editor.js]", e); }
   ctx.presentChars = allChars.slice(0, 8);
 
   return ctx;
@@ -1957,7 +1957,7 @@ function backfeedChainMemory(work, chapterIdx, content, report) {
       // 限制数量
       if (lm.memoryAnchors.chapterContext.length > 60) lm.memoryAnchors.chapterContext = lm.memoryAnchors.chapterContext.slice(-60);
     }
-  } catch(e) {}
+  } catch(e) { console.warn("[write-editor.js]", e); }
   var relLines = content.split(/[。！？\n]+/).filter(function(s){ return /(结盟|背叛|救了|亏欠|喜欢|怀疑|信任|决裂|保护|敌对|归顺)/.test(s); }).slice(0, 5);
   relLines.forEach(function(s){
     lm.memoryAnchors.relationships.push({text:s.slice(0,90), chapterIdx:chapterIdx, status:'有效', source:'正文反哺', updatedAt:Date.now(), _bucket:'relationships', weight:8});
@@ -2257,7 +2257,7 @@ function getCurrentOutlineVolume(work, chapterIdx) {
 // 128K+ 模型：不截断，完整传架构；小模型：按比例
 function getArchTruncationLimits() {
   var ctx = 131072;
-  try { if (typeof getModelContextWindow === 'function') ctx = getModelContextWindow(); } catch(e) {}
+  try { if (typeof getModelContextWindow === 'function') ctx = getModelContextWindow(); } catch(e) { console.warn("[write-editor.js]", e); }
   if (ctx >= 100000) {
     // 128K+ 模型：上下文足够大，不限制架构内容
     return null;
@@ -2499,7 +2499,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
         prevEmotion = latestCtx.emotion;
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn("[write-editor.js]", e); }
   // 降级：从 prevContent 文本中检测
   if (!prevEmotion && prevContent) {
     var prevTail = prevContent.slice(-400);
@@ -3384,9 +3384,9 @@ function smartCompressArch(text, maxLen) {
   var totalLen = prompt.length;
   // 根据模型上下文窗口计算安全上限（留 30% 给输出 + 指令开销）
   var ctxWindow = 131072;
-  try { if (typeof getModelContextWindow === 'function') ctxWindow = getModelContextWindow(); } catch(e) {}
+  try { if (typeof getModelContextWindow === 'function') ctxWindow = getModelContextWindow(); } catch(e) { console.warn("[write-editor.js]", e); }
   var outTokens = 16384;
-  try { if (typeof getModelMaxOutputTokens === 'function') outTokens = getModelMaxOutputTokens(); } catch(e) {}
+  try { if (typeof getModelMaxOutputTokens === 'function') outTokens = getModelMaxOutputTokens(); } catch(e) { console.warn("[write-editor.js]", e); }
   var safeInputTokens = Math.max(5000, Math.floor((ctxWindow - outTokens) * 0.7));
   // 中文 1 字 ≈ 1.5 token（保守估计）
   var PROMPT_CHAR_LIMIT = Math.floor(safeInputTokens / 1.5);
@@ -4163,7 +4163,7 @@ function buildRepairPlanV46(work, chapterIdx, content) {
     var cr = checkFullChainConsistency(work, chapterIdx, content || '');
     plan.chainScore = cr.score || 0;
     if (cr.issues && cr.issues.length) plan.reasons = plan.reasons.concat(cr.issues.slice(0, 3));
-  } catch(e) {}
+  } catch(e) { console.warn("[write-editor.js]", e); }
   try {
     var br = analyzeCommercialWritingV45(work, chapterIdx, content || '');
     plan.commercialScore = br.score || 0;
@@ -4172,7 +4172,7 @@ function buildRepairPlanV46(work, chapterIdx, content) {
     if ((br.issues || []).join(' ').indexOf('章尾') >= 0 || (br.issues || []).join(' ').indexOf('钩子') >= 0) plan.parts.push('结尾300字');
     if ((br.issues || []).join(' ').indexOf('爽点') >= 0 || (br.issues || []).join(' ').indexOf('对话') >= 0) plan.parts.push('中段冲突/爽点/对话');
     if ((br.issues || []).join(' ').indexOf('题材') >= 0 || (br.issues || []).join(' ').indexOf('锚点') >= 0) plan.parts.push('题材锚点');
-  } catch(e) {}
+  } catch(e) { console.warn("[write-editor.js]", e); }
   if (!plan.parts.length) plan.parts = ['开头300字','结尾300字'];
   plan.parts = Array.from(new Set(plan.parts)).slice(0, 4);
   plan.reasons = Array.from(new Set(plan.reasons)).slice(0, 8);
@@ -4250,7 +4250,7 @@ async function repairLowScoreChapterV46(options) {
     ch.content = result;
     ch.wordCount = result.length;
     delete ch.evalCache;
-    try { runFullChainAfterWrite(work, idx, result); } catch(e) {}
+    try { runFullChainAfterWrite(work, idx, result); } catch(e) { console.warn("[write-editor.js]", e); }
     DB.saveWork(work);
     if (idx === currentChapterIdx) updateWordCount();
     if (!options.silent) showToast('✅ 局部修复完成，可用撤销恢复', 3500);
@@ -4415,7 +4415,7 @@ async function startChapterPipeline() {
   } finally {
     _chapterPipelineRunning = false;
     if (stopBtn) stopBtn.style.display = 'none';
-    try { if (DB.flush) DB.flush(); if (DB.performAutoBackup) DB.performAutoBackup(true); } catch(e) {}
+    try { if (DB.flush) DB.flush(); if (DB.performAutoBackup) DB.performAutoBackup(true); } catch(e) { console.warn("[write-editor.js]", e); }
     if (_chapterPipelineCancel) {
       pipelineStatus('⏹ 流水线已停止：完成 ' + done + ' 章，跳过 ' + skipped + ' 章', false);
     } else {
@@ -4473,7 +4473,7 @@ async function aiWriteChapter(opts){
         : (_v.volSize || '?');
       _curVolInfo = _v.volLabel + '（本卷第' + _chInVol + '/' + _totalChInVol + '章）';
     }
-  } catch(_) {}
+  } catch(_) { console.warn("[write-editor.js]", _); }
   var _stageInfo = _curVolInfo ? '[' + _curVolInfo + ']' : '';
 
   // 构建章节prompt（已含流派expertise和longMemory上下文）
@@ -5299,7 +5299,8 @@ function extractTpl(){
   const title=document.getElementById('ch-title').value.trim()||'未命名模板';
   
   // 保存到本地存储
-  let customTpls=JSON.parse(localStorage.getItem('custom_templates')||'[]');
+  let customTpls = [];
+  try { customTpls = JSON.parse(localStorage.getItem('custom_templates')||'[]'); } catch(e) { console.warn('[write-editor]', e); }
   customTpls.push({title:title,content:content,created:new Date().toISOString()});
   localStorage.setItem('custom_templates',JSON.stringify(customTpls));
   showToast('已保存为自定义模板，可在模板库查看');
@@ -5331,7 +5332,7 @@ function insertPhrase(){
   for(var cat in phrases){
     html+='<div style="margin-bottom:12px;"><div style="font-size:14px;font-weight:600;color:#6366f1;margin-bottom:6px;">'+cat+'</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
     phrases[cat].forEach(function(phrase){
-      html+='<span style="padding:4px 10px;background:#f0f2ff;color:#6366f1;border-radius:12px;font-size:12px;cursor:pointer;" onclick="insertTextToEditor(\''+phrase.replace(/'/g,"\\'")+'\')">'+phrase+'</span>';
+      html+='<span style="padding:4px 10px;background:#f0f2ff;color:#6366f1;border-radius:12px;font-size:12px;cursor:pointer;" onclick="insertTextToEditor(\''+he(phrase).replace(/'/g,"\\'")+'\')">'+phrase+'</span>';
     });
     html+='</div></div>';
   }
@@ -6853,7 +6854,7 @@ function updateLongMemory(w, idx) {
                 if (parsed.emotion) ch.summary += '|基调：' + parsed.emotion;
                 DB.saveWork(w);
               }
-            } catch(e) {}
+            } catch(e) { console.warn("[write-editor.js]", e); }
           }
         }
       }).catch(function(e) {
@@ -7036,10 +7037,10 @@ function _flushEditorToWork() {
     // 云同步：后台切出时确保推送到云端
     try {
       if (window.cloud && window.cloud.isLoggedIn && window.cloud.isLoggedIn()) {
-        try { window.cloud.quickSync(work.id); } catch(e) {}
+        try { window.cloud.quickSync(work.id); } catch(e) { console.warn("[write-editor.js]", e); }
       }
-    } catch(e) {}
-  } catch(e) {}
+    } catch(e) { console.warn("[write-editor.js]", e); }
+  } catch(e) { console.warn("[write-editor.js]", e); }
 }
 
 // 切后台（移动端按 Home / 切应用）立即落盘，避免 iOS 杀进程后丢稿
@@ -7746,7 +7747,7 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
     try {
       var volInfo = getCurrentVolumeDetail(work, currentChapterIdx || 0);
       if (volInfo && volInfo.currentIdx !== undefined) volumeIdx = volInfo.currentIdx;
-    } catch(e) {}
+    } catch(e) { console.warn("[write-editor.js]", e); }
   }
   
   if (iteration === 0) {
