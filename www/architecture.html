@@ -1538,23 +1538,20 @@ function buildArchPrompt(module, idea, work, extraHint){
   var trendBlock = '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' +
     (trend.length > 400 ? smartTruncate(trend, 400) : trend) + '\n\n';
 
-  // ===== 前置架构上下文（v66: 增大限制确保完整性，世界观/人设/大纲可能很大）=====
+  // ===== 前置架构上下文（v66: 直接传完整内容给大模型，大模型会自己理解和记住）=====
   var ctxBlock = '';
   if(module !== 'world'){
     ctxBlock += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力】\n';
+    // v66: 直接传完整内容，不截断！大模型会自己理解和记住
     if(work && work.world && work.world.trim()){
-      // v66: 增大到20000字，世界观可能很大，确保不丢失核心设定
-      ctxBlock += '■ 世界观：\n' + smartTruncate(work.world, 20000) + '\n';
+      ctxBlock += '■ 世界观（完整原文）：\n' + work.world.trim() + '\n\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      // v66: 增大到15000字，人设可能很大，确保不丢失角色设定
-      ctxBlock += '■ 人物人设：\n' + smartTruncate(work.chars, 15000) + '\n';
+      ctxBlock += '■ 人物人设（完整原文）：\n' + work.chars.trim() + '\n\n';
     }
     if(module === 'detail' && work && work.outline && work.outline.trim()){
-      // v66: 增大到30000字，大纲可能很大，确保不丢失核心剧情
-      ctxBlock += '■ 全书大纲：\n' + smartTruncate(work.outline, 30000) + '\n';
+      ctxBlock += '■ 全书大纲（完整原文）：\n' + work.outline.trim() + '\n\n';
     }
-    ctxBlock += '\n';
   }
 
   // ===== 各模块专属生成要求 =====
