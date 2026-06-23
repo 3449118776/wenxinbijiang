@@ -3238,33 +3238,31 @@ function buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext
   if(genre) prefix += '一级题材：' + genre + '\n';
   prefix += '发布平台：' + platform + '\n\n';
 
-  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
+  // 前置架构上下文（v66: 直接传完整内容给大模型，大模型会自己理解和记住）
+  // 注意：这些内容每次不同，无法利用KV缓存，但大模型会通过输入上下文理解和推理
   if(module !== 'world'){
     if(module === 'detail'){
       // 细纲是生成正文的底层基础，必须用原文确保准确完整
       prefix += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
       if(work && work.world && work.world.trim()){
-        prefix += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
+        prefix += '■ 世界观（完整原文）：\n' + work.world.trim() + '\n\n';
       }
       if(work && work.chars && work.chars.trim()){
-        prefix += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
+        prefix += '■ 人设（完整原文）：\n' + work.chars.trim() + '\n\n';
       }
       if(work && work.outline && work.outline.trim()){
-        prefix += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
+        prefix += '■ 全书大纲（完整原文）：\n' + work.outline.trim() + '\n\n';
       }
     } else {
-      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
-      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-      if(sumCtx && sumCtx.trim()){
-        prefix += sumCtx + '\n\n';
-      } else {
-        prefix += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
-        if(work && work.world && work.world.trim()){
-          prefix += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
-        }
-        if(module !== 'chars' && work && work.chars && work.chars.trim()){
-          prefix += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
-        }
+      // 直接传完整内容给大模型，大模型会自己理解和推理
+      if(work && work.world && work.world.trim()){
+        prefix += '■ 世界观（完整原文）：\n' + work.world.trim() + '\n\n';
+      }
+      if(module !== 'chars' && work && work.chars && work.chars.trim()){
+        prefix += '■ 人设（完整原文）：\n' + work.chars.trim() + '\n\n';
+      }
+      if(module === 'outline' && work && work.outline && work.outline.trim()){
+        prefix += '■ 大纲（完整原文）：\n' + work.outline.trim() + '\n\n';
       }
     }
   }
