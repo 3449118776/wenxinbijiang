@@ -1538,21 +1538,21 @@ function buildArchPrompt(module, idea, work, extraHint){
   var trendBlock = '【2026 年题材趋势参考 — 灵感来源，不是硬性要求】\n' +
     (trend.length > 400 ? smartTruncate(trend, 400) : trend) + '\n\n';
 
-  // ===== 前置架构上下文（按优先级动态压缩：世界观 > 人设 > 大纲）=====
+  // ===== 前置架构上下文（v66: 增大限制确保完整性，世界观/人设/大纲可能很大）=====
   var ctxBlock = '';
   if(module !== 'world'){
     ctxBlock += '【前置架构约束 — 必须完全遵守以下已有设定，不得出现矛盾、不得编造新的人物/势力】\n';
     if(work && work.world && work.world.trim()){
-      // 世界观保留核心规则部分（规则/代价/力量体系关键词优先）
-      ctxBlock += '■ 世界观：\n' + smartTruncate(work.world, 1200) + '\n';
+      // v66: 增大到20000字，世界观可能很大，确保不丢失核心设定
+      ctxBlock += '■ 世界观：\n' + smartTruncate(work.world, 20000) + '\n';
     }
     if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      // 人设保留角色名和核心属性（避免超长描述）
-      ctxBlock += '■ 人物人设：\n' + smartTruncate(work.chars, 1200) + '\n';
+      // v66: 增大到15000字，人设可能很大，确保不丢失角色设定
+      ctxBlock += '■ 人物人设：\n' + smartTruncate(work.chars, 15000) + '\n';
     }
     if(module === 'detail' && work && work.outline && work.outline.trim()){
-      // 大纲只保留最近几卷的核心冲突
-      ctxBlock += '■ 全书大纲：\n' + smartTruncate(work.outline, 1500) + '\n';
+      // v66: 增大到30000字，大纲可能很大，确保不丢失核心剧情
+      ctxBlock += '■ 全书大纲：\n' + smartTruncate(work.outline, 30000) + '\n';
     }
     ctxBlock += '\n';
   }
