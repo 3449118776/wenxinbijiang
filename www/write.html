@@ -250,6 +250,15 @@ html{height:100%;-webkit-text-size-adjust:100%;}body{background:#f6f7f9;color:#3
         </div>
 
         <div class="editor-content">
+          <!-- 进度条（写入页内嵌，AI生成时显示） -->
+          <div class="page-progress" id="detail-progress" style="display:none;margin-bottom:8px;">
+            <div class="prog-header">
+              <span class="prog-title" id="prog-title">生成中</span>
+              <span class="prog-pct" id="prog-pct">0%</span>
+            </div>
+            <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
+            <div class="prog-info"><span id="prog-detail">准备中</span></div>
+          </div>
           <textarea id="editor" placeholder="开始写作..."></textarea>
         </div>
 

@@ -4,7 +4,8 @@
   Expires: 0
 
 /assets/*
-  Cache-Control: public, max-age=86400, immutable
+  Cache-Control: no-cache
+  Pragma: no-cache
 
 /favicon.ico
   Cache-Control: public, max-age=86400

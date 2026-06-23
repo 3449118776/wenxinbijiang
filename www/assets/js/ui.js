@@ -160,8 +160,19 @@ function showLoading(text, keepProgress) {
 }
 
 // 显式重置到0% — 仅在用户明确开启新任务时调用
+// ⚡ 修复：如果进度已经超过50%，不再强制回0，避免进度条闪烁
 function resetLoading(text) {
+  // ⚡ 修复：取消 hideLoading 正在进行的淡出
+  if (_loadingHideTimers.length) {
+    _loadingHideTimers.forEach(function(t){ clearTimeout(t); });
+    _loadingHideTimers = [];
+  }
   if (text) _loadingText = text;
+  // 进度已过半 → 只更新文字，保持当前值（渐进不归零）
+  if (_loadingCurrent > 50) {
+    _applyLoadingUI(_loadingCurrent, _loadingText);
+    return;
+  }
   _loadingCurrent = 0;
   _loadingTarget = 0;
   var el = _ensureLoadingElement();
@@ -203,10 +214,14 @@ window.startAutoLoadingProgress = function(targetPct, text) {
     _loadingIsVisible = true;
   }
   function tick() {
+    // ⚡ 如果 updateLoadingProgress 已将目标设得更高 → 停掉虚拟推进
+    if (_loadingTarget > Math.min(_autoTargetPct, _loadingCurrent + 0.5)) {
+      _autoTimer = null; return;
+    }
     // 每 400ms 推进一小段，最终缓慢趋近 _autoTargetPct
     var remaining = _autoTargetPct - _loadingCurrent;
     if (remaining <= 0.2) { _autoTimer = null; return; }
-    var step = Math.max(0.3, remaining / 40); // 每次推进一点点，接近目标时减速
+    var step = Math.max(0.3, remaining / 40);
     _loadingTarget = Math.min(_autoTargetPct, _loadingCurrent + step);
     _applyLoadingUI(_loadingCurrent, _loadingText);
     _startLoadingAnimIfNeeded();

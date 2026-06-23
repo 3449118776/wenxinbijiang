@@ -905,9 +905,12 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   let response, result = '';
 
   // v59: 检查缓存（provider + model + hash(prompt) 作为 key）
+  // ⚡ extraOpts.noCache = true 时跳过缓存（迭代生成场景避免脏读）
   var _cacheModel = model || (DEFAULT_MODELS_BY_PROVIDER[provider] || '');
-  var _cached = _cacheGet(provider, _cacheModel, prompt);
-  if (_cached) return _cached;
+  if (!extraOpts || !extraOpts.noCache) {
+    var _cached = _cacheGet(provider, _cacheModel, prompt);
+    if (_cached) return _cached;
+  }
 
   // custom 模式：从 apiConfig 读取用户自定义的 URL 和模型名
   var targetUrl = providerConfig.url;
@@ -959,7 +962,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
             var _res = cleanAIOutput(fdata.choices[0].message.content);
             _callOnce._lastFinishReason = (fdata.choices[0].finish_reason || 'stop');
-            _cacheSet(provider, _cacheModel, prompt, _res);
+            if (!extraOpts || !extraOpts.noCache) {
+              _cacheSet(provider, _cacheModel, prompt, _res);
+            }
             return _res;
           }
         } catch (err) {
@@ -1088,7 +1093,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   }
   // v48: 统一清理 AI 对话语前缀/后缀
   var _finalRes = cleanAIOutput(result);
-  _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  if (!extraOpts || !extraOpts.noCache) {
+    _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  }
   return _finalRes;
 }
 
