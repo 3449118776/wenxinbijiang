@@ -2910,6 +2910,10 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = 'auto';
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
+    // v66: 设置修改标记，只有真正修改过的内容才需要在后续生成中传入上下文
+    if(result !== (work[module] || '')){
+      work[module + '_isModified'] = true;
+    }
     work[module] = result;
     
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
@@ -3238,31 +3242,38 @@ function buildArchSystemPrefix(module, work, idea, marketResearch, memoryContext
   if(genre) prefix += '一级题材：' + genre + '\n';
   prefix += '发布平台：' + platform + '\n\n';
 
-  // 前置架构上下文（v66: 直接传完整内容给大模型，大模型会自己理解和记住）
-  // 注意：这些内容每次不同，无法利用KV缓存，但大模型会通过输入上下文理解和推理
+  // 前置架构上下文（v66: 只有修改过的内容才需要重新传入，没有修改的利用缓存/大模型记忆）
+  // 注意：判断内容是否修改，通过对比work中的_isModified标记
   if(module !== 'world'){
     if(module === 'detail'){
-      // 细纲是生成正文的底层基础，必须用原文确保准确完整
+      // 细纲是生成正文的底层基础，需要传入前置模块的完整内容
       prefix += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-      if(work && work.world && work.world.trim()){
+      // 只有世界观修改过或首次生成时才传人设
+      if(work.world && work.world.trim() && (work.world_isModified || !work.world_cache)){
         prefix += '■ 世界观（完整原文）：\n' + work.world.trim() + '\n\n';
+        work.world_cache = work.world.trim(); // 缓存用于后续比对
       }
-      if(work && work.chars && work.chars.trim()){
+      if(work.chars && work.chars.trim() && (work.chars_isModified || !work.chars_cache)){
         prefix += '■ 人设（完整原文）：\n' + work.chars.trim() + '\n\n';
+        work.chars_cache = work.chars.trim();
       }
-      if(work && work.outline && work.outline.trim()){
+      if(work.outline && work.outline.trim() && (work.outline_isModified || !work.outline_cache)){
         prefix += '■ 全书大纲（完整原文）：\n' + work.outline.trim() + '\n\n';
+        work.outline_cache = work.outline.trim();
       }
     } else {
-      // 直接传完整内容给大模型，大模型会自己理解和推理
-      if(work && work.world && work.world.trim()){
+      // 其他模块：只有修改过的才传入
+      if(work.world && work.world.trim() && (work.world_isModified || !work.world_cache)){
         prefix += '■ 世界观（完整原文）：\n' + work.world.trim() + '\n\n';
+        work.world_cache = work.world.trim();
       }
-      if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      if(module !== 'chars' && work.chars && work.chars.trim() && (work.chars_isModified || !work.chars_cache)){
         prefix += '■ 人设（完整原文）：\n' + work.chars.trim() + '\n\n';
+        work.chars_cache = work.chars.trim();
       }
-      if(module === 'outline' && work && work.outline && work.outline.trim()){
+      if(module === 'outline' && work.outline && work.outline.trim() && (work.outline_isModified || !work.outline_cache)){
         prefix += '■ 大纲（完整原文）：\n' + work.outline.trim() + '\n\n';
+        work.outline_cache = work.outline.trim();
       }
     }
   }
@@ -4184,6 +4195,10 @@ window.saveArchModule = function(){
 
     // ===== 强一致性：一次保存，三层同步 =====
     // 第一层：保存原始内容
+    // v66: 设置修改标记，只有真正修改过的内容才需要在后续生成中传入上下文
+    if(content !== (work[module] || '')){
+      work[module + '_isModified'] = true;
+    }
     work[module] = content;
     // 第二层：从最终保存内容重建 moduleSummaries（确保 summary 与实际内容一致，不受手动编辑影响）
     try {
