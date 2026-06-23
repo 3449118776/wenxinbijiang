@@ -2270,6 +2270,28 @@ function getArchTruncationLimits() {
 }
 
 // 构建章节写作prompt
+// 获取 _archCache 中模块的缓存原文（支持 "world_default" 格式的 key）
+function getArchCacheContent(work, module) {
+  if (!work._archCache) return null;
+  for (var key in work._archCache) {
+    if (key === module || key.indexOf(module + '_') === 0) {
+      var v = work._archCache[key];
+      return v && v.content ? v.content : null;
+    }
+  }
+  return null;
+}
+
+// 确保 _archCache 中存在模块的缓存原文（不存在则用当前 work[module] 填充）
+function ensureArchCache(work, module) {
+  if (!work._archCache) work._archCache = {};
+  for (var key in work._archCache) {
+    if (key === module || key.indexOf(module + '_') === 0) return;
+  }
+  var content = work[module];
+  if (content) work._archCache[module] = { content: content, timestamp: Date.now() };
+}
+
 function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   const chTitle = work.chapters ? (work.chapters[chapterIdx] || {}).title || ('第' + (chapterIdx + 1) + '章') : ('第' + (chapterIdx + 1) + '章');
   const genre = getWorkGenre(work);
@@ -2810,10 +2832,10 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
-  // ===== v48: 世界观规则自证 =====
-  // 大模型(archLimits=null)：跳过 — 模型对话上下文自带记忆，无需重复注入
-  //  例外：用户修改过(work._archCache 与当前内容不一致)才注入修改后原文
-  // 小模型：优先 moduleSummaries 缓存，否则 archLimits 截断
+  // ===== v48: 世界观 =====
+  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆
+  //  用户修改过(缓存与当前不一致)才注入修改后原文
+  // 小模型：优先 moduleSummaries，否则 archLimits 截断
   if (archLimits !== null) {
     var worldContent = '';
     try {
@@ -2827,9 +2849,11 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       worldContent = worldContent.length > wLimit ? worldContent.substring(0, wLimit) + '...' : worldContent;
       prompt += '【世界观设定】\n' + worldContent + '\n\n';
     }
-  } else {
-    var worldCached = work._archCache && work._archCache.world && work._archCache.world.content;
-    if (work.world && worldCached && work.world !== worldCached) {
+  } else if (work.world && work.world.length > 100) {
+    var worldCached = getArchCacheContent(work, 'world');
+    if (!worldCached) {
+      ensureArchCache(work, 'world');
+    } else if (worldCached !== work.world) {
       prompt += '【世界观设定（用户已修改）】\n' + work.world + '\n\n';
     }
   }
@@ -2847,9 +2871,11 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       charsContent = charsContent.length > cLimit ? charsContent.substring(0, cLimit) + '...' : charsContent;
       prompt += '【人物人设】\n' + charsContent + '\n\n';
     }
-  } else {
-    var charsCached = work._archCache && work._archCache.chars && work._archCache.chars.content;
-    if (work.chars && charsCached && work.chars !== charsCached) {
+  } else if (work.chars && work.chars.length > 100) {
+    var charsCached = getArchCacheContent(work, 'chars');
+    if (!charsCached) {
+      ensureArchCache(work, 'chars');
+    } else if (charsCached !== work.chars) {
       prompt += '【人物人设（用户已修改）】\n' + work.chars + '\n\n';
     }
   }
@@ -2967,9 +2993,11 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       fallback2 = fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2;
       prompt += '【全书大纲】\n' + fallback2 + '\n\n';
     }
-  } else {
-    var outlineCached = work._archCache && work._archCache.outline && work._archCache.outline.content;
-    if (work.outline && outlineCached && work.outline !== outlineCached) {
+  } else if (work.outline && work.outline.length > 100) {
+    var outlineCached = getArchCacheContent(work, 'outline');
+    if (!outlineCached) {
+      ensureArchCache(work, 'outline');
+    } else if (outlineCached !== work.outline) {
       prompt += '【全书大纲（用户已修改）】\n' + work.outline + '\n\n';
     }
   }
@@ -3026,9 +3054,11 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
         prompt += '3. 细纲中的"场景""人物"字段是锁定信息，【不得编造】\n';
         prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
       }
-    } else {
-      var detailCached = work._archCache && work._archCache.detail && work._archCache.detail.content;
-      if (detailCached && work.detail !== detailCached) {
+    } else if (work.detail && work.detail.length > 100) {
+      var detailCached = getArchCacheContent(work, 'detail');
+      if (!detailCached) {
+        ensureArchCache(work, 'detail');
+      } else if (detailCached !== work.detail) {
         prompt += '【📑 细纲（用户已修改）】\n' + work.detail + '\n\n';
         prompt += '【核心指令 · 细纲最高优先级】\n';
         prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';

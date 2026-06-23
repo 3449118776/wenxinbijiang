@@ -2999,6 +2999,14 @@ window.generateArchModule = async function(opts){
 function buildArchCardBatchesV48(module, work, idea){
   var batches = [];
 
+  // v64fix: 读取历史扩展卡片，AI 替换过的卡片优先复用
+  var savedCards = [];
+  try {
+    if(work && work._cardSupplements && work._cardSupplements[module] && work._cardSupplements[module].length > 0){
+      savedCards = work._cardSupplements[module];
+    }
+  } catch(e){}
+
   if(module === 'world'){
     // v61: 根据用户指令判断是否为"无魔"设定，调整世界观卡片内容
     var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
@@ -4129,6 +4137,14 @@ window.saveArchModule = function(){
     try { if(typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(e){ console.warn('[save] memoryAnchors 同步异常:', e); }
     // 清除模块过期标记
     if(work._archStale && work._archStale[module]) delete work._archStale[module];
+    // 第四层：更新生成缓存基线（保存后视为新基线，非修改）
+    if(work._archCache) {
+      for(var ck in work._archCache) {
+        if(ck === module || ck.indexOf(module + '_') === 0) {
+          work._archCache[ck] = { content: content, timestamp: Date.now() };
+        }
+      }
+    }
 
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}

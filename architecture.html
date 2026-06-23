@@ -4137,6 +4137,14 @@ window.saveArchModule = function(){
     try { if(typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(e){ console.warn('[save] memoryAnchors 同步异常:', e); }
     // 清除模块过期标记
     if(work._archStale && work._archStale[module]) delete work._archStale[module];
+    // 第四层：更新生成缓存基线（保存后视为新基线，非修改）
+    if(work._archCache) {
+      for(var ck in work._archCache) {
+        if(ck === module || ck.indexOf(module + '_') === 0) {
+          work._archCache[ck] = { content: content, timestamp: Date.now() };
+        }
+      }
+    }
 
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}
