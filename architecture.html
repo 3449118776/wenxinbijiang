@@ -896,7 +896,7 @@ window.switchArchModule = function(mod) {
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
 
-  // v62: AI卡片选择在 generateArchModule 内部自动完成，无需用户手动选择
+  // v63: AI卡片检查在 generateArchModule 内部自动完成，不删不减只替换
 
   // 如果在四级视图中，确保在level4
   if (_currentLevel !== 4) {
@@ -2440,200 +2440,6 @@ function buildModuleSummaryContext(work, currentModule){
   return ctx.trim();
 }
 
-// v62: 卡片选择 — AI自动选择匹配用户指令的卡片 + 补充缺失，替代骨架生成
-var _cardCheckState = {}; // { module: { selected: {idx:true}, batches: [...], supplement: [...] } }
-
-function _esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// 渲染卡片选择面板
-function renderCardCheckboxes(module){
-  var panel = document.getElementById('card-select-' + module);
-  if(!panel) return;
-  panel.classList.add('show');
-
-  var body = document.getElementById('csb-' + module);
-  var countEl = document.getElementById('csc-' + module);
-  if(!body) return;
-
-  var ideaEl = document.getElementById('idea-' + module);
-  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
-  var work = getCurrentWork();
-  var batches = buildArchCardBatchesV48(module, work, idea);
-
-  // 初始化勾选状态；加载持久化的补充卡片
-  if(!_cardCheckState[module]){
-    _cardCheckState[module] = { selected: {}, batches: batches, supplement: [] };
-    // 从work加载已持久化的补充卡片
-    if(work && work._cardSupplements && work._cardSupplements[module]){
-      _cardCheckState[module].supplement = work._cardSupplements[module].slice();
-    }
-  } else {
-    _cardCheckState[module].batches = batches;
-    // 如果state中没有补充卡片但work有，加载work的
-    if((!_cardCheckState[module].supplement || _cardCheckState[module].supplement.length === 0) && work && work._cardSupplements && work._cardSupplements[module]){
-      _cardCheckState[module].supplement = work._cardSupplements[module].slice();
-    }
-  }
-  var state = _cardCheckState[module];
-
-  // 根据指令判断是否匹配
-  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
-  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
-
-  var html = '';
-  var checkedCount = 0;
-  for(var i = 0; i < batches.length; i++){
-    var b = batches[i];
-    var label = b.label || '';
-    // 判断是否匹配指令
-    var unfit = false;
-    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
-    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
-
-    // 默认：匹配的选中，不匹配的不选
-    if(state.selected[i] === undefined) state.selected[i] = !unfit;
-    if(state.selected[i]) checkedCount++;
-
-    var cls = (unfit && !state.selected[i]) ? ' unfit' : '';
-    html += '<div class="card-select-item' + cls + '" onclick="cardToggleItem(\'' + module + '\',' + i + ')">';
-    html += '<div class="csi-check' + (state.selected[i] ? ' checked' : '') + '" id="cs-check-' + module + '-' + i + '"></div>';
-    html += '<span class="csi-label">' + _esc(label) + '</span>';
-    html += '<span class="csi-chars">' + (b.targetChars || '') + '字</span>';
-    if(unfit) html += '<span style="font-size:10px;color:#f59e0b;flex-shrink:0;">不符</span>';
-    html += '</div>';
-  }
-
-  // 渲染补充卡片
-  if(state.supplement && state.supplement.length > 0){
-    for(var si = 0; si < state.supplement.length; si++){
-      var sp = state.supplement[si];
-      var spIdx = batches.length + si;
-      if(state.selected[spIdx] === undefined) state.selected[spIdx] = true;
-      if(state.selected[spIdx]) checkedCount++;
-      html += '<div class="card-select-item supplement" onclick="cardToggleItem(\'' + module + '\',' + spIdx + ')">';
-      html += '<div class="csi-check' + (state.selected[spIdx] ? ' checked' : '') + '" id="cs-check-' + module + '-' + spIdx + '"></div>';
-      html += '<span class="csi-label">➕ ' + _esc(sp.label) + '</span>';
-      html += '<span class="csi-chars">' + (sp.targetChars || '') + '字</span>';
-      html += '</div>';
-    }
-  }
-
-  body.innerHTML = html;
-  if(countEl) countEl.textContent = '已选' + checkedCount + '/' + (batches.length + (state.supplement ? state.supplement.length : 0)) + '张';
-}
-
-// 勾选/取消单个卡片
-function cardToggleItem(module, idx){
-  var state = _cardCheckState[module];
-  if(!state) return;
-  state.selected[idx] = !state.selected[idx];
-  var el = document.getElementById('cs-check-' + module + '-' + idx);
-  if(el){
-    if(state.selected[idx]) el.classList.add('checked');
-    else el.classList.remove('checked');
-  }
-  // 更新计数
-  var countEl = document.getElementById('csc-' + module);
-  if(countEl){
-    var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
-    var checked = 0;
-    for(var k in state.selected){ if(state.selected[k]) checked++; }
-    countEl.textContent = '已选' + checked + '/' + total + '张';
-  }
-}
-
-// 全选/取消全选
-function cardToggleAll(module){
-  var state = _cardCheckState[module];
-  if(!state) return;
-  var total = (state.batches ? state.batches.length : 0) + (state.supplement ? state.supplement.length : 0);
-  var allChecked = true;
-  for(var i = 0; i < total; i++){ if(!state.selected[i]){ allChecked = false; break; } }
-  var newVal = !allChecked;
-  for(var i = 0; i < total; i++){ state.selected[i] = newVal; }
-  renderCardCheckboxes(module);
-}
-
-// 仅选匹配指令的卡片
-function cardToggleFit(module){
-  var state = _cardCheckState[module];
-  if(!state) return;
-  var ideaEl = document.getElementById('idea-' + module);
-  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
-  var _isNoMagic = /无魔|禁魔|无魔法|没有魔法|非魔法|无超自然|无神|纯粹中世纪|真实中世纪|硬核中世纪|无魔中世纪|写实中世纪|无异能|无灵异/.test(idea || '');
-  var _isNoReligion = /无神|无宗教|无教会|无信仰|无神权|世俗/.test(idea || '');
-  for(var i = 0; i < state.batches.length; i++){
-    var label = state.batches[i].label || '';
-    var unfit = false;
-    if(_isNoMagic && (/力量体系|魔法|修炼|灵力|异能|法术|灵兽|魔兽|种族（非人类/.test(label))) unfit = true;
-    if(_isNoReligion && /宗教|信仰|神祇|教会|神权/.test(label)) unfit = true;
-    state.selected[i] = !unfit;
-  }
-  renderCardCheckboxes(module);
-  showToast('已按指令筛选卡片');
-}
-
-// AI补充建议
-window.aiSuggestCards = async function(module){
-  var ideaEl = document.getElementById('idea-' + module);
-  var idea = (ideaEl && ideaEl.value) ? ideaEl.value.trim() : '';
-  if(!idea){ showToast('请先在上方输入构思/指令', {error:true}); return; }
-
-  var btnEl = document.getElementById('csb-btn-' + module);
-  if(btnEl){ btnEl.textContent = '⏳ AI思考中...'; btnEl.disabled = true; }
-
-  var state = _cardCheckState[module];
-  if(!state || !state.batches) return;
-
-  var cardList = '';
-  for(var i = 0; i < state.batches.length; i++){
-    cardList += (i+1) + '. ' + state.batches[i].label + '\n';
-  }
-
-  var prompt = '根据用户指令，判断当前卡片列表是否满足需求。如有缺失，建议补充卡片。\n\n';
-  prompt += '【用户指令】\n' + idea + '\n\n【已有卡片】\n' + cardList + '\n';
-  prompt += '请仔细分析用户指令的每个维度，找出已有卡片没有覆盖的内容。鼓励多补充（最多5张），不要漏掉任何用户要求。\n';
-  prompt += '输出JSON: {"hasGap":true/false,"suggestions":[{"label":"卡片名","targetChars":2500,"focus":"建议该卡片应包含的内容"}]}';
-
-  try {
-    var result = await callRealAPIWithFallback(prompt, null, '卡片建议', 300, true);
-    if(result){
-      var jsonStr = result.trim();
-      var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
-      if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
-      var parsed = JSON.parse(jsonStr);
-      if(parsed.suggestions && parsed.suggestions.length > 0){
-        state.supplement = parsed.suggestions;
-        // v62: 持久化保存补充卡片，下次自动加载
-        saveCardSupplements(module, parsed.suggestions);
-        renderCardCheckboxes(module);
-        showToast('✅ AI建议补充' + parsed.suggestions.length + '张卡片（已保存）');
-      } else {
-        showToast('✅ 当前卡片已满足需求');
-      }
-    }
-  } catch(e){ showToast('AI建议失败，请重试', {error:true}); }
-  if(btnEl){ btnEl.textContent = '🤖 AI补充建议'; btnEl.disabled = false; }
-};
-
-// 获取用户勾选的卡片
-function getCheckedCards(module){
-  var state = _cardCheckState[module];
-  if(!state) return null;
-  var result = [];
-  var total = state.batches.length + (state.supplement ? state.supplement.length : 0);
-  for(var i = 0; i < total; i++){
-    if(state.selected[i]){
-      if(i < state.batches.length){
-        result.push(state.batches[i]);
-      } else {
-        var sp = state.supplement[i - state.batches.length];
-        result.push({ label: sp.label, targetChars: sp.targetChars || 2500, focus: sp.focus || '', _supplement: true });
-      }
-    }
-  }
-  return result;
-}
 window.generateArchModule = async function(opts){
   opts = opts || {};
   try{
@@ -2768,142 +2574,125 @@ window.generateArchModule = async function(opts){
       }
     } catch(memErr) { console.warn('[记忆注入] 异常:', memErr); }
 
-    // v62: AI卡片选择 + 自检 — 替代骨架生成，AI自动选匹配卡片并补充缺失
+    // v63: AI卡片检查 — 8张卡片检查是否匹配用户指令，不匹配的替换内容，不删不减
+    // 卡片数量不变（世界观8张、人物7张、大纲动态），只替换不匹配的卡片内容
     if(!opts.isFix && idea && idea.trim() && module !== 'detail'){
       var allBatches = buildArchCardBatchesV48(module, work, idea);
       if(allBatches && allBatches.length > 0){
         // 构建卡片清单供AI分析
         var cardListForAI = '';
         for(var ci = 0; ci < allBatches.length; ci++){
-          cardListForAI += (ci) + '. ' + allBatches[ci].label + '（' + (allBatches[ci].targetChars || '') + '字）\n';
+          cardListForAI += (ci) + '. ' + allBatches[ci].label + ' — ' + smartTruncate(allBatches[ci].focus || '', 100) + '\n';
         }
 
-        var selectPrompt = '你是一位网文架构师。根据用户指令，从以下卡片列表中选择应该生成的卡片，并判断是否有缺失需要补充。\n\n';
-        selectPrompt += '【用户指令 · 最高优先级】\n' + idea.trim() + '\n\n';
-        selectPrompt += '【作品题材】' + (genre || '通用') + '\n';
-        selectPrompt += '【当前模块】' + moduleName + '\n\n';
-        selectPrompt += '【可选卡片列表 — 用序号引用】\n' + cardListForAI + '\n';
-        selectPrompt += '选择规则：\n';
-        selectPrompt += '1. 选择与用户指令匹配的卡片（默认全部选中，只跳过明确冲突的）\n';
-        selectPrompt += '2. 不要因为"无魔"而跳过军事、地理、文明等卡片——这些卡片在无魔设定下会自动切换为写实内容\n';
-        selectPrompt += '3. 如果用户指令要求的内容在卡片列表中没有覆盖，请补充建议（最多5张，鼓励多补充）\n';
-        selectPrompt += '4. 补充卡片应填补用户指令中的独特要求，不能与已有卡片重复\n\n';
-        selectPrompt += '输出JSON（不要输出其他内容）：\n';
-        selectPrompt += '{"selected":[0,1,3...],"supplement":[{"label":"卡片名","targetChars":2500,"focus":"应包含的内容"}],"reason":"简要说明选择逻辑"}';
+        // 步骤1：AI检查每张卡片内容是否匹配用户指令
+        var checkPrompt = '你是一位网文架构审核师。请逐张检查以下卡片的内容是否匹配用户指令。\n\n';
+        checkPrompt += '【用户指令 · 最高优先级】\n' + idea.trim() + '\n\n';
+        checkPrompt += '【当前模块】' + moduleName + '，共' + allBatches.length + '张卡片\n';
+        checkPrompt += '【卡片列表 — 逐张检查】\n' + cardListForAI + '\n';
+        checkPrompt += '检查规则：\n';
+        checkPrompt += '1. 逐张判断卡片内容是否匹配用户指令\n';
+        checkPrompt += '2. 不匹配的卡片：给出替换方案（保持卡片数量不变，不删不减）\n';
+        checkPrompt += '3. 例如"无魔"设定下，"力量体系"应替换为"军事与权力体系"（不是删除）\n';
+        checkPrompt += '4. 用户指令中明确要求但卡片没覆盖的，补充到最相关的卡片中\n';
+        checkPrompt += '输出JSON：{"matches":true/false,"replacements":[{"index":不匹配的卡片序号,"newLabel":"新卡片名","newFocus":"新卡片应包含的内容"}],"reason":"检查说明"}';
 
         try {
-          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🤖 AI分析指令，选择卡片…');
-          var selectResult = await callRealAPIWithFallback(selectPrompt, null, 'default', 400, true);
-          if(selectResult && selectResult.trim()){
-            var jsonStr = selectResult.trim();
+          if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20, '🤖 AI检查卡片是否匹配指令…');
+          var checkResult = await callRealAPIWithFallback(checkPrompt, null, 'default', 500, true);
+          if(checkResult && checkResult.trim()){
+            var jsonStr = checkResult.trim();
             var start = jsonStr.indexOf('{'), end = jsonStr.lastIndexOf('}');
             if(start >= 0 && end > start) jsonStr = jsonStr.substring(start, end + 1);
             var parsed = JSON.parse(jsonStr);
 
-            // 初始化 _cardCheckState
-            if(!_cardCheckState[module]) _cardCheckState[module] = { selected: {}, batches: allBatches, supplement: [] };
-            var cs = _cardCheckState[module];
-            cs.batches = allBatches;
-
-            // 重置所有卡片为不选
-            for(var i = 0; i < allBatches.length; i++) cs.selected[i] = false;
-
-            // AI选中的卡片
-            if(parsed.selected && parsed.selected.length > 0){
-              for(var si = 0; si < parsed.selected.length; si++){
-                var idx = parsed.selected[si];
-                if(idx >= 0 && idx < allBatches.length) cs.selected[idx] = true;
-              }
-            }
-
-            // AI补充的卡片
-            if(parsed.supplement && parsed.supplement.length > 0){
-              cs.supplement = parsed.supplement;
-              // 持久化保存补充卡片
-              saveCardSupplements(module, parsed.supplement);
-            }
-
-            // ===== 卡片自检：AI检查选中的卡片是否完全符合用户指令 =====
-            var checkPassed = false;
-            for(var ckAttempt = 1; ckAttempt <= 3; ckAttempt++){
-              if(typeof updateLoadingProgress === 'function') updateLoadingProgress(20 + ckAttempt * 3, '🔍 卡片自检 ' + ckAttempt + '/3…');
-
-              var selectedLabels = [];
-              for(var i = 0; i < allBatches.length; i++){
-                if(cs.selected[i]) selectedLabels.push(allBatches[i].label);
-              }
-              if(cs.supplement){
-                for(var spi = 0; spi < cs.supplement.length; spi++){
-                  selectedLabels.push(cs.supplement[spi].label);
+            // 替换不匹配的卡片
+            if(parsed.replacements && parsed.replacements.length > 0){
+              for(var ri = 0; ri < parsed.replacements.length; ri++){
+                var rep = parsed.replacements[ri];
+                var idx = rep.index;
+                if(idx >= 0 && idx < allBatches.length){
+                  allBatches[idx].label = rep.newLabel || allBatches[idx].label;
+                  allBatches[idx].focus = rep.newFocus || allBatches[idx].focus;
+                  allBatches[idx]._replaced = true;
                 }
               }
-
-              var checkPrompt = '你是一位严格的网文架构审核师。请检查以下卡片选择是否完全覆盖用户指令。\n\n';
-              checkPrompt += '【用户指令 · 不可妥协】\n' + idea.trim() + '\n\n';
-              checkPrompt += '【当前模块】' + moduleName + '\n';
-              checkPrompt += '【已选卡片】\n' + selectedLabels.map(function(l,i){ return (i+1)+'. '+l; }).join('\n') + '\n\n';
-              checkPrompt += '请逐条对照用户指令，判断已选卡片是否覆盖了所有要求。\n';
-              checkPrompt += '输出JSON：{"passed":true/false,"issues":["问题1","问题2"],"fix":"建议调整方案"}';
-              if(ckAttempt > 1) checkPrompt += '\n\n【前次自检问题】请修正以下问题：\n' + (_lastCheckIssues || '');
-
-              var checkResult = null;
-              try { checkResult = await callRealAPIWithFallback(checkPrompt, null, 'default', 300, true); } catch(e){}
-
-              if(checkResult && checkResult.trim()){
-                var cjStr = checkResult.trim();
-                var cStart = cjStr.indexOf('{'), cEnd = cjStr.lastIndexOf('}');
-                if(cStart >= 0 && cEnd > cStart) cjStr = cjStr.substring(cStart, cEnd + 1);
-                try {
-                  var cParsed = JSON.parse(cjStr);
-                  if(cParsed.passed){
-                    checkPassed = true;
-                    if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + selectedLabels.length + '张', {duration: 2000});
-                    break;
-                  } else {
-                    _lastCheckIssues = (cParsed.issues || []).join('; ') + (cParsed.fix ? ' | 修复建议: ' + cParsed.fix : '');
-                    if(ckAttempt < 3){
-                      if(typeof showToast === 'function') showToast('第' + ckAttempt + '次卡片自检不通过，自动调整…', {duration: 2500});
-                      // 让AI重新调整卡片选择
-                      var fixPrompt = '根据以下问题和修复建议，重新选择卡片。\n\n【问题】\n' + _lastCheckIssues + '\n\n【可选卡片】\n' + cardListForAI + '\n\n输出JSON：{"selected":[0,1...],"supplement":[...],"reason":"调整说明"}';
-                      try {
-                        var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'default', 400, true);
-                        if(fixResult){
-                          var fjStr = fixResult.trim();
-                          var fStart = fjStr.indexOf('{'), fEnd = fjStr.lastIndexOf('}');
-                          if(fStart >= 0 && fEnd > fStart) fjStr = fjStr.substring(fStart, fEnd + 1);
-                          var fParsed = JSON.parse(fjStr);
-                          for(var i = 0; i < allBatches.length; i++) cs.selected[i] = false;
-                          if(fParsed.selected){
-                            for(var fi = 0; fi < fParsed.selected.length; fi++){
-                              var fidx = fParsed.selected[fi];
-                              if(fidx >= 0 && fidx < allBatches.length) cs.selected[fidx] = true;
-                            }
-                          }
-                          if(fParsed.supplement && fParsed.supplement.length > 0){
-                            cs.supplement = fParsed.supplement;
-                            saveCardSupplements(module, fParsed.supplement);
-                          }
-                        }
-                      } catch(fixErr){}
-                    } else {
-                      if(typeof showToast === 'function') showToast('⚠️ 卡片3次自检均不通过，将按最后一版生成', {duration: 5000});
-                    }
-                  }
-                } catch(parseErr2){ break; }
-              } else {
-                if(ckAttempt === 3) break;
-              }
+              if(typeof showToast === 'function') showToast('🔧 AI已替换' + parsed.replacements.length + '张不匹配的卡片', {duration: 2000});
             }
 
-            // v62: AI已自动选择卡片，直接进入生成流程
-            if(typeof showToast === 'function') showToast('✅ AI已自动选择卡片，共' + Object.keys(cs.selected).filter(function(k){return cs.selected[k];}).length + '张', {duration: 2000});
+            // 步骤2：卡片自检 — 替换后再次确认是否全部匹配
+            if(!parsed.matches || parsed.replacements.length > 0){
+              var checkPassed = false;
+              for(var ckAttempt = 1; ckAttempt <= 3; ckAttempt++){
+                if(typeof updateLoadingProgress === 'function') updateLoadingProgress(22 + ckAttempt * 3, '🔍 卡片自检 ' + ckAttempt + '/3…');
+
+                var cardList2 = '';
+                for(var ci2 = 0; ci2 < allBatches.length; ci2++){
+                  cardList2 += (ci2) + '. ' + allBatches[ci2].label + '\n';
+                }
+
+                var verifyPrompt = '请确认以下' + allBatches.length + '张卡片是否全部匹配用户指令。\n\n';
+                verifyPrompt += '【用户指令】\n' + idea.trim() + '\n\n';
+                verifyPrompt += '【当前卡片】\n' + cardList2 + '\n';
+                verifyPrompt += '输出JSON：{"passed":true/false,"issues":["问题"],"fix":"修复建议"}';
+
+                var vResult = null;
+                try { vResult = await callRealAPIWithFallback(verifyPrompt, null, 'default', 300, true); } catch(e){}
+
+                if(vResult && vResult.trim()){
+                  var vjStr = vResult.trim();
+                  var vStart = vjStr.indexOf('{'), vEnd = vjStr.lastIndexOf('}');
+                  if(vStart >= 0 && vEnd > vStart) vjStr = vjStr.substring(vStart, vEnd + 1);
+                  try {
+                    var vParsed = JSON.parse(vjStr);
+                    if(vParsed.passed){
+                      checkPassed = true;
+                      if(typeof showToast === 'function') showToast('✅ 卡片自检通过，共' + allBatches.length + '张', {duration: 2000});
+                      break;
+                    } else {
+                      var issues = (vParsed.issues || []).join('; ') + (vParsed.fix ? ' | ' + vParsed.fix : '');
+                      if(ckAttempt < 3){
+                        if(typeof showToast === 'function') showToast('第' + ckAttempt + '次自检不通过，自动修正…', {duration: 2500});
+                        // 让AI修正不匹配的卡片
+                        var fixPrompt = '根据以下问题修正卡片。\n【问题】\n' + issues + '\n【卡片列表】\n' + cardListForAI + '\n输出JSON：{"replacements":[{"index":序号,"newLabel":"名","newFocus":"内容"}]}';
+                        try {
+                          var fixResult = await callRealAPIWithFallback(fixPrompt, null, 'default', 400, true);
+                          if(fixResult){
+                            var fjStr = fixResult.trim();
+                            var fStart = fjStr.indexOf('{'), fEnd = fjStr.lastIndexOf('}');
+                            if(fStart >= 0 && fEnd > fStart) fjStr = fjStr.substring(fStart, fEnd + 1);
+                            var fParsed = JSON.parse(fjStr);
+                            if(fParsed.replacements){
+                              for(var fri = 0; fri < fParsed.replacements.length; fri++){
+                                var fr = fParsed.replacements[fri];
+                                if(fr.index >= 0 && fr.index < allBatches.length){
+                                  if(fr.newLabel) allBatches[fr.index].label = fr.newLabel;
+                                  if(fr.newFocus) allBatches[fr.index].focus = fr.newFocus;
+                                }
+                              }
+                            }
+                          }
+                        } catch(fixErr){}
+                      } else {
+                        if(typeof showToast === 'function') showToast('⚠️ 卡片3次自检未通过，将按最后一版生成', {duration: 5000});
+                      }
+                    }
+                  } catch(parseErr2){ break; }
+                } else {
+                  if(ckAttempt === 3) break;
+                }
+              }
+            } else {
+              if(typeof showToast === 'function') showToast('✅ 所有卡片匹配用户指令', {duration: 2000});
+            }
+
+            // 持久化保存替换后的卡片（用于下次参考）
+            if(parsed.replacements && parsed.replacements.length > 0){
+              saveCardSupplements(module, parsed.replacements.map(function(r){ return {label: r.newLabel || '', targetChars: 2500, focus: r.newFocus || ''}; }));
+            }
           }
         } catch(selectErr){
-          console.warn('[AI卡片选择] 失败，使用默认全部卡片:', selectErr);
-          if(!_cardCheckState[module]) _cardCheckState[module] = { selected: {}, batches: allBatches, supplement: [] };
-          var cs2 = _cardCheckState[module];
-          cs2.batches = allBatches;
-          for(var i = 0; i < allBatches.length; i++) cs2.selected[i] = true;
+          console.warn('[AI卡片检查] 失败，使用默认卡片:', selectErr);
         }
       }
     }
@@ -2925,14 +2714,8 @@ window.generateArchModule = async function(opts){
 
     // 4a. 获取卡片结构规划（仅用于非 detail 模块；detail 模块已在上面逐卷生成完毕）
     if(module !== 'detail'){
-      // v62: 卡片选择 — 获取AI选中的卡片（含补充），优先使用
-      var checkedBatches = getCheckedCards(module);
-      if(checkedBatches && checkedBatches.length > 0){
-        batches = checkedBatches;
-        if(typeof showToast === 'function') showToast('📋 按选中卡片生成 ' + batches.length + ' 张', {duration: 2000});
-      } else {
-        batches = buildArchCardBatchesV48(module, work, idea);
-      }
+      // v63: 直接使用全部卡片，AI已在上面检查并替换了不匹配的卡片内容
+      batches = buildArchCardBatchesV48(module, work, idea);
 
       totalChars = 0;
       allCards = [];
