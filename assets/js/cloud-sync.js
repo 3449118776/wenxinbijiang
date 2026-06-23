@@ -271,6 +271,25 @@ CloudSync.prototype = {
   },
 
   /**
+   * 获取云端待删除列表（24h延迟删除标记）
+   */
+  getPendingDeletes: async function() {
+    return this._fetch('/works/pending-deletes');
+  },
+
+  /**
+   * 推送延迟删除标记到云端
+   * 设备A删除作品 → 云端标记删除（保留数据24h）→ 其他设备同步时识别标记并删本地
+   */
+  pushPendingDelete: async function(workId, title) {
+    return this._fetch('/works/' + encodeURIComponent(workId) + '/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title || '' })
+    });
+  },
+
+  /**
    * 拉取单个作品完整数据
    */
   getWork: async function(workId) {
@@ -384,20 +403,42 @@ CloudSync.prototype = {
           report.unchanged++;
         }
       }
-      var trash = [];
-      try {
-        trash = DB._trash || [];
-      } catch(e) { console.warn("[cloud-sync.js]", e); }
 
-      // 获取云端待删除列表（hardDeleteWork 产生的记录）
-      var cloudDeleteList = [];
+      // 4. 获取云端延迟删除标记（24h内删除的作品）
+      var cloudPendingDeletes = [];
       try {
-        if (DB && DB._cloudDeleteList && DB._cloudDeleteList.length > 0) {
-          cloudDeleteList = DB._cloudDeleteList.slice();
+        var pdResp = await this.getPendingDeletes();
+        if (pdResp && pdResp.pendingDeletes) {
+          cloudPendingDeletes = pdResp.pendingDeletes;
         }
-      } catch(e) { console.warn("[cloud-sync.js]", e); }
+      } catch(e) { console.warn('[cloud-sync.js] 获取云端删除标记失败:', e); }
+      var pendingDeleteMap = {};
+      for (var pi = 0; pi < cloudPendingDeletes.length; pi++) {
+        pendingDeleteMap[cloudPendingDeletes[pi].workId] = cloudPendingDeletes[pi];
+      }
 
-      var toDeleteOnCloud = [];
+      // 5. 处理云端删除标记：如果本地有此作品，立即删除本地
+      var localDeletedCount = 0;
+      for (var pdId in pendingDeleteMap) {
+        if (pendingDeleteMap.hasOwnProperty(pdId)) {
+          for (var li = 0; li < localWorks.length; li++) {
+            if (localWorks[li].id === pdId) {
+              try {
+                if (DB && DB.deleteWork) DB.deleteWork(pdId);
+                localDeletedCount++;
+              } catch(e) { console.warn('[cloud-sync.js] 本地删除失败:', e); }
+              break;
+            }
+          }
+        }
+      }
+      if (localDeletedCount > 0) {
+        report.deleted = (report.deleted || 0) + localDeletedCount;
+        // 刷新本地作品列表
+        try { if (DB && DB.works) localWorks = DB.works.slice(); } catch(e) {}
+      }
+
+      // 6. 云端有但本地没有的作品 → 判断是否拉取
       for (var k = 0; k < cloudWorks.length; k++) {
         var cw = cloudWorks[k];
         var found = false;
@@ -405,56 +446,12 @@ CloudSync.prototype = {
           if (localWorks[m].id === cw.workId) { found = true; break; }
         }
         if (!found) {
-          // 检查是否在回收站
-          var inTrash = false;
-          for (var ti = 0; ti < trash.length; ti++) {
-            if (trash[ti] && trash[ti].work && trash[ti].work.id === cw.workId) {
-              inTrash = true;
-              break;
-            }
+          // 如果在延迟删除列表中 → 跳过（已在其他设备删除）
+          if (pendingDeleteMap[cw.workId]) {
+            continue;
           }
-          // 检查是否在云端待删列表
-          var inDeleteList = cloudDeleteList.indexOf(cw.workId) >= 0;
-
-          if (inTrash || inDeleteList) {
-            toDeleteOnCloud.push(cw.workId);
-          } else {
-            toPull.push(cw.workId);
-          }
-        }
-      }
-      // 云端待删列表中本地不存在且云端也没有的作品，从列表中清理
-      if (cloudDeleteList.length > 0 && toDeleteOnCloud.length > 0) {
-        toDeleteOnCloud = toDeleteOnCloud.concat(
-          cloudDeleteList.filter(function(id) { return toDeleteOnCloud.indexOf(id) < 0; })
-        );
-      }
-
-      if (toDeleteOnCloud.length > 0) {
-        var deletedIds = [];
-        for (var di = 0; di < toDeleteOnCloud.length; di++) {
-          try {
-            await this.deleteWork(toDeleteOnCloud[di]);
-            report.deleted = (report.deleted || 0) + 1;
-            deletedIds.push(toDeleteOnCloud[di]);
-          } catch(e) {
-            report.errors++;
-          }
-        }
-        // 清理本地云端待删除列表（只有成功删除的才移除）
-        if (deletedIds.length > 0 && DB && DB._cloudDeleteList) {
-          try {
-            DB._cloudDeleteList = DB._cloudDeleteList.filter(function(id) {
-              return deletedIds.indexOf(id) < 0;
-            });
-          } catch(e) { console.warn("[cloud-sync.js]", e); }
-        }
-
-        cloudWorks = cloudWorks.filter(function(cw) {
-          return toDeleteOnCloud.indexOf(cw.workId) < 0;
-        });
-        for (var i = 0; i < cloudWorks.length; i++) {
-          cloudMap[cloudWorks[i].workId] = cloudWorks[i];
+          // 不在删除列表中 → 拉取（其他设备新建的作品）
+          toPull.push(cw.workId);
         }
       }
 

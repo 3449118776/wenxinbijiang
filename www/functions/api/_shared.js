@@ -173,6 +173,9 @@ function key_works_list(userId) { return 'works:' + userId; }
 function key_snap(workKey, version) { return 'snap:' + workKey + ':' + version; }
 function key_user_keys(userId) { return 'user:keys:' + userId; }
 function key_user_settings(userId) { return 'user:settings:' + userId; }
+function key_pending_deletes(userId) { return 'pending-deletes:' + userId; }
+
+const DELETE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24小时
 
 export async function db_get_user_by_email(email) {
   const store = KV();
@@ -328,6 +331,58 @@ export async function db_put_user_settings(userId, data) {
     updatedAt: new Date().toISOString()
   }));
   return { ok: true };
+}
+
+// ============ 延迟删除（pending deletes）============
+// 设备A删除作品 → 云端标记删除（保留数据24h）→ 其他设备同步时识别标记并删本地 → 24h后清理云端数据
+
+export async function db_get_pending_deletes(userId) {
+  const store = KV();
+  if (!store) return [];
+  try {
+    const list = await store.get(key_pending_deletes(userId), { type: 'json' });
+    if (!list || !Array.isArray(list)) return [];
+    const now = Date.now();
+    const valid = [];
+    const expired = [];
+    for (const item of list) {
+      const t = new Date(item.deletedAt).getTime();
+      if (now - t < DELETE_EXPIRY_MS) {
+        valid.push(item);
+      } else {
+        expired.push(item);
+      }
+    }
+    // 清除超24h的标记：真正删除 KV 中的作品数据
+    for (const item of expired) {
+      try {
+        await store.delete(key_work(userId, item.workId));
+        console.log('[cleanup] 已清除过期删除标记对应的作品数据:', item.workId);
+      } catch(e) { console.warn('[cleanup] 清除失败:', item.workId, e && e.message); }
+    }
+    if (expired.length > 0) {
+      await store.put(key_pending_deletes(userId), JSON.stringify(valid));
+    }
+    return valid;
+  } catch(e) { return []; }
+}
+
+export async function db_add_pending_delete(userId, workId, title) {
+  const store = KV();
+  if (!store) throw new Error('KV store not available');
+  let list = await store.get(key_pending_deletes(userId), { type: 'json' }) || [];
+  if (!Array.isArray(list)) list = [];
+  // 移除同 workId 的旧记录（如果存在）
+  list = list.filter(item => item.workId !== workId);
+  list.push({ workId, title: title || '', deletedAt: new Date().toISOString() });
+  await store.put(key_pending_deletes(userId), JSON.stringify(list));
+  // 从 works 列表中移除
+  let worksList = await store.get(key_works_list(userId), { type: 'json' }) || [];
+  if (Array.isArray(worksList)) {
+    worksList = worksList.filter(id => id !== workId);
+    await store.put(key_works_list(userId), JSON.stringify(worksList));
+  }
+  return { ok: true, pending: true };
 }
 
 // ============ 工具函数 ============

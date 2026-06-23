@@ -4,6 +4,7 @@ import {
   db_get_user_by_email, db_get_user_by_id, db_create_user, db_update_user,
   db_list_works, db_get_work, db_upsert_work,
   db_get_user_keys, db_put_user_keys, db_get_user_settings, db_put_user_settings,
+  db_get_pending_deletes, db_add_pending_delete,
   random_hex, random_code, json_response
 } from './_shared.js';
 
@@ -36,6 +37,7 @@ export async function onRequest(context) {
   if (apiPath === '/user/settings' && req.method === 'GET') return handle_settings_get(userId);
   if (apiPath === '/user/settings' && req.method === 'PUT') return handle_settings_put(req, userId);
   if (apiPath === '/works' && req.method === 'GET') return handle_works_list(userId);
+  if (apiPath === '/works/pending-deletes' && req.method === 'GET') return handle_pending_deletes(userId);
   if (apiPath.match(/^\/works\/[^\/]+$/) && req.method === 'GET') {
     const workId = apiPath.split('/')[2];
     return handle_work_get(userId, workId);
@@ -249,15 +251,18 @@ async function handle_batch(req, userId) {
 
 async function handle_work_delete(userId, workId) {
   try {
-    const store = globalThis.WXBJ_DATA || globalThis.WXBJ_USERS || globalThis.KV || globalThis.DATA || null;
-    if (!store) return json_response({ error: '存储未配置' }, 500);
-    const key = 'work:' + userId + ':' + workId;
-    await store.delete(key);
-    // 从列表移除
-    let list = await store.get('works:' + userId, { type: 'json' }) || [];
-    list = list.filter(id => id !== workId);
-    await store.put('works:' + userId, JSON.stringify(list));
-    return json_response({ ok: true });
+    // 24小时延迟删除：先加标记，保留云端数据24h供其他设备同步
+    await db_add_pending_delete(userId, workId, '');
+    return json_response({ ok: true, pending: true });
+  } catch (e) {
+    return json_response({ error: e.message }, 500);
+  }
+}
+
+async function handle_pending_deletes(userId) {
+  try {
+    const list = await db_get_pending_deletes(userId);
+    return json_response({ pendingDeletes: list });
   } catch (e) {
     return json_response({ error: e.message }, 500);
   }

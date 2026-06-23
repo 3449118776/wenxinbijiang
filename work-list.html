@@ -1270,28 +1270,27 @@ async function confirmDelete() {
   btns.forEach(function(b){ b.disabled = true; b.textContent = '删除中...'; });
   
   try {
-    var cloudDeleted = false;
+    var cloudMarked = false;
     if (window.cloud && window.cloud.isLoggedIn()) {
       try {
-        await window.cloud.deleteWork(deleteTargetId);
-        cloudDeleted = true;
-      } catch(e) {
-        console.warn('云端删除失败:', e);
-        // 云端删除失败，加入 _cloudDeleteList，下次 smartSync 时重试
+        // 推送延迟删除标记到云端（保留数据24h供其他设备同步）
+        var workTitle = '';
         try {
-          if (DB && !DB._cloudDeleteList) DB._cloudDeleteList = [];
-          if (DB && DB._cloudDeleteList.indexOf(deleteTargetId) < 0) {
-            DB._cloudDeleteList.push(deleteTargetId);
-          }
-          if (DB && DB.flush) DB.flush();
-        } catch(listErr) {}
+          var w = getWorkById(deleteTargetId);
+          if (w) workTitle = w.title || '';
+        } catch(e) {}
+        await window.cloud.pushPendingDelete(deleteTargetId, workTitle);
+        cloudMarked = true;
+      } catch(e) {
+        console.warn('云端删除标记失败:', e);
+        // 标记失败不影响本地删除
       }
     }
     
     DB.deleteWork(deleteTargetId);
     closeDeleteModal();
     renderLevel2();
-    showToast(cloudDeleted ? '已删除' : '已删除本地（云端稍后重试）');
+    showToast(cloudMarked ? '已删除（24h后自动清理云端数据）' : '已删除本地');
   } finally {
     btns.forEach(function(b){ b.disabled = false; });
     document.querySelector('.btns button').textContent = '取消';
