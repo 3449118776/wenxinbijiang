@@ -485,7 +485,7 @@ function getModelContextWindow() {
     var config = DB.getApiConfig() || {};
     var model = config.model || '';
     return _lookupContextWindow(model);
-  } catch(e) { console.warn("[api.js]", e); }
+  } catch(e) {}
   return 131072; // 默认 128K
 }
 
@@ -529,7 +529,7 @@ function getModelMaxOutputTokens() {
     var config = DB.getApiConfig() || {};
     var model = config.model || '';
     return _lookupModelMaxTokens(model);
-  } catch(e) { console.warn("[api.js]", e); }
+  } catch(e) {}
   return DEFAULT_MAX_TOKENS;
 }
 
@@ -557,7 +557,7 @@ function getApiTimeoutMs() {
     if (s.apiTimeoutSec && s.apiTimeoutSec >= 15 && s.apiTimeoutSec <= 300) {
       return s.apiTimeoutSec * 1000;
     }
-  } catch(e) { console.warn("[api.js]", e); }
+  } catch(e) {}
   return DEFAULT_TIMEOUT_MS;
 }
 
@@ -905,7 +905,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   let response, result = '';
 
   // v59: 检查缓存（provider + model + hash(prompt) 作为 key）
-  // ⚡ extraOpts.noCache = true 时跳过缓存（迭代生成场景避免脏读）
+  // v65: noCache 跳过缓存
   var _cacheModel = model || (DEFAULT_MODELS_BY_PROVIDER[provider] || '');
   if (!extraOpts || !extraOpts.noCache) {
     var _cached = _cacheGet(provider, _cacheModel, prompt);
@@ -920,7 +920,7 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
       var customCfg = (DB.getApiConfig && DB.getApiConfig()) || {};
       if (customCfg.customUrl) targetUrl = customCfg.customUrl;
       if (customCfg.customModel) targetModel = customCfg.customModel;
-    } catch(e) { console.warn("[api.js]", e); }
+    } catch(e) {}
     if (!targetUrl) throw new Error('请在设置中填写自定义 API 地址');
   }
 
@@ -1131,12 +1131,15 @@ async function callRealAPI(prompt, onProgress, opts) {
     const key = (provider === 'free') ? 'free' : getAiKey(provider);
     if (!key) break;
     let ac = new AbortController();
-    if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){ console.warn("[api.js]", e); } }
+    if (opts.signal) { try { opts.signal.addEventListener('abort', function(){ ac.abort(); }); } catch(e){} }
     let aborted = false;
     let timeoutId = setTimeout(function() { aborted = true; ac.abort(); }, timeoutMs);
     try {
       // v48: 如果调用时指定了 maxTokens，优先使用它（覆盖 DEFAULT_MAX_TOKENS）
-      var extraOpts = opts.maxTokens ? { maxTokens: opts.maxTokens } : null;
+      var extraOpts = {};
+      if (opts.maxTokens) extraOpts.maxTokens = opts.maxTokens;
+      if (opts.noCache) extraOpts.noCache = true;
+      if (Object.keys(extraOpts).length === 0) extraOpts = null;
       const result = await _callOnce(provider, key, prompt, model, ac.signal, extraOpts);
       clearTimeout(timeoutId);
       if (!opts.silent) hideLoading();
@@ -1236,7 +1239,8 @@ var TASK_ROUTE = {
 // 任意服务商有 key 能产出结果即返回；**所有服务商所有 key 都失败时给出明确的总括提示**
 // v48: 第4个参数 targetChars（目标中文字数）用于动态设置 max_tokens，避免输出被截断
 // v49: 第5个参数 silent（true 时不在内部操作 loading，由外层统一管理）
-async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent) {
+// v65: 第6个参数 noCache（true 时跳过 AI 缓存）
+async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent, noCache) {
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
   // 根据目标字数动态计算 max_tokens
@@ -1295,6 +1299,7 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     // v48: 构建动态输出选项（如果提供了 targetChars，会覆盖 DEFAULT_MAX_TOKENS）
     var callOpts = { provider: provider, silent: silent || oi !== 0 };
     if (dynamicMaxTokens) callOpts.maxTokens = dynamicMaxTokens;
+    if (noCache) callOpts.noCache = true;
 
     if (oi === 0) {
       // 静默尝试首选，用户无感
@@ -1368,7 +1373,8 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
   }
 
   showToast(mainIssue + '。' + subHint, { error: true, duration: 5500 });
-  return null;
+  // 继续返回本地兜底文本，保证用户至少看到一个占位
+  return generateLocal(prompt);
 }
 
 // 本地兜底
@@ -1397,7 +1403,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
   try {
     var s = (DB && DB.settings) ? DB.settings : {};
     useMulti = !!s.multiAI;
-  } catch(e) { console.warn("[api.js]", e); }
+  } catch(e) {}
   if (!useMulti) {
     return callRealAPIWithFallback(prompt, onProgress, taskType);
   }
@@ -1444,7 +1450,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
   try {
     var winner = await Promise.race(promises);
     // 取到结果后立即取消其余请求
-    try { controller.abort(); } catch(e) { console.warn("[api.js]", e); }
+    try { controller.abort(); } catch(e) {}
     if (winner && winner.result) {
       if (winner.provider !== candidates[0]) {
         showToast('首服务商额度不足，' + API_PROVIDERS[winner.provider].name + ' 接力成功', { duration: 2000 });
@@ -1452,7 +1458,7 @@ async function callMultiAI(prompt, onProgress, taskType) {
       return winner.result;
     }
   } catch(e) {
-    try { controller.abort(); } catch(_) { console.warn("[api.js]", _); }
+    try { controller.abort(); } catch(_) {}
     console.warn('[multiAI] 首请求失败，回退到串行回退', e && e.message);
   }
   

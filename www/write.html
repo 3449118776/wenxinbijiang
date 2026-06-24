@@ -173,6 +173,14 @@ html{height:100%;-webkit-text-size-adjust:100%;}body{background:#f6f7f9;color:#3
 .tab-item.active{color:#6366f1;}
 .tab-icon{font-size:22px;line-height:1;}
 
+/* 页内进度条 */
+.page-progress{display:none;margin:0 12px 10px;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #eef0f5;}
+.page-progress .prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.page-progress .prog-title{font-size:12px;color:#6366f1;font-weight:600;}
+.page-progress .prog-bar-wrap{background:#eee;border-radius:8px;height:6px;overflow:hidden;}
+.page-progress .prog-bar{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;border-radius:8px;transition:width 0.5s ease;}
+.page-progress .prog-info{display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#999;}
+
 /* Toast */
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
 .toast.show{opacity:1;}
@@ -250,12 +258,9 @@ html{height:100%;-webkit-text-size-adjust:100%;}body{background:#f6f7f9;color:#3
         </div>
 
         <div class="editor-content">
-          <!-- 进度条（写入页内嵌，AI生成时显示） -->
-          <div class="page-progress" id="detail-progress" style="display:none;margin-bottom:8px;">
-            <div class="prog-header">
-              <span class="prog-title" id="prog-title">生成中</span>
-              <span class="prog-pct" id="prog-pct">0%</span>
-            </div>
+          <!-- 页内进度条（生成章节时显示） -->
+          <div class="page-progress" id="detail-progress" style="display:none;">
+            <div class="prog-header"><span class="prog-title" id="prog-title">正在生成</span><span class="prog-pct" id="prog-pct">0%</span></div>
             <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
             <div class="prog-info"><span id="prog-detail">准备中</span></div>
           </div>
