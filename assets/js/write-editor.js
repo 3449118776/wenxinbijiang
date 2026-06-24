@@ -69,6 +69,318 @@ var PLATINUM_RULES = {
   'key_moment_interrupt': '【关键时刻打断】在情绪/暧昧/冲突最高潮突然中断，打断事件：紧急军情/敲门声/雷声/孩子哭声。禁忌：打断后不要立刻接新事件，让读者屏住呼吸等下一页。',
   // ===== 节奏控制（AI最弱项）=====
   'rhythm_grid': '【爽点密度公式】每章必须有1个小爽点；每3-5章有1个中爽点（完整打脸/关系突破/实力跃升）；每卷有1个大爽点（boss战逆转/身份曝光/伏笔串联）。禁忌：连续3章无任何爽点。',
+  // ===== v70: 文笔质量锚点（新增）=====
+  'no_template_emotion': '【禁止模板情绪】禁止使用：众人震惊、空气凝固、瞳孔一缩、心头一震、浑身一颤、脸色一变、心中暗想、不禁感叹、难以置信、恍然大悟。替换为具体动作或环境映射。',
+  'no_template_action': '【禁止模板动作】禁止使用：缓缓地、淡淡地、微微点头、轻叹一声、深深看了他一眼、嘴角勾起一抹、眼中闪过一丝。替换为独特动作或删除。',
+  'no_template_env': '【禁止模板环境】禁止使用：阳光洒下、微风拂过、空气中弥漫着、一片寂静、鸦雀无声、万籁俱寂。替换为具体感官细节或删除。',
+  'no_template_dialogue': '【禁止模板对话】禁止使用：我...、那个...、其实...、你知道吗...、听我说...、不是那样的...。替换为直接表达或删除废话。',
+  'no_adverb_stack': '【禁止副词堆砌】禁止连续使用副词：非常非常、极其极其、特别特别、相当相当。一个精准词比三个堆砌有力。',
+  'no_generic_verb': '【禁止通用动词】减少使用：说、看、走、拿、想、觉得。替换为精准动词：道/喊/低语、凝视/瞥见/端详、踱步/疾行/踉跄、握/抓/攥、沉思/盘算/揣测。',
+  'no_adjective_stack': '【禁止形容词堆砌】禁止连续使用3个以上形容词：美丽动人温柔善良。用一个精准形容词或用动作展示。',
+  'sentence_variety': '【句式多样性】禁止连续3句相同开头词（他...他...他...）。禁止连续3句相同句式结构（XX做了XX...XX做了XX...XX做了XX）。每章至少5种不同句式结构。',
+  'rhetoric_required': '【修辞强制要求】每章至少1个比喻（像/如/仿佛）、1处排比（连续3句相同结构）、1处感官交叉描写（视觉+听觉/触觉+嗅觉）。'
+};
+
+// ========== AI_TEMPLATE_BLACKLIST v70：AI腔/模板化表达黑名单（正文生成时强制禁止）==========
+var AI_TEMPLATE_BLACKLIST = {
+  // 情绪模板（禁止使用，替换为具体动作或环境映射）
+  emotion: [
+    '众人震惊', '全场震惊', '所有人震惊', '空气凝固', '气氛凝固', '瞳孔一缩', '瞳孔猛地一缩',
+    '心头一震', '心头猛地一震', '浑身一颤', '浑身猛地一颤', '脸色一变', '脸色骤然一变',
+    '心中暗想', '心中不禁想', '心中感叹', '不禁感叹', '难以置信', '简直难以置信',
+    '恍然大悟', '猛然恍然大悟', '心中一凛', '心头一凛', '心中一动', '心头一动',
+    '心中一紧', '心头一紧', '心中一松', '心头一松', '心中一暖', '心头一暖',
+    '心中一冷', '心头一冷', '心中一惊', '心头一惊', '心中一喜', '心头一喜',
+    '心中一悲', '心头一悲', '心中一怒', '心头一怒', '心中一惧', '心头一惧',
+    '心中一动', '心中一动', '心中一颤', '心头一颤', '心中一凛', '心头一凛'
+  ],
+  // 动作模板（禁止使用，替换为独特动作或删除）
+  action: [
+    '缓缓地', '慢慢地', '渐渐地', '淡淡地', '微微地', '轻轻地', '深深地',
+    '微微点头', '轻轻点头', '缓缓点头', '淡淡点头', '微微一笑', '淡淡一笑', '轻轻一笑',
+    '轻叹一声', '深深叹了口气', '长叹一声', '无奈地叹了口气', '苦笑一声',
+    '深深看了他一眼', '深深看了她一眼', '深深地看了他一眼', '深深地看了她一眼',
+    '嘴角勾起一抹', '嘴角勾起一抹笑', '嘴角勾起一抹冷笑', '嘴角微微勾起',
+    '眼中闪过一丝', '眼中闪过一丝惊讶', '眼中闪过一丝震惊', '眼中闪过一丝杀意',
+    '眼中闪过一丝复杂', '眼中闪过一丝异色', '眼中闪过一丝光芒', '眼中闪过一丝精光',
+    '眉头一皱', '眉头微微一皱', '眉头紧皱', '眉头皱起', '眉头一挑', '眉头微微一挑',
+    '目光一闪', '目光微微一闪', '目光闪动', '目光闪烁', '目光一凝', '目光微微一凝'
+  ],
+  // 环境模板（禁止使用，替换为具体感官细节或删除）
+  environment: [
+    '阳光洒下', '阳光透过', '阳光照在', '阳光洒在', '阳光落在', '阳光映照',
+    '微风拂过', '微风轻轻拂过', '微风缓缓拂过', '风轻轻吹过', '风缓缓吹过',
+    '空气中弥漫着', '空气中充满了', '空气中飘散着', '空气中有着',
+    '一片寂静', '鸦雀无声', '万籁俱寂', '寂静无声', '一片安静', '安静得可怕',
+    '四周一片寂静', '周围一片寂静', '天地一片寂静', '世界一片寂静',
+    '夜色降临', '夜幕降临', '夜色笼罩', '夜幕笼罩', '夜色渐深', '夜幕渐深'
+  ],
+  // 对话模板（禁止使用，替换为直接表达或删除废话）
+  dialogue: [
+    '我...', '那个...', '其实...', '你知道吗...', '听我说...', '不是那样的...',
+    '我想说的是...', '我要说的是...', '我想告诉你...', '我要告诉你...',
+    '怎么说呢...', '该怎么说呢...', '怎么说...', '该怎么说...',
+    '是这样的...', '是这样的...', '是这样的...', '是这样的...',
+    '嗯...', '啊...', '哦...', '呃...', '唔...', '哼...', '哈...'
+  ],
+  // 副词堆砌（禁止连续使用）
+  adverbStack: [
+    '非常非常', '极其极其', '特别特别', '相当相当', '十分十分', '格外格外',
+    '真的真的', '确实确实', '绝对绝对', '完全完全', '彻底彻底'
+  ],
+  // 通用动词（减少使用，替换为精准动词）
+  genericVerb: [
+    '说道', '说道说道', '说道：', '说：', '说道："', '说："',
+    '看着他', '看着她', '看着他们', '看着她们', '看着众人', '看着全场',
+    '走了过去', '走了过来', '走了出去', '走了进来', '走了几步', '走了几步',
+    '拿起了', '拿起了', '拿起了', '拿起了', '拿起了', '拿起了',
+    '想了想', '想了想', '想了想', '想了想', '想了想', '想了想',
+    '觉得', '觉得', '觉得', '觉得', '觉得', '觉得'
+  ],
+  // 形容词堆砌（禁止连续使用3个以上）
+  adjectiveStack: [
+    '美丽动人温柔善良', '英俊潇洒风流倜傥', '聪明伶俐活泼可爱',
+    '高大威猛强壮有力', '娇小玲珑可爱动人', '冷酷无情残忍嗜血',
+    '温柔体贴善解人意', '勇敢坚强无所畏惧', '聪明机智才华横溢'
+  ]
+};
+
+// ========== 文笔质量检测函数 v70 ==========
+function detectTemplateExpressions(text) {
+  if (!text || text.length < 100) return { count: 0, issues: [], categories: {} };
+  
+  var issues = [];
+  var categories = { emotion: 0, action: 0, environment: 0, dialogue: 0, adverbStack: 0, genericVerb: 0, adjectiveStack: 0 };
+  
+  // 检测各类模板表达
+  for (var cat in AI_TEMPLATE_BLACKLIST) {
+    var list = AI_TEMPLATE_BLACKLIST[cat];
+    for (var i = 0; i < list.length; i++) {
+      var pattern = list[i];
+      if (text.indexOf(pattern) >= 0) {
+        var regex = new RegExp(pattern, 'g');
+        var matches = text.match(regex);
+        if (matches) {
+          categories[cat] += matches.length;
+          for (var m = 0; m < matches.length && issues.length < 20; m++) {
+            issues.push('【' + cat + '模板】"' + matches[m] + '" → 请替换为具体独特表达或删除');
+          }
+        }
+      }
+    }
+  }
+  
+  var totalCount = 0;
+  for (var c in categories) totalCount += categories[c];
+  
+  return { count: totalCount, issues: issues, categories: categories };
+}
+
+// ========== 句式多样性检测函数 v70 ==========
+function detectSentenceVariety(text) {
+  if (!text || text.length < 200) return { score: 10, issues: [] };
+  
+  var sentences = text.split(/[。！？!?…]+/).filter(function(s) { return s.trim().length >= 5; });
+  if (sentences.length < 5) return { score: 10, issues: [] };
+  
+  var issues = [];
+  var score = 10;
+  
+  // 1. 检测连续相同开头词
+  var firstWords = sentences.map(function(s) {
+    var match = s.trim().match(/^[\u4e00-\u9fa5]{1,3}/);
+    return match ? match[0] : '';
+  });
+  
+  var sameStartCount = 0;
+  for (var i = 0; i < firstWords.length - 2; i++) {
+    if (firstWords[i] && firstWords[i] === firstWords[i+1] && firstWords[i] === firstWords[i+2]) {
+      sameStartCount++;
+      if (issues.length < 10) {
+        issues.push('【句式重复】连续3句开头词相同："' + firstWords[i] + '..." → 请变换开头方式');
+      }
+    }
+  }
+  if (sameStartCount > 0) score -= Math.min(3, sameStartCount);
+  
+  // 2. 检测连续相同句式结构（XX做了XX）
+  var structurePatterns = sentences.map(function(s) {
+    // 简化：检测"主语+动词+宾语"结构
+    var match = s.match(/^[\u4e00-\u9fa5]{1,4}[了着过]?[\u4e00-\u9fa5]{1,4}/);
+    return match ? match[0] : '';
+  });
+  
+  var sameStructCount = 0;
+  for (var j = 0; j < structurePatterns.length - 2; j++) {
+    if (structurePatterns[j] && structurePatterns[j] === structurePatterns[j+1] && structurePatterns[j] === structurePatterns[j+2]) {
+      sameStructCount++;
+      if (issues.length < 10) {
+        issues.push('【句式结构重复】连续3句结构相同 → 请变换句式结构');
+      }
+    }
+  }
+  if (sameStructCount > 0) score -= Math.min(3, sameStructCount);
+  
+  // 3. 检测句长分布
+  var lengths = sentences.map(function(s) { return s.length; });
+  var avgLen = lengths.reduce(function(a, b) { return a + b; }, 0) / lengths.length;
+  var variance = 0;
+  for (var k = 0; k < lengths.length; k++) {
+    variance += Math.pow(lengths[k] - avgLen, 2);
+  }
+  variance = Math.sqrt(variance / lengths.length);
+  
+  // 句长方差太小 = 句式单调
+  if (variance < 5) {
+    score -= 2;
+    issues.push('【句长单调】句长方差过小（' + Math.round(variance) + '字）→ 请增加长短句交替');
+  }
+  
+  return { score: Math.max(0, score), issues: issues };
+}
+
+// ========== 用词精准度检测函数 v70 ==========
+function detectWordPrecision(text) {
+  if (!text || text.length < 200) return { score: 10, issues: [] };
+  
+  var issues = [];
+  var score = 10;
+  
+  // 1. 检测副词频率
+  var adverbs = ['很', '非常', '极其', '特别', '相当', '十分', '格外', '真的', '确实', '绝对', '完全', '彻底', '稍微', '略微', '渐渐', '缓缓', '慢慢', '轻轻', '深深', '微微', '淡淡'];
+  var adverbCount = 0;
+  for (var i = 0; i < adverbs.length; i++) {
+    var regex = new RegExp(adverbs[i], 'g');
+    var matches = text.match(regex);
+    if (matches) adverbCount += matches.length;
+  }
+  var adverbDensity = adverbCount / (text.length / 100);
+  if (adverbDensity > 3) {
+    score -= Math.min(3, Math.floor(adverbDensity - 2));
+    issues.push('【副词过多】副词密度 ' + Math.round(adverbDensity) + '/100字 → 请用精准动词替代副词');
+  }
+  
+  // 2. 检测通用动词频率
+  var genericVerbs = ['说', '看', '走', '拿', '想', '觉得', '感觉', '知道', '明白', '发现', '注意到', '意识到'];
+  var genericCount = 0;
+  for (var j = 0; j < genericVerbs.length; j++) {
+    var regex2 = new RegExp(genericVerbs[j], 'g');
+    var matches2 = text.match(regex2);
+    if (matches2) genericCount += matches2.length;
+  }
+  var genericDensity = genericCount / (text.length / 100);
+  if (genericDensity > 5) {
+    score -= Math.min(3, Math.floor(genericDensity - 4));
+    issues.push('【通用动词过多】通用动词密度 ' + Math.round(genericDensity) + '/100字 → 请用精准动词替代');
+  }
+  
+  // 3. 检测形容词堆砌
+  var adjPatterns = text.match(/[\u4e00-\u9fa5]{2,4}的[\u4e00-\u9fa5]{2,4}的[\u4e00-\u9fa5]{2,4}/g) || [];
+  if (adjPatterns.length > 2) {
+    score -= Math.min(2, adjPatterns.length);
+    issues.push('【形容词堆砌】发现 ' + adjPatterns.length + ' 处连续形容词 → 请用动作展示替代');
+  }
+  
+  return { score: Math.max(0, score), issues: issues };
+}
+
+// ========== 修辞手法使用检测函数 v70 ==========
+function detectRhetoricUsage(text) {
+  if (!text || text.length < 200) return { score: 5, issues: [], usage: {} };
+  
+  var usage = { metaphor: 0, parallelism: 0, antithesis: 0, synesthesia: 0 };
+  var issues = [];
+  var score = 5;
+  
+  // 1. 检测比喻（像/如/仿佛/宛如等）
+  var metaphorSignals = ['像', '似', '如', '仿佛', '宛如', '犹如', '宛若', '如同', '好像', '好似', '恰似', '恰如', '恍如', '好比', '如同', '就像'];
+  for (var i = 0; i < metaphorSignals.length; i++) {
+    var regex = new RegExp(metaphorSignals[i], 'g');
+    var matches = text.match(regex);
+    if (matches) usage.metaphor += matches.length;
+  }
+  if (usage.metaphor >= 1) score += 2;
+  else issues.push('【缺少比喻】本章未检测到比喻修辞 → 请至少添加1个比喻增强画面感');
+  
+  // 2. 检测排比（连续3句相同结构）
+  var sentences = text.split(/[。！？!?…]+/).filter(function(s) { return s.trim().length >= 10; });
+  var parallelismCount = 0;
+  for (var j = 0; j < sentences.length - 2; j++) {
+    // 简化检测：连续3句开头词相同且长度相近
+    var s1 = sentences[j].trim();
+    var s2 = sentences[j+1].trim();
+    var s3 = sentences[j+2].trim();
+    var firstWord1 = s1.match(/^[\u4e00-\u9fa5]{1,3}/);
+    var firstWord2 = s2.match(/^[\u4e00-\u9fa5]{1,3}/);
+    var firstWord3 = s3.match(/^[\u4e00-\u9fa5]{1,3}/);
+    if (firstWord1 && firstWord2 && firstWord3 && firstWord1[0] === firstWord2[0] && firstWord1[0] === firstWord3[0]) {
+      var lenDiff = Math.abs(s1.length - s2.length) + Math.abs(s2.length - s3.length);
+      if (lenDiff < 10) parallelismCount++;
+    }
+  }
+  usage.parallelism = parallelismCount;
+  if (parallelismCount >= 1) score += 1;
+  
+  // 3. 检测对偶（对称结构）
+  var antithesisPatterns = text.match(/[\u4e00-\u9fa5]{2,6}，[\u4e00-\u9fa5]{2,6}/g) || [];
+  // 简化：逗号分隔的两段长度相近
+  var antithesisCount = 0;
+  for (var k = 0; k < antithesisPatterns.length; k++) {
+    var parts = antithesisPatterns[k].split('，');
+    if (parts.length === 2 && Math.abs(parts[0].length - parts[1].length) <= 2) {
+      antithesisCount++;
+    }
+  }
+  usage.antithesis = antithesisCount;
+  if (antithesisCount >= 1) score += 1;
+  
+  // 4. 检测通感（感官交叉描写）
+  var senseCrossPatterns = [
+    /听.*看|看.*听/, // 视觉+听觉
+    /闻.*见|见.*闻/, // 嗅觉+视觉
+    /触.*听|听.*触/, // 触觉+听觉
+    /尝.*看|看.*尝/, // 味觉+视觉
+    /冷.*声|声.*冷/, // 触觉+听觉
+    /暖.*声|声.*暖/, // 触觉+听觉
+    /香.*色|色.*香/, // 嗅觉+视觉
+    /甜.*看|看.*甜/  // 味觉+视觉
+  ];
+  var synesthesiaCount = 0;
+  for (var l = 0; l < senseCrossPatterns.length; l++) {
+    if (senseCrossPatterns[l].test(text)) synesthesiaCount++;
+  }
+  usage.synesthesia = synesthesiaCount;
+  if (synesthesiaCount >= 1) score += 1;
+  
+  return { score: Math.min(10, score), issues: issues, usage: usage };
+}
+
+// ========== 综合文笔质量检测函数 v70 ==========
+function analyzeWritingQuality(text) {
+  var templateResult = detectTemplateExpressions(text);
+  var varietyResult = detectSentenceVariety(text);
+  var precisionResult = detectWordPrecision(text);
+  var rhetoricResult = detectRhetoricUsage(text);
+  
+  var totalScore = (varietyResult.score + precisionResult.score + rhetoricResult.score) * 3 - templateResult.count;
+  totalScore = Math.max(0, Math.min(100, totalScore));
+  
+  var allIssues = []
+    .concat(templateResult.issues)
+    .concat(varietyResult.issues)
+    .concat(precisionResult.issues)
+    .concat(rhetoricResult.issues);
+  
+  return {
+    score: totalScore,
+    templateCount: templateResult.count,
+    varietyScore: varietyResult.score,
+    precisionScore: precisionResult.score,
+    rhetoricScore: rhetoricResult.score,
+    issues: allIssues.slice(0, 15),
+    summary: '模板表达 ' + templateResult.count + '处 | 句式多样性 ' + varietyResult.score + '/10 | 用词精准度 ' + precisionResult.score + '/10 | 修辞使用 ' + rhetoricResult.score + '/10'
+  };
+}
   'rhythm_instruct': '【节奏指令标注】AI最弱是"太均匀"——每段等长、每事件描写密度相同。必须在蓝图里写清楚：哪里快（短句为主）、哪里慢（长句铺氛围）、哪里急停（章末钩子前）。告诉AI"本章加快节奏"而不是让它自己猜。',
   'emotion_peak': '【情绪峰值设计】AI情绪值在-3到+3间平滑波动，像心电图挂了。真实情绪应从-8急拉到+7。手法：在情绪高涨时突然塞一句反情绪的话——"他咬着牙说恨她。但他把她照片塞进了钱包最深处。"这种撕裂感才是读者追读的原因。',
   // ===== 逻辑意外与角色不完美（AI不懂真实人性）=====
@@ -2825,6 +3137,28 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
+  // ===== v70: 文笔质量锚点 — 禁止模板表达 + 强制修辞要求 =====
+  prompt += '【⚠️ 文笔质量锚点 — 本章必须遵守，违反视为不合格】\n';
+  prompt += '■ 禁止模板情绪表达\n';
+  prompt += '  禁止：众人震惊、空气凝固、瞳孔一缩、心头一震、浑身一颤、脸色一变、心中暗想、不禁感叹、难以置信、恍然大悟。\n';
+  prompt += '  替换为：具体动作（指尖发白/喉结滚动/耳尖泛红）或环境映射（茶杯里的水在颤抖/风突然停了）。\n';
+  prompt += '■ 禁止模板动作描写\n';
+  prompt += '  禁止：缓缓地、淡淡地、微微点头、轻叹一声、深深看了他一眼、嘴角勾起一抹、眼中闪过一丝。\n';
+  prompt += '  替换为：独特动作（他没说话，只是盯着她看了三秒/他把茶杯放下，杯底磕在桌面上发出脆响）或删除。\n';
+  prompt += '■ 禁止模板环境描写\n';
+  prompt += '  禁止：阳光洒下、微风拂过、空气中弥漫着、一片寂静、鸦雀无声、万籁俱寂。\n';
+  prompt += '  替换为：具体感官细节（阳光像碎金子一样洒在青石板上/风里带着铁锈味/空气里只有心跳声）或删除。\n';
+  prompt += '■ 禁止副词堆砌\n';
+  prompt += '  禁止：非常非常、极其极其、特别特别、相当相当。一个精准词比三个堆砌有力。\n';
+  prompt += '■ 禁止通用动词\n';
+  prompt += '  减少：说、看、走、拿、想、觉得。替换为精准动词：道/喊/低语、凝视/瞥见/端详、踱步/疾行/踉跄、握/抓/攥、沉思/盘算/揣测。\n';
+  prompt += '■ 禁止句式重复\n';
+  prompt += '  禁止：连续3句相同开头词（他...他...他...）。禁止连续3句相同句式结构（XX做了XX...XX做了XX...XX做了XX）。\n';
+  prompt += '■ 强制修辞要求\n';
+  prompt += '  每章至少：1个比喻（像/如/仿佛）、1处排比（连续3句相同结构）、1处感官交叉描写（视觉+听觉/触觉+嗅觉）。\n';
+  prompt += '■ 禁止形容词堆砌\n';
+  prompt += '  禁止：连续使用3个以上形容词（美丽动人温柔善良）。用一个精准形容词或用动作展示。\n\n';
+
   // ===== v48: 世界观 =====
   // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆
   //  用户修改过(缓存与当前不一致)才注入修改后原文
@@ -4838,6 +5172,26 @@ async function aiWriteChapter(opts){
         var _prev = chapterIdx > 0 && work.chapters[chapterIdx-1] ? (work.chapters[chapterIdx-1].content || '') : '';
         _qReport = QualityEngine.score(result, { work: work, prevContent: _prev, genre: genre });
         QualityEngine.attach(work, chapterIdx, _qReport);
+        
+        // ⭐ v70: 文笔质量检测 — 检测模板表达/句式多样性/用词精准度/修辞使用
+        if (typeof analyzeWritingQuality === 'function') {
+          var _writingQuality = analyzeWritingQuality(result);
+          if (_qReport) {
+            _qReport._writingQuality = _writingQuality;
+            // 如果模板表达过多，降低总分
+            if (_writingQuality.templateCount > 5) {
+              _qReport.score = Math.max(0, _qReport.score - _writingQuality.templateCount * 2);
+            }
+            // 如果句式多样性/用词精准度/修辞使用得分低，降低总分
+            if (_writingQuality.varietyScore < 5) _qReport.score = Math.max(0, _qReport.score - 5);
+            if (_writingQuality.precisionScore < 5) _qReport.score = Math.max(0, _qReport.score - 5);
+            if (_writingQuality.rhetoricScore < 5) _qReport.score = Math.max(0, _qReport.score - 3);
+          }
+          // 如果文笔问题严重，显示警告
+          if (_writingQuality.templateCount > 10 || _writingQuality.issues.length > 5) {
+            showToast('⚠️ 文笔问题：' + _writingQuality.summary, {duration: 5000});
+          }
+        }
       }
     } catch(e) { console.warn('[quality]', e); }
 
@@ -4933,6 +5287,16 @@ async function aiWriteChapter(opts){
       // ⭐ v70: 使用 QualityDriver 生成针对性迭代提示
       if (typeof QualityEngine !== 'undefined' && typeof QualityEngine.buildModuleEnhancePrompt === 'function') {
         _nextHint = QualityEngine.buildModuleEnhancePrompt('chapter', _qReport, result, '');
+      }
+      
+      // ⭐ v70: 如果有文笔问题，追加文笔改进提示
+      if (_qReport && _qReport._writingQuality && _qReport._writingQuality.issues.length > 0) {
+        _nextHint += '\n\n【文笔问题修复 — 本章必须解决】\n';
+        var _wqIssues = _qReport._writingQuality.issues.slice(0, 5);
+        for (var _wi = 0; _wi < _wqIssues.length; _wi++) {
+          _nextHint += _wqIssues[_wi] + '\n';
+        }
+        _nextHint += '\n文笔总分：' + _qReport._writingQuality.score + '/100（模板表达' + _qReport._writingQuality.templateCount + '处 | 句式多样性' + _qReport._writingQuality.varietyScore + '/10 | 用词精准度' + _qReport._writingQuality.precisionScore + '/10 | 修辞使用' + _qReport._writingQuality.rhetoricScore + '/10）\n';
       }
       
       // 如果 QualityDriver 未生成提示，使用通用回退逻辑
