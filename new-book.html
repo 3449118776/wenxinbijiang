@@ -216,7 +216,7 @@ function submitNewBook(){
     var _c = window.cloud;
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 1500);
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 1500);
     }
   } catch(e){}
 

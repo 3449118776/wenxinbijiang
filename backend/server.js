@@ -39,7 +39,7 @@ app.get('/api/health', (req, res) => {
   try {
     await sequelize.authenticate();
     console.log('[DB] SQLite 连接成功');
-    await sequelize.sync({ alter: false });
+    await sequelize.sync({ alter: true });
     console.log('[DB] 表结构同步完成');
 
     app.listen(PORT, () => {

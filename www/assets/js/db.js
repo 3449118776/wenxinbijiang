@@ -974,7 +974,7 @@ const DB = {
         if (_cloud && _cloud.isLoggedIn() && !_cloud._pushTimer) {
           _cloud._pushTimer = setTimeout(function() {
             _cloud._pushTimer = null;
-            _cloud.smartSync().catch(function(){});
+            _cloud.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); });
           }, 3000);
         }
       } catch(cloudErr) {}
@@ -1500,7 +1500,7 @@ const DB = {
         var _self = this;
         if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
         _c._pushTimer = setTimeout(function(){
-          try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){}
+          try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){}
         }, 2000);
       }
     } catch(e){}

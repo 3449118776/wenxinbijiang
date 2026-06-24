@@ -99,16 +99,14 @@ async function handle_forgot(req) {
     if (!email) return json_response({ error: '请提供邮箱' }, 400);
     const user = await db_get_user_by_email(email);
     if (!user) {
-      // 安全：不区分是否存在，防止枚举攻击
-      return json_response({ ok: true, message: '如果该邮箱已注册，我们已发送验证码' });
+      return json_response({ ok: true, message: '如果该邮箱已注册，验证码已发送（演示模式请查看响应中的code字段）' });
     }
-    // 生成6位数字验证码（15分钟有效）
     const code = random_code();
     user.resetToken = code;
     user.resetExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     await db_update_user(user);
-    // 演示模式：直接返回验证码（生产环境应接入邮件发送服务）
-    return json_response({ ok: true, code: code, token: code });
+    // 演示模式：验证码在响应中返回（生产环境必须通过邮件发送，并移除code字段）
+    return json_response({ ok: true, message: '验证码已发送（演示模式）', code: code });
   } catch (e) {
     return json_response({ error: e.message || '操作失败' }, 500);
   }

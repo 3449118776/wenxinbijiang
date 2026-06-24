@@ -643,7 +643,7 @@ function saveModuleEdit() {
     var _c = window.cloud;
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
     }
   } catch(e) {}
   showToast('已保存');
@@ -1155,7 +1155,7 @@ function addChapter() {
     var _c = window.cloud;
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
     }
   } catch(e) {}
   showToast('已添加第' + num + '章');
@@ -1176,7 +1176,7 @@ function moveChapter(idx, dir) {
     var _c = window.cloud;
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
     }
   } catch(e) {}
   showToast('已移动');
@@ -1194,7 +1194,7 @@ function deleteChapter(idx) {
     var _c = window.cloud;
     if (_c && _c.isLoggedIn()) {
       if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+      _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
     }
   } catch(e) {}
   showToast('已删除');
@@ -1325,7 +1325,7 @@ function restoreOne(id) {
       var _c = window.cloud;
       if (_c && _c.isLoggedIn()) {
         if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 1500);
+        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 1500);
       }
     } catch(e) {}
     showToast('已恢复');

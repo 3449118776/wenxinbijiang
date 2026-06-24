@@ -79,38 +79,8 @@ export async function jwt_verify(token, secret) {
     expectedSig = b64url_decode(parts[2]);
     sig = await hmac_sha256(enc.encode(secret || getJWTSecret()), enc.encode(signingInput));
   } catch (e) { return null; }
-  if (sig.length !== expectedSig.length) return null;
-  let ok = 0;
-  for (let i = 0; i < sig.length; i++) ok |= sig[i] ^ expectedSig[i];
-  if (ok !== 0) return null;
-  try {
-    const payload = JSON.parse(b64url_decode_str(parts[1]));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch (e) { return null; }
 }
 
-// ============ 密码哈希（PBKDF2 + SHA-256）============
-// 格式: pbkdf2_sha256$100000$salt_b64$hash_b64
-// 同时支持旧版 bcrypt hash（以 $2a$ 开头，调用 bcryptjs 比较）
-const ITERATIONS = 100000;
-
-export async function hash_password(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(password),
-    { name: 'PBKDF2', hash: 'SHA-256' },
-    false, ['deriveBits']
-  );
-  const hash = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
-    key, 256
-  );
-  const saltB64 = btoa(String.fromCharCode(...salt));
-  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
-  return `pbkdf2_sha256$${ITERATIONS}$${saltB64}$${hashB64}`;
-}
 
 export async function verify_password(password, storedHash) {
   if (!storedHash) return false;
@@ -181,16 +151,13 @@ export async function db_get_user_by_email(email) {
   try {
     const v = await store.get(key_user_email(email), { type: 'json' });
     return v;
-  } catch (e) { return null; }
-}
-
-export async function db_get_user_by_id(id) {
+  } catch (e) { console.error('[db_get_user_by_email]', e); return null; }
   const store = KV();
   if (!store) return null;
   try {
     const v = await store.get(key_user_id(id), { type: 'json' });
     return v;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[db_get_user_by_id]', e); return null; }
 }
 
 export async function db_create_user(email, password, nickname) {
@@ -254,7 +221,7 @@ export async function db_list_works(userId) {
     }
     works.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     return works;
-  } catch (e) { return []; }
+  } catch (e) { console.error("[db_list_works]", e); return []; }
 }
 
 export async function db_get_work(userId, workId) {
@@ -262,7 +229,7 @@ export async function db_get_work(userId, workId) {
   if (!store) return null;
   try {
     return await store.get(key_work(userId, workId), { type: 'json' });
-  } catch (e) { return null; }
+  } catch (e) { console.error("[db_get_work]", e); return null; }
 }
 
 export async function db_upsert_work(userId, body) {
@@ -320,7 +287,7 @@ export async function db_get_user_keys(userId) {
   try {
     const v = await store.get(key_user_keys(userId), { type: 'json' });
     return v || { apiKeys: {} };
-  } catch (e) { return { apiKeys: {} }; }
+  } catch (e) { console.error("[db_get_user_keys]", e); return { apiKeys: {} }; }
 }
 
 export async function db_put_user_keys(userId, data) {
@@ -339,7 +306,7 @@ export async function db_get_user_settings(userId) {
   try {
     const v = await store.get(key_user_settings(userId), { type: 'json' });
     return v || { settings: {} };
-  } catch (e) { return { settings: {} }; }
+  } catch (e) { console.error("[db_get_user_settings]", e); return { settings: {} }; }
 }
 
 export async function db_put_user_settings(userId, data) {

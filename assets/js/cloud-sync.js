@@ -91,7 +91,7 @@ CloudSync.prototype = {
       var self = this;
       var trySync = function() {
         if (window.DB && window.DB._initialized) {
-          setTimeout(function() { self.smartSync().catch(function(){}); }, 300);
+          setTimeout(function() { self.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); }, 300);
         } else {
           setTimeout(trySync, 200);
         }
@@ -123,7 +123,7 @@ CloudSync.prototype = {
     this._saveToken(resp.token, resp.user);
     this._fireSync({ action: 'register', ok: true });
     var selfr = this;
-    setTimeout(function() { selfr.smartSync().catch(function(){}); }, 500);
+    setTimeout(function() { selfr.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); }, 500);
     return resp;
   },
 
@@ -137,7 +137,7 @@ CloudSync.prototype = {
     this._fireSync({ action: 'login', ok: true });
     // 登录成功后立即同步一次，确保能看到云端作品
     var self2 = this;
-    setTimeout(function() { self2.smartSync().catch(function(){}); }, 500);
+    setTimeout(function() { self2.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); }, 500);
     return resp;
   },
 
@@ -614,7 +614,7 @@ CloudSync.prototype = {
     if (this._timer) clearInterval(this._timer);
     var self = this;
     this._timer = setInterval(function() {
-      if (self.isLoggedIn()) self.smartSync().catch(function(){});
+      if (self.isLoggedIn()) self.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); });
     }, interval || this.autoInterval);
   },
 

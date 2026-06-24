@@ -2270,24 +2270,17 @@ function getArchTruncationLimits() {
 }
 
 // 构建章节写作prompt
-// 获取 _archCache 中模块的缓存原文（支持 "world_default" 格式的 key）
+// 获取 _archCache 中模块的缓存原文（精确匹配模块名）
 function getArchCacheContent(work, module) {
   if (!work._archCache) return null;
-  for (var key in work._archCache) {
-    if (key === module || key.indexOf(module + '_') === 0) {
-      var v = work._archCache[key];
-      return v && v.content ? v.content : null;
-    }
-  }
-  return null;
+  var v = work._archCache[module];
+  return v && v.content ? v.content : null;
 }
 
 // 确保 _archCache 中存在模块的缓存原文（不存在则用当前 work[module] 填充）
 function ensureArchCache(work, module) {
   if (!work._archCache) work._archCache = {};
-  for (var key in work._archCache) {
-    if (key === module || key.indexOf(module + '_') === 0) return;
-  }
+  if (work._archCache[module]) return;
   var content = work[module];
   if (content) work._archCache[module] = { content: content, timestamp: Date.now() };
 }
@@ -2842,7 +2835,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.world) {
         worldContent = work.longMemory.moduleSummaries.world.trim();
       }
-    } catch(_e) {}
+    } catch(_e) { console.warn('[buildChapterPrompt] 世界观摘要失败:', _e); }
     if (!worldContent && work.world) worldContent = work.world;
     if (worldContent && worldContent.length > 200) {
       var wLimit = archLimits.world || 50000;
@@ -2864,7 +2857,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
         charsContent = work.longMemory.moduleSummaries.chars.trim();
       }
-    } catch(_e2) {}
+    } catch(_e2) { console.warn('[buildChapterPrompt] 人设摘要失败:', _e2); }
     if (!charsContent && work.chars) charsContent = work.chars;
     if (charsContent && charsContent.length > 100) {
       var cLimit = archLimits.chars || 30000;
@@ -2961,7 +2954,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.outline) {
         outlineSum = work.longMemory.moduleSummaries.outline.trim();
       }
-    } catch(_e3) {}
+    } catch(_e3) { console.warn('[buildChapterPrompt] 大纲摘要失败:', _e3); }
 
     var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
     if (outlineSum || (outlineVol && outlineVol.body)) {
@@ -7346,7 +7339,7 @@ async function aiPolishByQuality(){
           ch._quality = nq;
           showToast('润色完成 ' + nq.grade + ' ' + nq.totalScore + '/100');
         }
-      } catch(e){}
+  } catch(e){ console.warn('[buildChapterPrompt] 记忆精要注入失败:', e); }
       DB.saveWork(work);
       updateWordCount();
     } else {
@@ -7913,15 +7906,19 @@ function applyArchResult(type, work, result) {
   switch(type) {
     case 'world':
       work.world = result;
+      if (work._archCache) work._archCache.world = { content: result, timestamp: Date.now() };
       break;
     case 'outline':
       work.outline = result;
+      if (work._archCache) work._archCache.outline = { content: result, timestamp: Date.now() };
       break;
     case 'chars':
       work.chars = result;
+      if (work._archCache) work._archCache.chars = { content: result, timestamp: Date.now() };
       break;
     case 'detail':
       work.detail = (work.detail || '') + '\n\n' + result;
+      if (work._archCache) work._archCache.detail = { content: work.detail, timestamp: Date.now() };
       break;
   }
   DB.saveWork(work);
