@@ -3672,6 +3672,15 @@ window.generateArchModule = async function(opts){
       researchPrompt += '7. 【差异化机会点】在用户诉求框架内，2026年真正能拉开差距的差异化方向（不是表面创新，而是结构性差异）\n';
       researchPrompt += '8. 【创作建议】基于以上分析，给出5条具体可落地的创作建议，其中至少2条是反套路/去伪创意相关的\n';
       researchPrompt += '9. 【反套路自检清单】生成后用于质检的10条检查项，每条都要能回答"是/否"\n';
+      // v65: 新增毒点清单整理 - 在市场调研阶段专门整理该题材应该避免的具体模式
+      researchPrompt += '\n10. 【⚠️ 毒点清单整理】这是本次调研最重要的输出之一，必须认真整理：\n';
+      researchPrompt += '本题材/方向下，编辑和读者最反感的"毒点"具体是什么？按以下格式整理：\n';
+      researchPrompt += '  - 【世界观毒点】如：无脑堆设定/力量体系崩溃/地图随便换/历史前后矛盾\n';
+      researchPrompt += '  - 【人设毒点】如：主角圣母/反派无脑坏/工具人配角/人设前后不一致(OOC)\n';
+      researchPrompt += '  - 【大纲毒点】如：节奏拖沓/升级重复/打脸模式化/支线无聊/高潮不够爆\n';
+      researchPrompt += '  - 【细纲毒点】如：章节内容注水/冲突设计敷衍/钩子老套/情绪调动失败\n';
+      researchPrompt += '  - 【通用毒点】如：AI腔/重复词句/空泛描写/无效震惊/万能形容词\n';
+      researchPrompt += '  每类至少列出5条，写得具体到能让AI在生成时主动避开\n';
       researchPrompt += '\n直接输出分析结果，不要加对话语前缀。违背用户诉求的方向一律跳过。';
 
       var researchResult = null;
@@ -4807,12 +4816,21 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   taskMsg += '• 本卷最后一章必须设计一个"卷末钩子"，让读者忍不住点开下一卷\n';
   taskMsg += '• 至少每 3 章设计 1 个"角色人设驱动的选择"——不是作者硬编，而是这个角色在这个情境下必然会做的选择\n\n';
 
-  taskMsg += '【⚠️ 输出格式总约束】\n';
+  taskMsg += '【⚠️ 输出格式总约束 — 违反任何一条视为生成失败】\n';
   taskMsg += '1. 直接输出成品内容，不要加"好的/收到/以下是……"等对话语前缀\n';
   taskMsg += '2. 每章严格一行，格式为「■ 第N章《标题》 | 场景：xxx | 人物：xxx | 剧情节点：xxx | 爆点/悬念钩子：xxx」，章节编号从 ' + chStart + ' 连续到 ' + chEnd + '\n';
-  taskMsg += '3. 章节之间不需要额外空行；卷与卷之间由系统拼接，你只负责本卷\n';
-  taskMsg += '4. 不要输出创作思路、解释说明、卷标题之外的多余文字\n';
-  taskMsg += '5. **目标字数：本卷细纲请输出约 ' + (chaptersPerVol * 180) + '～' + (chaptersPerVol * 260) + ' 字（即每章约 180-260 字的信息密度），充分展开，不要压缩**\n';
+  taskMsg += '3. **章节编号必须严格连续**：第 ' + chStart + ' 章 → 第 ' + chEnd + ' 章，不允许跳号、不允许重复、不允许缺失\n';
+  taskMsg += '4. 章节之间不需要额外空行；卷与卷之间由系统拼接，你只负责本卷\n';
+  taskMsg += '5. 不要输出创作思路、解释说明、卷标题之外的多余文字\n';
+  taskMsg += '6. **目标字数：本卷细纲请输出约 ' + (chaptersPerVol * 180) + '～' + (chaptersPerVol * 260) + ' 字（即每章约 180-260 字的信息密度），充分展开，不要压缩**\n';
+  taskMsg += '7. **格式自检清单（生成后必须确认）**：\n';
+  taskMsg += '   □ 章节编号从 ' + chStart + ' 开始，到 ' + chEnd + ' 结束，共 ' + chaptersPerVol + ' 章\n';
+  taskMsg += '   □ 每章都有"场景/人物/剧情节点/爆点"四个字段\n';
+  taskMsg += '   □ 没有重复的章节编号\n';
+  taskMsg += '   □ 没有缺失的章节编号\n';
+  taskMsg += '   □ 每章格式一致，都是"■ 第N章《标题》 | 场景：... | 人物：... | 剧情节点：... | 爆点/悬念钩子：..."\n';
+  taskMsg += '   □ 没有"第N章："开头后缺少《标题》的情况\n';
+  taskMsg += '   □ 没有中文字符和英文混用的格式错误（如"第1 Chapter"）\n';
 
   taskMsg += '\n【开始生成第 ' + volIndex + ' 卷细纲】\n';
 
@@ -5730,7 +5748,7 @@ window.generateDetailForVolume = async function(volNum) {
     var _detExpectedId = work.id;
     _activeArchWorkId = _detExpectedId;
 
-    // 解析大纲卷数和章节分布
+    // v65: 解析大纲卷数和章节分布
     var totalVols = 9;
     var volMatches = work.outline.match(/第[一二三四五六七八九十百千\d]+卷/g);
     if (volMatches && volMatches.length > 0) totalVols = volMatches.length;
@@ -5738,7 +5756,26 @@ window.generateDetailForVolume = async function(volNum) {
 
     var chInputEl = document.getElementById('ch-count-detail');
     var totalCh = chInputEl && chInputEl.value ? parseInt(chInputEl.value) : 3000;
-    var chPerVol = Math.max(10, Math.round(totalCh / totalVols));
+    
+    // v65: 修复卷数计算逻辑 - 每卷合理章数应为15-30章，避免卷数太多/太少
+    var MIN_CH_PER_VOL = 15;
+    var MAX_CH_PER_VOL = 30;
+    // 计算合理的卷数：总章数 / 每卷合理章数
+    var calculatedVols = Math.max(3, Math.min(20, Math.round(totalCh / 20))); // 默认取中间值20章/卷
+    // 确保卷数在合理范围内
+    if (totalCh / calculatedVols < MIN_CH_PER_VOL) {
+      calculatedVols = Math.ceil(totalCh / MIN_CH_PER_VOL);
+    } else if (totalCh / calculatedVols > MAX_CH_PER_VOL) {
+      calculatedVols = Math.ceil(totalCh / MAX_CH_PER_VOL);
+    }
+    // 如果已有大纲卷数，优先使用大纲卷数
+    if (volMatches && volMatches.length > 0) {
+      calculatedVols = volMatches.length;
+    }
+    var chPerVol = Math.max(MIN_CH_PER_VOL, Math.min(MAX_CH_PER_VOL, Math.round(totalCh / calculatedVols)));
+    // 同步计算后的卷数到输入框
+    var volInputEl = document.getElementById('vol-count-detail');
+    if (volInputEl) volInputEl.value = calculatedVols;
     var chStart = ((volNum - 1) * chPerVol) + 1;
     var chEnd = volNum * chPerVol;
 
