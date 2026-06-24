@@ -2281,6 +2281,55 @@ function buildArchMemoryContext(work, currentModule){
   return ctx;
 }
 
+// ========== AI 消息链缓存：模块间上下文记忆 ==========
+// 不注入原文/摘要，靠 AI API 的 messages 数组延续对话上下文。
+// 每个模块生成完成后，将完整输出作为 assistant message 追加到 work._archChatChain，
+// 后续模块开始前，把前序模块的对话作为 messages 历史传入，AI 通过自身上下文窗口记住前置内容。
+// 架构页只负责：执行 → 保存 → 展示，对话链由本函数和生成流程自动维护。
+
+// 模块名 → 对应 prompt 前缀（用于构建 user message）
+var _MODULE_CHAT_PROMPTS = {
+  world: '请为我的小说构建完整的世界观设定，包括时代背景、地理环境、势力分布、力量体系、核心规则等所有必要维度。',
+  chars: '请基于已有的世界观设定，为小说构建完整的人物人设体系，包括所有主要角色的身份、性格、经历、能力和关系网络。',
+  outline: '请基于已有的世界观和人物人设，为小说设计完整的全书大纲，包括主线脉络、卷章结构、关键转折点和高潮布局。',
+  detail: '请基于已有的世界观、人设和全书大纲，生成详细的章节细纲，包括每章的场景、人物、剧情节点和爆点/悬念。'
+};
+
+// 构建前序模块的对话链 messages 数组
+function buildArchChatChain(work, currentModule) {
+  if (!work || !work._archChatChain || !Array.isArray(work._archChatChain)) return [];
+  
+  var chain = work._archChatChain;
+  // 只返回当前模块之前模块的对话（不包含当前模块自身）
+  var result = [];
+  for (var i = 0; i < chain.length; i++) {
+    if (chain[i]._module === currentModule) break;
+    result.push({
+      role: chain[i].role,
+      content: chain[i].content
+    });
+  }
+  return result;
+}
+
+// 追加当前模块的对话到消息链
+function appendArchChatMessage(work, module, role, content) {
+  if (!work) return;
+  if (!work._archChatChain || !Array.isArray(work._archChatChain)) {
+    work._archChatChain = [];
+  }
+  work._archChatChain.push({
+    role: role,
+    content: content,
+    _module: module,
+    ts: Date.now()
+  });
+  // 限制消息链长度（避免无限增长）
+  if (work._archChatChain.length > 200) {
+    work._archChatChain = work._archChatChain.slice(-200);
+  }
+}
+
 // ========== 核心：架构模块生成主函数 ==========
 // ===== 从已生成内容中提取记忆精要（替代原文注入，保持一致性同时省token）=====
 // 策略：每张卡片的标题 + 首段 200字 作为"卡片锚点"；模块特定信息补充
@@ -2930,6 +2979,12 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+    // 追加当前模块的对话到消息链（供后续模块通过 messages 数组继承上下文）
+    try {
+      var _chainPrompt = _MODULE_CHAT_PROMPTS[module] || '请生成' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + '内容。';
+      appendArchChatMessage(work, module, 'user', _chainPrompt);
+      appendArchChatMessage(work, module, 'assistant', result);
+    } catch(chainErr) { console.warn('[对话链保存] 异常:', chainErr); }
     // 同步更新生成缓存（保存结果作为基线）
     if (work._archCache) {
       work._archCache[module] = { content: result, timestamp: Date.now() };
@@ -3286,34 +3341,17 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
+  // 前置架构上下文：靠 AI 消息链缓存实现跨模块记忆，不注入原文
+  // 世界观 → 人设 → 大纲 → 细纲 → 正文 逐级延续对话上下文
+  // 每生成一个模块，完整输出作为 assistant message 存入 work._archChatChain，
+  // 下一个模块开始时，把之前所有模块的对话作为 messages 历史传入，
+  // AI 通过自身上下文窗口记住前置模块内容，无需重复注入原文或摘要
   if(module !== 'world'){
-    if(module === 'detail'){
-      // 细纲是生成正文的底层基础，必须用原文确保准确完整
-      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-      if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-      }
-      if(work && work.chars && work.chars.trim()){
-        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-      }
-      if(work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-      }
-    } else {
-      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
-      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-      if(sumCtx && sumCtx.trim()){
-        prompt += sumCtx + '\n\n';
-      } else {
-        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
-        if(work && work.world && work.world.trim()){
-          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
-        }
-        if(module !== 'chars' && work && work.chars && work.chars.trim()){
-          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
-        }
-      }
+    var chainMsgs = buildArchChatChain(work, module);
+    if(chainMsgs && chainMsgs.length > 0){
+      prompt = chainMsgs.concat([
+        { role: 'user', content: prompt }
+      ]);
     }
   }
 
@@ -4986,6 +5024,14 @@ window.confirmSave = function(){
         work[module] = work[module] || '';
       }
     }
+    // 保存时也更新对话链（手动编辑的内容作为新的 assistant message）
+    try {
+      if(work[module] && work[module].trim()){
+        var _chainPrompt = _MODULE_CHAT_PROMPTS[module] || '请生成' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + '内容。';
+        appendArchChatMessage(work, module, 'user', _chainPrompt);
+        appendArchChatMessage(work, module, 'assistant', work[module]);
+      }
+    } catch(chainErr) { console.warn('[对话链保存] 异常:', chainErr); }
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     document.getElementById('save-confirm-modal').style.display = 'none';
     showToast('✅ 已保存并解锁');
