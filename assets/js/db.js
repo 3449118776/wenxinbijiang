@@ -126,6 +126,15 @@ const DB = {
       // _dirty 标记只在 saveWork 时设置（用户实际编辑后）
       // v38：启动App记忆自动维护
       try { this.startAutoMaintenance(); } catch(autoErr) {}
+      // v44：异步加载 longMemory（从 IndexedDB）并迁移旧数据（从 localStorage）
+      var self = this;
+      setTimeout(function() {
+        try {
+          self.ensureAllLongMemoriesLoaded().then(function() {
+            try { self.migrateLongMemoryFromLocalStorage(); } catch(e) { console.warn('[LongMemory] 迁移失败:', e); }
+          });
+        } catch(e) { console.warn('[LongMemory] 初始化加载失败:', e); }
+      }, 500);
       this._initialized = true;
     } catch (e) {
       console.error('DB初始化失败:', e);
@@ -180,12 +189,14 @@ const DB = {
   _chapterStore: 'chapters',
   _backupStore: 'backups',
   _historyStore: 'chapter_history',
+  _longMemoryStore: 'long_memory',
+  _longMemoryReady: null,
 
   openAppMemoryDB() {
     var self = this;
     return new Promise(function(resolve, reject) {
       if (!('indexedDB' in window)) { reject(new Error('当前环境不支持 IndexedDB')); return; }
-      var req = indexedDB.open(self._appMemoryDbName, 4);
+      var req = indexedDB.open(self._appMemoryDbName, 5);
       req.onupgradeneeded = function(e) {
         var db = e.target.result;
         if (!db.objectStoreNames.contains(self._appMemoryStore)) {
@@ -203,6 +214,10 @@ const DB = {
           var hs = db.createObjectStore(self._historyStore, { keyPath: 'id' });
           try { hs.createIndex('chapterKey', 'chapterKey', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
           try { hs.createIndex('createdAt', 'createdAt', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
+        }
+        if (!db.objectStoreNames.contains(self._longMemoryStore)) {
+          var lmStore = db.createObjectStore(self._longMemoryStore, { keyPath: 'workId' });
+          try { lmStore.createIndex('updatedAt', 'updatedAt', { unique: false }); } catch(e) { console.warn("[db.js]", e); }
         }
       };
       req.onsuccess = function(e) { resolve(e.target.result); };
@@ -261,6 +276,160 @@ const DB = {
     });
   },
 
+  // ========== v44：longMemory 迁移到 IndexedDB（突破 localStorage 5-10MB 限制） ==========
+  saveLongMemory(workId, longMemory) {
+    var self = this;
+    if (!workId || !longMemory) return Promise.resolve(false);
+    return self.openAppMemoryDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction([self._longMemoryStore], 'readwrite');
+        tx.objectStore(self._longMemoryStore).put({
+          workId: workId,
+          data: longMemory,
+          updatedAt: Date.now(),
+          updatedAtText: new Date().toISOString()
+        });
+        tx.oncomplete = function() { resolve(true); };
+        tx.onerror = function() { reject(tx.error || new Error('longMemory 保存失败')); };
+      });
+    }).catch(function(e) {
+      console.warn('[LongMemory] 保存失败:', e && e.message);
+      return false;
+    });
+  },
+
+  loadLongMemory(workId) {
+    var self = this;
+    if (!workId) return Promise.resolve(null);
+    return self.openAppMemoryDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction([self._longMemoryStore], 'readonly');
+        var req = tx.objectStore(self._longMemoryStore).get(workId);
+        req.onsuccess = function() {
+          var row = req.result;
+          resolve(row && row.data ? row.data : null);
+        };
+        req.onerror = function() { reject(req.error || new Error('读取 longMemory 失败')); };
+      });
+    }).catch(function(e) {
+      console.warn('[LongMemory] 读取失败:', e && e.message);
+      return null;
+    });
+  },
+
+  loadAllLongMemories() {
+    var self = this;
+    return self.openAppMemoryDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction([self._longMemoryStore], 'readonly');
+        var req = tx.objectStore(self._longMemoryStore).getAll();
+        req.onsuccess = function() {
+          var rows = req.result || [];
+          var map = {};
+          rows.forEach(function(r) { if (r && r.workId && r.data) map[r.workId] = r.data; });
+          resolve(map);
+        };
+        req.onerror = function() { reject(req.error || new Error('批量读取 longMemory 失败')); };
+      });
+    }).catch(function(e) {
+      console.warn('[LongMemory] 批量读取失败:', e && e.message);
+      return {};
+    });
+  },
+
+  deleteLongMemory(workId) {
+    var self = this;
+    if (!workId) return Promise.resolve(false);
+    return self.openAppMemoryDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction([self._longMemoryStore], 'readwrite');
+        tx.objectStore(self._longMemoryStore).delete(workId);
+        tx.oncomplete = function() { resolve(true); };
+        tx.onerror = function() { reject(tx.error || new Error('删除 longMemory 失败')); };
+      });
+    }).catch(function(e) {
+      console.warn('[LongMemory] 删除失败:', e && e.message);
+      return false;
+    });
+  },
+
+  saveAllLongMemories() {
+    var self = this;
+    var works = self.works || [];
+    var p = Promise.resolve(true);
+    works.forEach(function(w) {
+      if (w && w.id && w.longMemory) {
+        p = p.then(function() { return self.saveLongMemory(w.id, w.longMemory); });
+      }
+    });
+    return p.then(function() { return true; }).catch(function() { return false; });
+  },
+
+  migrateLongMemoryFromLocalStorage() {
+    var self = this;
+    var migrated = 0;
+    var works = self.works || [];
+    var p = Promise.resolve(true);
+    works.forEach(function(w) {
+      if (!w || !w.id) return;
+      var lmFromLS = null;
+      try {
+        var subKeyName = self._SPLIT_KEY_PREFIX + w.id + '_longMemory';
+        var subStr = localStorage.getItem(subKeyName);
+        if (subStr) {
+          try { lmFromLS = JSON.parse(subStr); } catch(e) {}
+        }
+      } catch(e) {}
+      if (lmFromLS && typeof lmFromLS === 'object') {
+        p = p.then(function() {
+          return self.saveLongMemory(w.id, lmFromLS).then(function(ok) {
+            if (ok) {
+              migrated++;
+              w.longMemory = lmFromLS;
+              try { localStorage.removeItem(self._SPLIT_KEY_PREFIX + w.id + '_longMemory'); } catch(e) {}
+            }
+            return true;
+          });
+        });
+      }
+    });
+    return p.then(function() {
+      console.log('[LongMemory] 从 localStorage 迁移完成，共迁移 ' + migrated + ' 个作品');
+      return migrated;
+    });
+  },
+
+  ensureAllLongMemoriesLoaded() {
+    var self = this;
+    if (self._longMemoryReady) return self._longMemoryReady;
+    self._longMemoryReady = self.loadAllLongMemories().then(function(lmMap) {
+      var works = self.works || [];
+      var loaded = 0;
+      works.forEach(function(w) {
+        if (w && w.id && lmMap[w.id]) {
+          var idbLM = lmMap[w.id];
+          var lsLM = null;
+          try {
+            var subStr = localStorage.getItem(self._SPLIT_KEY_PREFIX + w.id + '_longMemory');
+            if (subStr) { try { lsLM = JSON.parse(subStr); } catch(e) {} }
+          } catch(e) {}
+          if (!w.longMemory || Object.keys(w.longMemory).length < 3) {
+            w.longMemory = idbLM || w.longMemory || {};
+            loaded++;
+          } else if (lsLM && JSON.stringify(lsLM).length > JSON.stringify(idbLM || '').length) {
+            w.longMemory = lsLM;
+          }
+        }
+      });
+      console.log('[LongMemory] 已加载到内存，共 ' + loaded + ' 个作品');
+      return loaded;
+    }).catch(function(e) {
+      console.warn('[LongMemory] 加载失败:', e && e.message);
+      return 0;
+    });
+    return self._longMemoryReady;
+  },
+
 
   // v37：章节正文分片存储，每章单独写入 IndexedDB
   // v38：自动维护队列，避免用户手动整理章节分片
@@ -316,6 +485,8 @@ const DB = {
       try {
         self.flushDirtyChapterShards();
         self.saveAllChapterShards();
+        // v44：定期保存 longMemory 到 IndexedDB
+        try { self.saveAllLongMemories(); } catch(e) { console.warn("[db.js]", e); }
       } catch(e) { console.warn("[db.js]", e); }
     }, 60000);
     if (typeof document !== 'undefined') {
@@ -323,6 +494,7 @@ const DB = {
         if (document.hidden) {
           try { self.flush(); } catch(e) { console.warn("[db.js]", e); }
           try { self.flushDirtyChapterShards(); } catch(e) { console.warn("[db.js]", e); }
+          try { self.saveAllLongMemories(); } catch(e) { console.warn("[db.js]", e); }
         }
       });
     }
@@ -330,6 +502,7 @@ const DB = {
       window.addEventListener('pagehide', function(){
         try { self.flush(); } catch(e) { console.warn("[db.js]", e); }
         try { self.flushDirtyChapterShards(); } catch(e) { console.warn("[db.js]", e); }
+        try { self.saveAllLongMemories(); } catch(e) { console.warn("[db.js]", e); }
       });
     }
   },
@@ -864,6 +1037,8 @@ const DB = {
           _trash: self._trash || []
         }));
       } catch(e) { console.warn("[db.js]", e); }
+      // v44：恢复后同步 longMemory 到 IndexedDB
+      try { self.saveAllLongMemories(); } catch(lmErr) {}
       return data;
     });
   },
@@ -967,6 +1142,8 @@ const DB = {
       // v36/v37：App级大容量镜像 + 章节正文分片，异步写入，不阻塞页面
       try { this.saveAppMemoryMirror(json); } catch(mirrorErr) {}
       try { this.saveAllChapterShards(); } catch(shardErr) {}
+      // v44：longMemory 写入 IndexedDB（不受 localStorage 限制）
+      try { this.saveAllLongMemories(); } catch(lmErr) {}
       try { this.scheduleAutoBackup(false); } catch(backupErr) {}
       // 自动云端同步：本地保存成功后，延迟3秒推送到云端（防抖）
       try {
@@ -994,6 +1171,7 @@ const DB = {
         });
         this.saveAppMemoryMirror(jsonFallback).then(function(ok){
           try { DB.saveAllChapterShards(); } catch(shardErr) {}
+          try { DB.saveAllLongMemories(); } catch(lmErr) {}
           if (ok && typeof window.showToast === 'function') window.showToast('✅ 已写入App级大容量记忆镜像和章节分片');
         });
       } catch(mirrorErr) {}
@@ -1008,7 +1186,7 @@ const DB = {
 
   // === 存储拆分：将作品重量级字段存入独立 localStorage key ===
   _SPLIT_KEY_PREFIX: 'wxbj_w_',
-  _SPLIT_SUBKEYS: ['world', 'chars', 'outline', 'detail', 'memory', 'longMemory', 'archStatus'],
+  _SPLIT_SUBKEYS: ['world', 'chars', 'outline', 'detail', 'memory', 'archStatus'],
 
   _autoSplitWorks() {
     var self = this;
@@ -1050,9 +1228,6 @@ const DB = {
               var detailStr = typeof val === 'string' ? val : JSON.stringify(val);
               val = '...(前略)\n' + detailStr.slice(detailStr.length - 600 * 1024);
               jsonStr = JSON.stringify(val);
-            } else if (subKey === 'longMemory') {
-              val = self._compressLongMemoryForStorage(val);
-              jsonStr = JSON.stringify(val);
             } else if (subKey === 'memory') {
               val = val.slice(-100);
               jsonStr = JSON.stringify(val);
@@ -1062,23 +1237,14 @@ const DB = {
           newKeys.push(subKeyName);
         } catch(subErr) {
           console.warn('[Split] 作品 ' + w.id + ' 子字段 ' + subKey + ' 拆分失败:', subErr && subErr.message);
-          // 子字段存储失败时尝试压缩后重试
-          if (subKey === 'longMemory') {
-            try {
-              var compressed = self._compressLongMemoryForStorage(val, true);
-              localStorage.setItem(subKeyName, JSON.stringify(compressed));
-              newKeys.push(subKeyName);
-            } catch(retryErr) {
-              console.warn('[Split] 重试也失败:', retryErr && retryErr.message);
-              // 写入失败则保留旧数据：确保该key不会被清理
-              if (existingKeys.indexOf(subKeyName) >= 0) newKeys.push(subKeyName);
-            }
-          } else {
-            // 写入失败则保留旧数据：确保该key不会被清理
-            if (existingKeys.indexOf(subKeyName) >= 0) newKeys.push(subKeyName);
-          }
+          // 写入失败则保留旧数据：确保该key不会被清理
+          if (existingKeys.indexOf(subKeyName) >= 0) newKeys.push(subKeyName);
         }
       });
+      // longMemory 单独写入 IndexedDB（不受 localStorage 5-10MB 限制）
+      if (w.longMemory && typeof w.longMemory === 'object') {
+        try { self.saveLongMemory(w.id, w.longMemory); } catch(e) { console.warn('[Split] longMemory 保存到IDB失败:', e && e.message); }
+      }
     });
     // 仅清理已不存在的作品的旧key（即不在newKeys中的key），避免误删写入失败字段的旧数据
     existingKeys.forEach(function(oldKey) {
@@ -1155,6 +1321,15 @@ const DB = {
           if (heavy.longMemory !== undefined) lightWork.longMemory = heavy.longMemory || {};
           if (heavy.archStatus !== undefined) lightWork.archStatus = heavy.archStatus || {};
         }
+      }
+      // 兼容：从 localStorage 分片读取 longMemory（旧数据，后续会迁移到 IndexedDB）
+      if (!lightWork.longMemory || Object.keys(lightWork.longMemory).length < 3) {
+        try {
+          var lmStr = localStorage.getItem(self._SPLIT_KEY_PREFIX + lightWork.id + '_longMemory');
+          if (lmStr) {
+            try { lightWork.longMemory = JSON.parse(lmStr); } catch(e) {}
+          }
+        } catch(e) {}
       }
       // 确保 longMemory 结构完整
       if (!lightWork.longMemory) lightWork.longMemory = {};
@@ -1523,6 +1698,8 @@ const DB = {
         }
       } catch(e) { console.warn("[db.js]", e); }
     }
+    // v44：删除 IndexedDB 中的 longMemory
+    try { this.deleteLongMemory(id); } catch(e) { console.warn('[LongMemory] 删除失败:', e && e.message); }
     this.flush();
   },
 
@@ -1536,6 +1713,8 @@ const DB = {
       // 最多保留 200 个（避免无限增长）
       if (this._cloudDeleteList.length > 200) this._cloudDeleteList = this._cloudDeleteList.slice(-200);
     }
+    // v44：删除 IndexedDB 中的 longMemory
+    try { this.deleteLongMemory(id); } catch(e) { console.warn('[LongMemory] 物理删除失败:', e && e.message); }
     this.flush();
   },
 
