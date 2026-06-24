@@ -4115,44 +4115,13 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
-  if(module !== 'world'){
-    if(module === 'detail'){
-      // 细纲是生成正文的底层基础，必须用原文确保准确完整
-      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-      if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-      }
-      if(work && work.chars && work.chars.trim()){
-        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-      }
-      if(work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-      }
-    } else {
-      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
-      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-      if(sumCtx && sumCtx.trim()){
-        prompt += sumCtx + '\n\n';
-      } else {
-        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
-        if(work && work.world && work.world.trim()){
-          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
-        }
-        if(module !== 'chars' && work && work.chars && work.chars.trim()){
-          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
-        }
-      }
-    }
-  }
-
+  // 趋势：保留（提供创意方向，用户确认需要）
   var trend = getTrendHint2026(work);
   if(trend){
-    // v59: 题材趋势必须过滤，只选与用户指令相符的方向
     prompt += '【2026 年题材趋势参考 — 仅摘录与用户指令【' + (idea ? idea.trim().substring(0,20) : '') + '】相符的方向，无关方向忽略】\n' + smartTruncate(trend, 400) + '\n\n';
   }
 
-  // AI分工搜索：市场调研报告（必须严格基于用户指令方向，不得推荐违背指令的内容）
+  // 市场调研：保留（提供创意方向，用户确认需要）
   if(marketResearch && marketResearch.trim()){
     prompt += '【📊 题材市场调研报告 — 仅摘录与用户指令相符的灵感，违背指令的方向一律忽略】\n' + smartTruncate(marketResearch, 1500) + '\n\n';
   }
@@ -4280,20 +4249,6 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
     ctxMsg += '3. 前后不一致的地方以更合理的一方为准，统一修正\n';
     ctxMsg += '4. 空缺的部分可以新增内容，但不得与已有设定矛盾\n';
     ctxMsg += '5. 如果本次有"加强意见"，优先按加强意见修改对应部分，同时保留其他部分不变\n\n';
-  }
-
-  // 前置架构上下文
-  if(module !== 'world'){
-    ctxMsg += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-    if(work && work.world && work.world.trim()){
-      ctxMsg += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-    }
-    if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      ctxMsg += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-    }
-    if((module === 'detail' || module === 'outline') && work && work.outline && work.outline.trim()){
-      ctxMsg += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-    }
   }
 
   // 2026 题材趋势
