@@ -3286,17 +3286,17 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // 前置架构上下文：全文注入，不截取不浓缩。所有前置模块的原文逐级注入，保证上下文记忆完整
+  // 前置架构上下文：靠 AI 消息链缓存实现跨模块记忆，不注入原文
+  // 世界观 → 人设 → 大纲 → 细纲 → 正文 逐级延续对话上下文
+  // 每生成一个模块，完整输出作为 assistant message 存入 work._archChatChain，
+  // 下一个模块开始时，把之前所有模块的对话作为 messages 历史传入，
+  // AI 通过自身上下文窗口记住前置模块内容，无需重复注入原文或摘要
   if(module !== 'world'){
-    prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-    if(work && work.world && work.world.trim()){
-      prompt += '■ 世界观（原文）：\n' + work.world.trim() + '\n\n';
-    }
-    if(module !== 'chars' && work && work.chars && work.chars.trim()){
-      prompt += '■ 人设（原文）：\n' + work.chars.trim() + '\n\n';
-    }
-    if((module === 'detail' || module === 'detail-gen') && work && work.outline && work.outline.trim()){
-      prompt += '■ 全书大纲（原文）：\n' + work.outline.trim() + '\n\n';
+    var chainMsgs = buildArchChatChain(work, module);
+    if(chainMsgs && chainMsgs.length > 0){
+      prompt = chainMsgs.concat([
+        { role: 'user', content: prompt }
+      ]);
     }
   }
 
