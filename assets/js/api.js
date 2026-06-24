@@ -49,6 +49,87 @@ window.clearAICache = function() {
   if (typeof showToast === 'function') showToast('AI 缓存已清空', {duration: 1500});
 };
 
+// ========== v57: Embedding 语义向量 API ==========
+// 用于语义检索，比纯词法（TF-IDF/BM25）准确率高 20-30%
+var _embeddingCache = new Map();
+var _EMBEDDING_CACHE_MAX = 500;
+
+function callEmbeddingAPI(text, provider, apiKey, apiBase, model) {
+  return new Promise(function(resolve, reject) {
+    try {
+      var base = apiBase.replace(/\/+$/, '');
+      var url = base + '/v1/embeddings';
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + apiKey);
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            if (data.data && data.data[0] && data.data[0].embedding) {
+              resolve(data.data[0].embedding);
+            } else {
+              reject(new Error('Embedding返回格式异常'));
+            }
+          } catch(e) { reject(e); }
+        } else {
+          reject(new Error('Embedding API ' + xhr.status + ': ' + xhr.responseText.slice(0, 200)));
+        }
+      };
+      xhr.onerror = function() { reject(new Error('网络错误')); };
+      xhr.timeout = 30000;
+      xhr.ontimeout = function() { reject(new Error('超时')); };
+      xhr.send(JSON.stringify({
+        model: model || 'text-embedding-3-small',
+        input: text,
+        encoding_format: 'float'
+      }));
+    } catch(e) { reject(e); }
+  });
+}
+
+// 带 fallback 的 embedding 调用（失败返回 null，不阻塞）
+async function getEmbedding(text, opts) {
+  opts = opts || {};
+  if (!text || text.length < 2) return null;
+  
+  var cacheKey = _hashPrompt(text.slice(0, 500));
+  var cached = _embeddingCache.get(cacheKey);
+  if (cached) return cached;
+  
+  var config = DB.getApiConfig() || {};
+  var userProvider = config.provider || 'deepseek';
+  var providers = [userProvider];
+  
+  for (var pi = 0; pi < providers.length; pi++) {
+    var p = providers[pi];
+    var provConfig = API_PROVIDERS[p];
+    if (!provConfig) continue;
+    var keys = DB.getApiKeys(p);
+    if (!keys || keys.length === 0) continue;
+    var apiBase = provConfig.base || config[p + '_base'] || '';
+    var embedModel = (config && config.embedding_model) || (provConfig.embeddingModel) || provConfig.model || 'text-embedding-3-small';
+    
+    for (var ki = 0; ki < Math.min(keys.length, 2); ki++) {
+      try {
+        var vec = await callEmbeddingAPI(text.slice(0, 8000), p, keys[ki], apiBase, embedModel);
+        if (vec && vec.length > 0) {
+          if (_embeddingCache.size >= _EMBEDDING_CACHE_MAX) {
+            var firstKey = _embeddingCache.keys().next().value;
+            _embeddingCache.delete(firstKey);
+          }
+          _embeddingCache.set(cacheKey, vec);
+          return vec;
+        }
+      } catch(e) {
+        console.warn('[embedding] ' + p + ' 失败:', e.message);
+      }
+    }
+  }
+  return null;
+}
+
 // ========== v56: Function Calling 工具框架 ==========
 // 工具定义：让 AI 可以主动查询记忆，而不是每次都注入全部记忆
 var AI_TOOLS = null; // 延迟初始化
