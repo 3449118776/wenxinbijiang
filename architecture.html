@@ -2930,6 +2930,10 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+    // 同步更新生成缓存（保存结果作为基线）
+    if (work._archCache) {
+      work._archCache[module] = { content: result, timestamp: Date.now() };
+    }
     
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
     try {
@@ -4135,6 +4139,10 @@ window.saveArchModule = function(){
     try { if(typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(e){ console.warn('[save] memoryAnchors 同步异常:', e); }
     // 清除模块过期标记
     if(work._archStale && work._archStale[module]) delete work._archStale[module];
+    // 第四层：更新生成缓存基线（保存后视为新基线，非修改）
+    if(work._archCache) {
+      work._archCache[module] = { content: content, timestamp: Date.now() };
+    }
 
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}
@@ -4142,7 +4150,7 @@ window.saveArchModule = function(){
       var _c = window.cloud;
       if (_c && _c.isLoggedIn()) {
         if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
       }
     } catch(e){}
     showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module) + '（记忆精要已同步）', {duration:2500});

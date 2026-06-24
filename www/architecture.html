@@ -323,7 +323,7 @@ body{display:flex;flex-direction:column;}
 <!-- ===== 固定顶部 ===== -->
 <div class="top-shell">
   <div class="page-header">
-    <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()" oncontextmenu="forceExitToHome();return false;" title="点击返回，右键强制退出">‹</div>
+    <div class="back-btn" id="global-back-btn" onclick="handleGlobalBack()">‹</div>
     <div class="page-title" id="global-page-title">架构设计</div>
     <span style="font-size:10px;color:#ccc;margin-right:4px;">v67</span>
     <button class="btn-pipeline" style="padding:3px 10px;font-size:11px;margin-right:6px;" onclick="openMaterialLib()">📦 素材库</button>
@@ -721,45 +721,23 @@ function handleGlobalBack() {
   // 如果阅读模式已打开，先关闭它
   var overlay = document.getElementById('reader-overlay');
   if (overlay && overlay.classList.contains('active')) {
-    try { closeReader(); } catch(e) {}
+    closeReader();
     return;
   }
   // 如果有其他模态框也打开（素材库/保存确认），先关闭
   var matPanel = document.getElementById('matlib-overlay');
-  if (matPanel && matPanel.style.display !== 'none') {
+  if (matPanel) {
     matPanel.style.display = 'none';
     var mp = document.getElementById('matlib-panel');
     if (mp) mp.style.display = 'none';
-    return;
   }
   var saveModal = document.getElementById('save-confirm-modal');
   if (saveModal && saveModal.style.display !== 'none') {
     saveModal.style.display = 'none';
     return;
   }
-  // 安全返回：直接跳转，避免状态异常导致无法退出
-  if (_currentLevel > 1) {
-    try {
-      goToLevel(_currentLevel - 1);
-    } catch (e) {
-      // 如果导航失败，直接跳转到首页
-      location.href = 'index.html';
-    }
-  } else {
-    location.href = 'index.html';
-  }
-}
-
-// 强制退出到首页（绕过所有模态框检查）
-function forceExitToHome() {
-  try {
-    // 清理状态
-    _currentLevel = 1;
-    _selectedWorkId = '';
-    _selectedModule = 'world';
-    clearArchContentCache();
-  } catch(e) {}
-  location.href = 'index.html';
+  if (_currentLevel > 1) goToLevel(_currentLevel - 1);
+  else location.href = 'index.html';
 }
 
 // 更新面包屑
@@ -2303,59 +2281,6 @@ function buildArchMemoryContext(work, currentModule){
   return ctx;
 }
 
-// ===== v66: 计算内容变化率（用于判断全量/增量更新）=====
-function _calculateChangeRate(oldText, newText) {
-  if (!oldText || !newText) return 1;
-  var oldLen = oldText.length;
-  var newLen = newText.length;
-  if (oldLen === 0 || newLen === 0) return 1;
-
-  // 简单估算：找最长公共子串长度 / 最大长度
-  // 为了性能，只比较前500字
-  var sampleLen = Math.min(500, oldLen, newLen);
-  var oldSample = oldText.substring(0, sampleLen);
-  var newSample = newText.substring(0, sampleLen);
-
-  // 计算相同行数的比例
-  var oldLines = oldSample.split('\n').filter(function(l){ return l.trim().length > 5; });
-  var newLines = newSample.split('\n').filter(function(l){ return l.trim().length > 5; });
-
-  var sameCount = 0;
-  for (var i = 0; i < oldLines.length; i++) {
-    for (var j = 0; j < newLines.length; j++) {
-      if (oldLines[i] === newLines[j]) { sameCount++; break; }
-    }
-  }
-
-  var maxLines = Math.max(oldLines.length, newLines.length, 1);
-  var sameRate = sameCount / maxLines;
-  return 1 - sameRate;
-}
-
-// ===== v66: 描述改动内容（增量更新时的描述）=====
-function _describeChange(oldText, newText, module) {
-  if (!oldText || !newText) return null;
-
-  var modNames = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
-  var modName = modNames[module] || module;
-
-  var oldLen = oldText.length;
-  var newLen = newText.length;
-  var lenDiff = newLen - oldLen;
-  var lenPct = oldLen > 0 ? Math.round(lenDiff / oldLen * 100) : 0;
-
-  var desc = '';
-  if (lenDiff > 100) {
-    desc = modName + '新增了内容（增加约' + lenPct + '%）';
-  } else if (lenDiff < -100) {
-    desc = modName + '删减了内容（减少约' + Math.abs(lenPct) + '%）';
-  } else {
-    desc = modName + '进行了调整';
-  }
-
-  return desc;
-}
-
 // ========== 核心：架构模块生成主函数 ==========
 // ===== 从已生成内容中提取记忆精要（替代原文注入，保持一致性同时省token）=====
 // 策略：每张卡片的标题 + 首段 200字 作为"卡片锚点"；模块特定信息补充
@@ -2556,7 +2481,7 @@ window.generateArchModule = async function(opts){
     // 2. 显示进度（首次调用：从0起步）
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
     var actionLabel = opts.isFix ? '按评价重新生成' : 'AI生成';
-    if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…', true);
+    if(typeof resetLoading === 'function') resetLoading(actionLabel + moduleName + '中…');
     else if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…');
     if(!idea.trim() && !opts.isFix){
       showToast('已按作品题材自动生成。你也可以在上方输入具体要求，AI 会优先按你的提示词生成。', {duration:3000});
@@ -3005,14 +2930,10 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
-
-    // v66: 同步到对话历史管理器（作为前缀缓存，后续生成不用重复注入）
-    try {
-      if (typeof ConversationManager !== 'undefined' && ConversationManager.setArchitecture) {
-        ConversationManager.setArchitecture(work.id, module, result);
-        console.log('[对话历史] ' + module + ' 已保存到对话历史');
-      }
-    } catch(convErr) { console.warn('[对话历史] 保存失败:', convErr); }
+    // 同步更新生成缓存（保存结果作为基线）
+    if (work._archCache) {
+      work._archCache[module] = { content: result, timestamp: Date.now() };
+    }
     
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
     try {
@@ -3079,6 +3000,14 @@ window.generateArchModule = async function(opts){
 // 后续卡片能看到前序卡片的已生成内容作为一致性锚点
 function buildArchCardBatchesV48(module, work, idea){
   var batches = [];
+
+  // v64fix: 读取历史扩展卡片，AI 替换过的卡片优先复用
+  var savedCards = [];
+  try {
+    if(work && work._cardSupplements && work._cardSupplements[module] && work._cardSupplements[module].length > 0){
+      savedCards = work._cardSupplements[module];
+    }
+  } catch(e){}
 
   if(module === 'world'){
     // v61: 根据用户指令判断是否为"无魔"设定，调整世界观卡片内容
@@ -3836,7 +3765,7 @@ window.evaluateArchModule = async function(){
     // 2. AI 深度评价（可选，异步补充）
     var aiReport = '';
     if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
-      if(typeof showLoading === 'function') showLoading('AI 评价分析中…', true);
+      if(typeof resetLoading === 'function') resetLoading('AI 评价分析中…');
       else if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
       if(typeof startAutoLoadingProgress === 'function'){
         startAutoLoadingProgress(70, 'AI 评价分析中…');
@@ -3972,7 +3901,7 @@ window.strengthenDetailOutlineV46 = async function(){
       var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
       // 第1张：从0起步；其他：继续推进
       if(bi === 0){
-        if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel, true);
+        if(typeof resetLoading === 'function') resetLoading('细纲补强中 · ' + progressLabel);
         else if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
       }
       var strPct = 10 + Math.round((bi / batches.length) * 85);
@@ -4122,7 +4051,7 @@ window.generateAllPipeline = async function(){
       var overallPct = Math.round((i / modules.length) * 100);
       // 第1个模块：从0起步；其他：保持进度连续推进
       if(i === 0){
-        if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）', true);
+        if(typeof resetLoading === 'function') resetLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
         else if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
       }
       if(typeof updateLoadingProgress === 'function'){
@@ -4196,39 +4125,7 @@ window.saveArchModule = function(){
 
     // ===== 强一致性：一次保存，三层同步 =====
     // 第一层：保存原始内容
-    var oldContent = work[module] || '';
     work[module] = content;
-
-    // v66: 对话历史同步 — 智能判断是全量替换还是增量更新
-    // 如果改动较小（<30%），用增量更新，保留 DeepSeek 前缀缓存
-    // 如果改动较大，全量替换
-    try {
-      if (typeof ConversationManager !== 'undefined') {
-        if (oldContent && oldContent.trim() && content && content.trim()) {
-          var changeRate = _calculateChangeRate(oldContent, content);
-          if (changeRate < 0.3 && ConversationManager.hasArchitecture(work.id, module)) {
-            // 小改动：增量更新，不破坏缓存
-            var changeDesc = _describeChange(oldContent, content, module);
-            if (changeDesc) {
-              ConversationManager.addModification(work.id, module, changeDesc, content);
-              console.log('[对话历史] ' + module + ' 增量更新（变化率' + Math.round(changeRate*100) + '%），保留缓存');
-            } else {
-              ConversationManager.setArchitecture(work.id, module, content);
-            }
-          } else {
-            // 大改动：全量替换
-            ConversationManager.setArchitecture(work.id, module, content);
-            // 改动大时重置正文对话历史，避免不一致
-            ConversationManager.resetBody(work.id);
-            console.log('[对话历史] ' + module + ' 全量更新（变化率' + Math.round(changeRate*100) + '%），已重置正文历史');
-          }
-        } else {
-          // 首次生成：全量设置
-          ConversationManager.setArchitecture(work.id, module, content);
-        }
-      }
-    } catch(convErr) { console.warn('[对话历史] 保存失败:', convErr); }
-
     // 第二层：从最终保存内容重建 moduleSummaries（确保 summary 与实际内容一致，不受手动编辑影响）
     try {
       if(!work.longMemory) work.longMemory = {};
@@ -4242,6 +4139,10 @@ window.saveArchModule = function(){
     try { if(typeof syncArchToMemory === 'function') syncArchToMemory(work, module); } catch(e){ console.warn('[save] memoryAnchors 同步异常:', e); }
     // 清除模块过期标记
     if(work._archStale && work._archStale[module]) delete work._archStale[module];
+    // 第四层：更新生成缓存基线（保存后视为新基线，非修改）
+    if(work._archCache) {
+      work._archCache[module] = { content: content, timestamp: Date.now() };
+    }
 
     if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
     try { if(typeof DB !== 'undefined' && typeof DB.flush === 'function') DB.flush(); } catch(e){}
@@ -4249,7 +4150,7 @@ window.saveArchModule = function(){
       var _c = window.cloud;
       if (_c && _c.isLoggedIn()) {
         if (_c._pushTimer) { clearTimeout(_c._pushTimer); _c._pushTimer = null; }
-        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(){}); } catch(e){} }, 2000);
+        _c._pushTimer = setTimeout(function(){ try { _c._pushTimer = null; _c.smartSync().catch(function(e){ console.warn("[sync] smartSync failed:", e); }); } catch(e){} }, 2000);
       }
     } catch(e){}
     showToast('✅ 已保存 ' + (MODULE_INFO[module]?MODULE_INFO[module].name:module) + '（记忆精要已同步）', {duration:2500});
@@ -4380,14 +4281,7 @@ window.addEventListener('DOMContentLoaded',function(){
   function triggerCloudSync() {
     try {
       var cloud = window.cloud;
-      if (!cloud) { 
-        showToast('云同步模块未初始化，请刷新页面', {error: true, duration: 4000}); 
-        return; 
-      }
-      if (typeof cloud.isLoggedIn !== 'function') {
-        showToast('云同步模块异常，请刷新页面', {error: true, duration: 4000});
-        return;
-      }
+      if (!cloud) { showToast('云同步未初始化'); return; }
       if (!cloud.isLoggedIn()) {
         showToast('请先在首页登录');
         setTimeout(function() { window.location.href = 'index.html'; }, 1200);
@@ -4400,27 +4294,16 @@ window.addEventListener('DOMContentLoaded',function(){
         var count = 0;
         if (report && report.pushed) { count += report.pushed; }
         if (report && report.pulled) { count += report.pulled; }
-        if (report && report.errors) { 
-          msg += '，' + report.errors + '个失败'; 
-          showToast(msg, {error: false, duration: 4000});
-        } else if (count > 0) { 
-          msg += '，' + count + '部作品'; 
-          showToast(msg, {error: false, duration: 3000});
-        } else {
-          msg += '，无更新';
-          showToast(msg, {error: false, duration: 2000});
-        }
+        if (report && report.errors) { msg += '，' + report.errors + '个失败'; }
+        else if (count > 0) { msg += '，' + count + '部作品'; }
+        else msg += '，无更新';
+        showToast(msg);
       }).catch(function(e) {
-        var errMsg = '同步失败：' + (e && e.message ? e.message : e);
-        console.error('Cloud sync error:', e);
-        showToast(errMsg, {error: true, duration: 5000});
+        showToast('同步失败：' + (e && e.message ? e.message : e));
       }).finally(function() {
         setTimeout(refreshCloudStatus, 300);
       });
-    } catch(e) { 
-      console.error('Sync trigger error:', e);
-      showToast('同步触发异常: ' + (e.message || e), {error: true, duration: 5000}); 
-    }
+    } catch(e) { showToast('同步异常'); }
   }
   refreshCloudStatus();
   // 监听同步完成事件：自动刷新当前页面UI（作品列表/模块内容）
@@ -4754,7 +4637,7 @@ window.generateDetailForVolume = async function(volNum) {
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
 
-    if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…', true);
+    if(typeof resetLoading === 'function') resetLoading('正在生成第 ' + volNum + ' 卷细纲…');
     else if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…');
     if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
@@ -5019,13 +4902,13 @@ function generateArchCardSingle(module, card, idea, callback){
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
 
   var fullText = '';
-  if(typeof showLoading === 'function') showLoading('正在生成 · ' + card.label, true);
+  if(typeof resetLoading === 'function') resetLoading('正在生成 · ' + card.label);
   else if(typeof showLoading === 'function') showLoading('正在生成 · ' + card.label);
   if(typeof updateLoadingProgress === 'function') updateLoadingProgress(25, '正在生成 · ' + card.label);
 
   var apiCall = null;
   if (typeof callRealAPIWithFallback === 'function') {
-    apiCall = callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true, true);
+    apiCall = callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
   } else if (typeof callRealAPI === 'function') {
     apiCall = callRealAPI(cardPrompt, null, {});
   }
