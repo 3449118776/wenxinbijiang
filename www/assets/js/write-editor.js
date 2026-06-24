@@ -4641,9 +4641,14 @@ async function aiWriteChapter(opts){
       }
     }
 
-    // 注入骨架到 prompt 开头
+    // 注入骨架到 prompt 开头（支持 messages 数组和字符串两种格式）
     if(skFinalText){
-      prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText + '\n\n' + prompt;
+      var _skText = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText;
+      if (Array.isArray(prompt)) {
+        prompt.unshift({ role: 'system', content: _skText });
+      } else {
+        prompt = _skText + '\n\n' + prompt;
+      }
     }
 
     // ✅ 缓存完整prompt（骨架+所有上下文），供后续迭代直接复用，不再重建
@@ -4655,24 +4660,31 @@ async function aiWriteChapter(opts){
     } else {
       prompt = work._cachedChapterPrompt;
     }
-    // ⚡ 注入上一轮结果和改进提示，实现增量优化
+    // ⚡ 注入上一轮结果和改进提示，实现增量优化（支持 messages 数组和字符串）
     if (_prevResult && _writeExtraHint) {
-      prompt = '【上一轮生成结果】\n' + _prevResult + '\n\n' + 
+      var _iterCtx = '【上一轮生成结果】\n' + _prevResult + '\n\n' + 
         '【改进要求】\n' + _writeExtraHint + '\n\n' + 
         '【优化策略】\n' + 
         '1. 保留上一轮中做得好的部分（已在上面列出）\n' + 
         '2. 针对问题部分进行修改和补充\n' + 
         '3. 不要完全重写，只做必要的改进\n' + 
         '4. 保持整体结构和叙事节奏\n' + 
-        '5. 输出完整的优化后章节内容：\n\n' + 
-        prompt;
+        '5. 输出完整的优化后章节内容：\n\n';
+      if (Array.isArray(prompt)) {
+        prompt.unshift({ role: 'system', content: _iterCtx });
+      } else {
+        prompt = _iterCtx + prompt;
+      }
     }
   }
 
   // ===== 质量迭代块已移到 API 调用和质量评估之后（见下方）======
 
   // 显示输入token估算 + 进入正文生成阶段
-  var estTokens = Math.round(prompt.length * 1.5);
+  var _promptLen = Array.isArray(prompt) 
+    ? prompt.reduce(function(acc, m) { return acc + (m.content || '').length; }, 0)
+    : prompt.length;
+  var estTokens = Math.round(_promptLen * 1.5);
   var estTokensDisplay = estTokens >= 1000 ? (estTokens / 1000).toFixed(1) + 'k' : estTokens;
   if(statusBar){
     statusBar.style.display = 'block';
@@ -4689,7 +4701,7 @@ async function aiWriteChapter(opts){
   // 进度按迭代轮次分段推进：第1轮 5→45%，第2轮 45→75%，第3轮 75→95%，最后100%
   if (typeof updateLoadingProgress === 'function') {
     var _startPct = 5 + _writeIteration * 35;
-    updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
+    updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(_promptLen * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   // v59: 转为 messages 数组，让服务商缓存固定前缀
