@@ -3238,6 +3238,23 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
       }
     }
 
+    // ===== 同人模式检测：用户指令含同人+已知IP时，告诉AI用已知知识 =====
+    var _fanficIP = null;
+    if(/同人|二创|同人作品/.test(idea)){
+      for(var _ip in _FANFIC_IPS){
+        if(idea.indexOf(_ip) >= 0){ _fanficIP = _ip; break; }
+      }
+    }
+    if(_fanficIP){
+      prompt += '【📖 同人模式 · ' + _fanficIP + '】\n';
+      prompt += '用户要写的是《' + _fanficIP + '》同人作品。你熟悉这部作品的全部设定，请直接基于原著已知知识展开。\n';
+      prompt += '规则：\n';
+      prompt += '1. 原著核心设定（力量体系、地名、势力、人物等）直接沿用，无需复述背景故事\n';
+      prompt += '2. 用户指令中的同人偏离/新增设定优先执行，与原著冲突时以用户指令为准\n';
+      prompt += '3. 用户未提及的部分沿用原著默认设定，不得自行新增与原著冲突的内容\n';
+      prompt += '4. 如果用户指令要求的内容与原著冲突，以用户指令为准\n\n';
+    }
+
     prompt += '【🔍 输出前自检 — 生成完成后必须逐条验证，重点是补充而非删除】\n';
     prompt += '1. 逐条对照用户核心诉求，确认每一条都已满足\n';
     prompt += '2. 逐条对照禁止项，确认没有违规内容\n';
@@ -3404,6 +3421,23 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   if(genre) sysMsg += '一级题材：' + genre + '\n';
   sysMsg += '发布平台：' + platform + '\n';
   sysMsg += '当前模块：' + moduleName + '\n';
+
+  // ===== 同人模式检测（仅世界观模块生效，其他模块由 chain 继承上下文）=====
+  var _fanficIP = null;
+  if(idea && /同人|二创|同人作品/.test(idea)){
+    for(var _ip in _FANFIC_IPS){
+      if(idea.indexOf(_ip) >= 0){ _fanficIP = _ip; break; }
+    }
+  }
+  if(_fanficIP){
+    sysMsg += '\n【📖 同人模式 · ' + _fanficIP + '】\n';
+    sysMsg += '用户要写的是《' + _fanficIP + '》同人作品。你熟悉这部作品的全部设定，请直接基于原著已知知识展开。\n';
+    sysMsg += '规则：\n';
+    sysMsg += '1. 原著核心设定（力量体系、地名、势力、人物等）直接沿用，无需复述背景故事\n';
+    sysMsg += '2. 用户指令中的同人偏离/新增设定优先执行，与原著冲突时以用户指令为准\n';
+    sysMsg += '3. 用户未提及的部分沿用原著默认设定，不得自行新增与原著冲突的内容\n';
+    sysMsg += '4. 如果用户指令要求的内容与原著冲突，以用户指令为准\n';
+  }
 
   // ===== 用户消息1：上下文（模块特定，但共享前缀可被服务商缓存）=====
   var ctxMsg = '';

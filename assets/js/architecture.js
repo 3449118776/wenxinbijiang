@@ -11,6 +11,18 @@ var _MODULE_CHAT_PROMPTS = {
   chapter: '请基于已有的世界观、人设、大纲和细纲，生成当前的章节正文。'
 };
 
+// ===== 同人模式：内置已知 IP 列表 =====
+// 用户在世界观指令中输入"我要写XXX同人"时自动匹配
+var _FANFIC_IPS = {
+  '斗罗大陆': true, '斗破苍穹': true, '凡人修仙传': true,
+  '完美世界': true, '遮天': true, '仙逆': true,
+  '一念永恒': true, '沧元图': true, '星辰变': true, '盘龙': true,
+  '铠甲勇士': true, '奥特曼': true, '假面骑士': true,
+  '火影忍者': true, '海贼王': true, '死神': true, '龙珠': true,
+  '鬼灭之刃': true, '咒术回战': true, '一拳超人': true,
+  '西游记': true, '封神演义': true, '白蛇传': true
+};
+
 // 构建前序模块的对话链 messages 数组
 // currentModule 为 'chapter' 时包含所有架构模块 + 之前章节
 // currentModule 为 'world' 时返回空数组
