@@ -2796,7 +2796,172 @@ function ensureArchCache(work, module) {
   if (!work._archCache) work._archCache = {};
   if (work._archCache[module]) return;
   var content = work[module];
-  if (content) work._archCache[module] = { content: content, timestamp: Date.now() };
+  if (content) {
+    // v72: 同时提取结构化数据
+    var structured = extractStructuredCache(module, content);
+    work._archCache[module] = { 
+      content: content, 
+      timestamp: Date.now(),
+      structured: structured
+    };
+  }
+}
+
+// ========== v72: 结构化缓存提取函数 ==========
+// 将架构原文解析为结构化数据，供正文生成时引用
+function extractStructuredCache(module, content) {
+  if (!content || typeof content !== 'string') return null;
+  
+  var result = { _meta: { module: module, extracted: Date.now() } };
+  
+  if (module === 'world') {
+    // 世界观结构化提取
+    var levels = content.match(/(?:等级|境界|修为|层次|品阶|阶级)[：:]\s*([^\n]{5,200})/)?.[1] || '';
+    result.levels = levels ? levels.split(/[、，,]/).filter(function(s) { return s.trim().length >= 2; }).map(function(s) { return s.trim(); }) : [];
+    
+    // 势力提取
+    var factionMatches = [];
+    var factionRE = /[【\[]([^】\]\n]{2,8}(?:宗|门|派|教|会|盟|帮|族|家|国|朝|军|团))[】\]][^。\n]{0,100}/g;
+    var fm;
+    while ((fm = factionRE.exec(content)) !== null) {
+      factionMatches.push(fm[1].trim());
+    }
+    result.factions = factionMatches.slice(0, 10);
+    
+    // 核心规则提取
+    var rules = [];
+    var rulesRE = /(?:规则|代价|禁忌|限制|运转)[：:]\s*([^\n]{5,100})/g;
+    var rm;
+    while ((rm = rulesRE.exec(content)) !== null) {
+      rules.push(rm[1].trim());
+    }
+    result.rules = rules.slice(0, 5);
+    
+    // 地理/地点提取
+    var places = [];
+    var placeRE = /[【\[]?([^】\]\n]{2,10}(?:城|镇|村|谷|山|海|河|域|界|殿|宫|府|阁|楼))[】\]]?/g;
+    var pm;
+    while ((pm = placeRE.exec(content)) !== null) {
+      places.push(pm[1].trim());
+    }
+    result.places = places.slice(0, 15);
+    
+    // 核心矛盾
+    result.coreConflict = content.match(/(?:核心矛盾|主要冲突|世界矛盾)[：:]\s*([^\n]{5,100})/)?.[1]?.trim() || '';
+    
+    // 力量压制规则
+    var压制 = content.match(/(?:等级压制|越级|跨阶|压制)[：:]\s*([^\n]{5,100})/)?.[1]?.trim() || '';
+    result.powerRules = 压制;
+    
+  } else if (module === 'chars') {
+    // 人设结构化提取
+    var charList = [];
+    var charSegRE = /[【\[]([^】\]\n]{1,12})[】\]]\s*[：:]?\s*/g;
+    var segMatch;
+    var segments = [];
+    var prevEnd = 0;
+    while ((segMatch = charSegRE.exec(content)) !== null) {
+      if (segments.length > 0) {
+        segments[segments.length - 1].text = content.substring(segments[segments.length - 1].start, segMatch.index);
+      }
+      segments.push({ name: segMatch[1].trim(), start: segMatch.index + segMatch[0].length });
+    }
+    
+    for (var i = 0; i < segments.length; i++) {
+      var seg = segments[i];
+      var charText = seg.text || '';
+      // 提取说话风格
+      var voice = charText.match(/(?:说话|语气|语言|口吻|风格)[：:]\s*([^\n]{5,80})/)?.[1]?.trim() || '';
+      // 提取口头禅
+      var catchphrase = charText.match(/(?:口头禅|标志语|常说)[：:]\s*([^\n]{2,30})/)?.[1]?.trim() || '';
+      // 提取决策模式
+      var decisions = [];
+      var decRE = /(?:遇到.*?→|选择.*?→|决定.*?→)[^。\n]{2,20}/g;
+      var dm;
+      while ((dm = decRE.exec(charText)) !== null) {
+        decisions.push(dm[0].trim());
+      }
+      // 提取核心特征
+      var traits = [];
+      var traitRE = /(?:性格|特点|特征|弱点|恐惧)[：:]\s*([^\n]{3,50})/g;
+      var tm;
+      while ((tm = traitRE.exec(charText)) !== null) {
+        traits.push(tm[1].trim());
+      }
+      
+      charList.push({
+        name: seg.name,
+        voice: voice.substring(0, 60),
+        catchphrase: catchphrase,
+        decisions: decisions.slice(0, 3),
+        traits: traits.slice(0, 3)
+      });
+    }
+    result.characters = charList;
+    
+  } else if (module === 'outline') {
+    // 大纲结构化提取
+    var volumes = [];
+    var volRE = /(第\s*[一二三四五六七八九十百零\d]+\s*[卷部])\s*[（(]?([^）)\n]{0,8})[）)]?\s*[：:]?\s*([\s\S]*?)(?=\n\s*第\s*[一二三四五六七八九十百零\d]+\s*[卷部]|$)/gi;
+    var vm;
+    while ((vm = volRE.exec(content)) !== null) {
+      volumes.push({
+        label: vm[1].trim(),
+        phase: (vm[2] || '').trim(),
+        body: vm[3].trim().substring(0, 300)
+      });
+    }
+    result.volumes = volumes;
+    
+    // 主线目标
+    result.mainGoal = content.match(/(?:主线|核心目标|最终目标)[：:]([^\n]{5,100})/)?.[1]?.trim() || '';
+    
+  } else if (module === 'detail') {
+    // 细纲结构化提取（按卷和章节）
+    var chapters = [];
+    var chRE = /(?:第\s*[一二三四五六七八九十百零\d]+\s*章)[^【\[【\[]*(?:【[^】\n]+】|\[[^\]\n]+\])?\s*[：:]?\s*([^\n章]{3,50})/gi;
+    var cm;
+    while ((cm = chRE.exec(content)) !== null) {
+      var chapterTitle = cm[0].match(/第[一二三四五六七八九十百零\d]+章/)?.[0] || '';
+      var summary = cm[1].trim();
+      // 提取情绪目标
+      var emotion = summary.match(/(?:情绪|情感)[：:]([^。\n]{2,30})/)?.[1]?.trim() || '';
+      // 提取钩子
+      var hook = summary.match(/(?:钩子|悬念|结尾)[：:]([^。\n]{2,30})/)?.[1]?.trim() || '';
+      // 提取冲突
+      var conflict = summary.match(/(?:冲突|矛盾|危机)[：:]([^。\n]{2,30})/)?.[1]?.trim() || '';
+      chapters.push({
+        label: chapterTitle,
+        summary: summary.substring(0, 50),
+        emotion: emotion,
+        hook: hook,
+        conflict: conflict
+      });
+    }
+    result.chapters = chapters.slice(0, 50);
+  }
+  
+  return result;
+}
+
+// ========== v72: 获取结构化缓存数据 ==========
+function getStructuredCache(work, module) {
+  if (!work._archCache || !work._archCache[module]) return null;
+  return work._archCache[module].structured || null;
+}
+
+// ========== v72: 检测用户是否修改了架构 ==========
+function hasArchModified(work, module) {
+  if (!work._archCache || !work._archCache[module]) return false;
+  var cached = work._archCache[module];
+  var current = work[module];
+  return cached.content !== current;
+}
+
+// ========== v72: 获取修改过的架构内容 ==========
+function getModifiedArchContent(work, module) {
+  if (!hasArchModified(work, module)) return null;
+  return work[module] || null;
 }
 
 function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
@@ -3364,9 +3529,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '■ 禁止形容词堆砌\n';
   prompt += '  禁止：连续使用3个以上形容词（美丽动人温柔善良）。用一个精准形容词或用动作展示。\n\n';
 
-  // ===== v48: 世界观 =====
-  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆
-  //  用户修改过(缓存与当前不一致)才注入修改后原文
+  // ===== v48+v72: 世界观 =====
+  // 大模型(archLimits=null)：引用结构化缓存，用户修改过(缓存与当前不一致)才注入修改后原文
   // 小模型：优先 moduleSummaries，否则 archLimits 截断
   if (archLimits !== null) {
     var worldContent = '';
@@ -3382,14 +3546,20 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【世界观设定】\n' + worldContent + '\n\n';
     }
   } else if (work.world && work.world.length > 100) {
-    var worldCached = getArchCacheContent(work, 'world');
-    if (!worldCached) {
-      ensureArchCache(work, 'world');
-    } else if (worldCached !== work.world) {
+    // v72: 引用结构化缓存数据
+    var worldStructured = getStructuredCache(work, 'world');
+    if (worldStructured) {
+      var worldRef = buildCacheReferenceBlock('world', worldStructured);
+      if (worldRef) prompt += worldRef;
+    }
+    // v72: 只有修改过才注入原文
+    if (hasArchModified(work, 'world')) {
       prompt += '【世界观设定（用户已修改）】\n' + work.world + '\n\n';
     }
   }
-  // 人物设定：大模型跳过，小模型优先 moduleSummaries 缓存
+  // ===== v48+v72: 人物设定 =====
+  // 大模型：引用结构化缓存，用户修改过才注入
+  // 小模型：优先 moduleSummaries 缓存
   if (archLimits !== null) {
     var charsContent = '';
     try {
@@ -3404,10 +3574,14 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【人物人设】\n' + charsContent + '\n\n';
     }
   } else if (work.chars && work.chars.length > 100) {
-    var charsCached = getArchCacheContent(work, 'chars');
-    if (!charsCached) {
-      ensureArchCache(work, 'chars');
-    } else if (charsCached !== work.chars) {
+    // v72: 引用结构化缓存数据
+    var charsStructured = getStructuredCache(work, 'chars');
+    if (charsStructured) {
+      var charsRef = buildCacheReferenceBlock('chars', charsStructured);
+      if (charsRef) prompt += charsRef;
+    }
+    // v72: 只有修改过才注入原文
+    if (hasArchModified(work, 'chars')) {
       prompt += '【人物人设（用户已修改）】\n' + work.chars + '\n\n';
     }
   }
@@ -3483,8 +3657,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '2. 如果确实需要新元素，必须在细纲中事先定义\n\n';
     }
   }
-  // ===== v57: 大纲按卷注入 =====
-  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆，用户修改过才注入
+  // ===== v57+v72: 大纲按卷注入 =====
+  // 大模型(archLimits=null)：引用结构化缓存，用户修改过才注入
   // 小模型：优先 moduleSummaries，否则 archLimits 截断
   if (archLimits !== null) {
     var outlineInjected = false;
@@ -3526,16 +3700,20 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【全书大纲】\n' + fallback2 + '\n\n';
     }
   } else if (work.outline && work.outline.length > 100) {
-    var outlineCached = getArchCacheContent(work, 'outline');
-    if (!outlineCached) {
-      ensureArchCache(work, 'outline');
-    } else if (outlineCached !== work.outline) {
+    // v72: 引用结构化缓存数据
+    var outlineStructured = getStructuredCache(work, 'outline');
+    if (outlineStructured) {
+      var outlineRef = buildCacheReferenceBlock('outline', outlineStructured);
+      if (outlineRef) prompt += outlineRef;
+    }
+    // v72: 只有修改过才注入原文
+    if (hasArchModified(work, 'outline')) {
       prompt += '【全书大纲（用户已修改）】\n' + work.outline + '\n\n';
     }
   }
 
-  // ===== v57: 细纲按卷注入 =====
-  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆，用户修改过才注入
+  // ===== v57+v72: 细纲按卷注入 =====
+  // 大模型(archLimits=null)：引用结构化缓存，用户修改过才注入
   // 小模型：按卷切分注入，archLimits 控制上限
   if (work.detail) {
     if (archLimits !== null) {
@@ -3587,10 +3765,14 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
         prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
       }
     } else if (work.detail && work.detail.length > 100) {
-      var detailCached = getArchCacheContent(work, 'detail');
-      if (!detailCached) {
-        ensureArchCache(work, 'detail');
-      } else if (detailCached !== work.detail) {
+      // v72: 引用结构化缓存数据
+      var detailStructured = getStructuredCache(work, 'detail');
+      if (detailStructured) {
+        var detailRef = buildCacheReferenceBlock('detail', detailStructured);
+        if (detailRef) prompt += detailRef;
+      }
+      // v72: 只有修改过才注入原文
+      if (hasArchModified(work, 'detail')) {
         prompt += '【📑 细纲（用户已修改）】\n' + work.detail + '\n\n';
         prompt += '【核心指令 · 细纲最高优先级】\n';
         prompt += '你当前要写的章节是：「' + chTitle + '」（第' + (chapterIdx + 1) + '章）。\n';
