@@ -2770,7 +2770,7 @@ window.generateArchModule = async function(opts){
         updateLoadingProgress(progressPct, '正在生成 ' + moduleName + ' · ' + progressLabel2);
       }
 
-      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext);
+      var cardPrompt = buildArchCardPromptV48(module, card, work, idea, allCards, opts && opts.extraHint, marketResearch, memoryContext, bi);
       var cardTargetChars = card.targetChars || 800;
 
       var cardResult = null;
@@ -2792,6 +2792,15 @@ window.generateArchModule = async function(opts){
 
       allCards.push({ label: card.label, content: cardResult });
       totalChars += cardResult.length;
+
+      // 保存到卡片级对话链（后续卡片通过 chain 命中前序卡片完整原文）
+      try {
+        if(typeof appendArchCardMessage === 'function'){
+          var _cardChainUser = moduleName + ' · 第' + (bi+1) + '张卡片：' + card.label;
+          appendArchCardMessage(work, module, bi, 'user', _cardChainUser);
+          appendArchCardMessage(work, module, bi, 'assistant', cardResult);
+        }
+      } catch(_cce) { console.warn('[卡片链保存] 异常:', _cce); }
 
       if(bi < batches.length - 1){
         await new Promise(function(res){ setTimeout(res, 50); });
@@ -3207,7 +3216,7 @@ function buildArchCardBatchesV48(module, work, idea){
 
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
-function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
+function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext, cardIndex){
   idea = idea || '';
   // v58: 生成前注册用户指令，供 QualityEngine D0 指令遵循维度使用
   try { if(window.QualityEngine && window.QualityEngine.setUserCmd) window.QualityEngine.setUserCmd(idea); } catch(e){}
@@ -3316,16 +3325,23 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // ===== 前置架构上下文：靠 AI 消息链缓存实现跨模块记忆，不注入原文 =====
-  // 世界观 → 人设 → 大纲 → 细纲 → 正文 逐级延续对话上下文
-  // AI 通过自身上下文窗口记住前置模块内容，无需重复注入原文或摘要
-  // 注意：chain 不能在此处拼接，否则后续的 prompt += 会破坏数组。
-  // 改为存到 _chainPrefix，在 return 前统一包装。
+  // ===== 统一消息链前缀（跨模块 chain + 同模块内卡片 chain，全文命中）=====
+  // 前序架构模块的完整原文通过 _archChatChain 传递，
+  // 前序卡片的完整原文通过 _archCardChain 传递，
+  // 两者合并为 messages 数组，AI 直接命中原文，无需摘要/截断/提示词约束。
   var _chainPrefix = null;
-  if(module !== 'world'){
+  // 跨模块 chain
+  if(module !== 'world' && typeof buildArchChatChain === 'function'){
     var chainMsgs = buildArchChatChain(work, module);
     if(chainMsgs && chainMsgs.length > 0){
       _chainPrefix = chainMsgs;
+    }
+  }
+  // 同模块内 card chain（前序卡片的完整原文）
+  if(typeof cardIndex === 'number' && cardIndex > 0 && typeof buildArchCardChain === 'function'){
+    var cardChain = buildArchCardChain(work, module, cardIndex);
+    if(cardChain && cardChain.length > 0){
+      _chainPrefix = _chainPrefix ? _chainPrefix.concat(cardChain) : cardChain;
     }
   }
 
@@ -3343,37 +3359,6 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
   // 长记忆上下文：已生成模块的关键记忆锚点 + 已写章节的衍生记忆（模块间共享长记忆连接）
   if(memoryContext && memoryContext.trim()){
     prompt += '【🧠 共享长记忆上下文 — 来自其他架构模块和已写章节的关键信息，必须保持一致，不得矛盾】\n' + memoryContext + '\n\n';
-  }
-
-  // 关键：已生成的卡片内容（最近2张给完整摘要确保连贯，更早的只列标题——内容已提炼到记忆精要）
-  if(prevCards && prevCards.length > 0){
-    prompt += '【本模块已生成的内容 — 必须严格延续这些设定，不得重复、不得冲突】\n';
-    
-    // v52: 最近 2 张卡片给更长的完整摘要（首段 + 末段），保持上下文连贯——大模型给更多
-    var _rcBig = isLargeContextModel();
-    var _rcLimit = _rcBig ? 2000 : 800;
-    var _rcFirst = _rcBig ? 800 : 300;
-    var _rcLast = _rcBig ? 400 : 200;
-    var recentLimit = prevCards.length > 2 ? prevCards.length - 2 : 0;
-    for(var pi2 = recentLimit; pi2 < prevCards.length; pi2++){
-      var pc2 = prevCards[pi2];
-      var snip2 = '';
-      if(pc2.content.length > _rcLimit){
-        snip2 = pc2.content.substring(0, _rcFirst) + '\n...（中间略）...\n' + pc2.content.slice(-_rcLast);
-      } else {
-        snip2 = pc2.content;
-      }
-      prompt += '■ ' + pc2.label + '：\n' + snip2.trim() + '\n\n';
-    }
-    
-    // 更早的卡片：只列标题（内容已提炼到记忆精要，避免 prompt 爆炸）
-    if(recentLimit > 0){
-      prompt += '【更早的卡片（标题参考，内容已提炼到记忆精要）】\n';
-      for(var oi2 = 0; oi2 < recentLimit; oi2++){
-        prompt += '· ' + prevCards[oi2].label + '\n';
-      }
-      prompt += '\n';
-    }
   }
 
   // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高

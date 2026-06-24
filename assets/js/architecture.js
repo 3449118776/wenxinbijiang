@@ -152,10 +152,46 @@ function appendArchChatMessage(work, module, role, content) {
     role: role,
     content: content,
     _module: module,
+    _isCard: false,
     ts: Date.now()
   });
   // 每次追加后检查是否需要压缩
   compressArchChatChain(work);
+}
+
+// ===== 模块内卡片级对话链（同模块内卡片间全文记忆）=====
+// 跨模块用 _archChatChain，同模块内卡片用 _archCardChain
+// 每张卡片生成完追加 user+assistant，后续卡片通过 chain 看到前序卡片完整原文
+
+// 构建当前模块内前序卡片的对话链
+function buildArchCardChain(work, module, cardIndex) {
+  if (!work || !work._archCardChain || !Array.isArray(work._archCardChain)) return [];
+  var chain = work._archCardChain;
+  var result = [];
+  for (var i = 0; i < chain.length; i++) {
+    if (chain[i]._module === module && chain[i]._cardIndex < cardIndex) {
+      result.push({
+        role: chain[i].role,
+        content: chain[i].content
+      });
+    }
+  }
+  return result;
+}
+
+// 追加当前卡片到卡片级对话链
+function appendArchCardMessage(work, module, cardIndex, role, content) {
+  if (!work) return;
+  if (!work._archCardChain || !Array.isArray(work._archCardChain)) {
+    work._archCardChain = [];
+  }
+  work._archCardChain.push({
+    role: role,
+    content: content,
+    _module: module,
+    _cardIndex: cardIndex,
+    ts: Date.now()
+  });
 }
 
 // ========== 三级记忆压缩策略 ==========
