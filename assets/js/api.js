@@ -49,6 +49,58 @@ window.clearAICache = function() {
   if (typeof showToast === 'function') showToast('AI 缓存已清空', {duration: 1500});
 };
 
+// ========== v56: Function Calling 工具框架 ==========
+// 工具定义：让 AI 可以主动查询记忆，而不是每次都注入全部记忆
+var AI_TOOLS = null; // 延迟初始化
+var AI_TOOL_EXECUTOR = null; // 工具执行器
+
+// 注册工具执行器（由 write-editor.js 调用）
+window.registerAIToolExecutor = function(executor) {
+  AI_TOOL_EXECUTOR = executor;
+  // 构建工具定义
+  AI_TOOLS = [
+    {
+      type: 'function',
+      function: {
+        name: 'get_memory',
+        description: '查询项目记忆库，包括世界观、人设、大纲、细纲、前文摘要等。根据查询内容返回最相关的记忆片段。',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: '查询内容，如"主角人设"、"第3卷大纲"、"当前待解线索"等'
+            },
+            memory_type: {
+              type: 'string',
+              description: '记忆类型：worldview(世界观)、char_settings(人设)、outline(大纲)、detail_outline(细纲)、recent_summary(前文摘要)、all(全部)',
+              enum: ['worldview', 'char_settings', 'outline', 'detail_outline', 'recent_summary', 'all']
+            }
+          },
+          required: ['query']
+        }
+      }
+    }
+  ];
+};
+
+// 执行工具调用
+async function executeToolCall(toolCall) {
+  if (!AI_TOOL_EXECUTOR) {
+    return { error: '工具执行器未注册' };
+  }
+  try {
+    var fn = toolCall.function || toolCall;
+    var args = fn.arguments ? JSON.parse(fn.arguments) : {};
+    if (typeof fn.arguments === 'string') {
+      try { args = JSON.parse(fn.arguments); } catch(e) { args = {}; }
+    }
+    return await AI_TOOL_EXECUTOR(fn.name, args);
+  } catch(e) {
+    return { error: '工具执行失败: ' + e.message };
+  }
+}
+
 // API服务商配置（无硬编码密钥，URL自动填充）
 const API_PROVIDERS = {
   dashscope:   { name: '通义千问',   url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', type: 'openai' },
@@ -1037,15 +1089,24 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
       // 安全上限：不超过模型实际最大输出
       var oaiModelMax = _lookupModelMaxTokens(oaiModel);
       if (oaiModelMax && oaiMaxTokens > oaiModelMax) oaiMaxTokens = oaiModelMax;
+
+      // v56: 构建请求体
+      var reqBody = {
+        model: oaiModel,
+        messages: messages,
+        max_tokens: oaiMaxTokens,
+        temperature: 0.7
+      };
+
+      // v56: 如果有工具可用且已注册，添加工具
+      if (AI_TOOLS && extraOpts && extraOpts.enableTools) {
+        reqBody.tools = AI_TOOLS;
+      }
+
       response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-        body: JSON.stringify({
-          model: oaiModel,
-          messages: messages,
-          max_tokens: oaiMaxTokens,
-          temperature: 0.7
-        }),
+        body: JSON.stringify(reqBody),
         signal: signal
       });
       var okText2 = '';
@@ -1067,8 +1128,56 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
         var ne2 = new Error('服务返回非 JSON：' + (okText2 ? okText2.substring(0, 60) : '空'));
         ne2.kind = 'network'; ne2.provider = provider; throw ne2;
       }
-      result = (okData2.choices && okData2.choices[0] && okData2.choices[0].message && okData2.choices[0].message.content) || '';
-      _callOnce._lastFinishReason = (okData2.choices && okData2.choices[0] && okData2.choices[0].finish_reason) || 'stop';
+
+      // v56: 处理工具调用循环
+      var toolLoopCount = 0;
+      var maxToolLoops = 5;
+      while (toolLoopCount < maxToolLoops) {
+        var toolCalls = okData2.choices && okData2.choices[0] && okData2.choices[0].message && okData2.choices[0].message.tool_calls;
+        if (!toolCalls || toolCalls.length === 0) {
+          // 没有工具调用，取结果
+          result = (okData2.choices && okData2.choices[0] && okData2.choices[0].message && okData2.choices[0].message.content) || '';
+          _callOnce._lastFinishReason = (okData2.choices && okData2.choices[0] && okData2.choices[0].finish_reason) || 'stop';
+          break;
+        }
+
+        toolLoopCount++;
+        console.log('[tools] AI 请求调用 ' + toolCalls.length + ' 个工具');
+
+        // 执行每个工具调用
+        for (var ti = 0; ti < toolCalls.length; ti++) {
+          var tc = toolCalls[ti];
+          var toolResult = await executeToolCall(tc);
+          var resultContent = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+          // v56: 将工具结果添加到消息列表
+          messages.push(okData2.choices[0].message); // 添加 AI 的 tool_calls 消息
+          messages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: resultContent
+          });
+        }
+
+        // 继续请求获取下一轮响应
+        var continueReq = {
+          model: oaiModel,
+          messages: messages,
+          max_tokens: oaiMaxTokens,
+          temperature: 0.7
+        };
+        if (AI_TOOLS && extraOpts && extraOpts.enableTools) {
+          continueReq.tools = AI_TOOLS;
+        }
+
+        response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify(continueReq),
+          signal: signal
+        });
+        try { okText2 = await response.text(); } catch (_) {}
+        try { if (okText2) okData2 = JSON.parse(okText2); } catch (je) { okData2 = {}; }
+      }
     }
   } catch (e) {
     // 网络级错误（如跨域、DNS、断开、AbortError）
@@ -1229,9 +1338,11 @@ var TASK_ROUTE = {
 // 任意服务商有 key 能产出结果即返回；**所有服务商所有 key 都失败时给出明确的总括提示**
 // v48: 第4个参数 targetChars（目标中文字数）用于动态设置 max_tokens，避免输出被截断
 // v49: 第5个参数 silent（true 时不在内部操作 loading，由外层统一管理）
-async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent) {
+async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent, extraOpts) {
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
+  // v56: 支持 enableTools 参数
+  var enableTools = (extraOpts && extraOpts.enableTools) || false;
   // 根据目标字数动态计算 max_tokens
   // 策略：按目标字数换算，但严格不超过模型最大输出能力，防止 API 拒绝或截断
   var dynamicMaxTokens = null;
@@ -1286,8 +1397,10 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     var provider = order[oi];
     totalTry++;
     // v48: 构建动态输出选项（如果提供了 targetChars，会覆盖 DEFAULT_MAX_TOKENS）
+    // v56: 支持 enableTools 让 AI 可以主动查询记忆
     var callOpts = { provider: provider, silent: silent || oi !== 0 };
     if (dynamicMaxTokens) callOpts.maxTokens = dynamicMaxTokens;
+    if (enableTools) callOpts.enableTools = true;
 
     if (oi === 0) {
       // 静默尝试首选，用户无感

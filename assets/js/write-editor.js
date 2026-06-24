@@ -456,6 +456,8 @@ function loadWork(){
   if(work.chapters&&work.chapters.length>0){loadChapter(currentChapterIdx);}
   else{work.chapters=[{title:'第一章',content:''}];DB.saveWork(work);loadChapter(0);}
   renderMemory(work);
+  // v56: 初始化 AI 记忆查询工具
+  initMemoryToolExecutor(work);
 }
 
 function updateArchStatus(work){
@@ -5738,6 +5740,172 @@ function extractChapterSummary(content, title) {
   return summary.slice(0, 300);
 }
 
+// ========== v56: AI 记忆查询工具 ==========
+// 允许 AI 通过 function calling 主动查询记忆，而非被动注入全部记忆
+var _toolWorkRef = null; // 当前工具查询时引用的 work 对象
+
+// 初始化工具执行器（在 work 加载时调用）
+function initMemoryToolExecutor(w) {
+  _toolWorkRef = w;
+  if (typeof window.registerAIToolExecutor === 'function') {
+    window.registerAIToolExecutor(executeMemoryQuery);
+    console.log('[memory-tool] 记忆查询工具已注册');
+  }
+}
+
+// 执行记忆查询（供 AI 调用）
+async function executeMemoryQuery(toolName, args) {
+  if (!_toolWorkRef) {
+    return { error: '当前没有加载的项目' };
+  }
+  var w = _toolWorkRef;
+  var query = args.query || '';
+  var memType = args.memory_type || 'all';
+
+  console.log('[memory-tool] 查询: ' + query + ' (类型: ' + memType + ')');
+
+  try {
+    // 根据 memory_type 或 query 关键词决定查询范围
+    var results = [];
+
+    // 1. 世界观
+    if (memType === 'worldview' || memType === 'all' || query.includes('世界观') || query.includes('设定')) {
+      var world = w.worldView || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.world) || '';
+      if (world && typeof w.worldView === 'string') world = w.worldView;
+      else if (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.world) world = w.longMemory.moduleSummaries.world;
+      if (world && world.length > 10) {
+        results.push({ type: '世界观', content: world.slice(0, 3000) });
+      }
+    }
+
+    // 2. 人设
+    if (memType === 'char_settings' || memType === 'all' || query.includes('人设') || query.includes('角色') || query.includes('主角') || query.includes('女主') || query.includes('人物')) {
+      var chars = w.charSettings || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.characters) || '';
+      if (chars && typeof w.charSettings === 'string') chars = w.charSettings;
+      else if (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.characters) chars = w.longMemory.moduleSummaries.characters;
+      if (chars && chars.length > 10) {
+        results.push({ type: '人设', content: chars.slice(0, 3000) });
+      }
+    }
+
+    // 3. 大纲
+    if (memType === 'outline' || memType === 'all' || query.includes('大纲') || query.includes('剧情')) {
+      var outline = w.outline || '';
+      if (outline && outline.length > 10) {
+        results.push({ type: '大纲', content: outline.slice(0, 3000) });
+      }
+    }
+
+    // 4. 细纲
+    if (memType === 'detail_outline' || memType === 'all' || query.includes('细纲') || query.includes('章节大纲')) {
+      var detailOutlines = [];
+      if (w.chapters) {
+        for (var i = 0; i < Math.min(w.chapters.length, 20); i++) {
+          var ch = w.chapters[i];
+          if (ch && ch.outlineDetail && ch.outlineDetail.length > 20) {
+            detailOutlines.push('第' + (i+1) + '章 ' + (ch.title || '') + ' 细纲：' + ch.outlineDetail.slice(0, 300));
+          }
+        }
+      }
+      if (detailOutlines.length > 0) {
+        results.push({ type: '细纲', content: detailOutlines.join('\n\n').slice(0, 4000) });
+      }
+    }
+
+    // 5. 前文摘要（近期待解锁）
+    if (memType === 'recent_summary' || memType === 'all' || query.includes('摘要') || query.includes('前文') || query.includes('最近')) {
+      var summaries = [];
+      if (w.longMemory && w.longMemory.rollingSummary) {
+        var rs = w.longMemory.rollingSummary;
+        if (rs.recent) summaries.push('【近期摘要】' + rs.recent.slice(0, 500));
+        if (rs.milestones) summaries.push('【里程碑】' + rs.milestones.slice(0, 500));
+      }
+      // 章节摘要
+      if (w.chapters) {
+        var startIdx = Math.max(0, w.chapters.length - 10);
+        for (var j = startIdx; j < w.chapters.length; j++) {
+          var c = w.chapters[j];
+          if (c && c.summary) {
+            summaries.push('第' + (j+1) + '章 ' + (c.title || '') + '：' + c.summary.slice(0, 150));
+          }
+        }
+      }
+      if (summaries.length > 0) {
+        results.push({ type: '前文摘要', content: summaries.join('\n').slice(0, 3000) });
+      }
+    }
+
+    // 6. 记忆锚点（核心记忆点）
+    if (memType === 'all' || query.includes('记忆') || query.includes('锚点') || query.includes('线索') || query.includes('状态')) {
+      var anchors = [];
+      if (w.longMemory && w.longMemory.memoryAnchors) {
+        var ma = w.longMemory.memoryAnchors;
+        if (ma.core && ma.core.length > 0) {
+          anchors.push('【核心记忆点】' + ma.core.slice(0, 500));
+        }
+        if (ma.characterTags && ma.characterTags.length > 0) {
+          anchors.push('【角色特征】' + ma.characterTags.slice(0, 500));
+        }
+        if (ma.relationships && ma.relationships.length > 0) {
+          anchors.push('【人物关系】' + ma.relationships.slice(0, 500));
+        }
+      }
+      if (anchors.length > 0) {
+        results.push({ type: '记忆锚点', content: anchors.join('\n').slice(0, 2000) });
+      }
+    }
+
+    // 7. 待解线索
+    if (memType === 'all' || query.includes('待解') || query.includes('线索') || query.includes('伏笔')) {
+      var threads = [];
+      if (w.longMemory && w.longMemory.plotThreads) {
+        var pending = w.longMemory.plotThreads.filter(function(t){ return t.status === '待解'; });
+        for (var k = 0; k < Math.min(pending.length, 10); k++) {
+          var t = pending[k];
+          threads.push('> ' + t.title + (t.relatedTo ? ' [关联：' + t.relatedTo + ']' : ''));
+        }
+      }
+      if (threads.length > 0) {
+        results.push({ type: '待解线索', content: threads.join('\n').slice(0, 1000) });
+      }
+    }
+
+    // 8. 当前章节上下文
+    if (query.includes('当前') || query.includes('这章') || query.includes('现在')) {
+      var currentCh = null;
+      if (w.chapters && w.chapters.length > 0) {
+        currentCh = w.chapters[w.chapters.length - 1];
+      }
+      if (currentCh) {
+        var currentInfo = '当前正在写第' + w.chapters.length + '章：' + (currentCh.title || '无标题');
+        if (currentCh.summary) currentInfo += '\n本章摘要：' + currentCh.summary.slice(0, 200);
+        if (w.longMemory && w.longMemory.charStates && w.longMemory.charStates.length > 0) {
+          currentInfo += '\n【人物状态】';
+          for (var cs = 0; cs < w.longMemory.charStates.length; cs++) {
+            var csItem = w.longMemory.charStates[cs];
+            currentInfo += '\n  ' + csItem.name + '：' + csItem.status;
+          }
+        }
+        results.push({ type: '当前上下文', content: currentInfo.slice(0, 1500) });
+      }
+    }
+
+    if (results.length === 0) {
+      return { message: '未找到相关记忆，请尝试其他查询', query: query };
+    }
+
+    return {
+      query: query,
+      found: results.length + ' 个相关记忆',
+      results: results
+    };
+
+  } catch(e) {
+    console.warn('[memory-tool] 查询失败:', e);
+    return { error: '查询失败: ' + e.message };
+  }
+}
+
 function extractCharNameMap(chars) {
   const map = {names:[], aliasMap:{}, roles:{}};
   if (!chars) return map;
@@ -8143,7 +8311,8 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
   
   try {
-    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
+    // v56: 启用 AI 记忆查询工具，让 AI 可以主动查询世界观/人设/大纲/细纲等记忆
+    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars, false, { enableTools: true });
     
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
