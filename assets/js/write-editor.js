@@ -4505,16 +4505,16 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  // v60: 大上下文模型使用对话上下文模式，基础设定常驻
-  var archLimits = getArchTruncationLimits();
-  var useConversation = (archLimits === null && typeof ConversationMgr !== 'undefined');
+  // v60: 全部模型使用对话上下文模式，基础设定常驻对话历史
+  // 小模型自动按比例截断基础设定，保证上下文不溢出
+  var useConversation = (typeof ConversationMgr !== 'undefined');
   var _msgPrompt;
   if (useConversation && _writeIteration === 0) {
     var sysMsg = '你是一位顶级网文写手，拥有十年网文创作经验，深谙读者心理和商业写作技巧。你的文字让读者欲罢不能，每章结尾都让读者忍不住点"下一章"。';
     ConversationMgr.setSystemPrompt(work, sysMsg);
     var messages = ConversationMgr.buildMessages(work, prompt, { keepAll: false });
     _msgPrompt = messages;
-    console.log('[ConversationMgr] 使用对话上下文模式，消息数: ' + messages.length + ', 地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
+    console.log('[ConversationMgr] 对话上下文模式，消息数: ' + messages.length + ', 地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
   } else {
     _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
   }
@@ -5557,30 +5557,68 @@ var ConversationMgr = {
     var sysContent = conv.system || '你是一位顶级网文作家，擅长创作长篇小说。';
     messages.push({ role: 'system', content: sysContent });
 
-    if (found.world && found.world.length > 0) {
-      messages.push({ role: 'user', content: '【世界观设定】\n' + found.world });
-      messages.push({ role: 'assistant', content: '已收到并记住世界观设定，我会严格基于此设定创作。' });
-    }
-    if (found.chars && found.chars.length > 0) {
-      messages.push({ role: 'user', content: '【人物设定】\n' + found.chars });
-      messages.push({ role: 'assistant', content: '已收到并记住人物设定，所有角色行为会符合人设。' });
-    }
-    if (found.outline && found.outline.length > 0) {
-      messages.push({ role: 'user', content: '【全书大纲】\n' + found.outline });
-      messages.push({ role: 'assistant', content: '已收到并记住全书大纲，剧情会严格按照大纲推进。' });
-    }
-    if (found.detail && found.detail.length > 0) {
-      messages.push({ role: 'user', content: '【细纲】\n' + found.detail });
-      messages.push({ role: 'assistant', content: '已收到并记住细纲，每章会按照细纲执行。' });
+    var ctx = 131072;
+    try { if (typeof getModelContextWindow === 'function') ctx = getModelContextWindow(); } catch(e) { console.warn("[ConversationMgr]", e); }
+
+    var foundationText = (found.world || '') + (found.chars || '') + (found.outline || '') + (found.detail || '');
+    var foundationChars = foundationText.length;
+    var maxFoundationChars = Math.floor(ctx * 0.6);
+
+    if (foundationChars > maxFoundationChars && !opts.keepAll) {
+      var ratio = maxFoundationChars / foundationChars;
+      var wLimit = Math.floor((found.world || '').length * ratio);
+      var cLimit = Math.floor((found.chars || '').length * ratio);
+      var oLimit = Math.floor((found.outline || '').length * ratio);
+      var dLimit = Math.floor((found.detail || '').length * ratio);
+      if (found.world && found.world.length > 0) {
+        messages.push({ role: 'user', content: '【世界观设定】\n' + found.world.slice(0, wLimit) + (found.world.length > wLimit ? '\n...(世界观过长已截断)' : '') });
+        messages.push({ role: 'assistant', content: '已收到世界观设定，我会严格基于此设定创作。' });
+      }
+      if (found.chars && found.chars.length > 0) {
+        messages.push({ role: 'user', content: '【人物设定】\n' + found.chars.slice(0, cLimit) + (found.chars.length > cLimit ? '\n...(人设过长已截断)' : '') });
+        messages.push({ role: 'assistant', content: '已收到人物设定，所有角色行为会符合人设。' });
+      }
+      if (found.outline && found.outline.length > 0) {
+        messages.push({ role: 'user', content: '【全书大纲】\n' + found.outline.slice(0, oLimit) + (found.outline.length > oLimit ? '\n...(大纲过长已截断)' : '') });
+        messages.push({ role: 'assistant', content: '已收到全书大纲，剧情会严格按照大纲推进。' });
+      }
+      if (found.detail && found.detail.length > 0) {
+        messages.push({ role: 'user', content: '【细纲】\n' + found.detail.slice(0, dLimit) + (found.detail.length > dLimit ? '\n...(细纲过长已截断)' : '') });
+        messages.push({ role: 'assistant', content: '已收到细纲，每章会按照细纲执行。' });
+      }
+    } else {
+      if (found.world && found.world.length > 0) {
+        messages.push({ role: 'user', content: '【世界观设定】\n' + found.world });
+        messages.push({ role: 'assistant', content: '已收到并记住世界观设定，我会严格基于此设定创作。' });
+      }
+      if (found.chars && found.chars.length > 0) {
+        messages.push({ role: 'user', content: '【人物设定】\n' + found.chars });
+        messages.push({ role: 'assistant', content: '已收到并记住人物设定，所有角色行为会符合人设。' });
+      }
+      if (found.outline && found.outline.length > 0) {
+        messages.push({ role: 'user', content: '【全书大纲】\n' + found.outline });
+        messages.push({ role: 'assistant', content: '已收到并记住全书大纲，剧情会严格按照大纲推进。' });
+      }
+      if (found.detail && found.detail.length > 0) {
+        messages.push({ role: 'user', content: '【细纲】\n' + found.detail });
+        messages.push({ role: 'assistant', content: '已收到并记住细纲，每章会按照细纲执行。' });
+      }
     }
 
     if (conv.recentChapters && conv.recentChapters.length > 0) {
-      var recent = opts.keepAll ? conv.recentChapters : conv.recentChapters.slice(-5);
+      var keepCount = opts.keepAll ? conv.recentChapters.length : Math.min(5, Math.floor(ctx / 30000));
+      if (keepCount < 1) keepCount = 1;
+      var recent = conv.recentChapters.slice(-keepCount);
       for (var i = 0; i < recent.length; i++) {
         var ch = recent[i];
+        var chLimit = Math.floor(ctx / 20);
+        if (chLimit < 500) chLimit = 500;
+        var chContent = (ch.content || '').length > chLimit
+          ? (ch.content || '').slice(0, chLimit) + '\n...(本章内容过长已截取前半段)'
+          : (ch.content || '');
         messages.push({
           role: ch.role || 'assistant',
-          content: '【第' + (ch.idx + 1) + '章 ' + (ch.title || '') + '】\n' + ch.content.slice(0, 2000)
+          content: '【第' + (ch.idx + 1) + '章 ' + (ch.title || '') + '】\n' + chContent
         });
       }
     }
@@ -8589,8 +8627,22 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
   
   try {
-    // v56: 启用 AI 记忆查询工具，让 AI 可以主动查询世界观/人设/大纲/细纲等记忆
-    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars, false, { enableTools: true });
+    // v60: 架构生成也使用对话上下文，保证世界观→人设→大纲→细纲→正文的一致性
+    // AI通过对话历史自然记得前面生成的内容，不会前后矛盾
+    var archMessages;
+    if (typeof ConversationMgr !== 'undefined' && iteration === 0) {
+      var archSys = '';
+      if (type === 'world') archSys = '你是一位顶级世界观架构师，擅长构建宏大、自洽、富有想象力的小说世界观。';
+      else if (type === 'chars') archSys = '你是一位顶级人物设计师，擅长塑造立体、鲜明、有成长弧光的角色。';
+      else if (type === 'outline') archSys = '你是一位顶级网文大纲设计师，擅长构建节奏紧凑、冲突密集、悬念迭起的长篇大纲。';
+      else if (type === 'detail') archSys = '你是一位顶级细纲设计师，擅长把大纲细化为章章有爽点、卷卷有高潮的详细章节规划。';
+      ConversationMgr.setSystemPrompt(work, archSys);
+      archMessages = ConversationMgr.buildMessages(work, prompt, { keepAll: false });
+      console.log('[ConversationMgr] 架构生成对话模式: ' + type + ', 消息数: ' + archMessages.length);
+    } else {
+      archMessages = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+    }
+    var result = await callRealAPIWithFallback(archMessages, null, taskType, targetChars, false, { enableTools: true });
     
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;
@@ -8685,6 +8737,193 @@ function applyArchResult(type, work, result) {
   }
   DB.saveWork(work);
   updateArchStatus(work);
+  // v60: 架构生成后自动提取结构化记忆入库，保证完整性和一致性
+  // 记忆库存在 work.longMemory 中，多AI天然共享同一套记忆
+  if (typeof extractArchMemory === 'function') {
+    setTimeout(function() {
+      try { extractArchMemory(type, work); } catch(e) { console.warn('[arch-memory] 提取失败:', e); }
+    }, 100);
+  }
+}
+
+// ========== v60: 架构内容自动记忆提取 ==========
+// 世界观/人设/大纲/细纲生成后，用AI提取结构化记忆存入 longMemory
+// 记忆库统一存在 work.longMemory，支持多AI共享
+function extractArchMemory(type, work) {
+  if (!work || !type) return;
+  var content = '';
+  var extractType = '';
+  switch(type) {
+    case 'world':
+      content = work.world || '';
+      extractType = '世界观';
+      break;
+    case 'chars':
+      content = work.chars || '';
+      extractType = '人设';
+      break;
+    case 'outline':
+      content = work.outline || '';
+      extractType = '大纲';
+      break;
+    case 'detail':
+      content = work.detail || '';
+      extractType = '细纲';
+      break;
+    default: return;
+  }
+  if (!content || content.length < 200) return;
+
+  if (!work.longMemory) {
+    work.longMemory = {
+      charStates: [],
+      memoryAnchors: { characterTags: {}, relationships: [], items: [], coreFacts: [], promises: [] },
+      plotThreads: [],
+      foreshadows: [],
+      rollingSummary: '',
+      moduleSummaries: {},
+      chapterIndex: [],
+      extractedAt: {}
+    };
+  }
+  if (!work.longMemory.moduleSummaries) work.longMemory.moduleSummaries = {};
+  if (!work.longMemory.extractedAt) work.longMemory.extractedAt = {};
+
+  var lastTime = work.longMemory.extractedAt[type] || 0;
+  if (Date.now() - lastTime < 60000 && work.longMemory.moduleSummaries[type]) {
+    return;
+  }
+  work.longMemory.extractedAt[type] = Date.now();
+
+  var sysMsg = '你是一个专业的小说记忆提取助手。请从以下' + extractType + '内容中，提取关键结构化记忆，输出严格的JSON格式。\n\n';
+  sysMsg += '输出格式：\n{\n';
+  if (type === 'world') {
+    sysMsg += '  "summary": "世界观核心设定摘要（300字内）",\n';
+    sysMsg += '  "powerSystem": "力量体系核心规则（200字内）",\n';
+    sysMsg += '  "factions": [{"name": "势力名", "desc": "势力简介", "position": "立场/阵营"}],\n';
+    sysMsg += '  "locations": [{"name": "地点名", "desc": "地点特征/意义"}],\n';
+    sysMsg += '  "coreRules": ["核心设定规则1", "核心设定规则2"]\n';
+  } else if (type === 'chars') {
+    sysMsg += '  "mainChars": [{"name": "角色名", "role": "主角/配角/反派", "personality": "性格特征", "background": "背景经历", "goal": "目标动机"}],\n';
+    sysMsg += '  "relationships": [{"from": "角色A", "to": "角色B", "relation": "关系描述"}],\n';
+    sysMsg += '  "keyItems": [{"name": "重要物品", "owner": "持有者", "effect": "作用/意义"}]\n';
+  } else if (type === 'outline') {
+    sysMsg += '  "mainPlot": "全书主线概要（300字内）",\n';
+    sysMsg += '  "volumes": [{"name": "卷名/第一卷", "summary": "本卷核心情节", "keyEvents": ["关键事件1", "关键事件2"]}],\n';
+    sysMsg += '  "coreConflict": "全书核心冲突（200字内）",\n';
+    sysMsg += '  "foreshadows": ["伏笔1", "伏笔2"]\n';
+  } else if (type === 'detail') {
+    sysMsg += '  "volumeSummaries": [{"vol": "第几卷", "summary": "本卷概要", "keyChapters": ["第X章：关键事件"]}],\n';
+    sysMsg += '  "chapterCount": "总章节数预估",\n';
+    sysMsg += '  "keyPlotPoints": ["关键情节点1", "关键情节点2"]\n';
+  }
+  sysMsg += '}\n\n请只输出JSON，不要其他文字。';
+
+  var inputText = content.length > 8000 ? content.slice(0, 8000) + '\n...(内容过长已截取前8000字)' : content;
+  var msgs = [
+    { role: 'system', content: sysMsg },
+    { role: 'user', content: '【' + extractType + '全文】\n' + inputText + '\n\n请提取结构化记忆：' }
+  ];
+
+  callRealAPIWithFallback(msgs, null, 'memory_extract').then(function(result) {
+    if (!result) return;
+    try {
+      var jsonStr = result;
+      var jsonStart = result.indexOf('{');
+      var jsonEnd = result.lastIndexOf('}');
+      if (jsonStart >= 0 && jsonEnd > jsonStart) jsonStr = result.substring(jsonStart, jsonEnd + 1);
+      var data = JSON.parse(jsonStr);
+      _applyArchMemory(work, type, data);
+      DB.saveWork(work);
+      console.log('[arch-memory] ' + extractType + '记忆提取完成');
+    } catch(e) {
+      console.warn('[arch-memory] 解析失败:', e);
+      if (content.length > 0) {
+        work.longMemory.moduleSummaries[type] = content.slice(0, 1000);
+        DB.saveWork(work);
+      }
+    }
+  }).catch(function(e) {
+    console.warn('[arch-memory] 提取调用失败:', e);
+    if (content.length > 0 && !work.longMemory.moduleSummaries[type]) {
+      work.longMemory.moduleSummaries[type] = content.slice(0, 1000);
+      DB.saveWork(work);
+    }
+  });
+}
+
+function _applyArchMemory(work, type, data) {
+  if (!work.longMemory) work.longMemory = {};
+  var lm = work.longMemory;
+  if (!lm.moduleSummaries) lm.moduleSummaries = {};
+  if (!lm.memoryAnchors) lm.memoryAnchors = { characterTags: {}, relationships: [], items: [], coreFacts: [], promises: [] };
+  if (!lm.foreshadows) lm.foreshadows = [];
+  if (!lm.plotThreads) lm.plotThreads = [];
+
+  if (type === 'world') {
+    lm.moduleSummaries.world = data.summary || '';
+    if (data.coreRules && Array.isArray(data.coreRules)) {
+      for (var i = 0; i < data.coreRules.length; i++) {
+        if (lm.memoryAnchors.coreFacts.indexOf(data.coreRules[i]) < 0) {
+          lm.memoryAnchors.coreFacts.push(data.coreRules[i]);
+        }
+      }
+    }
+  } else if (type === 'chars') {
+    lm.moduleSummaries.characters = data.mainChars ? JSON.stringify(data.mainChars.slice(0, 10)) : '';
+    if (data.mainChars && Array.isArray(data.mainChars)) {
+      for (var j = 0; j < data.mainChars.length; j++) {
+        var mc = data.mainChars[j];
+        if (mc.name) {
+          lm.memoryAnchors.characterTags[mc.name] = {
+            personality: mc.personality || '',
+            background: mc.background || '',
+            role: mc.role || '配角',
+            goal: mc.goal || ''
+          };
+        }
+      }
+    }
+    if (data.relationships && Array.isArray(data.relationships)) {
+      for (var k = 0; k < data.relationships.length; k++) {
+        var rel = data.relationships[k];
+        var relStr = (rel.from || '') + '-' + (rel.to || '') + ': ' + (rel.relation || '');
+        var exists = false;
+        for (var rk = 0; rk < lm.memoryAnchors.relationships.length; rk++) {
+          if (lm.memoryAnchors.relationships[rk].indexOf(rel.from) >= 0 && lm.memoryAnchors.relationships[rk].indexOf(rel.to) >= 0) {
+            exists = true; break;
+          }
+        }
+        if (!exists) lm.memoryAnchors.relationships.push(relStr);
+      }
+    }
+    if (data.keyItems && Array.isArray(data.keyItems)) {
+      for (var ki = 0; ki < data.keyItems.length; ki++) {
+        var item = data.keyItems[ki];
+        var exists2 = false;
+        for (var ik = 0; ik < lm.memoryAnchors.items.length; ik++) {
+          if (lm.memoryAnchors.items[ik].name === item.name) { exists2 = true; break; }
+        }
+        if (!exists2) lm.memoryAnchors.items.push(item);
+      }
+    }
+  } else if (type === 'outline') {
+    lm.moduleSummaries.outline = data.mainPlot || '';
+    if (data.foreshadows && Array.isArray(data.foreshadows)) {
+      for (var fi = 0; fi < data.foreshadows.length; fi++) {
+        var fs = data.foreshadows[fi];
+        var exists3 = false;
+        for (var fk = 0; fk < lm.foreshadows.length; fk++) {
+          if (lm.foreshadows[fk].content === fs) { exists3 = true; break; }
+        }
+        if (!exists3) {
+          lm.foreshadows.push({ content: fs, chapter: 0, type: 'outline', status: 'unresolved' });
+        }
+      }
+    }
+  } else if (type === 'detail') {
+    lm.moduleSummaries.detail = data.volumeSummaries ? JSON.stringify(data.volumeSummaries) : '';
+  }
 }
 
 window.aiGenerateArchitecture = aiGenerateArchitecture;
