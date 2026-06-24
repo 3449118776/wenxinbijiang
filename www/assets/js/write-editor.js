@@ -4637,7 +4637,14 @@ async function aiWriteChapter(opts){
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
   // v59: 转为 messages 数组，让服务商缓存固定前缀
-  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  // v66: 使用对话历史管理器构建消息（架构前缀 + 正文滑动窗口 + 当前指令）
+  var _msgPrompt;
+  if (typeof ConversationManager !== 'undefined' && ConversationManager.buildMessages && ConversationManager.hasArchitecture(work.id)) {
+    _msgPrompt = ConversationManager.buildMessages(work.id, prompt);
+    console.log('[对话历史] 使用对话历史生成，前缀已缓存');
+  } else {
+    _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  }
   let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
@@ -4904,6 +4911,17 @@ async function aiWriteChapter(opts){
       }
     }
     
+    // v66: 将生成的章节加入对话历史（滑动窗口，利用 DeepSeek 前缀缓存）
+    // 只在首轮生成时加入，迭代优化时不加（避免重复内容）
+    try {
+      if (typeof ConversationManager !== 'undefined' && ConversationManager.addBodyMessage && _writeIteration === 0) {
+        var chTitle = work.chapters[chapterIdx]?.title || ('第' + (chapterIdx + 1) + '章');
+        ConversationManager.addBodyMessage(work.id, 'user', '请写第' + (chapterIdx + 1) + '章：' + chTitle, { chapterIdx: chapterIdx, type: 'chapter_instruction' });
+        ConversationManager.addBodyMessage(work.id, 'assistant', ch.content || result, { chapterIdx: chapterIdx, type: 'chapter_content' });
+        console.log('[对话历史] 第' + (chapterIdx + 1) + '章已加入对话历史');
+      }
+    } catch(convErr) { console.warn('[对话历史] 加入失败:', convErr); }
+
     // v39：全链路一致性检查与反哺
     var _chainReport = null;
     try {
@@ -6574,6 +6592,75 @@ function updateUltraLongMemory(w, idx, content, states) {
   updateForeshadowLedger(w, idx);
   updateVolumeMemories(w, idx);
   w.longMemory.ultraMeta.lastUltraUpdateAt = idx;
+}
+
+// ===== v66: 对话历史章节压缩（滑出窗口时，章节摘要存入 longMemory）=====
+// 由 ConversationManager 在章节滑出窗口时调用
+function compressChapterSummary(workId, chapterIdx, content) {
+  try {
+    var work = getCurrentWork();
+    if (!work || work.id !== workId) return;
+    if (!content || content.length < 100) return;
+
+    // 确保 longMemory 存在
+    if (!work.longMemory) work.longMemory = {};
+    var mem = work.longMemory;
+    if (!Array.isArray(mem.memoryAnchors)) mem.memoryAnchors = {
+      core: [], characterTags: [], relationships: [], items: [],
+      chapterContext: [], locations: [], promises: [], timeline: [], hooks: []
+    };
+
+    // 生成章节摘要（提取关键句子）
+    var sentences = content.split(/[。！？.!?]/).filter(function(s){ return s.trim().length > 15; });
+    var summary = '';
+    if (sentences.length > 0) {
+      var keySentences = [];
+      // 取前3句和后3句作为摘要
+      for (var si = 0; si < Math.min(3, sentences.length); si++) {
+        keySentences.push(sentences[si].trim());
+      }
+      if (sentences.length > 6) {
+        keySentences.push('...');
+        for (var sj = sentences.length - 3; sj < sentences.length; sj++) {
+          keySentences.push(sentences[sj].trim());
+        }
+      }
+      summary = keySentences.join('。');
+    } else {
+      summary = content.substring(0, 200);
+    }
+
+    // 存入章节上下文记忆锚点
+    if (mem.memoryAnchors && Array.isArray(mem.memoryAnchors.chapterContext)) {
+      var existingIdx = mem.memoryAnchors.chapterContext.findIndex(function(c){ return c.chapterIdx === chapterIdx; });
+      var ctxItem = {
+        chapterIdx: chapterIdx,
+        summary: summary.substring(0, 300),
+        source: '对话历史压缩',
+        updatedAt: Date.now()
+      };
+      if (existingIdx >= 0) {
+        mem.memoryAnchors.chapterContext[existingIdx] = ctxItem;
+      } else {
+        mem.memoryAnchors.chapterContext.push(ctxItem);
+        // 只保留最近50章
+        if (mem.memoryAnchors.chapterContext.length > 50) {
+          mem.memoryAnchors.chapterContext = mem.memoryAnchors.chapterContext.slice(-50);
+        }
+      }
+    }
+
+    // 如果有超长记忆系统，也更新一下
+    if (typeof updateUltraLongMemory === 'function') {
+      try {
+        updateUltraLongMemory(work, chapterIdx, content, {});
+      } catch(e) { console.warn('[对话历史] 超长记忆更新失败:', e); }
+    }
+
+    console.log('[对话历史] 第' + (chapterIdx + 1) + '章已压缩为摘要，存入 longMemory');
+  } catch(e) {
+    console.warn('[对话历史] 章节压缩失败:', e);
+  }
 }
 
 function buildVolumeMemoryContext(w, idx) {

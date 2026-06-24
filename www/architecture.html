@@ -2303,6 +2303,59 @@ function buildArchMemoryContext(work, currentModule){
   return ctx;
 }
 
+// ===== v66: 计算内容变化率（用于判断全量/增量更新）=====
+function _calculateChangeRate(oldText, newText) {
+  if (!oldText || !newText) return 1;
+  var oldLen = oldText.length;
+  var newLen = newText.length;
+  if (oldLen === 0 || newLen === 0) return 1;
+
+  // 简单估算：找最长公共子串长度 / 最大长度
+  // 为了性能，只比较前500字
+  var sampleLen = Math.min(500, oldLen, newLen);
+  var oldSample = oldText.substring(0, sampleLen);
+  var newSample = newText.substring(0, sampleLen);
+
+  // 计算相同行数的比例
+  var oldLines = oldSample.split('\n').filter(function(l){ return l.trim().length > 5; });
+  var newLines = newSample.split('\n').filter(function(l){ return l.trim().length > 5; });
+
+  var sameCount = 0;
+  for (var i = 0; i < oldLines.length; i++) {
+    for (var j = 0; j < newLines.length; j++) {
+      if (oldLines[i] === newLines[j]) { sameCount++; break; }
+    }
+  }
+
+  var maxLines = Math.max(oldLines.length, newLines.length, 1);
+  var sameRate = sameCount / maxLines;
+  return 1 - sameRate;
+}
+
+// ===== v66: 描述改动内容（增量更新时的描述）=====
+function _describeChange(oldText, newText, module) {
+  if (!oldText || !newText) return null;
+
+  var modNames = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
+  var modName = modNames[module] || module;
+
+  var oldLen = oldText.length;
+  var newLen = newText.length;
+  var lenDiff = newLen - oldLen;
+  var lenPct = oldLen > 0 ? Math.round(lenDiff / oldLen * 100) : 0;
+
+  var desc = '';
+  if (lenDiff > 100) {
+    desc = modName + '新增了内容（增加约' + lenPct + '%）';
+  } else if (lenDiff < -100) {
+    desc = modName + '删减了内容（减少约' + Math.abs(lenPct) + '%）';
+  } else {
+    desc = modName + '进行了调整';
+  }
+
+  return desc;
+}
+
 // ========== 核心：架构模块生成主函数 ==========
 // ===== 从已生成内容中提取记忆精要（替代原文注入，保持一致性同时省token）=====
 // 策略：每张卡片的标题 + 首段 200字 作为"卡片锚点"；模块特定信息补充
@@ -2952,6 +3005,14 @@ window.generateArchModule = async function(opts){
       rawEl.style.height = Math.max(360, Math.min(rawEl.scrollHeight + 24, 2400)) + 'px';
     }
     work[module] = result;
+
+    // v66: 同步到对话历史管理器（作为前缀缓存，后续生成不用重复注入）
+    try {
+      if (typeof ConversationManager !== 'undefined' && ConversationManager.setArchitecture) {
+        ConversationManager.setArchitecture(work.id, module, result);
+        console.log('[对话历史] ' + module + ' 已保存到对话历史');
+      }
+    } catch(convErr) { console.warn('[对话历史] 保存失败:', convErr); }
     
     // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
     try {
@@ -4135,7 +4196,39 @@ window.saveArchModule = function(){
 
     // ===== 强一致性：一次保存，三层同步 =====
     // 第一层：保存原始内容
+    var oldContent = work[module] || '';
     work[module] = content;
+
+    // v66: 对话历史同步 — 智能判断是全量替换还是增量更新
+    // 如果改动较小（<30%），用增量更新，保留 DeepSeek 前缀缓存
+    // 如果改动较大，全量替换
+    try {
+      if (typeof ConversationManager !== 'undefined') {
+        if (oldContent && oldContent.trim() && content && content.trim()) {
+          var changeRate = _calculateChangeRate(oldContent, content);
+          if (changeRate < 0.3 && ConversationManager.hasArchitecture(work.id, module)) {
+            // 小改动：增量更新，不破坏缓存
+            var changeDesc = _describeChange(oldContent, content, module);
+            if (changeDesc) {
+              ConversationManager.addModification(work.id, module, changeDesc, content);
+              console.log('[对话历史] ' + module + ' 增量更新（变化率' + Math.round(changeRate*100) + '%），保留缓存');
+            } else {
+              ConversationManager.setArchitecture(work.id, module, content);
+            }
+          } else {
+            // 大改动：全量替换
+            ConversationManager.setArchitecture(work.id, module, content);
+            // 改动大时重置正文对话历史，避免不一致
+            ConversationManager.resetBody(work.id);
+            console.log('[对话历史] ' + module + ' 全量更新（变化率' + Math.round(changeRate*100) + '%），已重置正文历史');
+          }
+        } else {
+          // 首次生成：全量设置
+          ConversationManager.setArchitecture(work.id, module, content);
+        }
+      }
+    } catch(convErr) { console.warn('[对话历史] 保存失败:', convErr); }
+
     // 第二层：从最终保存内容重建 moduleSummaries（确保 summary 与实际内容一致，不受手动编辑影响）
     try {
       if(!work.longMemory) work.longMemory = {};

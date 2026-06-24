@@ -49,6 +49,162 @@ window.clearAICache = function() {
   if (typeof showToast === 'function') showToast('AI 缓存已清空', {duration: 1500});
 };
 
+// ========== v66: 对话历史管理器 ==========
+// 作用：维护作品级对话历史，利用 DeepSeek 前缀缓存，减少重复注入
+// 结构：架构前缀（世界观/人设/大纲/细纲）+ 正文滑动窗口 + 修改记录
+var ConversationManager = (function() {
+  var _conversations = {};
+  var STORAGE_KEY = 'wxbb_conversation_';
+  var MAX_BODY_MESSAGES = 20;
+  var MAX_CHARS_PER_MSG = 5000;
+
+  function _getWorkKey(workId) {
+    return STORAGE_KEY + (workId || 'default');
+  }
+
+  function _loadFromStorage(workId) {
+    try {
+      var data = localStorage.getItem(_getWorkKey(workId));
+      if (data) return JSON.parse(data);
+    } catch(e) {}
+    return null;
+  }
+
+  function _saveToStorage(workId, conv) {
+    try {
+      localStorage.setItem(_getWorkKey(workId), JSON.stringify(conv));
+    } catch(e) {}
+  }
+
+  function _createConversation() {
+    return {
+      world: null,
+      chars: null,
+      outline: null,
+      detail: null,
+      modifications: [],
+      bodyMessages: [],
+      version: 1
+    };
+  }
+
+  function getConversation(workId) {
+    if (!_conversations[workId]) {
+      var saved = _loadFromStorage(workId);
+      _conversations[workId] = saved || _createConversation();
+    }
+    return _conversations[workId];
+  }
+
+  function setArchitecture(workId, module, content) {
+    var conv = getConversation(workId);
+    conv[module] = content;
+    _saveToStorage(workId, conv);
+  }
+
+  function addModification(workId, module, description, content) {
+    var conv = getConversation(workId);
+    conv.modifications.push({
+      module: module,
+      description: description,
+      content: content,
+      time: Date.now()
+    });
+    _saveToStorage(workId, conv);
+  }
+
+  function addBodyMessage(workId, role, content, meta) {
+    var conv = getConversation(workId);
+    var msg = { role: role, content: content };
+    if (meta) msg.meta = meta;
+
+    if (content.length > MAX_CHARS_PER_MSG * 2) {
+      msg.content = content.slice(0, MAX_CHARS_PER_MSG) + '...（内容已省略，完整内容请查看正文）';
+      msg.fullContent = content;
+    }
+
+    conv.bodyMessages.push(msg);
+
+    if (conv.bodyMessages.length > MAX_BODY_MESSAGES) {
+      var removed = conv.bodyMessages.shift();
+      if (removed && removed.meta && removed.meta.chapterIdx != null && typeof compressChapterSummary === 'function') {
+        try { compressChapterSummary(workId, removed.meta.chapterIdx, removed.fullContent || removed.content); } catch(e) {}
+      }
+    }
+
+    _saveToStorage(workId, conv);
+  }
+
+  function buildMessages(workId, currentPrompt) {
+    var conv = getConversation(workId);
+    var messages = [];
+
+    if (conv.world) messages.push({ role: 'system', content: '【世界观设定】\n' + conv.world });
+    if (conv.chars) messages.push({ role: 'system', content: '【人物设定】\n' + conv.chars });
+    if (conv.outline) messages.push({ role: 'system', content: '【全书大纲】\n' + conv.outline });
+    if (conv.detail) messages.push({ role: 'system', content: '【章节细纲】\n' + conv.detail });
+
+    if (conv.modifications.length > 0) {
+      var modText = '【架构修改记录】\n';
+      for (var i = 0; i < conv.modifications.length; i++) {
+        var m = conv.modifications[i];
+        modText += (i+1) + '. 修改' + _moduleName(m.module) + '：' + m.description + '\n';
+        if (m.content) modText += '   内容：' + m.content.slice(0, 500) + '\n';
+      }
+      messages.push({ role: 'system', content: modText });
+    }
+
+    for (var j = 0; j < conv.bodyMessages.length; j++) {
+      messages.push({ role: conv.bodyMessages[j].role, content: conv.bodyMessages[j].content });
+    }
+
+    if (typeof currentPrompt === 'string') {
+      messages.push({ role: 'user', content: currentPrompt });
+    } else if (Array.isArray(currentPrompt)) {
+      for (var k = 0; k < currentPrompt.length; k++) {
+        messages.push(currentPrompt[k]);
+      }
+    }
+
+    return messages;
+  }
+
+  function _moduleName(mod) {
+    var map = { world: '世界观', chars: '人设', outline: '大纲', detail: '细纲' };
+    return map[mod] || mod;
+  }
+
+  function clearConversation(workId) {
+    _conversations[workId] = _createConversation();
+    try { localStorage.removeItem(_getWorkKey(workId)); } catch(e) {}
+  }
+
+  function resetBody(workId) {
+    var conv = getConversation(workId);
+    conv.bodyMessages = [];
+    conv.modifications = [];
+    _saveToStorage(workId, conv);
+  }
+
+  function hasArchitecture(workId, module) {
+    var conv = getConversation(workId);
+    return module ? (conv[module] != null) : (conv.world || conv.chars || conv.outline || conv.detail);
+  }
+
+  return {
+    getConversation: getConversation,
+    setArchitecture: setArchitecture,
+    addModification: addModification,
+    addBodyMessage: addBodyMessage,
+    buildMessages: buildMessages,
+    clearConversation: clearConversation,
+    resetBody: resetBody,
+    hasArchitecture: hasArchitecture
+  };
+})();
+
+window.ConversationManager = ConversationManager;
+
 // API服务商配置（无硬编码密钥，URL自动填充）
 const API_PROVIDERS = {
   dashscope:   { name: '通义千问',   url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', type: 'openai' },
