@@ -2968,6 +2968,16 @@ window.generateArchModule = async function(opts){
       var _chainPrompt = _MODULE_CHAT_PROMPTS[module] || '请生成' + (MODULE_INFO[module] ? MODULE_INFO[module].name : module) + '内容。';
       appendArchChatMessage(work, module, 'user', _chainPrompt);
       appendArchChatMessage(work, module, 'assistant', result);
+      // 模块级结果已保存到 _archChatChain，卡片级链不再需要，清理释放空间
+      if(work._archCardChain && Array.isArray(work._archCardChain)){
+        var _newCardChain = [];
+        for(var _cci = 0; _cci < work._archCardChain.length; _cci++){
+          if(work._archCardChain[_cci]._module !== module){
+            _newCardChain.push(work._archCardChain[_cci]);
+          }
+        }
+        work._archCardChain = _newCardChain;
+      }
     } catch(chainErr) { console.warn('[对话链保存] 异常:', chainErr); }
     // 同步更新生成缓存（保存结果作为基线）
     if (work._archCache) {
