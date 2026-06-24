@@ -4473,6 +4473,86 @@ async function startChapterPipeline() {
   }
 }
 
+// ===== v70: 骨架质量预检 — 在骨架自检通过后，检查骨架是否符合质量锚点 =====
+function preCheckSkeletonQuality(skeleton, work, chapterIdx) {
+  var issues = [];
+  if (!skeleton) return issues;
+
+  // 1. 黄金开篇检测（仅第1-3章）
+  if (chapterIdx <= 3) {
+    var firstNodeMatch = skeleton.match(/(?:节点|node|第[一二三]|①|1[.、：:])/g);
+    if (!firstNodeMatch) {
+      // 尝试从骨架文本找冲突词
+      var hasConflict = /冲突|危机|威胁|困境|绝境|追杀|压迫|生死|危险|紧急|危急/.test(skeleton);
+      if (!hasConflict) {
+        issues.push('⚠️ 前3章骨架首节点或核心内容应包含"冲突/危机"信号，当前骨架未检测到');
+      }
+    }
+  }
+
+  // 2. 章尾钩子检测
+  var hasHook = /悬念|钩子|突然|意外|秘密|谁也没想到|就在这时|竟然|居然|反转|逆转|未完|待续|未解|谜团|答案/.test(skeleton);
+  if (!hasHook) {
+    issues.push('⚠️ 骨架中章节结尾缺少悬念钩子信号（悬念/意外/未解之谜）');
+  }
+
+  // 3. 高潮位置大致检测
+  var hasClimax = /高潮|爆发|逆转|反转|决战|对决|揭秘|真相|巅峰|顶点/.test(skeleton);
+  if (!hasClimax) {
+    issues.push('⚠️ 骨架中缺少高潮点信号（爆发/逆转/揭秘/真相），章节可能平铺直叙');
+  }
+
+  // 4. 核心角色出现检测
+  try {
+    var mainChars = extractMainCharacterNames(work);
+    if (mainChars.length > 0 && chapterIdx > 1) {
+      var missingChars = [];
+      for (var ci = 0; ci < mainChars.length; ci++) {
+        if (skeleton.indexOf(mainChars[ci]) < 0) missingChars.push(mainChars[ci]);
+      }
+      if (missingChars.length === mainChars.length && mainChars.length <= 3) {
+        issues.push('⚠️ 骨架中未出现任何核心角色（' + mainChars.join('、') + '），注意正文中需要安排出场');
+      }
+    }
+  } catch(e) { /* 静默失败 — 角色提取不是阻塞检查 */ }
+
+  return issues;
+}
+
+// 辅助函数：从 work.longMemory 或 work.chars 中提取主要角色名
+function extractMainCharacterNames(work) {
+  var names = [];
+  try {
+    // 优先从 longMemory 提取
+    if (work.longMemory && work.longMemory.moduleSummaries && work.longMemory.moduleSummaries.chars) {
+      var charsText = work.longMemory.moduleSummaries.chars;
+      var lines = charsText.split('\n');
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim();
+        if (/^【.*】/.test(line) || /^■/.test(line)) {
+          var nameMatch = line.match(/[（(](?:主角|女主|男主|反派|配角)[)）]/);
+          if (nameMatch) {
+            var n = line.replace(/^[【■]\s*/, '').replace(/[（(].*[)）].*$/, '').trim();
+            if (n && n.length >= 2 && n.length <= 6) names.push(n);
+          }
+        }
+      }
+    }
+    // 从 work.chars 回退
+    if (names.length === 0 && work.chars) {
+      var nameMatches = work.chars.match(/[（(](?:主角|女主|男主|反派)[)）]|^【.*?】/gm);
+      if (nameMatches) {
+        names = nameMatches.map(function(m) {
+          return m.replace(/[【】（）()]/g, '').trim();
+        }).filter(function(n) { return n && n.length >= 2 && n.length <= 6; });
+      }
+    }
+  } catch(e) {}
+  // 兜底
+  if (names.length === 0 && work.title) names.push(work.title.substring(0, 2));
+  return names.slice(0, 5);
+}
+
 async function aiWriteChapter(opts){
   opts = opts || {};
   var _writeIteration = opts._iteration || 0;
@@ -4619,10 +4699,24 @@ async function aiWriteChapter(opts){
             } else {
               skeletonPassed = true;
               skFinalText = skText2;
-              if(statusBar){
-                statusBar.style.background = '#dcfce7';
-                statusBar.style.color = '#166534';
-                statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
+
+              // ⭐ v70: 骨架质量预检 — 对通过的骨架做质量锚点检查
+              var qualityIssues = preCheckSkeletonQuality(skText2, work, chapterIdx);
+              if (qualityIssues.length > 0) {
+                console.log('[骨架质量预检] 发现 ' + qualityIssues.length + ' 个问题:', qualityIssues.join('; '));
+                // 将质量预检问题注入到骨架文本中，提醒正文生成时注意
+                skFinalText += '\n\n【骨架质量锚点提醒】\n' + qualityIssues.map(function(q) { return '- ' + q; }).join('\n');
+                if (statusBar) {
+                  statusBar.style.background = '#fef3c7';
+                  statusBar.style.color = '#92400e';
+                  statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过但含 ' + qualityIssues.length + ' 个质量提醒，已注入正文生成';
+                }
+              } else {
+                if (statusBar) {
+                  statusBar.style.background = '#dcfce7';
+                  statusBar.style.color = '#166534';
+                  statusBar.textContent = '✅ ' + _stageInfo + ' 2/3 · 骨架通过自检（第' + skAt + '次），开始生成正文…';
+                }
               }
               break;
             }

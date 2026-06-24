@@ -3193,6 +3193,59 @@ function buildArchCardBatchesV48(module, work, idea){
   return batches;
 }
 
+// ===== v70: 各模块核心质量要求 — 根据模块类型注入针对性强制要求 =====
+function buildModuleQualityRequirements(module, work){
+  var requirements = [];
+  var genre = (work && work.genre) || '';
+  
+  if(module === 'world'){
+    requirements.push('【🌍 世界观核心要素 — 缺少任何一项视为不合格】');
+    requirements.push('1. 力量/能力体系：至少5个等级，含名称+实力描述+晋升代价+等级压制/越级机制');
+    requirements.push('2. 势力格局：至少3股势力，每股有明确目标且相互之间存在"根本冲突"（不是正邪对立，是资源/信仰/历史层面的真实矛盾）');
+    requirements.push('3. 核心矛盾：整个世界的根本冲突是什么？——用一句话说清楚');
+    requirements.push('4. 地理边界：主角活动的地理范围，地理如何影响势力分布');
+    requirements.push('5. 商业爽点设计：世界观中为哪些"打脸名场面/扮猪吃虎/逆袭"提供了空间？');
+    requirements.push('6. 社会的阶层结构+上升通道（底层靠什么改变命运？阶层固化到了什么程度？）');
+  }
+  
+  if(module === 'chars'){
+    requirements.push('【👤 人设核心要素 — 缺少任何一项视为不合格】');
+    requirements.push('1. 决策模式：每个核心角色写出"他遇到A类问题时会做X选择，遇到B类问题时会做Y选择"（这是角色区分的核心，不要只写性格形容词）');
+    requirements.push('2. 说话风格公式：主角≈X个字/句+常用Y词+生气时Z表现（不是"性格沉稳"，是具体可预判的行为模式）');
+    requirements.push('3. 成长转折点：什么事件让这个角色发生了不可逆的改变？——他/她的"顿悟时刻"或"崩溃时刻"');
+    requirements.push('4. 致命缺陷：每个核心角色至少有一个"只有他才会犯的错误"（不是泛泛的优柔寡断，是具体场景下的错误决策模式）');
+    requirements.push('5. 核心关系张力：每对关系之间必须有"张力来源"——利益冲突/情感纠葛/地位差距/秘密隐瞒');
+    requirements.push('6. 角色声纹区分：所有核心角色对话不要超过1个模凌两可的"声音特征"——每个角色说话的方式必须可以独立识别');
+  }
+  
+  if(module === 'outline'){
+    requirements.push('【📋 大纲核心要素 — 缺少任何一项视为不合格】');
+    requirements.push('1. 每卷必须有独立的核心冲突+情绪目标+高潮位置+结尾钩子');
+    requirements.push('2. 卷与卷之间必须有递进关系：难度升级/危机扩大/关系复杂化');
+    requirements.push('3. 情绪节奏设计：每章标注"情绪目标"——读者读这章应该体验到什么情绪变化？');
+    requirements.push('   → 示例格式："第3章《入门考核》| 情绪目标：压抑→爆发"');
+    requirements.push('4. 三级伏笔体系：长期伏笔（全书级）→中期伏笔（每卷级）→短期伏笔（章节级）');
+    requirements.push('5. 冲突递进阶梯：个人冲突→团体冲突→势力冲突→世界观级冲突，每个升级必须有导火索事件');
+    requirements.push('6. 黄金三章法则：第1章生存危机→第2章金手指展现→第3章首次打脸');
+    requirements.push('7. 爽点密度：前10章至少每3章1个爽点，全卷至少30%章节含爽点名场面');
+  }
+  
+  if(module === 'detail'){
+    requirements.push('【📑 细纲核心要素 — 缺少任何一项视为不合格】');
+    requirements.push('1. 情绪施工图：每章必须包含"起承转合"情绪曲线设计——不是写事件，是设计读者的情绪体验');
+    requirements.push('   → 每章标注：读者情绪变化曲线（如：紧张→恐惧→希望→震撼）');
+    requirements.push('2. 每个节点标注"情绪目的"：让读者感受到什么？（紧张/愤怒/惊喜/感动/悬念）');
+    requirements.push('3. 章尾钩子必含：每章最后一个事件必须是"未完成状态"——战斗未分胜负/秘密未完全揭露/危机未解除');
+    requirements.push('4. 高潮位置：章节70-85%位置必须安排高潮点（冲突爆发/真相揭露/决策时刻）');
+    requirements.push('5. 因果链：每章开头事件必须能追溯到前一章结尾——不是"第二天继续"，而是因为上一章结尾X导致了本章开头Y');
+    requirements.push('6. 格式：严格使用「■ 第N章《标题》| 场景 | 人物 | 节点 | 情绪钩子」');
+    requirements.push('7. 每章至少设计1处"意外打断"（谈话被中断/计划被打乱/平静被打破）');
+  }
+
+  if(requirements.length === 0) return '';
+  return '【完全质量要求 — 生成时必须逐条验证，不满足必须重新生成】\n' + requirements.join('\n') + '\n\n';
+}
+
 // ===== v48: 为单张卡片构建 prompt =====
 // 关键点：用户诉求 + 市场调研 + 记忆上下文 + 已生成内容（作为锚点）+ 本卡片具体目标 + 可选 extraHint（评价加强意见）
 function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, marketResearch, memoryContext){
@@ -3363,6 +3416,9 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
       prompt += '\n';
     }
   }
+
+  // ⭐ v70: 各模块核心质量要求 — 根据模块类型注入针对性强制要求
+  prompt += buildModuleQualityRequirements(module, work) + '\n';
 
   // extraHint：来自"按评价加强"的修复意见，放在用户诉求之后、本卡片任务之前，权重高
   if(extraHint && extraHint.trim()){
@@ -3817,7 +3873,7 @@ window.evaluateArchModule = async function(){
   }catch(e){ console.error('evaluateArchModule error:', e); showToast('评价失败：' + (e.message||e), {error:true, duration:4000}); }
 };
 
-// ========== v53: 按评价加强 —— 精准修复低分维度（≤5分）==========
+// ========== v53: 按评价加强 —— P0: 使用 QualityDriver 定向修复低分维度 ==========
 window.fixArchModule = async function(){
   try{
     var module = _selectedModule || 'world';
@@ -3826,28 +3882,29 @@ window.fixArchModule = async function(){
     var evalData = work._archEval && work._archEval[module];
     if(!evalData){ showToast('请先点"评价"分析当前内容'); return; }
 
-    // 构造精准修复提示：只修复低分维度（≤5分）
+    // 使用 QualityDriver 生成针对性修复 prompt
     var extraHint = '';
-    if(evalData.dimensions){
-      var lowDims = evalData.dimensions.filter(function(d){ return d.score <= 5; });
-      if(lowDims.length > 0){
-        extraHint += '本次重新生成，只修复以下低分维度，保持其他部分不变：\n';
-        // 使用好坏标准学习指南（正文维度适用）
-        if(typeof QualityEngine !== 'undefined' && QualityEngine.getFixGuide && module === 'text'){
-          extraHint += QualityEngine.getFixGuide(evalData.dimensions);
-        } else {
-          lowDims.forEach(function(d){
-            extraHint += '- ' + d.name + '（' + d.score + '分）：' + (d.issues && d.issues.length ? d.issues[0] : '需提升') + '\n';
-          });
-        }
+    if(typeof QualityEngine !== 'undefined' && typeof QualityEngine.buildModuleEnhancePrompt === 'function'){
+      var currentContent = work[module] || '';
+      extraHint = QualityEngine.buildModuleEnhancePrompt(module, evalData, currentContent, '');
+    }
+
+    // 补充 AI 编辑意见
+    if(evalData.aiReport){
+      extraHint += '\n【编辑意见参考】\n' + evalData.aiReport;
+    }
+
+    // 如果没有低分维度，使用通用 issues
+    if(!extraHint || !extraHint.trim()){
+      if(evalData.issues && evalData.issues.length){
+        extraHint = '本次重新生成，必须特别解决以下问题：\n';
+        evalData.issues.slice(0, 5).forEach(function(iss){ extraHint += '- ' + iss + '\n'; });
       }
     }
-    if(evalData.issues && evalData.issues.length){
-      if(!extraHint) extraHint += '本次重新生成，必须特别解决以下问题：\n';
-      evalData.issues.slice(0, 5).forEach(function(iss){ extraHint += '- ' + iss + '\n'; });
-    }
-    if(evalData.aiReport){
-      extraHint += '\n编辑意见参考：\n' + evalData.aiReport;
+
+    if(!extraHint || !extraHint.trim()){
+      showToast('质量已达基准，无需加强');
+      return;
     }
 
     showToast('正在按评价精准修复…');
