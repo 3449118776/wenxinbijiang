@@ -3630,6 +3630,14 @@ function smartCompressArch(text, maxLen) {
   prompt += '6. 本章的事件是否与【L0世界观锁】和【L1人设锁】中的规则冲突？\n';
   prompt += '7. 若有偏离，必须在偏离处标注【偏离说明：原因】，且偏离必须服务于更好的故事体验。\n';
 
+  // 大模型(archLimits===null)：用消息链提供架构上下文记忆（不注入原文）
+  // 小模型：直接返回字符串 prompt（架构内容已通过文本注入到prompt中）
+  if (archLimits === null && typeof buildArchChatChain === 'function') {
+    var chain = buildArchChatChain(work, 'chapter');
+    if (chain && chain.length > 0) {
+      return chain.concat([{ role: 'user', content: prompt }]);
+    }
+  }
   return prompt;
 }
 
@@ -4921,6 +4929,15 @@ async function aiWriteChapter(opts){
     // 同步章节标题到输入框
     if(ch.title) document.getElementById('ch-title').value = ch.title;
     updateWordCount();
+    
+    // 追加本章到消息链（供后续章节通过 messages 继承上下文）
+    try {
+      if (typeof appendArchChatMessage === 'function') {
+        var chTitle = ch.title || ('第' + (chapterIdx + 1) + '章');
+        appendArchChatMessage(work, 'chapter', 'user', '请生成第' + (chapterIdx + 1) + '章：' + chTitle);
+        appendArchChatMessage(work, 'chapter', 'assistant', result);
+      }
+    } catch(chainErr) { console.warn('[章节消息链] 保存失败:', chainErr); }
     
     // 细纲覆盖率检测
     if (work.detail) {
