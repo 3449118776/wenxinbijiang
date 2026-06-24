@@ -1,5 +1,5 @@
 // ==========================================================================
-// engines-memory-skill.js — 超强记忆推理引擎 (Memory Reasoning Skill)
+// engines-memory-skill/index.js — 超强记忆推理引擎 (Memory Reasoning Skill)
 // 基于现有 longMemory 体系之上，构建推理、预测、分析层
 //
 // 与现有 longMemory 的关系：本引擎是 longMemory 的"大脑皮层"
