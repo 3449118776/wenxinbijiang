@@ -144,17 +144,17 @@ window.registerAIToolExecutor = function(executor) {
       type: 'function',
       function: {
         name: 'get_memory',
-        description: '查询项目记忆库，包括世界观、人设、大纲、细纲、前文摘要等。根据查询内容返回最相关的记忆片段。',
+        description: '查询本作品的记忆库，获取世界观、人设、大纲、细纲、前文摘要等关键信息。\n\n使用场景：\n- 设计/生成内容前，必须先查询相关设定确保一致性\n- 需要确认世界观细节、人物设定、剧情大纲时\n- 忘记前文内容或需要回顾上下文时\n\n调用建议：\n- 生成人设前查世界观\n- 生成大纲前查世界观+人设\n- 生成细纲前查大纲+人设+世界观\n- 写正文前查前文摘要+当前卷大纲+相关人物',
         parameters: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: '查询内容，如"主角人设"、"第3卷大纲"、"当前待解线索"等'
+              description: '具体查询内容，越精确越好。例如："主角人设"、"第3卷大纲"、"修炼体系等级划分"、"当前待解线索"、"XX角色状态"'
             },
             memory_type: {
               type: 'string',
-              description: '记忆类型：worldview(世界观)、char_settings(人设)、outline(大纲)、detail_outline(细纲)、recent_summary(前文摘要)、all(全部)',
+              description: '记忆类型，指定查询范围可提高精度：\n- worldview: 世界观设定（地理、力量体系、势力、历史等）\n- char_settings: 人物设定（主角、配角、反派等）\n- outline: 全书大纲/分卷大纲\n- detail_outline: 章节细纲\n- recent_summary: 前文摘要/最近章节回顾\n- all: 全部类型（默认，可能返回内容较多）',
               enum: ['worldview', 'char_settings', 'outline', 'detail_outline', 'recent_summary', 'all']
             }
           },

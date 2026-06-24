@@ -5472,35 +5472,67 @@ async function executeMemoryQuery(toolName, args) {
 
     // 1. 世界观
     if (memType === 'worldview' || memType === 'all' || query.includes('世界观') || query.includes('设定')) {
-      var world = w.worldView || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.world) || '';
-      if (world && typeof w.worldView === 'string') world = w.worldView;
+      var world = w.world || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.world) || '';
+      if (world && typeof w.world === 'string') world = w.world;
       else if (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.world) world = w.longMemory.moduleSummaries.world;
       if (world && world.length > 10) {
-        results.push({ type: '世界观', content: world.slice(0, 3000) });
+        results.push({ type: '世界观', content: world.slice(0, 5000) });
       }
     }
 
     // 2. 人设
     if (memType === 'char_settings' || memType === 'all' || query.includes('人设') || query.includes('角色') || query.includes('主角') || query.includes('女主') || query.includes('人物')) {
-      var chars = w.charSettings || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.characters) || '';
-      if (chars && typeof w.charSettings === 'string') chars = w.charSettings;
+      var chars = w.chars || (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.characters) || '';
+      if (chars && typeof w.chars === 'string') chars = w.chars;
       else if (w.longMemory && w.longMemory.moduleSummaries && w.longMemory.moduleSummaries.characters) chars = w.longMemory.moduleSummaries.characters;
       if (chars && chars.length > 10) {
-        results.push({ type: '人设', content: chars.slice(0, 3000) });
+        results.push({ type: '人设', content: chars.slice(0, 5000) });
       }
     }
 
     // 3. 大纲
-    if (memType === 'outline' || memType === 'all' || query.includes('大纲') || query.includes('剧情')) {
+    if (memType === 'outline' || memType === 'all' || query.includes('大纲') || query.includes('剧情') || query.includes('卷')) {
       var outline = w.outline || '';
       if (outline && outline.length > 10) {
-        results.push({ type: '大纲', content: outline.slice(0, 3000) });
+        if (memType === 'outline' || query.includes('卷') || query.includes('第') || query.includes('大纲')) {
+          var volMatch = query.match(/第\s*(\d+)\s*卷/);
+          if (volMatch) {
+            var volNum = parseInt(volMatch[1]);
+            var olLines = outline.split('\n');
+            var volContent = [];
+            var inVol = false;
+            for (var vi = 0; vi < olLines.length; vi++) {
+              var olLine = olLines[vi];
+              if (olLine.includes('第' + volNum + '卷') || olLine.includes('第' + ['一','二','三','四','五','六','七','八','九','十'][volNum-1] + '卷')) {
+                inVol = true;
+              }
+              if (inVol) {
+                volContent.push(olLine);
+                if (olLine.includes('第' + (volNum + 1) + '卷') && volContent.length > 5) {
+                  break;
+                }
+              }
+            }
+            if (volContent.length > 3) {
+              results.push({ type: '第' + volNum + '卷大纲', content: volContent.join('\n').slice(0, 5000) });
+            } else {
+              results.push({ type: '大纲', content: outline.slice(0, 5000) });
+            }
+          } else {
+            results.push({ type: '大纲', content: outline.slice(0, 5000) });
+          }
+        } else {
+          results.push({ type: '大纲', content: outline.slice(0, 3000) });
+        }
       }
     }
 
     // 4. 细纲
     if (memType === 'detail_outline' || memType === 'all' || query.includes('细纲') || query.includes('章节大纲')) {
       var detailOutlines = [];
+      if (w.detail && w.detail.length > 50) {
+        detailOutlines.push('【整体细纲】' + w.detail.slice(0, 3000));
+      }
       if (w.chapters) {
         for (var i = 0; i < Math.min(w.chapters.length, 20); i++) {
           var ch = w.chapters[i];
@@ -5510,7 +5542,7 @@ async function executeMemoryQuery(toolName, args) {
         }
       }
       if (detailOutlines.length > 0) {
-        results.push({ type: '细纲', content: detailOutlines.join('\n\n').slice(0, 4000) });
+        results.push({ type: '细纲', content: detailOutlines.join('\n\n').slice(0, 5000) });
       }
     }
 
@@ -7215,52 +7247,21 @@ function updateLongMemory(w, idx) {
     ch.summary = extractChapterSummary(content, ch.title);
   }
   // v57: AI结构化记忆提取（异步，不阻塞）—— 替代本地正则，提取率从50%提升到80%+
-  if (content.length >= 300 && !ch.aiMemoryExtracted) {
+  // v58优化：每3章提取一次 + 缩短输入文本 + 简化输出格式，token消耗降低约60%
+  var extractInterval = 3;
+  if (content.length >= 300 && !ch.aiMemoryExtracted && (idx % extractInterval === 0 || idx < 3)) {
     const config = DB.getApiConfig();
     const keys = DB.getApiKeys(config.provider);
     if (keys && keys.length > 0) {
-      const charNames = extractCharNameMap(w.chars || '').names;
-      const sysMsg = '你是一个专业的小说记忆分析助手。请仔细阅读章节正文，提取关键记忆信息，输出严格的JSON格式。\n\n' +
-        '输出格式：\n' +
-        '{\n' +
-        '  "summary": "章节核心事件摘要（50字内）",\n' +
-        '  "emotion": "本章整体情绪基调",\n' +
-        '  "charStates": [\n' +
-        '    {"name": "角色名", "status": "身体/修为/情绪状态变化", "location": "所在地点", "role": "主角/配角/反派/龙套"}\n' +
-        '  ],\n' +
-        '  "anchors": {\n' +
-        '    "characterTags": ["角色标志性特征/口头禅/动作"],\n' +
-        '    "relationships": ["人物关系变化，如：XX与YY结盟/决裂/表白"],\n' +
-        '    "items": ["道具/信物获得/失去/转交，写明归属"],\n' +
-        '    "promises": ["承诺/约定/禁忌，谁对谁承诺了什么"],\n' +
-        '    "abilityCosts": ["能力使用的代价/反噬/限制"],\n' +
-        '    "emotionTrack": ["角色情绪重大转折点"],\n' +
-        '    "locations": ["地点状态变化/新地点特征"],\n' +
-        '    "timeline": ["明确的时间节点"],\n' +
-        '    "core": ["全书级核心事实，绝不能写错的关键信息"]\n' +
-        '  },\n' +
-        '  "foreshadows": [\n' +
-        '    {"text": "伏笔内容", "keyword": "关键词", "type": "人物身世/势力阴谋/道具来历/预言悬疑"}\n' +
-        '  ],\n' +
-        '  "plotThreads": [\n' +
-        '    {"title": "线索名称", "type": "主线/支线/暗线", "status": "推进/新出现/待解"}\n' +
-        '  ],\n' +
-        '  "items": [\n' +
-        '    {"name": "道具名", "action": "获得/失去/转交/使用", "owner": "当前归属", "detail": "详情"}\n' +
-        '  ],\n' +
-        '  "factions": [\n' +
-        '    {"name": "势力名", "action": "行动/结盟/背叛/覆灭", "detail": "详情"}\n' +
-        '  ]\n' +
-        '}\n\n' +
-        '注意：\n' +
-        '1. 只提取本章中明确出现的信息，不要推断\n' +
-        '2. 没有的字段可以为空数组\n' +
-        '3. 内容要具体，包含角色名、地名等实体\n' +
-        '4. 严格输出JSON，不要任何解释文字';
-      const userMsg = (charNames.length > 0 ? '已知角色：' + charNames.join('、') + '\n\n' : '') +
-        '【章节】' + ch.title + '（第' + (idx+1) + '章）\n\n' +
-        '【正文】\n' + content.slice(0, 4000) + '\n\n' +
-        '请输出JSON：';
+      const charNames = extractCharNameMap(w.chars || '').names.slice(0, 15);
+      const sysMsg = '小说记忆提取。阅读章节，输出JSON。\n' +
+        '字段：summary(50字内), emotion, charStates[{name,status,location,role}], ' +
+        'anchors{characterTags,relationships,items,promises,core}, ' +
+        'foreshadows[{text,keyword,type}], plotThreads[{title,type,status}]\n' +
+        '规则：只提取明确信息，空字段输出[]，严格JSON，不加解释。';
+      const userMsg = (charNames.length > 0 ? '角色：' + charNames.join('、') + '\n' : '') +
+        '第' + (idx+1) + '章 ' + ch.title + '\n' +
+        content.slice(0, 2500) + '\n输出JSON：';
       const msgs = [
         {role:'system', content: sysMsg},
         {role:'user', content: userMsg}
@@ -7795,6 +7796,13 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   var sysMsg = '你是一位顶级网文大纲架构师，擅长设计百万字级长篇小说的宏大架构。\n\n';
   sysMsg += '【作品】' + title + '\n';
   sysMsg += '【题材】' + genre + '\n';
+  sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
+  sysMsg += '1. 本作品已有完整世界观和人设设定存储在记忆库中，设计大纲前必须先调用 get_memory 工具查询\n';
+  sysMsg += '2. 大纲必须完全基于已有世界观和人设，禁止凭空编造与设定冲突的剧情\n';
+  sysMsg += '3. 设计每一卷前，先查询相关世界观设定和人物设定，确保剧情合理\n';
+  sysMsg += '4. 需要查询世界观：memory_type = "worldview"\n';
+  sysMsg += '5. 需要查询人设：memory_type = "char_settings"\n';
+  sysMsg += '6. 禁止不查记忆就直接生成大纲，所有剧情必须基于已有设定\n\n';
   
   // ===== 用户消息1：上下文 =====
   var ctxMsg = '';
@@ -7861,6 +7869,11 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   var sysMsg = '你是一位顶级网文人物设计师，擅长塑造立体、有记忆点、能引起读者共鸣的角色。\n\n';
   sysMsg += '【作品】' + title + '\n';
   sysMsg += '【题材】' + genre + '\n';
+  sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
+  sysMsg += '1. 本作品已有完整世界观设定存储在记忆库中，设计人物前必须先调用 get_memory 工具查询世界观\n';
+  sysMsg += '2. 人物设定必须与世界观完全一致，禁止凭空编造与世界观冲突的设定\n';
+  sysMsg += '3. 如果需要确认任何世界观细节，直接调用 get_memory 查询，memory_type 设为 "worldview"\n';
+  sysMsg += '4. 禁止不查记忆就直接生成，所有人物的背景、能力、身份都必须符合世界观设定\n\n';
   
   // ===== 用户消息1：上下文 =====
   var ctxMsg = '';
@@ -8023,7 +8036,16 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   var sysMsg = '你是一位顶级网文细纲设计师，擅长将大纲拆解为具体、可执行的章节细纲。\n\n';
   sysMsg += '【作品】' + title + '\n';
   sysMsg += '【题材】' + genre + '\n';
-  sysMsg += '【目标卷】第' + (volumeIndex + 1) + '卷\n\n';
+  sysMsg += '【目标卷】第' + (volumeIndex + 1) + '卷\n';
+  sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
+  sysMsg += '1. 本作品已有完整世界观、人设、大纲设定存储在记忆库中，设计细纲前必须先调用 get_memory 工具查询\n';
+  sysMsg += '2. 细纲必须完全基于已有设定，禁止凭空编造与世界观/人设/大纲冲突的内容\n';
+  sysMsg += '3. 设计每章前，先查询本卷大纲、相关人物设定、相关世界观设定\n';
+  sysMsg += '4. 查询世界观：memory_type = "worldview"\n';
+  sysMsg += '5. 查询人设：memory_type = "char_settings"\n';
+  sysMsg += '6. 查询本卷大纲：memory_type = "outline"，query 写清"第X卷"\n';
+  sysMsg += '7. 查询细纲参考：memory_type = "detail_outline"\n';
+  sysMsg += '8. 禁止不查记忆就直接生成细纲，所有章节内容必须与已有设定一致\n\n';
   sysMsg += '【题材专属模板】\n';
   sysMsg += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
   sysMsg += '【数字面板格式】\n' + genreTemplate.digitalPanel + '\n\n';
