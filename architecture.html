@@ -2216,6 +2216,144 @@ function syncArchToMemory(work, module){
     }
     if(anchors.timeline.length > 50) anchors.timeline = anchors.timeline.slice(-50);
     if(anchors.hooks.length > 60) anchors.hooks = anchors.hooks.slice(-60);
+    
+    // 细纲 → 结构化提取：分卷记忆 + 章节索引
+    try {
+      if(!mem.volumeMemories) mem.volumeMemories = [];
+      if(!mem.chapterIndex) mem.chapterIndex = [];
+      var detailText = work.detail || '';
+      var volPattern = /第[一二三四五六七八九十百零\d]+卷[^\n]*/g;
+      var volMatch;
+      var volIndex = -1;
+      while((volMatch = volPattern.exec(detailText)) !== null){
+        volIndex++;
+        var volTitle = volMatch[0].trim();
+        // 找这一卷的内容范围
+        var nextVolIdx = detailText.indexOf('第', volMatch.index + volMatch[0].length);
+        if(nextVolIdx < 0) nextVolIdx = detailText.length;
+        var volContent = detailText.substring(volMatch.index, nextVolIdx);
+        // 提取核心事件
+        var volKeyPoints = [];
+        var volLines = volContent.split('\n');
+        for(var vli = 0; vli < volLines.length && volKeyPoints.length < 5; vli++){
+          var vl = volLines[vli].trim();
+          if(vl.length > 10 && /高潮|转折|决战|揭秘|真相|大战|结局|终局|开始|结束/.test(vl)){
+            volKeyPoints.push(vl.slice(0, 100));
+          }
+        }
+        // 更新或插入分卷记忆
+        var existingVol = mem.volumeMemories.find(function(v){ return v.volumeIndex === volIndex; });
+        if(existingVol){
+          existingVol.title = volTitle;
+          existingVol.summary = volKeyPoints.join('；') || volTitle;
+          existingVol.updatedAt = Date.now();
+        } else {
+          mem.volumeMemories.push({
+            volumeIndex: volIndex,
+            title: volTitle,
+            summary: volKeyPoints.join('；') || volTitle,
+            updatedAt: Date.now()
+          });
+        }
+      }
+      // 章节索引
+      var chPattern = /第(\d+)章[：:\s]+([^\n|]+)/g;
+      var chMatch2;
+      mem.chapterIndex = [];
+      while((chMatch2 = chPattern.exec(detailText)) !== null && mem.chapterIndex.length < 200){
+        mem.chapterIndex.push({
+          chapterIdx: parseInt(chMatch2[1]) - 1,
+          title: chMatch2[2] ? chMatch2[2].trim().slice(0, 50) : '',
+          source: 'detail'
+        });
+      }
+    } catch(volErr) { console.warn('[volumeMemories] 提取失败:', volErr); }
+  }
+
+  // 人设 → 结构化提取：人物档案
+  if(module === 'chars' && work.chars && work.chars.trim()){
+    try {
+      if(!mem.characterProfiles) mem.characterProfiles = {};
+      var charsText = work.chars;
+      var charLines2 = charsText.split('\n');
+      var curName = '';
+      var curRole = '';
+      var curProfile = null;
+      for(var ci2 = 0; ci2 < charLines2.length; ci2++){
+        var cl2 = charLines2[ci2].trim();
+        if(cl2.length < 3) continue;
+        // 检测角色名
+        var nameMatch2 = cl2.match(/(?:主角|反派|配角|导师|伙伴|女主|男主)[：:]\s*([\u4e00-\u9fa5]{2,4})/) || cl2.match(/^([\u4e00-\u9fa5]{2,4})[：:]/);
+        if(nameMatch2){
+          if(curProfile && curName) mem.characterProfiles[curName] = curProfile;
+          curName = nameMatch2[1];
+          var roleMatch2 = cl2.match(/(主角|女主|男主|反派|配角|导师|伙伴)/);
+          curRole = roleMatch2 ? roleMatch2[1] : '配角';
+          curProfile = { name: curName, role: curRole, traits: [], secret: '', goal: '', coreTrait: '' };
+        }
+        // 提取角色特征
+        if(curProfile && curName && cl2.length > 8){
+          if(/性格|特征|特点/.test(cl2) && !curProfile.coreTrait){
+            curProfile.coreTrait = cl2.replace(/[性格特点：:]/g, '').trim().slice(0, 50);
+          }
+          if(/秘密|身世|隐藏|真实身份/.test(cl2)){
+            curProfile.secret = cl2.slice(0, 80);
+          }
+          if(/目标|追求|理想|使命|心愿/.test(cl2)){
+            curProfile.goal = cl2.slice(0, 80);
+          }
+        }
+      }
+      if(curProfile && curName) mem.characterProfiles[curName] = curProfile;
+    } catch(cpErr) { console.warn('[characterProfiles] 提取失败:', cpErr); }
+  }
+
+  // 大纲 → 结构化提取：时间线事件 + 伏笔台账 + 角色弧光
+  if(module === 'outline' && work.outline && work.outline.trim()){
+    try {
+      if(!mem.timelineEvents) mem.timelineEvents = [];
+      if(!mem.foreshadowLedger) mem.foreshadowLedger = [];
+      if(!mem.charArcs) mem.charArcs = [];
+      
+      var outlineText2 = work.outline;
+      var oLines2 = outlineText2.split('\n');
+      var curVolume = '';
+      
+      for(var oi2 = 0; oi2 < oLines2.length; oi2++){
+        var ol2 = oLines2[oi2].trim();
+        if(ol2.length < 5) continue;
+        
+        // 提取卷名
+        var volMatch2 = ol2.match(/^(第[一二三四五六七八九十百零\d]+卷[^\n]*)/);
+        if(volMatch2) curVolume = volMatch2[1].trim();
+        
+        // 提取时间线事件
+        if(/发生|爆发|开始|结束|建立|覆灭|成立|陨落|诞生|去世|即位|迁都|战争|和平|条约|协议|改革|革命/.test(ol2)){
+          mem.timelineEvents.push({
+            time: curVolume || '',
+            event: ol2.slice(0, 150),
+            source: 'outline',
+            ts: Date.now()
+          });
+        }
+        
+        // 提取伏笔台账
+        if(/伏笔|悬念|秘密|真相|谜|隐藏|暗中|未解|谜团|蹊跷|可疑/.test(ol2)){
+          mem.foreshadowLedger.push({
+            type: '伏笔',
+            content: ol2.slice(0, 150),
+            status: '已埋下',
+            source: 'outline',
+            ts: Date.now()
+          });
+        }
+      }
+      
+      // 去重并限制数量
+      if(mem.timelineEvents.length > 50) mem.timelineEvents = mem.timelineEvents.slice(-50);
+      if(mem.foreshadowLedger.length > 50) mem.foreshadowLedger = mem.foreshadowLedger.slice(-50);
+      
+    } catch(tlErr) { console.warn('[timeline/foreshadow] 提取失败:', tlErr); }
   }
 
   // 保存
@@ -2394,6 +2532,77 @@ function buildArchMemoryContext(work, currentModule){
         fsBlock += '  ■ 第' + (f.chapterIdx + 1) + '章：' + (f.line || '') + '\n';
       });
       tryAdd(fsBlock + '\n');
+    }
+  }
+
+  // L9: 人物档案摘要（来自人设/正文，深度角色信息）
+  if(mem.characterProfiles && Object.keys(mem.characterProfiles).length > 0){
+    var cpBlock = '【👤 人物档案摘要（深度角色设定，必须保持一致）】\n';
+    var cpCount = 0;
+    var cpKeys = Object.keys(mem.characterProfiles);
+    for(var cpi = 0; cpi < cpKeys.length && cpCount < 5 * _itemMult; cpi++){
+      var cp = mem.characterProfiles[cpKeys[cpi]];
+      if(cp && cp.name){
+        cpBlock += '  ■ ' + cp.name;
+        if(cp.role) cpBlock += '（' + cp.role + '）';
+        if(cp.coreTrait) cpBlock += '：' + cp.coreTrait;
+        if(cp.secret) cpBlock += '，秘密：' + cp.secret;
+        if(cp.goal) cpBlock += '，目标：' + cp.goal;
+        cpBlock += '\n';
+        cpCount++;
+      }
+    }
+    if(cpCount > 0) tryAdd(cpBlock + '\n');
+  }
+
+  // L10: 伏笔台账（来自大纲/细纲，结构化伏笔追踪）
+  if(mem.foreshadowLedger && mem.foreshadowLedger.length > 0){
+    var flPending = mem.foreshadowLedger.filter(function(f){ return f.status === '待回收' || f.status === '已埋下'; });
+    if(flPending.length > 0){
+      var flBlock = '【📒 伏笔台账（结构化追踪，必须回收）】\n';
+      flPending.slice(0, 8 * _itemMult).forEach(function(f){
+        flBlock += '  ■ [' + (f.type || '伏笔') + '] ' + (f.content || f.text || '') + (f.plannedChapter ? '（计划第' + f.plannedChapter + '章回收）' : '') + '\n';
+      });
+      tryAdd(flBlock + '\n');
+    }
+  }
+
+  // L11: 分卷记忆（来自细纲，各卷核心信息）
+  if(mem.volumeMemories && mem.volumeMemories.length > 0){
+    var vmBlock = '【📚 分卷记忆（各卷核心事件与转折）】\n';
+    mem.volumeMemories.slice(0, 5 * _itemMult).forEach(function(vm){
+      vmBlock += '  ■ 第' + (vm.volumeIndex !== undefined ? (vm.volumeIndex + 1) : '?') + '卷：' + (vm.summary || vm.title || '') + '\n';
+    });
+    tryAdd(vmBlock + '\n');
+  }
+
+  // L12: 时间线事件（来自大纲/细纲，结构化时间线）
+  if(mem.timelineEvents && mem.timelineEvents.length > 0){
+    var teBlock = '【📅 时间线事件（必须按顺序，不得矛盾）】\n';
+    mem.timelineEvents.slice(0, 10 * _itemMult).forEach(function(te){
+      teBlock += '  ■ ' + (te.time || te.phase || '') + '：' + (te.event || te.content || '') + '\n';
+    });
+    tryAdd(teBlock + '\n');
+  }
+
+  // L13: 角色弧光（来自人设，角色成长轨迹）
+  if(mem.charArcs && mem.charArcs.length > 0){
+    var caBlock = '【🌟 角色弧光（成长轨迹，必须遵循）】\n';
+    mem.charArcs.slice(0, 5 * _itemMult).forEach(function(ca){
+      caBlock += '  ■ ' + (ca.name || ca.character || '') + '：' + (ca.startState || '') + ' → ' + (ca.endState || '') + '\n';
+    });
+    tryAdd(caBlock + '\n');
+  }
+
+  // L14: 记忆债务（待补全的设定/伏笔/人物）
+  if(mem.memoryDebt && mem.memoryDebt.length > 0){
+    var highDebt = mem.memoryDebt.filter(function(d){ return d.level === 'high'; });
+    if(highDebt.length > 0){
+      var mdBlock = '【⚠️ 记忆债务（高优先级待补全的设定，必须在后续补全）】\n';
+      highDebt.slice(0, 5).forEach(function(d){
+        mdBlock += '  ■ [' + (d.type || '待补') + '] ' + (d.content || d.text || '') + '\n';
+      });
+      tryAdd(mdBlock + '\n');
     }
   }
 

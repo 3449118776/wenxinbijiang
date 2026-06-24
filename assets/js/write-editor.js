@@ -6865,6 +6865,52 @@ function buildMemoryContext(w, idx) {
     }
     tryAdd(foBlock + '\n');
   }
+
+  // L8: 人物档案摘要（深度角色设定，防止OOC）
+  if (added < BUDGET && mem.characterProfiles && Object.keys(mem.characterProfiles).length > 0) {
+    var cpNames = Object.keys(mem.characterProfiles).slice(0, 5);
+    var cpBlock2 = '【人物档案摘要（深度设定，防止OOC）】\n';
+    var hasCp = false;
+    cpNames.forEach(function(name) {
+      var p = mem.characterProfiles[name];
+      if (p && p.name) {
+        hasCp = true;
+        cpBlock2 += '  ' + p.name;
+        if (p.role) cpBlock2 += '（' + p.role + '）';
+        if (p.coreTrait) cpBlock2 += '：' + p.coreTrait;
+        if (p.secret) cpBlock2 += ' | 秘密：' + p.secret;
+        if (p.goal) cpBlock2 += ' | 目标：' + p.goal;
+        cpBlock2 += '\n';
+      }
+    });
+    if (hasCp) tryAdd(cpBlock2 + '\n');
+  }
+
+  // L9: 伏笔台账（结构化追踪，近期应回收的）
+  if (added < BUDGET && mem.foreshadowLedger && mem.foreshadowLedger.length > 0) {
+    var flPending2 = mem.foreshadowLedger.filter(function(f){ return f.status === '待回收' || f.status === '已埋下'; }).slice(-8);
+    if (flPending2.length > 0) {
+      var flBlock2 = '【伏笔台账（结构化追踪）】\n';
+      flPending2.forEach(function(f) {
+        flBlock2 += '  [' + (f.type || '伏笔') + '] ' + (f.content || f.text || '').slice(0, 60);
+        if (f.plannedChapter) flBlock2 += '（计划第' + f.plannedChapter + '章回收）';
+        flBlock2 += '\n';
+      });
+      tryAdd(flBlock2 + '\n');
+    }
+  }
+
+  // L10: 记忆债务（高优先级待补全）
+  if (added < BUDGET && mem.memoryDebt && mem.memoryDebt.length > 0) {
+    var highDebt2 = mem.memoryDebt.filter(function(d){ return d.level === 'high' && d.age > 5; }).slice(-5);
+    if (highDebt2.length > 0) {
+      var mdBlock2 = '【记忆债务（高优先级待补全）】\n';
+      highDebt2.forEach(function(d) {
+        mdBlock2 += '  [' + (d.type || '待补') + '] ' + (d.content || d.text || '').slice(0, 60) + '\n';
+      });
+      tryAdd(mdBlock2 + '\n');
+    }
+  }
   
   return ctx;
 }
