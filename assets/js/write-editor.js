@@ -4410,7 +4410,7 @@ async function startChapterPipeline() {
       var genSuccess = false;
       while (retryCount < maxRetries && !genSuccess) {
         try {
-          await aiWriteChapter();
+          await aiWriteChapter({_pipelineMode: true}); // ⭐ v70: 流水线模式，只精准修复一次
           genSuccess = true;
         } catch(e) {
           retryCount++;
@@ -4915,8 +4915,10 @@ async function aiWriteChapter(opts){
     }
 
     // 检查是否需要继续迭代
+    // ⭐ v70: 流水线模式下只精准修复一次，单章模式下最多3轮迭代
+    var _maxIterations = opts._pipelineMode ? 1 : 3; // 流水线=1次，单章=3次
     var _shouldIterate = _qReport && typeof _qReport.score === 'number'
-      && _writeIteration < 3
+      && _writeIteration < _maxIterations
       && (_currentScore < 90 || _cmdFollowScore < 6)
       && !_scoreDropped;
 
