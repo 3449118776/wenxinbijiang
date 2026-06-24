@@ -5297,13 +5297,27 @@ async function sendAiCommand(){
   
   // 先尝试API（自动遍历所有服务商），失败则使用本地AI
   // v59: 转为 messages 数组
-  var _msgFullPrompt = Array.isArray(fullPrompt) ? fullPrompt : [{ role: 'user', content: fullPrompt }];
+  // v66: 使用对话历史管理器构建消息
+  var _msgFullPrompt;
+  if (typeof ConversationManager !== 'undefined' && ConversationManager.buildMessages && ConversationManager.hasArchitecture(work.id)) {
+    _msgFullPrompt = ConversationManager.buildMessages(work.id, fullPrompt);
+    console.log('[对话历史] sendAiCommand 使用对话历史');
+  } else {
+    _msgFullPrompt = Array.isArray(fullPrompt) ? fullPrompt : [{ role: 'user', content: fullPrompt }];
+  }
   let result = await callRealAPIWithFallback(_msgFullPrompt, null, 'write_normal', 12000); // 目标 5000-8000 字，优先保证质量与完整性
   if(!result && window.ContentGenerator){
     showToast('使用本地AI生成...');
     result = window.ContentGenerator.continueStory(content, work, cmd);
   }
   if(result){
+    // v66: 将续写结果加入对话历史
+    try {
+      if (typeof ConversationManager !== 'undefined' && ConversationManager.addBodyMessage) {
+        ConversationManager.addBodyMessage(work.id, 'user', '续写本章：' + cmd, { chapterIdx: chapterIdx, type: 'continue_instruction' });
+        ConversationManager.addBodyMessage(work.id, 'assistant', result, { chapterIdx: chapterIdx, type: 'continue_content' });
+      }
+    } catch(e) {}
     document.getElementById('editor').value=content+'\n\n'+result;
     updateWordCount();
     document.getElementById('ai-input').value='';
