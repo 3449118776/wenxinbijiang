@@ -7437,7 +7437,7 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
       '5. 输出完整的优化后大纲内容：\n\n';
   }
   if (world && world.length > 50) {
-    ctxMsg += '【世界观】\n' + world.substring(0, 2000) + '\n\n';
+    ctxMsg += '【世界观】\n' + world + '\n\n';
   }
   
   // ===== 用户消息2：任务 =====
@@ -7502,7 +7502,7 @@ function buildCharsPrompt(work, userCommand, prevResult) {
       '5. 输出完整的优化后人设内容：\n\n';
   }
   if (world && world.length > 50) {
-    ctxMsg += '【世界观】\n' + world.substring(0, 1500) + '\n\n';
+    ctxMsg += '【世界观】\n' + world + '\n\n';
   }
   
   // ===== 用户消息2：任务 =====
@@ -7671,10 +7671,10 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
       '5. 输出完整的优化后细纲内容：\n\n';
   }
   if (world && world.length > 50) {
-    ctxMsg += '【世界观关键设定】\n' + world.substring(0, 1000) + '\n\n';
+    ctxMsg += '【世界观关键设定】\n' + world + '\n\n';
   }
   if (chars && chars.length > 50) {
-    ctxMsg += '【主要人物】\n' + chars.substring(0, 1000) + '\n\n';
+    ctxMsg += '【主要人物】\n' + chars + '\n\n';
   }
   if (outline && outline.length > 50) {
     var outlineLines = outline.split('\n');
