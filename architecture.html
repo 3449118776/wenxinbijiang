@@ -3286,34 +3286,17 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
     prompt += '5. 目标总字数：不低于已有内容的字数，适当扩展细节\n\n';
   }
 
-  // 前置架构上下文：世界观/大纲生成时用记忆摘要省token；细纲最关键，始终用原文
+  // 前置架构上下文：全文注入，不截取不浓缩。所有前置模块的原文逐级注入，保证上下文记忆完整
   if(module !== 'world'){
-    if(module === 'detail'){
-      // 细纲是生成正文的底层基础，必须用原文确保准确完整
-      prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
-      if(work && work.world && work.world.trim()){
-        prompt += '■ 世界观（原文）：\n' + smartTruncate(work.world, 6000) + '\n\n';
-      }
-      if(work && work.chars && work.chars.trim()){
-        prompt += '■ 人设（原文）：\n' + smartTruncate(work.chars, 6000) + '\n\n';
-      }
-      if(work && work.outline && work.outline.trim()){
-        prompt += '■ 全书大纲（原文）：\n' + smartTruncate(work.outline, 8000) + '\n\n';
-      }
-    } else {
-      // 世界观→人设、人设→大纲：用记忆摘要更准更省token
-      var sumCtx = typeof buildModuleSummaryContext === 'function' ? buildModuleSummaryContext(work, module) : '';
-      if(sumCtx && sumCtx.trim()){
-        prompt += sumCtx + '\n\n';
-      } else {
-        prompt += '【📐 前置架构参考 — 记忆精要尚未生成，注入限量原文】\n';
-        if(work && work.world && work.world.trim()){
-          prompt += '■ 世界观摘要：\n' + smartTruncate(work.world, 2000) + '\n\n';
-        }
-        if(module !== 'chars' && work && work.chars && work.chars.trim()){
-          prompt += '■ 人设摘要：\n' + smartTruncate(work.chars, 2000) + '\n\n';
-        }
-      }
+    prompt += '【📐 前置架构上下文 — 必须严格对齐，不得修改】\n';
+    if(work && work.world && work.world.trim()){
+      prompt += '■ 世界观（原文）：\n' + work.world.trim() + '\n\n';
+    }
+    if(module !== 'chars' && work && work.chars && work.chars.trim()){
+      prompt += '■ 人设（原文）：\n' + work.chars.trim() + '\n\n';
+    }
+    if((module === 'detail' || module === 'detail-gen') && work && work.outline && work.outline.trim()){
+      prompt += '■ 全书大纲（原文）：\n' + work.outline.trim() + '\n\n';
     }
   }
 
