@@ -2944,6 +2944,76 @@ function extractStructuredCache(module, content) {
   return result;
 }
 
+// ========== v72: 构建结构化缓存引用块 ==========
+function buildCacheReferenceBlock(module, structuredData) {
+  if (!structuredData || !structuredData._meta) return '';
+  var prompt = '';
+  prompt += '【📌 ' + structuredData._meta.module + ' 架构引用（来自缓存）】\n';
+  
+  if (module === 'world') {
+    if (structuredData.levels && structuredData.levels.length > 0) {
+      prompt += '【等级体系】' + structuredData.levels.join('、') + '\n';
+    }
+    if (structuredData.factions && structuredData.factions.length > 0) {
+      prompt += '【主要势力】' + structuredData.factions.join('、') + '\n';
+    }
+    if (structuredData.rules && structuredData.rules.length > 0) {
+      prompt += '【核心规则】' + structuredData.rules.join('；') + '\n';
+    }
+    if (structuredData.places && structuredData.places.length > 0) {
+      prompt += '【地理/地点】' + structuredData.places.join('、') + '\n';
+    }
+    if (structuredData.coreConflict) {
+      prompt += '【核心矛盾】' + structuredData.coreConflict + '\n';
+    }
+    if (structuredData.powerRules) {
+      prompt += '【力量压制规则】' + structuredData.powerRules + '\n';
+    }
+  } else if (module === 'chars') {
+    if (structuredData.characters && structuredData.characters.length > 0) {
+      prompt += '【主要角色】';
+      for (var i = 0; i < structuredData.characters.length; i++) {
+        var c = structuredData.characters[i];
+        prompt += '\n  ' + c.name;
+        if (c.voice) prompt += '（说话风格：' + c.voice + '）';
+        if (c.catchphrase) prompt += '口头禅：' + c.catchphrase;
+        if (c.traits && c.traits.length > 0) prompt += ' | 特点：' + c.traits.join('、');
+        if (c.decisions && c.decisions.length > 0) prompt += ' | 决策：' + c.decisions.join('、');
+      }
+      prompt += '\n';
+    }
+  } else if (module === 'outline') {
+    if (structuredData.volumes && structuredData.volumes.length > 0) {
+      prompt += '【卷结构】';
+      for (var vi = 0; vi < structuredData.volumes.length; vi++) {
+        var vol = structuredData.volumes[vi];
+        prompt += '\n  ' + vol.label + (vol.phase ? '(' + vol.phase + ')' : '') + '：' + vol.body;
+      }
+      prompt += '\n';
+    }
+    if (structuredData.mainGoal) {
+      prompt += '【主线目标】' + structuredData.mainGoal + '\n';
+    }
+  } else if (module === 'detail') {
+    if (structuredData.chapters && structuredData.chapters.length > 0) {
+      prompt += '【章节概览（共' + structuredData.chapters.length + '章）】\n';
+      for (var ci = 0; ci < Math.min(structuredData.chapters.length, 20); ci++) {
+        var ch = structuredData.chapters[ci];
+        prompt += '  ' + ch.label + '：' + ch.summary;
+        if (ch.hook) prompt += ' | 钩子：' + ch.hook;
+        if (ch.conflict) prompt += ' | 冲突：' + ch.conflict;
+        prompt += '\n';
+      }
+      if (structuredData.chapters.length > 20) {
+        prompt += '  ...（共' + structuredData.chapters.length + '章）\n';
+      }
+    }
+  }
+  
+  prompt += '\n';
+  return prompt;
+}
+
 // ========== v72: 获取结构化缓存数据 ==========
 function getStructuredCache(work, module) {
   if (!work._archCache || !work._archCache[module]) return null;
