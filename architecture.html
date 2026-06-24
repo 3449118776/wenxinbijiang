@@ -5691,15 +5691,33 @@ function initDetailPager() {
         // 重建选卷按钮 - 严格按照大纲卷数
         var volSel = document.getElementById('vol-selector');
         if (volSel) {
-          var volHtml = '';
-          var chPerVol = Math.max(10, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / volMatches.length)));
-          for (var v = 1; v <= volMatches.length; v++) {
-            var volStart = ((v - 1) * chPerVol) + 1;
-            var volEnd = v * chPerVol;
-            var volLabel = '第' + v + '卷 ' + volStart + '-' + volEnd + '章';
-            volHtml += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v + ')">' + volLabel + '</button>';
+          var volCount = volMatches.length;
+          var chPerVol = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / volCount)));
+          
+          // v65: 卷数超过8卷时改用下拉选择器，避免按钮过多占位置
+          if (volCount > 8) {
+            var selectHtml = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
+            selectHtml += '<option value="">— 选择要生成的卷 —</option>';
+            for (var v = 1; v <= volCount; v++) {
+              var volStart = ((v - 1) * chPerVol) + 1;
+              var volEnd = v * chPerVol;
+              var volLabel = '第' + v + '卷 (' + volStart + '-' + volEnd + '章)';
+              selectHtml += '<option value="' + v + '">' + volLabel + '</option>';
+            }
+            selectHtml += '</select>';
+            selectHtml += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + volCount + '卷，选择后点击「AI生成」按钮</span>';
+            volSel.innerHTML = selectHtml;
+          } else {
+            // 卷数少时用按钮布局
+            var volHtml = '';
+            for (var v = 1; v <= volCount; v++) {
+              var volStart = ((v - 1) * chPerVol) + 1;
+              var volEnd = v * chPerVol;
+              var volLabel = '第' + v + '卷 ' + volStart + '-' + volEnd + '章';
+              volHtml += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v + ')">' + volLabel + '</button>';
+            }
+            volSel.innerHTML = volHtml;
           }
-          volSel.innerHTML = volHtml;
         }
       } else {
         // 大纲还没生成 - 按输入框数显示
@@ -5707,17 +5725,32 @@ function initDetailPager() {
         var volSel2 = document.getElementById('vol-selector');
         var vn = volInput2 && volInput2.value ? parseInt(volInput2.value) : 9;
         if (volSel2) {
-          var volHtml2 = '';
-          var chPerVol2 = Math.max(10, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / vn)));
-          for (var v2 = 1; v2 <= vn; v2++) {
-            var volStart2 = ((v2 - 1) * chPerVol2) + 1;
-            var volEnd2 = v2 * chPerVol2;
-            var volLabel2 = '第' + v2 + '卷 ' + volStart2 + '-' + volEnd2 + '章';
-            volHtml2 += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v2 + ')">' + volLabel2 + '</button>';
+          var chPerVol2 = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / vn)));
+          
+          // v65: 卷数超过8卷时改用下拉选择器
+          if (vn > 8) {
+            var selectHtml2 = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
+            selectHtml2 += '<option value="">— 选择要生成的卷 —</option>';
+            for (var v2 = 1; v2 <= vn; v2++) {
+              var volStart2 = ((v2 - 1) * chPerVol2) + 1;
+              var volEnd2 = v2 * chPerVol2;
+              var volLabel2 = '第' + v2 + '卷 (' + volStart2 + '-' + volEnd2 + '章)';
+              selectHtml2 += '<option value="' + v2 + '">' + volLabel2 + '</option>';
+            }
+            selectHtml2 += '</select>';
+            selectHtml2 += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + vn + '卷，选择后点击「AI生成」</span>';
+            volSel2.innerHTML = selectHtml2;
+          } else {
+            var volHtml2 = '';
+            for (var v2 = 1; v2 <= vn; v2++) {
+              var volStart2 = ((v2 - 1) * chPerVol2) + 1;
+              var volEnd2 = v2 * chPerVol2;
+              var volLabel2 = '第' + v2 + '卷 ' + volStart2 + '-' + volEnd2 + '章';
+              volHtml2 += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v2 + ')">' + volLabel2 + '</button>';
+            }
+            volSel2.innerHTML = volHtml2;
           }
-          volSel2.innerHTML = volHtml2;
         }
-      }
     }
   } catch(e) {}
 
@@ -5752,30 +5785,32 @@ window.generateDetailForVolume = async function(volNum) {
     var totalVols = 9;
     var volMatches = work.outline.match(/第[一二三四五六七八九十百千\d]+卷/g);
     if (volMatches && volMatches.length > 0) totalVols = volMatches.length;
-    if (volNum < 1 || volNum > totalVols) { showToast('卷号超出范围 1-' + totalVols); return; }
-
-    var chInputEl = document.getElementById('ch-count-detail');
-    var totalCh = chInputEl && chInputEl.value ? parseInt(chInputEl.value) : 3000;
     
-    // v65: 修复卷数计算逻辑 - 每卷合理章数应为15-30章，避免卷数太多/太少
+    // 计算合理的卷数（用于每卷章数计算）
     var MIN_CH_PER_VOL = 15;
     var MAX_CH_PER_VOL = 30;
-    // 计算合理的卷数：总章数 / 每卷合理章数
-    var calculatedVols = Math.max(3, Math.min(20, Math.round(totalCh / 20))); // 默认取中间值20章/卷
-    // 确保卷数在合理范围内
+    var chInputEl = document.getElementById('ch-count-detail');
+    var totalCh = chInputEl && chInputEl.value ? parseInt(chInputEl.value) : 3000;
+    var calculatedVols = Math.max(3, Math.min(20, Math.round(totalCh / 20)));
     if (totalCh / calculatedVols < MIN_CH_PER_VOL) {
       calculatedVols = Math.ceil(totalCh / MIN_CH_PER_VOL);
     } else if (totalCh / calculatedVols > MAX_CH_PER_VOL) {
       calculatedVols = Math.ceil(totalCh / MAX_CH_PER_VOL);
     }
-    // 如果已有大纲卷数，优先使用大纲卷数
+    // 使用实际卷数（优先大纲卷数）
+    var actualVols = calculatedVols;
     if (volMatches && volMatches.length > 0) {
-      calculatedVols = volMatches.length;
+      actualVols = volMatches.length;
     }
-    var chPerVol = Math.max(MIN_CH_PER_VOL, Math.min(MAX_CH_PER_VOL, Math.round(totalCh / calculatedVols)));
+    
+    // 检查卷号范围
+    if (volNum < 1 || volNum > actualVols) { showToast('卷号超出范围 1-' + actualVols); return; }
+    
+    // 使用计算出的每卷章数
+    var chPerVol = Math.max(MIN_CH_PER_VOL, Math.min(MAX_CH_PER_VOL, Math.round(totalCh / actualVols)));
     // 同步计算后的卷数到输入框
     var volInputEl = document.getElementById('vol-count-detail');
-    if (volInputEl) volInputEl.value = calculatedVols;
+    if (volInputEl) volInputEl.value = actualVols;
     var chStart = ((volNum - 1) * chPerVol) + 1;
     var chEnd = volNum * chPerVol;
 
@@ -5933,7 +5968,7 @@ window.generateDetailForVolume = async function(volNum) {
     if(!_checkStillSameWork()) return;
 
     // 8. 插入/更新到细纲全文
-    insertOrReplaceVolumeContent(volNum, chStart, chEnd, result, totalVols, chPerVol);
+    insertOrReplaceVolumeContent(volNum, chStart, chEnd, result, actualVols, chPerVol);
     try { syncArchToMemory(getCurrentWork(), 'detail'); } catch(e) {}
     try { if (typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(getCurrentWork()); } catch(e) {}
 
@@ -6004,6 +6039,19 @@ window.detailNextPage = function(){
   _detailPageIdx = Math.min(totalBatches - 1, _detailPageIdx + 1);
   updateDetailDisplay();
 };
+
+// v65: 下拉选择器选择卷后自动触发生成
+window.handleVolSelectChange = function(selectEl) {
+  if (!selectEl) return;
+  var volNum = parseInt(selectEl.value);
+  if (volNum && volNum > 0) {
+    // 自动触发生成
+    generateDetailForVolume(volNum);
+    // 生成后重置选择
+    selectEl.value = '';
+  }
+};
+
 // 细纲显示全文（退出分页，恢复可编辑）
 window.detailShowAll = function(){
   var curW = getCurrentWork();
