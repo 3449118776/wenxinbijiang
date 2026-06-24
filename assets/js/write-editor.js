@@ -7246,45 +7246,15 @@ function updateLongMemory(w, idx) {
   if (!ch.summary || ch.summary === ch.title) {
     ch.summary = extractChapterSummary(content, ch.title);
   }
-  // v57: AI结构化记忆提取（异步，不阻塞）—— 替代本地正则，提取率从50%提升到80%+
-  // v58优化：每3章提取一次 + 缩短输入文本 + 简化输出格式，token消耗降低约60%
-  var extractInterval = 3;
-  if (content.length >= 300 && !ch.aiMemoryExtracted && (idx % extractInterval === 0 || idx < 3)) {
-    const config = DB.getApiConfig();
-    const keys = DB.getApiKeys(config.provider);
-    if (keys && keys.length > 0) {
-      const charNames = extractCharNameMap(w.chars || '').names.slice(0, 15);
-      const sysMsg = '小说记忆提取。阅读章节，输出JSON。\n' +
-        '字段：summary(50字内), emotion, charStates[{name,status,location,role}], ' +
-        'anchors{characterTags,relationships,items,promises,core}, ' +
-        'foreshadows[{text,keyword,type}], plotThreads[{title,type,status}]\n' +
-        '规则：只提取明确信息，空字段输出[]，严格JSON，不加解释。';
-      const userMsg = (charNames.length > 0 ? '角色：' + charNames.join('、') + '\n' : '') +
-        '第' + (idx+1) + '章 ' + ch.title + '\n' +
-        content.slice(0, 2500) + '\n输出JSON：';
-      const msgs = [
-        {role:'system', content: sysMsg},
-        {role:'user', content: userMsg}
-      ];
-      callRealAPIWithFallback(msgs, null, 'memory_extract').then(result => {
-        if (result && result.includes('{')) {
-          const jsonStart = result.indexOf('{');
-          const jsonEnd = result.lastIndexOf('}') + 1;
-          if (jsonEnd > jsonStart) {
-            try {
-              const parsed = JSON.parse(result.slice(jsonStart, jsonEnd));
-              _applyAIMemory(w, idx, ch, parsed);
-              ch.aiMemoryExtracted = true;
-              DB.saveWork(w);
-              console.log('[AI记忆提取] 第' + (idx+1) + '章 提取完成');
-            } catch(e) { console.warn('[AI记忆提取] 解析失败:', e); }
-          }
-        }
-      }).catch(function(e) {
-        console.warn('AI记忆提取失败:', e && e.message);
-      });
-    }
-  }
+
+  // ========== v59: 更稳妥的AI记忆提取方案 ==========
+  // 三重触发机制：
+  // 1. 重要章节关键词触发（必提）—— 突破/大战/死亡/表白/揭秘等
+  // 2. 滑窗周期触发（每2章一次）—— 保证覆盖，每次多看前1章避免遗漏
+  // 3. 前5章全量提取 —— 开篇密集期全覆盖
+  _triggerAIMemoryExtraction(w, idx, content, ch);
+
+  // ========== 以下本地提取每章必跑（兜底保证完整性） ==========
   // 本地提取人物状态
   const chars = w.chars || '';
   let newStates = [];
@@ -7334,9 +7304,9 @@ function updateLongMemory(w, idx) {
   }
   if (w.longMemory.foreshadows.length > 100) w.longMemory.foreshadows = w.longMemory.foreshadows.slice(-100);
   // 提取角色弧线
-  const charNames = (w.chars || '').match(/(?:角色|人设|人物)[：:]\s*(\S{2,4})/g);
-  if (charNames && charNames.length > 0) {
-    const names = [...new Set(charNames.map(s => s.replace(/.*[：:]\s*/, '').trim()))];
+  const charNamesForArc = (w.chars || '').match(/(?:角色|人设|人物)[：:]\s*(\S{2,4})/g);
+  if (charNamesForArc && charNamesForArc.length > 0) {
+    const names = [...new Set(charNamesForArc.map(s => s.replace(/.*[：:]\s*/, '').trim()))];
     for (const name of names) {
       if (name.length < 2 || name.length > 4) continue;
       const existing = w.longMemory.charArcs.find(c => c.name === name);
@@ -7354,7 +7324,205 @@ function updateLongMemory(w, idx) {
     }
     if (w.longMemory.charArcs.length > 50) w.longMemory.charArcs = w.longMemory.charArcs.slice(-50);
   }
+
+  // v59: 每10章做一次记忆完整性校验
+  if ((idx + 1) % 10 === 0) {
+    _checkMemoryIntegrity(w, idx);
+  }
+
   DB.saveWork(w);
+}
+
+// ========== v59: 重要章节关键词检测 ==========
+// 检测到这些关键词的章节视为"重要章节"，强制AI提取
+var IMPORTANT_CHAPTER_KEYWORDS = [
+  // 修为/能力变化
+  '突破', '晋升', '晋级', '升级', '觉醒', '顿悟', '领悟', '融合', '觉醒', '蜕变',
+  '筑基', '金丹', '元婴', '化神', '渡劫', '飞升', '成神', '入圣',
+  // 重大事件
+  '大战', '决战', '厮杀', '血战', '死战', '击杀', '斩杀', '灭杀', '秒杀',
+  '死亡', '陨落', '牺牲', '身亡', '去世', '复活', '重生', '穿越',
+  // 关系变化
+  '表白', '告白', '接吻', '上床', '成亲', '结婚', '订婚',
+  '背叛', '决裂', '反目', '翻脸', '对峙', '宣战',
+  '结盟', '合作', '联手', '拜师', '收徒', '认主',
+  // 身份/秘密揭露
+  '揭秘', '揭晓', '真相', '身份', '原来', '竟然是', '居然是', '秘密',
+  '身世', '血脉', '传承', '法宝', '神器', '功法',
+  // 重大转折
+  '危机', '绝境', '险境', '生死', '逃命', '逃亡', '被困', '获救',
+  '震惊', '震撼', '骇然', '不敢相信', '难以置信',
+  // 势力变动
+  '灭门', '覆灭', '投降', '投诚', '叛变', '造反', '起义',
+  '登基', '继位', '册封', '任命'
+];
+
+// 检测章节是否为重要章节
+function _isImportantChapter(content) {
+  var hitCount = 0;
+  var hitKeywords = [];
+  for (var i = 0; i < IMPORTANT_CHAPTER_KEYWORDS.length; i++) {
+    var kw = IMPORTANT_CHAPTER_KEYWORDS[i];
+    if (content.includes(kw)) {
+      hitCount++;
+      hitKeywords.push(kw);
+      if (hitCount >= 2) break; // 命中2个以上就够了
+    }
+  }
+  return { important: hitCount >= 2, hits: hitKeywords, count: hitCount };
+}
+
+// ========== v59: AI记忆提取触发器 ==========
+function _triggerAIMemoryExtraction(w, idx, content, ch) {
+  if (content.length < 300) return;
+  if (ch.aiMemoryExtracted) return; // 已提取过就跳过
+
+  var config = DB.getApiConfig();
+  var keys = DB.getApiKeys(config.provider);
+  if (!keys || keys.length === 0) return;
+
+  // 判断是否需要提取
+  var shouldExtract = false;
+  var reason = '';
+
+  // 1. 前5章全量提取（开篇密集期）
+  if (idx < 5) {
+    shouldExtract = true;
+    reason = '开篇期';
+  }
+  // 2. 重要章节关键词触发
+  else {
+    var impCheck = _isImportantChapter(content);
+    if (impCheck.important) {
+      shouldExtract = true;
+      reason = '重要章节(' + impCheck.hits.slice(0, 3).join('/') + ')';
+    }
+  }
+
+  // 3. 滑窗周期触发（每2章一次，偶数章）
+  if (!shouldExtract && idx % 2 === 1) {
+    shouldExtract = true;
+    reason = '周期提取';
+  }
+
+  if (!shouldExtract) return;
+
+  // 滑窗模式：周期提取时包含前一章内容（重要章节和开篇期只提当前章）
+  var extractContent = '';
+  var chapterInfo = '';
+  if (reason === '周期提取' && idx > 0 && w.chapters[idx - 1]) {
+    var prevCh = w.chapters[idx - 1];
+    var prevContent = prevCh.content || '';
+    extractContent = '【前章回顾·第' + idx + '章 ' + (prevCh.title || '') + '】\n' + prevContent.slice(0, 1500) + '\n\n';
+    extractContent += '【本章正文·第' + (idx+1) + '章 ' + ch.title + '】\n' + content.slice(0, 2000);
+    chapterInfo = '第' + idx + '-' + (idx+1) + '章（滑窗）';
+  } else {
+    extractContent = content.slice(0, 3000);
+    chapterInfo = '第' + (idx+1) + '章';
+  }
+
+  var charNames = extractCharNameMap(w.chars || '').names.slice(0, 15);
+  var sysMsg = '小说记忆提取。阅读章节，输出JSON。\n' +
+    '字段：summary(50字内), emotion, charStates[{name,status,location,role}], ' +
+    'anchors{characterTags,relationships,items,promises,core}, ' +
+    'foreshadows[{text,keyword,type}], plotThreads[{title,type,status}]\n' +
+    '规则：只提取明确信息，空字段输出[]，严格JSON，不加解释。';
+  var userMsg = (charNames.length > 0 ? '角色：' + charNames.join('、') + '\n' : '') +
+    chapterInfo + ' ' + ch.title + '\n' +
+    extractContent + '\n输出JSON：';
+  var msgs = [
+    {role:'system', content: sysMsg},
+    {role:'user', content: userMsg}
+  ];
+
+  callRealAPIWithFallback(msgs, null, 'memory_extract').then(result => {
+    if (result && result.includes('{')) {
+      var jsonStart = result.indexOf('{');
+      var jsonEnd = result.lastIndexOf('}') + 1;
+      if (jsonEnd > jsonStart) {
+        try {
+          var parsed = JSON.parse(result.slice(jsonStart, jsonEnd));
+          _applyAIMemory(w, idx, ch, parsed);
+          ch.aiMemoryExtracted = true;
+          ch.aiExtractReason = reason;
+          DB.saveWork(w);
+          console.log('[AI记忆提取] 第' + (idx+1) + '章 完成 · 原因:' + reason);
+        } catch(e) { console.warn('[AI记忆提取] 解析失败:', e); }
+      }
+    }
+  }).catch(function(e) {
+    console.warn('AI记忆提取失败:', e && e.message);
+  });
+}
+
+// ========== v59: 记忆完整性校验 ==========
+// 每10章检查一次，发现关键记忆缺失就补提
+function _checkMemoryIntegrity(w, currentIdx) {
+  if (!w.chapters || w.chapters.length < 10) return;
+
+  var missingCount = 0;
+  var chaptersToReextract = [];
+
+  // 检查最近10章的AI提取情况
+  var startIdx = Math.max(0, currentIdx - 9);
+  for (var i = startIdx; i <= currentIdx; i++) {
+    var ch = w.chapters[i];
+    if (!ch || !ch.content || ch.content.length < 300) continue;
+
+    // 如果本地检测到重要关键词但没做AI提取，标记为待补提
+    var impCheck = _isImportantChapter(ch.content);
+    if (impCheck.important && !ch.aiMemoryExtracted) {
+      missingCount++;
+      if (chaptersToReextract.length < 3) {
+        chaptersToReextract.push({ idx: i, chapter: ch, reason: '漏提重要章节' });
+      }
+    }
+  }
+
+  // 如果有遗漏，异步补提（每次最多补3章，避免token爆炸）
+  if (chaptersToReextract.length > 0) {
+    console.log('[记忆校验] 发现' + missingCount + '章遗漏，补提' + chaptersToReextract.length + '章');
+    var _loopExtract = function(index) {
+      if (index >= chaptersToReextract.length) return;
+      var item = chaptersToReextract[index];
+      if (item.chapter.aiMemoryExtracted) { _loopExtract(index + 1); return; }
+
+      var charNames = extractCharNameMap(w.chars || '').names.slice(0, 15);
+      var sysMsg = '小说记忆提取。阅读章节，输出JSON。\n' +
+        '字段：summary(50字内), emotion, charStates[{name,status,location,role}], ' +
+        'anchors{characterTags,relationships,items,promises,core}, ' +
+        'foreshadows[{text,keyword,type}], plotThreads[{title,type,status}]\n' +
+        '规则：只提取明确信息，空字段输出[]，严格JSON，不加解释。';
+      var userMsg = (charNames.length > 0 ? '角色：' + charNames.join('、') + '\n' : '') +
+        '第' + (item.idx+1) + '章 ' + (item.chapter.title || '') + '\n' +
+        item.chapter.content.slice(0, 3000) + '\n输出JSON：';
+      var msgs = [
+        {role:'system', content: sysMsg},
+        {role:'user', content: userMsg}
+      ];
+
+      callRealAPIWithFallback(msgs, null, 'memory_extract').then(result => {
+        if (result && result.includes('{')) {
+          var jsonStart = result.indexOf('{');
+          var jsonEnd = result.lastIndexOf('}') + 1;
+          if (jsonEnd > jsonStart) {
+            try {
+              var parsed = JSON.parse(result.slice(jsonStart, jsonEnd));
+              _applyAIMemory(w, item.idx, item.chapter, parsed);
+              item.chapter.aiMemoryExtracted = true;
+              item.chapter.aiExtractReason = '补提';
+              DB.saveWork(w);
+              console.log('[记忆补提] 第' + (item.idx+1) + '章 完成');
+            } catch(e) {}
+          }
+        }
+        setTimeout(function() { _loopExtract(index + 1); }, 500);
+      }).catch(function() {
+        setTimeout(function() { _loopExtract(index + 1); }, 1000);
+      });
+    };
+    _loopExtract(0);
+  }
 }
 
 // ========== 评价缓存与辅助 ==========
