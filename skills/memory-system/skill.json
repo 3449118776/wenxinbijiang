@@ -1,0 +1,36 @@
+{
+  "name": "memory-system",
+  "displayName": "小说记忆系统",
+  "version": "1.0.0",
+  "description": "长篇小说创作记忆系统 - 自动提取、分级、存储和检索关键记忆点，保持故事连贯性",
+  "author": "文心笔匠",
+  "category": "writing",
+  "tags": ["小说", "记忆", "RAG", "连贯性", "伏笔", "角色管理"],
+  "entry": "index.js",
+  "features": [
+    "向量RAG检索引擎（TF-IDF + 余弦相似度）",
+    "长期记忆系统（20+种记忆类型）",
+    "L0/L1/L2三级记忆分级",
+    "角色分级权重（主角/配角/反派/龙套）",
+    "自动记忆提取与蒸馏压缩",
+    "伏笔追踪与回收管理",
+    "物品台账与势力图谱",
+    "时间线事件管理",
+    "一致性检查",
+    "记忆上下文生成"
+  ],
+  "api": {
+    "MemorySystem": {
+      "description": "记忆系统主类",
+      "methods": [
+        "init(work) - 初始化记忆系统",
+        "addChapter(chapterIdx, content, title) - 添加章节并提取记忆",
+        "search(query, topK, opts) - 检索相关记忆",
+        "getContext(chapterIdx, opts) - 获取写作上下文",
+        "getMemoryStats() - 获取记忆统计",
+        "exportMemory() - 导出记忆数据",
+        "importMemory(data) - 导入记忆数据"
+      ]
+    }
+  }
+}
