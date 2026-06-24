@@ -252,6 +252,121 @@ var VectorRAG = (function () {
     return names;
   }
 
+  // ==========================================================================
+  // 9. 通用文本索引构建（用于世界观/人设/大纲/记忆等任意文本的检索
+  //    按段落/条目分块，每块单独索引
+  // ==========================================================================
+  function buildTextIndex(text, opts) {
+    opts = opts || {};
+    var chunkSize = opts.chunkSize || 300;  // 每块约300字
+    var overlap = opts.overlap || 50;       // 重叠50字
+    var chunks = [];
+    if (!text) return { chunks: chunks, size: 0 };
+
+    // 先按段落拆分
+    var paragraphs = text.split(/\n\s*\n/).filter(function(p) { return p && p.trim().length > 5; });
+    
+    var chunkId = 0;
+    for (var i = 0; i < paragraphs.length; i++) {
+      var para = paragraphs[i].trim();
+      if (para.length < 10) continue;
+      
+      // 短段落直接作为一块
+      if (para.length <= chunkSize) {
+        var tokens = tokenize(para);
+        chunks.push({
+          id: chunkId++,
+          text: para,
+          tokens: tokens,
+          vector: buildVector(tokens),
+          section: opts.sectionName || ''
+        });
+      } else {
+        // 长段落按 chunkSize 滑动窗口分块
+        for (var pos = 0; pos < para.length; pos += (chunkSize - overlap)) {
+          var chunkText = para.substring(pos, pos + chunkSize);
+          var ctokens = tokenize(chunkText);
+          chunks.push({
+            id: chunkId++,
+            text: chunkText,
+            tokens: ctokens,
+            vector: buildVector(ctokens),
+            section: opts.sectionName || '',
+            paraIdx: i
+          });
+          if (pos + chunkSize >= para.length) break;
+        }
+      }
+    }
+    
+    return { chunks: chunks, size: chunks.length };
+  }
+
+  // ==========================================================================
+  // 10. 通用文本检索（从 buildTextIndex 构建的索引中检索
+  // ==========================================================================
+  function retrieveText(index, queryText, topK, opts) {
+    opts = opts || {};
+    topK = topK || 5;
+    var threshold = opts.threshold || 0.03; // 提高阈值，减少噪声
+    
+    if (!index || !index.chunks || !index.chunks.length) return [];
+    
+    var qTokens = tokenize(queryText);
+    var qVec = buildVector(qTokens);
+    
+    var scored = [];
+    for (var i = 0; i < index.chunks.length; i++) {
+      var chunk = index.chunks[i];
+      var sim = cosineSimilarity(qVec, chunk.vector);
+      if (sim > threshold) {
+        scored.push({ chunk: chunk, score: sim });
+      }
+    }
+    
+    scored.sort(function(a, b) { return b.score - a.score; });
+    return scored.slice(0, topK);
+  }
+
+  // ==========================================================================
+  // 11. 格式化检索结果为 prompt 注入段
+  // ==========================================================================
+  function formatTextRetrieval(retrieved, label) {
+    if (!retrieved || !retrieved.length) return '';
+    var lines = [];
+    lines.push('【' + (label || '相关记忆检索') + ' · 共' + retrieved.length + '条】');
+    for (var i = 0; i < retrieved.length; i++) {
+      var r = retrieved[i];
+      lines.push((i + 1) + '. ' + r.chunk.text.trim());
+    }
+    return lines.join('\n') + '\n\n';
+  }
+
+  // ==========================================================================
+  // 12. 从结构化记忆条目构建索引（用于 longMemory 各字段检索
+  //     items: [{ text: ..., meta: {...} }, ...]
+  // ==========================================================================
+  function buildMemoryItemIndex(items) {
+    var chunks = [];
+    if (!items || !items.length) return { chunks: chunks, size: 0 };
+    
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var text = item.text || item.content || item.title || item.status || '';
+      if (!text) continue;
+      var tokens = tokenize(text);
+      chunks.push({
+        id: i,
+        text: text,
+        tokens: tokens,
+        vector: buildVector(tokens),
+        meta: item.meta || item
+      });
+    }
+    
+    return { chunks: chunks, size: chunks.length };
+  }
+
   return {
     tokenize: tokenize,
     buildIndex: buildIndex,
@@ -259,6 +374,10 @@ var VectorRAG = (function () {
     formatForPrompt: formatForPrompt,
     cosineSimilarity: cosineSimilarity,
     extractCharacterNames: extractCharacterNames,
+    buildTextIndex: buildTextIndex,
+    retrieveText: retrieveText,
+    formatTextRetrieval: formatTextRetrieval,
+    buildMemoryItemIndex: buildMemoryItemIndex,
     // 调试/测试用
     _buildVector: buildVector,
     _extractMetadata: extractMetadata

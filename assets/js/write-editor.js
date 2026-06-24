@@ -2825,10 +2825,24 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
-  // ===== v48: 世界观 =====
-  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆
-  //  用户修改过(缓存与当前不一致)才注入修改后原文
-  // 小模型：优先 moduleSummaries，否则 archLimits 截断
+  // ===== v55: 检索式记忆注入 =====
+  // 构建查询上下文：用户指令 + 章节标题 + 上一章结尾 + 细纲
+  var retrievalQuery = chTitle + ' ' + (userCommand || '') + ' ' + (prevContent ? prevContent.substring(0, 500) : '');
+  // 如果有细纲，也加入查询
+  try {
+    if (work.detail && work.detail.length > 0) {
+      var volInfo = findVolumeByChapter(work, chapterIdx);
+      if (volInfo && volInfo.volume && volInfo.volume.chapters) {
+        var localIdx = chapterIdx - volInfo.chStart;
+        var chDetail = volInfo.volume.chapters[localIdx];
+        if (chDetail && chDetail.content) {
+          retrievalQuery += ' ' + chDetail.content.substring(0, 300);
+        }
+      }
+    }
+  } catch(e) {}
+  
+  // ===== v48 → v55: 世界观（检索式，只注入相关设定）=====
   if (archLimits !== null) {
     var worldContent = '';
     try {
@@ -2838,9 +2852,30 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     } catch(_e) { console.warn('[buildChapterPrompt] 世界观摘要失败:', _e); }
     if (!worldContent && work.world) worldContent = work.world;
     if (worldContent && worldContent.length > 200) {
-      var wLimit = archLimits.world || 50000;
-      worldContent = worldContent.length > wLimit ? worldContent.substring(0, wLimit) + '...' : worldContent;
-      prompt += '【世界观设定】\n' + worldContent + '\n\n';
+      // v55: 用检索替代全量截断
+      if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
+        try {
+          var worldIdx = VectorRAG.buildTextIndex(worldContent, { sectionName: '世界观', chunkSize: 400 });
+          var worldRetrieved = VectorRAG.retrieveText(worldIdx, retrievalQuery, 8, { threshold: 0.025 });
+          if (worldRetrieved && worldRetrieved.length > 0) {
+            var wBlock = '【世界观设定 · 检索相关片段】\n';
+            for (var wi = 0; wi < worldRetrieved.length; wi++) {
+              wBlock += (wi+1) + '. ' + worldRetrieved[wi].chunk.text.trim() + '\n';
+            }
+            prompt += wBlock + '\n';
+          } else {
+            // 检索为空时降级：取前N字
+            var wLimit = Math.min(archLimits.world || 50000, 8000);
+            prompt += '【世界观设定】\n' + (worldContent.length > wLimit ? worldContent.substring(0, wLimit) + '...' : worldContent) + '\n\n';
+          }
+        } catch(e) {
+          var wLimit2 = Math.min(archLimits.world || 50000, 8000);
+          prompt += '【世界观设定】\n' + (worldContent.length > wLimit2 ? worldContent.substring(0, wLimit2) + '...' : worldContent) + '\n\n';
+        }
+      } else {
+        var wLimit3 = Math.min(archLimits.world || 50000, 8000);
+        prompt += '【世界观设定】\n' + (worldContent.length > wLimit3 ? worldContent.substring(0, wLimit3) + '...' : worldContent) + '\n\n';
+      }
     }
   } else if (work.world && work.world.length > 100) {
     var worldCached = getArchCacheContent(work, 'world');
@@ -2850,7 +2885,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【世界观设定（用户已修改）】\n' + work.world + '\n\n';
     }
   }
-  // 人物设定：大模型跳过，小模型优先 moduleSummaries 缓存
+  
+  // ===== 人物设定（检索式，只注入相关角色）=====
   if (archLimits !== null) {
     var charsContent = '';
     try {
@@ -2860,9 +2896,29 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     } catch(_e2) { console.warn('[buildChapterPrompt] 人设摘要失败:', _e2); }
     if (!charsContent && work.chars) charsContent = work.chars;
     if (charsContent && charsContent.length > 100) {
-      var cLimit = archLimits.chars || 30000;
-      charsContent = charsContent.length > cLimit ? charsContent.substring(0, cLimit) + '...' : charsContent;
-      prompt += '【人物人设】\n' + charsContent + '\n\n';
+      // v55: 用检索替代全量截断
+      if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
+        try {
+          var charsIdx = VectorRAG.buildTextIndex(charsContent, { sectionName: '人设', chunkSize: 500 });
+          var charsRetrieved = VectorRAG.retrieveText(charsIdx, retrievalQuery, 6, { threshold: 0.02 });
+          if (charsRetrieved && charsRetrieved.length > 0) {
+            var cBlock = '【人物人设 · 检索相关角色】\n';
+            for (var ci = 0; ci < charsRetrieved.length; ci++) {
+              cBlock += (ci+1) + '. ' + charsRetrieved[ci].chunk.text.trim() + '\n';
+            }
+            prompt += cBlock + '\n';
+          } else {
+            var cLimit = Math.min(archLimits.chars || 30000, 6000);
+            prompt += '【人物人设】\n' + (charsContent.length > cLimit ? charsContent.substring(0, cLimit) + '...' : charsContent) + '\n\n';
+          }
+        } catch(e) {
+          var cLimit2 = Math.min(archLimits.chars || 30000, 6000);
+          prompt += '【人物人设】\n' + (charsContent.length > cLimit2 ? charsContent.substring(0, cLimit2) + '...' : charsContent) + '\n\n';
+        }
+      } else {
+        var cLimit3 = Math.min(archLimits.chars || 30000, 6000);
+        prompt += '【人物人设】\n' + (charsContent.length > cLimit3 ? charsContent.substring(0, cLimit3) + '...' : charsContent) + '\n\n';
+      }
     }
   } else if (work.chars && work.chars.length > 100) {
     var charsCached = getArchCacheContent(work, 'chars');
@@ -2944,9 +3000,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '2. 如果确实需要新元素，必须在细纲中事先定义\n\n';
     }
   }
-  // ===== v57: 大纲按卷注入 =====
-  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆，用户修改过才注入
-  // 小模型：优先 moduleSummaries，否则 archLimits 截断
+  // ===== v55 → v57: 大纲（当前卷保留 + 全书检索式）=====
   if (archLimits !== null) {
     var outlineInjected = false;
     var outlineSum = '';
@@ -2957,34 +3011,79 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     } catch(_e3) { console.warn('[buildChapterPrompt] 大纲摘要失败:', _e3); }
 
     var outlineVol = getCurrentOutlineVolume(work, chapterIdx);
-    if (outlineSum || (outlineVol && outlineVol.body)) {
-      if (outlineSum && outlineSum.length > 200) {
-        var oSumLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500;
-        outlineSum = outlineSum.length > oSumLimit ? outlineSum.substring(0, oSumLimit) + '...' : outlineSum;
-        prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + outlineSum + '\n\n';
+    
+    // v55: 全书大纲摘要用检索式
+    if (outlineSum && outlineSum.length > 200) {
+      if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
+        try {
+          var outlineSumIdx = VectorRAG.buildTextIndex(outlineSum, { sectionName: '大纲摘要', chunkSize: 300 });
+          var outlineSumRetrieved = VectorRAG.retrieveText(outlineSumIdx, retrievalQuery, 6, { threshold: 0.02 });
+          if (outlineSumRetrieved && outlineSumRetrieved.length > 0) {
+            var osBlock = '【全书大纲摘要 · 检索相关主线节点】\n';
+            for (var osi = 0; osi < outlineSumRetrieved.length; osi++) {
+              osBlock += (osi+1) + '. ' + outlineSumRetrieved[osi].chunk.text.trim() + '\n';
+            }
+            prompt += osBlock + '\n';
+            outlineInjected = true;
+          } else {
+            var oSumLimit = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500, 4000);
+            prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + (outlineSum.length > oSumLimit ? outlineSum.substring(0, oSumLimit) + '...' : outlineSum) + '\n\n';
+            outlineInjected = true;
+          }
+        } catch(e) {
+          var oSumLimit2 = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500, 4000);
+          prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + (outlineSum.length > oSumLimit2 ? outlineSum.substring(0, oSumLimit2) + '...' : outlineSum) + '\n\n';
+          outlineInjected = true;
+        }
+      } else {
+        var oSumLimit3 = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.6) : 2500, 4000);
+        prompt += '【全书大纲摘要（主线/伏笔/卷结构）】\n' + (outlineSum.length > oSumLimit3 ? outlineSum.substring(0, oSumLimit3) + '...' : outlineSum) + '\n\n';
         outlineInjected = true;
       }
-      if (outlineVol && outlineVol.body && outlineVol.body.length > 100) {
-        var curVolOut = outlineVol.body;
-        var ovLimit = archLimits.outline || 40000;
-        curVolOut = curVolOut.length > ovLimit ? curVolOut.substring(0, ovLimit) + '...' : curVolOut;
-        prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
-        if (outlineVol.prevVolumes) prompt += '【已完结卷】' + outlineVol.prevVolumes + '\n';
-        if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
-        prompt += '\n';
-        outlineInjected = true;
+    }
+    
+    // 当前卷大纲保留，但控制长度（当前卷是最相关的）
+    if (outlineVol && outlineVol.body && outlineVol.body.length > 100) {
+      var curVolOut = outlineVol.body;
+      var ovLimit = Math.min(archLimits.outline || 40000, 12000);
+      curVolOut = curVolOut.length > ovLimit ? curVolOut.substring(0, ovLimit) + '...' : curVolOut;
+      prompt += '【当前卷大纲：' + (outlineVol.volLabel || ('第' + (Math.floor((chapterIdx || 0) / 50) + 1) + '卷')) + '】\n' + curVolOut + '\n';
+      if (outlineVol.prevVolumes) {
+        var prevLimit = Math.min(2000, (outlineVol.prevVolumes || '').length);
+        prompt += '【已完结卷概要】' + (outlineVol.prevVolumes.length > prevLimit ? outlineVol.prevVolumes.substring(0, prevLimit) + '...' : outlineVol.prevVolumes) + '\n';
       }
-      if (!outlineInjected && work.outline) {
-        var fallback = work.outline;
-        var fbLimit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
-        fallback = fallback.length > fbLimit ? fallback.substring(0, fbLimit) + '...' : fallback;
-        prompt += '【全书大纲】\n' + fallback + '\n\n';
+      if (outlineVol.nextVolumeHook) prompt += '【下一卷钩子】' + outlineVol.nextVolumeHook + '\n';
+      prompt += '\n';
+      outlineInjected = true;
+    }
+    
+    if (!outlineInjected && work.outline) {
+      // 全书大纲用检索式
+      if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
+        try {
+          var fullOutlineIdx = VectorRAG.buildTextIndex(work.outline, { sectionName: '全书大纲', chunkSize: 400 });
+          var fullOutlineRetrieved = VectorRAG.retrieveText(fullOutlineIdx, retrievalQuery, 8, { threshold: 0.025 });
+          if (fullOutlineRetrieved && fullOutlineRetrieved.length > 0) {
+            var foBlock = '【全书大纲 · 检索相关剧情节点】\n';
+            for (var foi = 0; foi < fullOutlineRetrieved.length; foi++) {
+              foBlock += (foi+1) + '. ' + fullOutlineRetrieved[foi].chunk.text.trim() + '\n';
+            }
+            prompt += foBlock + '\n';
+          } else {
+            var fallback = work.outline;
+            var fbLimit = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000, 3000);
+            prompt += '【全书大纲】\n' + (fallback.length > fbLimit ? fallback.substring(0, fbLimit) + '...' : fallback) + '\n\n';
+          }
+        } catch(e) {
+          var fallback2 = work.outline;
+          var fb2Limit = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000, 3000);
+          prompt += '【全书大纲】\n' + (fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2) + '\n\n';
+        }
+      } else {
+        var fallback3 = work.outline;
+        var fb3Limit = Math.min(archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000, 3000);
+        prompt += '【全书大纲】\n' + (fallback3.length > fb3Limit ? fallback3.substring(0, fb3Limit) + '...' : fallback3) + '\n\n';
       }
-    } else if (work.outline) {
-      var fallback2 = work.outline;
-      var fb2Limit = archLimits.outline ? Math.floor(archLimits.outline * 0.5) : 2000;
-      fallback2 = fallback2.length > fb2Limit ? fallback2.substring(0, fb2Limit) + '...' : fallback2;
-      prompt += '【全书大纲】\n' + fallback2 + '\n\n';
     }
   } else if (work.outline && work.outline.length > 100) {
     var outlineCached = getArchCacheContent(work, 'outline');
@@ -3064,7 +3163,8 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   }
   
   // 注入longMemory上下文（替代旧的 getMemoryText）
-  const memoryContext = buildMemoryContext(work, chapterIdx);
+  // v55: 传入检索查询，记忆系统内部按相关性检索
+  const memoryContext = buildMemoryContext(work, chapterIdx, retrievalQuery);
   if (memoryContext) {
     prompt += memoryContext + '\n';
     prompt += '【重要·记忆一致性指令】\n';
@@ -6701,27 +6801,43 @@ function buildUltraLedgerContext(w, idx) {
   return ctx;
 }
 
-// v46：三层渐进式记忆注入 + 智能预算控制
-function buildMemoryContext(w, idx) {
+// v46 → v55：检索式记忆注入 + 智能预算控制
+// query: 检索查询文本（用于从大量记忆中检索相关片段）
+function buildMemoryContext(w, idx, query) {
   initLongMemory(w);
   var mem = w.longMemory;
   var ctx = '';
   var archLimits = getArchTruncationLimits();
   var BUDGET = archLimits ? 12000 : 30000; // 大模型给更多记忆空间
+  var hasRAG = typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText && query && query.length > 20;
 
-  // 前情提要（近25章摘要，增加覆盖范围）
+  // 前情提要（近25章摘要，v55: 有检索时改为检索式）
   var summaries = [];
   var startIdx = Math.max(0, idx - 25);
   for (var i = startIdx; i < idx; i++) {
     var ch = w.chapters[i];
     if (ch && ch.summary) {
       var tag = ch.aiSummary ? '[AI]' : '';
-      summaries.push('第' + (i+1) + '章 ' + (ch.title || '') + '：' + tag + ch.summary);
+      summaries.push({ chapterIdx: i, text: '第' + (i+1) + '章 ' + (ch.title || '') + '：' + tag + ch.summary });
     } else if (ch && ch.content && ch.content.length > 30) {
       var s = extractChapterSummary(ch.content, ch.title);
       if (!ch.summary) ch.summary = s;
-      summaries.push('第' + (i+1) + '章 ' + (ch.title || '') + '：' + s);
+      summaries.push({ chapterIdx: i, text: '第' + (i+1) + '章 ' + (ch.title || '') + '：' + s });
     }
+  }
+  
+  // v55: 有检索且摘要数量多时，按相关性筛选
+  if (hasRAG && summaries.length > 8) {
+    try {
+      var sumItems = summaries.map(function(s) { return { text: s.text, meta: { chapterIdx: s.chapterIdx } }; });
+      var sumIdx = VectorRAG.buildMemoryItemIndex(sumItems);
+      var sumRetrieved = VectorRAG.retrieveText(sumIdx, query, 10, { threshold: 0.015 });
+      if (sumRetrieved && sumRetrieved.length >= 5) {
+        // 按章节号排序
+        sumRetrieved.sort(function(a, b) { return (a.chunk.meta.chapterIdx||0) - (b.chunk.meta.chapterIdx||0); });
+        summaries = sumRetrieved.map(function(r) { return { chapterIdx: r.chunk.meta.chapterIdx, text: r.chunk.text }; });
+      }
+    } catch(e) { /* 检索失败，使用原始摘要 */ }
   }
   
   // === 按优先级逐层注入，超预算自动裁剪 ===
@@ -6776,12 +6892,25 @@ function buildMemoryContext(w, idx) {
     }
   }
   
-  // L3: 五层渐进式滚动摘要
+  // L3: 五层渐进式滚动摘要（v55: 有检索时改为检索式）
   if (mem.rollingSummary && added < BUDGET) {
     var rs = mem.rollingSummary;
     var sumText = '';
     if (typeof rs === 'string') {
-      sumText = rs.slice(-2500);
+      // v55: 字符串形式的摘要，用检索筛选
+      if (hasRAG && rs.length > 3000) {
+        try {
+          var rsIdx = VectorRAG.buildTextIndex(rs, { sectionName: '滚动摘要', chunkSize: 300 });
+          var rsRetrieved = VectorRAG.retrieveText(rsIdx, query, 6, { threshold: 0.02 });
+          if (rsRetrieved && rsRetrieved.length >= 3) {
+            sumText = rsRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n');
+          } else {
+            sumText = rs.slice(-2500);
+          }
+        } catch(e) { sumText = rs.slice(-2500); }
+      } else {
+        sumText = rs.slice(-2500);
+      }
     } else {
       // Tier 5: 极远期大时代标记（2500章以前）
       if (rs.megaEras && rs.megaEras.length > 10) sumText += rs.megaEras + '\n\n';
@@ -6789,10 +6918,38 @@ function buildMemoryContext(w, idx) {
       if (rs.ultraEras && rs.ultraEras.length > 10) sumText += rs.ultraEras + '\n\n';
       // Tier 3: 远期时代标记（500-1200章）
       if (rs.eras && rs.eras.length > 10) sumText += rs.eras + '\n\n';
-      // Tier 2: 中期里程碑（120-500章）
-      if (rs.milestones && rs.milestones.length > 10) sumText += rs.milestones + '\n\n';
-      // Tier 1: 近期详细（最近120章）
-      if (rs.recent && rs.recent.length > 10) sumText += '【近期章节摘要】\n' + rs.recent + '\n\n';
+      // Tier 2: 中期里程碑（120-500章）（v55: 有检索时筛选）
+      if (rs.milestones && rs.milestones.length > 10) {
+        if (hasRAG) {
+          try {
+            var msIdx = VectorRAG.buildTextIndex(rs.milestones, { sectionName: '里程碑', chunkSize: 200 });
+            var msRetrieved = VectorRAG.retrieveText(msIdx, query, 4, { threshold: 0.015 });
+            if (msRetrieved && msRetrieved.length >= 2) {
+              sumText += msRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n') + '\n\n';
+            } else {
+              sumText += rs.milestones + '\n\n';
+            }
+          } catch(e) { sumText += rs.milestones + '\n\n'; }
+        } else {
+          sumText += rs.milestones + '\n\n';
+        }
+      }
+      // Tier 1: 近期详细（最近120章）（v55: 有检索时筛选）
+      if (rs.recent && rs.recent.length > 10) {
+        if (hasRAG && rs.recent.length > 2000) {
+          try {
+            var recentIdx = VectorRAG.buildTextIndex(rs.recent, { sectionName: '近期摘要', chunkSize: 250 });
+            var recentRetrieved = VectorRAG.retrieveText(recentIdx, query, 5, { threshold: 0.02 });
+            if (recentRetrieved && recentRetrieved.length >= 3) {
+              sumText += '【近期章节摘要 · 检索相关】\n' + recentRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n') + '\n\n';
+            } else {
+              sumText += '【近期章节摘要】\n' + rs.recent + '\n\n';
+            }
+          } catch(e) { sumText += '【近期章节摘要】\n' + rs.recent + '\n\n'; }
+        } else {
+          sumText += '【近期章节摘要】\n' + rs.recent + '\n\n';
+        }
+      }
       if (!sumText && rs._old) sumText = rs._old.slice(-2500);
     }
     if (sumText) tryAdd('【全书长期压缩摘要】\n' + sumText + '\n');
@@ -6800,7 +6957,8 @@ function buildMemoryContext(w, idx) {
   
   // L4: 前情提要
   if (summaries.length > 0 && added < BUDGET) {
-    tryAdd('【前情提要（已写章节）】\n' + summaries.join('\n') + '\n\n');
+    var summaryTexts = summaries.map(function(s) { return typeof s === 'string' ? s : s.text; });
+    tryAdd('【前情提要（已写章节）】\n' + summaryTexts.join('\n') + '\n\n');
   }
   
   // L5: 超长篇卷记忆（低优先级）
@@ -6866,31 +7024,67 @@ function buildMemoryContext(w, idx) {
     tryAdd(foBlock + '\n');
   }
 
-  // L8: 人物档案摘要（深度角色设定，防止OOC）
+  // L8: 人物档案摘要（v55: 有检索时按相关性筛选角色）
   if (added < BUDGET && mem.characterProfiles && Object.keys(mem.characterProfiles).length > 0) {
-    var cpNames = Object.keys(mem.characterProfiles).slice(0, 5);
-    var cpBlock2 = '【人物档案摘要（深度设定，防止OOC）】\n';
-    var hasCp = false;
-    cpNames.forEach(function(name) {
-      var p = mem.characterProfiles[name];
-      if (p && p.name) {
-        hasCp = true;
-        cpBlock2 += '  ' + p.name;
-        if (p.role) cpBlock2 += '（' + p.role + '）';
-        if (p.coreTrait) cpBlock2 += '：' + p.coreTrait;
-        if (p.secret) cpBlock2 += ' | 秘密：' + p.secret;
-        if (p.goal) cpBlock2 += ' | 目标：' + p.goal;
-        cpBlock2 += '\n';
-      }
-    });
-    if (hasCp) tryAdd(cpBlock2 + '\n');
+    var allProfiles = Object.keys(mem.characterProfiles).map(function(name) { return mem.characterProfiles[name]; });
+    var selectedProfiles = [];
+    
+    if (hasRAG && allProfiles.length > 5) {
+      try {
+        var cpItems = allProfiles.map(function(p) { 
+          return { text: (p.name||'') + ' ' + (p.coreTrait||'') + ' ' + (p.secret||'') + ' ' + (p.goal||'') + ' ' + (p.role||''), meta: p }; 
+        });
+        var cpIdx = VectorRAG.buildMemoryItemIndex(cpItems);
+        var cpRetrieved = VectorRAG.retrieveText(cpIdx, query, 5, { threshold: 0.015 });
+        if (cpRetrieved && cpRetrieved.length >= 2) {
+          selectedProfiles = cpRetrieved.map(function(r) { return r.chunk.meta; });
+        } else {
+          selectedProfiles = allProfiles.slice(0, 5);
+        }
+      } catch(e) { selectedProfiles = allProfiles.slice(0, 5); }
+    } else {
+      selectedProfiles = allProfiles.slice(0, 5);
+    }
+    
+    if (selectedProfiles.length > 0) {
+      var cpBlock2 = '【人物档案摘要（深度设定，防止OOC）' + (hasRAG && allProfiles.length > 5 ? ' · 检索相关' : '') + '】\n';
+      var hasCp = false;
+      selectedProfiles.forEach(function(p) {
+        if (p && p.name) {
+          hasCp = true;
+          cpBlock2 += '  ' + p.name;
+          if (p.role) cpBlock2 += '（' + p.role + '）';
+          if (p.coreTrait) cpBlock2 += '：' + p.coreTrait;
+          if (p.secret) cpBlock2 += ' | 秘密：' + p.secret;
+          if (p.goal) cpBlock2 += ' | 目标：' + p.goal;
+          cpBlock2 += '\n';
+        }
+      });
+      if (hasCp) tryAdd(cpBlock2 + '\n');
+    }
   }
 
-  // L9: 伏笔台账（结构化追踪，近期应回收的）
+  // L9: 伏笔台账（v55: 有检索时按相关性筛选）
   if (added < BUDGET && mem.foreshadowLedger && mem.foreshadowLedger.length > 0) {
-    var flPending2 = mem.foreshadowLedger.filter(function(f){ return f.status === '待回收' || f.status === '已埋下'; }).slice(-8);
+    var flPending2 = mem.foreshadowLedger.filter(function(f){ return f.status === '待回收' || f.status === '已埋下'; });
+    
+    if (hasRAG && flPending2.length > 10) {
+      try {
+        var flItems = flPending2.map(function(f) { return { text: (f.content||f.text||'') + ' ' + (f.type||''), meta: f }; });
+        var flIdx = VectorRAG.buildMemoryItemIndex(flItems);
+        var flRetrieved = VectorRAG.retrieveText(flIdx, query, 8, { threshold: 0.015 });
+        if (flRetrieved && flRetrieved.length >= 3) {
+          flPending2 = flRetrieved.map(function(r) { return r.chunk.meta; });
+        } else {
+          flPending2 = flPending2.slice(-8);
+        }
+      } catch(e) { flPending2 = flPending2.slice(-8); }
+    } else {
+      flPending2 = flPending2.slice(-8);
+    }
+    
     if (flPending2.length > 0) {
-      var flBlock2 = '【伏笔台账（结构化追踪）】\n';
+      var flBlock2 = '【伏笔台账（结构化追踪）' + (hasRAG && mem.foreshadowLedger.length > 10 ? ' · 检索相关' : '') + '】\n';
       flPending2.forEach(function(f) {
         flBlock2 += '  [' + (f.type || '伏笔') + '] ' + (f.content || f.text || '').slice(0, 60);
         if (f.plannedChapter) flBlock2 += '（计划第' + f.plannedChapter + '章回收）';
@@ -6900,9 +7094,25 @@ function buildMemoryContext(w, idx) {
     }
   }
 
-  // L10: 记忆债务（高优先级待补全）
+  // L10: 记忆债务（高优先级待补全，v55: 数量多时按相关性筛选）
   if (added < BUDGET && mem.memoryDebt && mem.memoryDebt.length > 0) {
-    var highDebt2 = mem.memoryDebt.filter(function(d){ return d.level === 'high' && d.age > 5; }).slice(-5);
+    var highDebt2 = mem.memoryDebt.filter(function(d){ return d.level === 'high' && d.age > 5; });
+    
+    if (hasRAG && highDebt2.length > 8) {
+      try {
+        var mdItems = highDebt2.map(function(d) { return { text: (d.content||d.text||'') + ' ' + (d.type||''), meta: d }; });
+        var mdIdx = VectorRAG.buildMemoryItemIndex(mdItems);
+        var mdRetrieved = VectorRAG.retrieveText(mdIdx, query, 5, { threshold: 0.015 });
+        if (mdRetrieved && mdRetrieved.length >= 2) {
+          highDebt2 = mdRetrieved.map(function(r) { return r.chunk.meta; });
+        } else {
+          highDebt2 = highDebt2.slice(-5);
+        }
+      } catch(e) { highDebt2 = highDebt2.slice(-5); }
+    } else {
+      highDebt2 = highDebt2.slice(-5);
+    }
+    
     if (highDebt2.length > 0) {
       var mdBlock2 = '【记忆债务（高优先级待补全）】\n';
       highDebt2.forEach(function(d) {
