@@ -5694,30 +5694,18 @@ function initDetailPager() {
           var volCount = volMatches.length;
           var chPerVol = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / volCount)));
           
-          // v65: 卷数超过8卷时改用下拉选择器，避免按钮过多占位置
-          if (volCount > 8) {
-            var selectHtml = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
-            selectHtml += '<option value="">— 选择要生成的卷 —</option>';
-            for (var v = 1; v <= volCount; v++) {
-              var volStart = ((v - 1) * chPerVol) + 1;
-              var volEnd = v * chPerVol;
-              var volLabel = '第' + v + '卷 (' + volStart + '-' + volEnd + '章)';
-              selectHtml += '<option value="' + v + '">' + volLabel + '</option>';
-            }
-            selectHtml += '</select>';
-            selectHtml += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + volCount + '卷，选择后点击「AI生成」按钮</span>';
-            volSel.innerHTML = selectHtml;
-          } else {
-            // 卷数少时用按钮布局
-            var volHtml = '';
-            for (var v = 1; v <= volCount; v++) {
-              var volStart = ((v - 1) * chPerVol) + 1;
-              var volEnd = v * chPerVol;
-              var volLabel = '第' + v + '卷 ' + volStart + '-' + volEnd + '章';
-              volHtml += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v + ')">' + volLabel + '</button>';
-            }
-            volSel.innerHTML = volHtml;
+          // v65: 统一使用下拉选择器
+          var selectHtml = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
+          selectHtml += '<option value="">— 选择要生成的卷 —</option>';
+          for (var v = 1; v <= volCount; v++) {
+            var volStart = ((v - 1) * chPerVol) + 1;
+            var volEnd = v * chPerVol;
+            var volLabel = '第' + v + '卷 (' + volStart + '-' + volEnd + '章)';
+            selectHtml += '<option value="' + v + '">' + volLabel + '</option>';
           }
+          selectHtml += '</select>';
+          selectHtml += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + volCount + '卷，选择后自动生成</span>';
+          volSel.innerHTML = selectHtml;
         }
       } else {
         // 大纲还没生成 - 按输入框数显示
@@ -5725,31 +5713,20 @@ function initDetailPager() {
         var volSel2 = document.getElementById('vol-selector');
         var vn = volInput2 && volInput2.value ? parseInt(volInput2.value) : 9;
         if (volSel2) {
-          var chPerVol2 = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / vn)));
+          var chPerVol2 = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / vn));
           
-          // v65: 卷数超过8卷时改用下拉选择器
-          if (vn > 8) {
-            var selectHtml2 = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
-            selectHtml2 += '<option value="">— 选择要生成的卷 —</option>';
-            for (var v2 = 1; v2 <= vn; v2++) {
-              var volStart2 = ((v2 - 1) * chPerVol2) + 1;
-              var volEnd2 = v2 * chPerVol2;
-              var volLabel2 = '第' + v2 + '卷 (' + volStart2 + '-' + volEnd2 + '章)';
-              selectHtml2 += '<option value="' + v2 + '">' + volLabel2 + '</option>';
-            }
-            selectHtml2 += '</select>';
-            selectHtml2 += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + vn + '卷，选择后点击「AI生成」</span>';
-            volSel2.innerHTML = selectHtml2;
-          } else {
-            var volHtml2 = '';
-            for (var v2 = 1; v2 <= vn; v2++) {
-              var volStart2 = ((v2 - 1) * chPerVol2) + 1;
-              var volEnd2 = v2 * chPerVol2;
-              var volLabel2 = '第' + v2 + '卷 ' + volStart2 + '-' + volEnd2 + '章';
-              volHtml2 += '<button class="vol-btn" style="padding:6px 10px;border:1px solid #e0e7ff;border-radius:8px;background:#f0f2ff;color:#4f46e5;font-size:12px;cursor:pointer;font-weight:500;" onclick="generateDetailForVolume(' + v2 + ')">' + volLabel2 + '</button>';
-            }
-            volSel2.innerHTML = volHtml2;
+          // v65: 统一使用下拉选择器
+          var selectHtml2 = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
+          selectHtml2 += '<option value="">— 选择要生成的卷 —</option>';
+          for (var v2 = 1; v2 <= vn; v2++) {
+            var volStart2 = ((v2 - 1) * chPerVol2) + 1;
+            var volEnd2 = v2 * chPerVol2;
+            var volLabel2 = '第' + v2 + '卷 (' + volStart2 + '-' + volEnd2 + '章)';
+            selectHtml2 += '<option value="' + v2 + '">' + volLabel2 + '</option>';
           }
+          selectHtml2 += '</select>';
+          selectHtml2 += '<span style="font-size:12px;color:#9ca3af;margin-left:8px;">共' + vn + '卷，选择后自动生成</span>';
+          volSel2.innerHTML = selectHtml2;
         }
     }
   } catch(e) {}
