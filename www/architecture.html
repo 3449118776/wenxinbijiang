@@ -492,6 +492,10 @@ body{display:flex;flex-direction:column;}
     <!-- 章节细纲页 -->
     <div class="module-page" id="page-detail">
       <div class="preview-bar" id="prev-detail-bar" onclick="toggleMiniPreview('detail')"><span>💡 前置架构预览</span><span id="prev-detail-icon">▶</span></div>
+      <div id="detail-book-info" style="margin:8px 14px;padding:10px 14px;background:#f0f4ff;border-radius:8px;border-left:3px solid #6366f1;font-size:13px;line-height:1.6;display:none;">
+        <div style="font-weight:600;color:#1a1a1a;"><span id="detail-book-title" style="color:#6366f1;"></span></div>
+        <div id="detail-book-desc" style="color:#666;margin-top:2px;"></div>
+      </div>
       <div class="preview-body" id="prev-detail-body"></div>
       <div class="idea-bar">
         <textarea id="idea-detail" placeholder="输入构思，AI补全细纲..."></textarea>
@@ -895,6 +899,21 @@ window.switchArchModule = function(mod) {
   pages.forEach(function(p){ p.classList.remove('current'); });
   var target = document.getElementById('page-' + mod);
   if (target) target.classList.add('current');
+
+  // ===== 细纲页：展示书名和简介 =====
+  if (mod === 'detail') {
+    try {
+      var _w = getCurrentWork();
+      var _infoEl = document.getElementById('detail-book-info');
+      var _titleEl = document.getElementById('detail-book-title');
+      var _descEl = document.getElementById('detail-book-desc');
+      if (_infoEl && _w) {
+        _titleEl.textContent = _w.title || '未命名作品';
+        _descEl.textContent = _w.desc || '（无简介）';
+        _infoEl.style.display = 'block';
+      }
+    } catch(e) {}
+  }
 
   // v63: AI卡片检查在 generateArchModule 内部自动完成，不删不减只替换
 
@@ -3274,6 +3293,7 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
 
   prompt += '【作品基础信息】\n';
   prompt += '作品名称：' + title + '\n';
+  if(work && work.desc && work.desc.trim()) prompt += '作品简介：' + work.desc.trim().substring(0, 300) + '\n';
   if(genre) prompt += '一级题材：' + genre + '\n';
   prompt += '发布平台：' + platform + '\n\n';
 
@@ -3418,6 +3438,7 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   sysMsg += '5. 你将一次性完整输出全部内容，请内部自己规划结构，避免前后重复、前后矛盾\n\n';
   sysMsg += '【作品基础信息】\n';
   sysMsg += '作品名称：' + title + '\n';
+  if(work && work.desc && work.desc.trim()) sysMsg += '作品简介：' + work.desc.trim().substring(0, 300) + '\n';
   if(genre) sysMsg += '一级题材：' + genre + '\n';
   sysMsg += '发布平台：' + platform + '\n';
   sysMsg += '当前模块：' + moduleName + '\n';
@@ -3627,6 +3648,7 @@ function buildDetailVolumePromptV52(work, volIndex, totalVols, volTarget, prevVo
   sysMsg += '6. 如果前序卷的细纲已生成，本卷必须严格承接前序卷的结尾状态（人物状态、局势状态、悬念状态），不得让读者感觉到"断档"\n\n';
   sysMsg += '【作品基础信息】\n';
   sysMsg += '作品名称：' + title + '\n';
+  if(work && work.desc && work.desc.trim()) sysMsg += '作品简介：' + work.desc.trim().substring(0, 300) + '\n';
   if(genre) sysMsg += '一级题材：' + genre + '\n';
   sysMsg += '发布平台：' + platform + '\n';
   sysMsg += '本卷编号：第 ' + volIndex + ' 卷（共 ' + totalVols + ' 卷）\n';
