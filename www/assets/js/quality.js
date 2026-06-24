@@ -581,12 +581,56 @@
     dims.push(d5);
 
     // D6: 商业价值（10分）— v59: 三级命中率
-    var d6 = { name: '商业价值', score: 6, max: 10, weight: 0.14, issues: [], strengths: [] };
+    var d6 = { name: '商业价值', score: 6, max: 10, weight: 0.12, issues: [], strengths: [] };
     var o6Count = countMatches(content, /(爽点|打脸|装逼|逆袭|翻盘|扮猪吃虎|越级|越阶|越级挑战|越阶战斗|碾压|秒杀|横扫|无敌|开挂|外挂|作弊|系统|金手指|奇遇|传承|机缘|机遇|运气|福缘|造化|机缘巧合|天降正义|天降宝物|白捡|捡漏|探险|夺宝|比赛|传承|考核|试炼|选拔|大比|竞赛|拍卖|商战|谋略|计谋|布局|算计|智商|碾压|降维|碾压智商|智商碾压|信息差|降维打击|知识碾压|技术碾压|认知碾压|眼界|格局|眼界打开|格局打开|大开眼界|长见识|刷新认知|颠覆认知|重塑三观|打破常识|不可思议|难以置信|不敢置信|难以置信|无法想象|超乎想象|超越想象|突破想象|刷新想象|颠覆想象|打开新世界|开启新纪元|开启新时代|开创|开拓|创新|革新|革命|颠覆|突破|首创|领先|独创|独家|唯一|第一|首次|始|元|祖|宗|源|本|根|底|基石|根基|根本|基础|底层|顶层|架构|生态|体系|系统|世界观|宇宙|位面|维度|次元|时空|平行|交叠|重叠|交错|穿插|嵌套|套娃|递归|循环|轮回|无限|无尽|永恒|永恒轮回|无尽循环|周而复始|生生不息|永无止境|无边无际|无穷无尽)/g);
     if (o6Count >= 4) { d6.score = 8; d6.strengths.push('爽点/商业价值丰富(' + o6Count + '处)'); }
     else if (o6Count >= 1) { d6.score = 6; d6.strengths.push('有商业价值设计'); }
     else { d6.score = 3; d6.issues.push('缺少爽点/名场面/商业价值设计'); }
     dims.push(d6);
+
+    // D7: 反套路指数（10分）— 检测伪创意和套路化
+    var d7 = { name: '反套路指数', score: 7, max: 10, weight: 0.12, issues: [], strengths: [] };
+    // 套路关键词密度（越高越套路）
+    var clichePatterns = [
+      /废柴|废物|天才变废|家族放弃|众人嘲笑|经脉尽断|灵根残缺/, // 废柴流
+      /退婚|休书|三年之约|莫欺少年穷/, // 退婚流
+      /系统面板|叮|任务发布|获得奖励|经验加成|等级提升|新手礼包/, // 系统流
+      /秘境|遗迹|古洞府|宝藏|传承|机缘/, // 秘境流
+      /扮猪吃虎|隐藏实力|深藏不露/, // 扮猪吃虎流
+      /越级挑战|跨级杀敌|以弱胜强/, // 越级流
+      /邪魔外道|魔教|邪修|正邪不两立/, // 正邪对立流
+      /英雄救美|以身相许|芳心暗许/, // 英雄救美流
+      /打脸|装逼|逆袭|碾压|秒杀|横扫/, // 爽文套路
+      /修炼|升级|突破|境界|等级|飞升|渡劫/ // 升级流
+    ];
+    var clicheCount = 0;
+    for (var ci = 0; ci < clichePatterns.length; ci++) {
+      if (clichePatterns[ci].test(content)) clicheCount++;
+    }
+    // 反套路关键词密度（越高越反套路）
+    var antiClichePatterns = [
+      /代价|牺牲|失去|付出/, // 有代价
+      /失败|挫折|困境|绝境/, // 有失败
+      /两难|选择|失去/, // 两难选择
+      /意外|反转|颠覆/, // 意外反转
+      /真相|揭露|发现/, // 真相揭露
+      /配角.*独立|配角.*自己的|配角.*故事/, // 配角有独立线
+      /反派.*正义|反派.*逻辑|反派.*动机/, // 反派有逻辑
+      /成长.*代价|获得.*失去|得到.*付出/, // 成长有代价
+      /变体|创新|独特|反套路/ // 明确反套路
+    ];
+    var antiClicheCount = 0;
+    for (var ai = 0; ai < antiClichePatterns.length; ai++) {
+      if (antiClichePatterns[ai].test(content)) antiClicheCount++;
+    }
+    // 套路密度 - 反套路密度 = 净套路指数
+    var netCliche = clicheCount - antiClicheCount;
+    if (netCliche <= 0) { d7.score = 9; d7.strengths.push('反套路意识强，套路密度低'); }
+    else if (netCliche === 1) { d7.score = 7; d7.strengths.push('有反套路意识'); }
+    else if (netCliche === 2) { d7.score = 5; d7.issues.push('套路化较重，建议加强反套路设计'); }
+    else { d7.score = 3; d7.issues.push('套路化严重(' + clicheCount + '种套路)，建议大幅加强反套路变体'); }
+    if (clicheCount >= 3 && antiClicheCount === 0) { d7.issues.push('有套路但无反套路变体，需要加入'); }
+    dims.push(d7);
 
     return _buildResult('outline', '大纲', dims, content, len);
   }
@@ -682,7 +726,7 @@
     } else if (coolCount >= 2) { d5.score = 6; d5.strengths.push('有爽点分布'); }
     dims.push(d5);
 
-    var d6 = { name: '可执行性', score: 6, max: 10, weight: 0.14, issues: [], strengths: [] };
+    var d6 = { name: '可执行性', score: 6, max: 10, weight: 0.12, issues: [], strengths: [] };
     if (len >= 5000) { d6.score = 10; d6.strengths.push('内容详实(' + Math.round(len / 1000) + 'k字)'); }
     else if (len >= 2000) { d6.score = 8; d6.strengths.push('篇幅充足'); }
     else if (len >= 600) { d6.score = 6; d6.strengths.push('篇幅合理'); }
@@ -691,6 +735,51 @@
     else if (chapterCount >= 15) d6.strengths.push('章节数量合理');
     else if (chapterCount >= 5) d6.strengths.push('可支撑多章写作');
     dims.push(d6);
+
+    // D7: 反套路指数（10分）— 检测章级伪创意和套路化
+    var d7 = { name: '反套路指数', score: 7, max: 10, weight: 0.12, issues: [], strengths: [] };
+    // 章级套路关键词密度
+    var detailClichePatterns = [
+      /主角.*险胜|艰难.*胜利|差点.*失败/, // 险胜模式
+      /配角.*送装备|配角.*送情报|配角.*送资源/, // 配角工具人
+      /主角.*轻松.*碾压|主角.*秒杀|主角.*横扫/, // 无脑爽
+      /意外.*获得|意外.*发现|意外.*遇到/, // 意外金手指
+      /仇人.*必报|报仇.*雪恨/, // 报仇公式化
+      /误会.*解开|误会.*消除/, // 误会公式化
+      /感情.*顺利|感情.*发展/, // 感情线顺理成章
+      /每次.*冲突.*赢|每次.*战斗.*赢|每战.*必胜/, // 永远赢
+      /修炼.*突破|境界.*提升|等级.*提升/, // 纯升级流
+      /计划.*成功|阴谋.*得逞/ // 计划必成功
+    ];
+    var detailClicheCount = 0;
+    for (var ci = 0; ci < detailClichePatterns.length; ci++) {
+      if (detailClichePatterns[ci].test(content)) detailClicheCount++;
+    }
+    // 章级反套路关键词密度
+    var detailAntiClichePatterns = [
+      /计划.*失败|意外.*打乱|变故/, // 计划失效
+      /赢了.*但是|胜利.*代价|成功.*失去/, // 胜利即失败
+      /两难.*选择|无法.*选择|选.*还是/, // 两难选择
+      /配角.*自己|配角.*独立|配角.*故事/, // 配角独立线
+      /反派.*也有|反派.*理由|反派.*正义/, // 反派有逻辑
+      /情绪.*错位|情绪.*滞后|情绪.*延迟/, // 情绪反套路
+      /对话.*答非所问|对话.*潜台词/, // 对话反套路
+      /日常.*伏笔|日常.*暗线/, // 日常即风暴
+      /代价.*前置|失去.*先于|付出.*先/, // 代价前置
+      /反转.*意外|意外.*反转/ // 意外反转
+    ];
+    var detailAntiClicheCount = 0;
+    for (var ai = 0; ai < detailAntiClichePatterns.length; ai++) {
+      if (detailAntiClichePatterns[ai].test(content)) detailAntiClicheCount++;
+    }
+    // 净套路指数
+    var netDetailCliche = detailClicheCount - detailAntiClicheCount;
+    if (netDetailCliche <= 0) { d7.score = 9; d7.strengths.push('章级反套路意识强'); }
+    else if (netDetailCliche === 1) { d7.score = 7; d7.strengths.push('有章级反套路意识'); }
+    else if (netDetailCliche === 2) { d7.score = 5; d7.issues.push('章级套路化较重，建议每3章加入1次反套路设计'); }
+    else { d7.score = 3; d7.issues.push('章级套路化严重，建议大幅加强反套路'); }
+    if (detailClicheCount >= 3 && detailAntiClicheCount === 0) { d7.issues.push('有章级套路但无反套路变体'); }
+    dims.push(d7);
 
     return _buildResult('detail', '细纲', dims, content, len);
   }
