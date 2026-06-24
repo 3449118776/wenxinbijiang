@@ -3600,7 +3600,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
   prompt += '  禁止：连续使用3个以上形容词（美丽动人温柔善良）。用一个精准形容词或用动作展示。\n\n';
 
   // ===== v48+v72: 世界观 =====
-  // 大模型(archLimits=null)：引用结构化缓存，用户修改过(缓存与当前不一致)才注入修改后原文
+  // 大模型(archLimits=null)：跳过 — 对话上下文自带记忆（moduleSummaries），用户修改过(缓存与当前不一致)才注入
   // 小模型：优先 moduleSummaries，否则 archLimits 截断
   if (archLimits !== null) {
     var worldContent = '';
@@ -3616,19 +3616,13 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【世界观设定】\n' + worldContent + '\n\n';
     }
   } else if (work.world && work.world.length > 100) {
-    // v72: 引用结构化缓存数据
-    var worldStructured = getStructuredCache(work, 'world');
-    if (worldStructured) {
-      var worldRef = buildCacheReferenceBlock('world', worldStructured);
-      if (worldRef) prompt += worldRef;
-    }
-    // v72: 只有修改过才注入原文
+    // v72: 大模型跳过架构注入，只注入用户修改过的内容
     if (hasArchModified(work, 'world')) {
       prompt += '【世界观设定（用户已修改）】\n' + work.world + '\n\n';
     }
   }
   // ===== v48+v72: 人物设定 =====
-  // 大模型：引用结构化缓存，用户修改过才注入
+  // 大模型：跳过 — 对话上下文自带记忆，用户修改过才注入
   // 小模型：优先 moduleSummaries 缓存
   if (archLimits !== null) {
     var charsContent = '';
@@ -3644,13 +3638,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【人物人设】\n' + charsContent + '\n\n';
     }
   } else if (work.chars && work.chars.length > 100) {
-    // v72: 引用结构化缓存数据
-    var charsStructured = getStructuredCache(work, 'chars');
-    if (charsStructured) {
-      var charsRef = buildCacheReferenceBlock('chars', charsStructured);
-      if (charsRef) prompt += charsRef;
-    }
-    // v72: 只有修改过才注入原文
+    // v72: 大模型跳过架构注入，只注入用户修改过的内容
     if (hasArchModified(work, 'chars')) {
       prompt += '【人物人设（用户已修改）】\n' + work.chars + '\n\n';
     }
@@ -3770,13 +3758,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       prompt += '【全书大纲】\n' + fallback2 + '\n\n';
     }
   } else if (work.outline && work.outline.length > 100) {
-    // v72: 引用结构化缓存数据
-    var outlineStructured = getStructuredCache(work, 'outline');
-    if (outlineStructured) {
-      var outlineRef = buildCacheReferenceBlock('outline', outlineStructured);
-      if (outlineRef) prompt += outlineRef;
-    }
-    // v72: 只有修改过才注入原文
+    // v72: 大模型跳过大纲注入，只注入用户修改过的内容
     if (hasArchModified(work, 'outline')) {
       prompt += '【全书大纲（用户已修改）】\n' + work.outline + '\n\n';
     }
@@ -3835,13 +3817,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
         prompt += '4. 字数灵活控制，以剧情完整性为先，不少于4000字，可根据需要写至8000-15000字\n\n';
       }
     } else if (work.detail && work.detail.length > 100) {
-      // v72: 引用结构化缓存数据
-      var detailStructured = getStructuredCache(work, 'detail');
-      if (detailStructured) {
-        var detailRef = buildCacheReferenceBlock('detail', detailStructured);
-        if (detailRef) prompt += detailRef;
-      }
-      // v72: 只有修改过才注入原文
+      // v72: 大模型跳过细纲注入，只注入用户修改过的内容
       if (hasArchModified(work, 'detail')) {
         prompt += '【📑 细纲（用户已修改）】\n' + work.detail + '\n\n';
         prompt += '【核心指令 · 细纲最高优先级】\n';
