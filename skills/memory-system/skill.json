@@ -17,7 +17,12 @@
     "物品台账与势力图谱",
     "时间线事件管理",
     "一致性检查",
-    "记忆上下文生成"
+    "记忆上下文生成",
+    "角色状态追踪",
+    "情节线索管理",
+    "角色弧线进度",
+    "记忆债务提醒",
+    "势力关系图谱"
   ],
   "api": {
     "MemorySystem": {
@@ -29,7 +34,16 @@
         "getContext(chapterIdx, opts) - 获取写作上下文",
         "getMemoryStats() - 获取记忆统计",
         "exportMemory() - 导出记忆数据",
-        "importMemory(data) - 导入记忆数据"
+        "importMemory(data) - 导入记忆数据",
+        "getCharStates(opts) - 获取角色状态列表",
+        "getPlotThreads(opts) - 获取情节线索",
+        "getCharArcs() - 获取角色弧线进度",
+        "getMemoryDebt(level) - 获取记忆债务",
+        "getFactions(opts) - 获取势力图谱",
+        "getPlotContext(chapterIdx, opts) - 获取情节上下文",
+        "checkConsistency(chapterIdx) - 一致性检查",
+        "listCharacters(opts) - 列出角色",
+        "listForeshadows(status) - 列出伏笔"
       ]
     }
   }

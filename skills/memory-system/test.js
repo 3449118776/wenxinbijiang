@@ -34,6 +34,8 @@ const chapter1Content = `
 
 话音未落，林宇已经冲了上去。他的体内，一股神秘的力量正在觉醒。
 三天后，他遇见了苏婉儿。
+
+林家家族被血煞教派灭门，林宇身负血海深仇，踏上复仇之路。
 `;
 
 const result1 = memorySys.addChapter(0, chapter1Content, '第一章 血色残阳');
@@ -60,6 +62,8 @@ const chapter2Content = `
 
 林宇接过玉佩，紧紧握在手中。他知道，这玉佩里藏着他身世的秘密。
 三个月后，林宇的伤终于好了大半。
+
+苏婉儿告诉林宇，她的师父曾经提到过一块神秘的玉佩，据说与上古时期的某个秘密有关。
 `;
 
 const result2 = memorySys.addChapter(1, chapter2Content, '第二章 医者仁心');
@@ -74,6 +78,11 @@ console.log('   总字数:', stats.totalWords);
 console.log('   角色数:', stats.characterCount);
 console.log('   伏笔数:', stats.foreshadowCount);
 console.log('   物品数:', stats.itemCount);
+console.log('   角色状态数:', stats.charStates);
+console.log('   情节线索数:', stats.plotThreads);
+console.log('   角色弧线条数:', stats.charArcs);
+console.log('   记忆债务数:', stats.memoryDebt);
+console.log('   势力数:', stats.factions);
 console.log('   锚点统计:', JSON.stringify(stats.anchors));
 
 const context = memorySys.getContext(2, {
@@ -125,8 +134,62 @@ if (consistency.strengths.length > 0) {
   });
 }
 
+const charStates = memorySys.getCharStates({ limit: 5 });
+console.log('\n10. 角色状态');
+if (charStates.length > 0) {
+  charStates.forEach(cs => {
+    console.log(`   ${cs.name} - ${cs.state}（第${cs.chapterIdx + 1}章）`);
+  });
+} else {
+  console.log('   暂无');
+}
+
+const plotThreads = memorySys.getPlotThreads({ limit: 5 });
+console.log('\n11. 情节线索');
+if (plotThreads.length > 0) {
+  plotThreads.forEach(pt => {
+    console.log(`   [${pt.type}] ${pt.text.slice(0, 40)}...`);
+  });
+} else {
+  console.log('   暂无');
+}
+
+const charArcs = memorySys.getCharArcs();
+console.log('\n12. 角色弧线');
+if (charArcs.length > 0) {
+  charArcs.slice(0, 5).forEach(ca => {
+    console.log(`   ${ca.name}: ${ca.arc}`);
+  });
+} else {
+  console.log('   暂无');
+}
+
+const factions = memorySys.getFactions({ sortBy: 'lastSeen', limit: 5 });
+console.log('\n13. 势力图谱');
+if (factions.length > 0) {
+  factions.forEach(f => {
+    console.log(`   ${f.name}（${f.type}）- 成员: ${f.members?.length || 0}人`);
+  });
+} else {
+  console.log('   暂无');
+}
+
+const plotContext = memorySys.getPlotContext(2);
+console.log('\n14. 情节上下文');
+console.log('   文本长度:', plotContext.text.length, '字');
+console.log('   包含部分:', Object.keys(plotContext.sections));
+
+const memoryDebt = memorySys.getMemoryDebt();
+console.log('\n15. 记忆债务');
+console.log('   总数:', memoryDebt.length);
+if (memoryDebt.length > 0) {
+  memoryDebt.slice(0, 3).forEach(d => {
+    console.log(`   [${d.level}] ${d.type}: ${d.text.slice(0, 30)}...（已悬${d.age}章）`);
+  });
+}
+
 const exportData = memorySys.exportMemory();
-console.log('\n10. 导出记忆数据');
+console.log('\n16. 导出记忆数据');
 console.log('    数据大小:', JSON.stringify(exportData).length, '字节');
 console.log('    包含字段:', Object.keys(exportData));
 
@@ -142,3 +205,8 @@ console.log('  ✓ 记忆压缩与蒸馏');
 console.log('  ✓ 一致性检查');
 console.log('  ✓ 上下文生成');
 console.log('  ✓ 导入/导出');
+console.log('  ✓ 角色状态追踪');
+console.log('  ✓ 情节线索管理');
+console.log('  ✓ 角色弧线进度');
+console.log('  ✓ 记忆债务提醒');
+console.log('  ✓ 势力关系图谱');

@@ -5,6 +5,7 @@ const MemoryCompressor = require('./modules/memory-compressor.js');
 const ConsistencyChecker = require('./modules/consistency-checker.js');
 const CharacterManager = require('./modules/character-manager.js');
 const ForeshadowManager = require('./modules/foreshadow-manager.js');
+const PlotManager = require('./modules/plot-manager.js');
 
 class MemorySystem {
   constructor(options = {}) {
@@ -25,6 +26,7 @@ class MemorySystem {
     this.checker = new ConsistencyChecker(this.options);
     this.characterManager = new CharacterManager(this.options);
     this.foreshadowManager = new ForeshadowManager(this.options);
+    this.plotManager = new PlotManager(this.options);
     this._initialized = false;
   }
 
@@ -63,6 +65,7 @@ class MemorySystem {
 
     this.characterManager.update(this.work, chapterIdx, content, extracted.characters);
     this.foreshadowManager.update(this.work, chapterIdx, content, extracted.foreshadows);
+    this.plotManager.update(this.work, chapterIdx, content);
 
     if (this.rag) {
       this.rag.buildIndex(this.work);
@@ -171,7 +174,13 @@ class MemorySystem {
       itemCount: 0,
       timelineEvents: 0,
       chapterIndexSize: 0,
-      volumeMemories: 0
+      volumeMemories: 0,
+      charStates: 0,
+      plotThreads: 0,
+      charArcs: 0,
+      memoryDebt: 0,
+      highDebt: 0,
+      factions: 0
     };
 
     if (this.work.chapters) {
@@ -193,6 +202,12 @@ class MemorySystem {
       stats.timelineEvents = lm.timelineEvents ? lm.timelineEvents.length : 0;
       stats.chapterIndexSize = lm.chapterIndex ? lm.chapterIndex.length : 0;
       stats.volumeMemories = lm.volumeMemories ? lm.volumeMemories.length : 0;
+      stats.charStates = lm.charStates ? lm.charStates.length : 0;
+      stats.plotThreads = lm.plotThreads ? lm.plotThreads.length : 0;
+      stats.charArcs = lm.charArcs ? lm.charArcs.length : 0;
+      stats.memoryDebt = lm.memoryDebt ? lm.memoryDebt.length : 0;
+      stats.highDebt = lm.memoryDebt ? lm.memoryDebt.filter(d => d.level === 'high').length : 0;
+      stats.factions = lm.factionGraph ? Object.keys(lm.factionGraph).length : 0;
     }
 
     return stats;
@@ -246,6 +261,41 @@ class MemorySystem {
     if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
     return this.foreshadowManager.resolve(this.work, foreshadowId, chapterIdx, resolution);
   }
+
+  getCharStates(opts = {}) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getCharStates(this.work, opts);
+  }
+
+  getPlotThreads(opts = {}) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getPlotThreads(this.work, opts);
+  }
+
+  getCharArcs() {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getCharArcs(this.work);
+  }
+
+  getMemoryDebt(level = null) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getMemoryDebt(this.work, level);
+  }
+
+  getFactions(opts = {}) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getFactions(this.work, opts);
+  }
+
+  getPlotContext(chapterIdx, opts = {}) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    return this.plotManager.getContext(this.work, chapterIdx, opts);
+  }
+
+  addChainConsistency(report) {
+    if (!this._initialized) throw new Error('MemorySystem not initialized. Call init() first.');
+    this.plotManager.addChainConsistency(this.work, report);
+  }
 }
 
 MemorySystem.VectorRAG = VectorRAG;
@@ -255,5 +305,6 @@ MemorySystem.MemoryCompressor = MemoryCompressor;
 MemorySystem.ConsistencyChecker = ConsistencyChecker;
 MemorySystem.CharacterManager = CharacterManager;
 MemorySystem.ForeshadowManager = ForeshadowManager;
+MemorySystem.PlotManager = PlotManager;
 
 module.exports = MemorySystem;
