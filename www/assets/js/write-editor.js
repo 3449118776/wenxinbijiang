@@ -4434,9 +4434,9 @@ async function aiWriteChapter(opts){
   var _prevResult = opts._prevResult || '';  // 上一轮生成结果，迭代时用于增量改进
 
   const work=getCurrentWork();if(!work){showToast('请先新建或选择作品');return;}
-  // 第一次生成：resetLoading 从 0 起步；迭代时只更新文字，保持进度连续推进
-  if (_writeIteration === 0 && typeof resetLoading === 'function') {
-    resetLoading('正在生成章节…');
+  // 第一次生成：showLoading(text, true) 从 0 起步；迭代时只更新文字，保持进度连续推进
+  if (_writeIteration === 0 && typeof showLoading === 'function') {
+    showLoading('正在生成章节…', true);
   } else if (typeof showLoading === 'function') {
     showLoading('第' + (_writeIteration + 1) + '轮生成中…');
   }
@@ -5106,7 +5106,7 @@ async function aiEvaluate(){
 
   // 2. AI 补充评价（可选）
   if(result && typeof callRealAPIWithFallback === 'function' && content.length > 100){
-    if(typeof resetLoading === 'function') resetLoading('AI评价分析中…');
+    if(typeof showLoading === 'function') showLoading('AI评价分析中…', true);
     else if(typeof showLoading === 'function') showLoading('AI评价分析中…');
     if(typeof updateLoadingProgress === 'function') updateLoadingProgress(35, 'AI评价分析中…');
     var evalPrompt = '你是一位资深网文编辑。请对以下章节内容进行专业评价。\n\n';
@@ -7272,11 +7272,11 @@ async function aiPolishByQuality(){
   }
   if(!hint){ hint = '请优化本章的文字质量，提升写作水平'; }
   var prompt = '你是一位资深网文编辑。\n\n' + hint + '\n\n【原文】\n' + content + '\n\n【输出要求】直接给出润色后的完整章节正文，不要解释。';
-  if(typeof resetLoading === 'function') resetLoading('按建议润色中…');
+  if(typeof showLoading === 'function') showLoading('按建议润色中…', true);
   else showLoading('按建议润色中…');
   if(typeof updateLoadingProgress === 'function') updateLoadingProgress(30, '正在润色…');
   try {
-    var r = await callRealAPIWithFallback(prompt, null, 'quality_polish', Math.max(600, Math.floor(content.length * 1.1)));
+    var r = await callRealAPIWithFallback(prompt, null, 'quality_polish', Math.max(600, Math.floor(content.length * 1.1)), false, true);
     if (r && r.length > 200) {
       window._editorBackup2 = window._editorBackup;
       window._editorBackup = content;
@@ -7782,17 +7782,17 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
   
   if (iteration === 0) {
-    if (typeof resetLoading === 'function') resetLoading(statusMsg);
+    if (typeof showLoading === 'function') showLoading(statusMsg, true);
     else showLoading(statusMsg);
     if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '正在生成 ' + statusMsg);
   } else {
-    if (typeof resetLoading === 'function') resetLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
+    if (typeof showLoading === 'function') showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg, true);
     else showLoading('第' + (iteration + 1) + '轮 · ' + statusMsg);
     if(typeof updateLoadingProgress === 'function') updateLoadingProgress(30 + iteration * 20, '第' + (iteration + 1) + '轮 · ' + statusMsg);
   }
   
   try {
-    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars);
+    var result = await callRealAPIWithFallback(prompt, null, taskType, targetChars, false, true);
     
     if (result && result.length > 200) {
       result = typeof cleanAIOutput === 'function' ? cleanAIOutput(result) : result;

@@ -2503,7 +2503,7 @@ window.generateArchModule = async function(opts){
     // 2. 显示进度（首次调用：从0起步）
     var moduleName = MODULE_INFO[module] ? MODULE_INFO[module].name : module;
     var actionLabel = opts.isFix ? '按评价重新生成' : 'AI生成';
-    if(typeof resetLoading === 'function') resetLoading(actionLabel + moduleName + '中…');
+    if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…', true);
     else if(typeof showLoading === 'function') showLoading(actionLabel + moduleName + '中…');
     if(!idea.trim() && !opts.isFix){
       showToast('已按作品题材自动生成。你也可以在上方输入具体要求，AI 会优先按你的提示词生成。', {duration:3000});
@@ -3775,7 +3775,7 @@ window.evaluateArchModule = async function(){
     // 2. AI 深度评价（可选，异步补充）
     var aiReport = '';
     if(typeof callRealAPIWithFallback === 'function' && content.length > 100){
-      if(typeof resetLoading === 'function') resetLoading('AI 评价分析中…');
+      if(typeof showLoading === 'function') showLoading('AI 评价分析中…', true);
       else if(typeof showLoading === 'function') showLoading('AI 评价分析中…');
       if(typeof startAutoLoadingProgress === 'function'){
         startAutoLoadingProgress(70, 'AI 评价分析中…');
@@ -3911,7 +3911,7 @@ window.strengthenDetailOutlineV46 = async function(){
       var progressLabel = '[' + (bi+1) + '/' + batches.length + '] ' + card.label;
       // 第1张：从0起步；其他：继续推进
       if(bi === 0){
-        if(typeof resetLoading === 'function') resetLoading('细纲补强中 · ' + progressLabel);
+        if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel, true);
         else if(typeof showLoading === 'function') showLoading('细纲补强中 · ' + progressLabel);
       }
       var strPct = 10 + Math.round((bi / batches.length) * 85);
@@ -4061,7 +4061,7 @@ window.generateAllPipeline = async function(){
       var overallPct = Math.round((i / modules.length) * 100);
       // 第1个模块：从0起步；其他：保持进度连续推进
       if(i === 0){
-        if(typeof resetLoading === 'function') resetLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
+        if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）', true);
         else if(typeof showLoading === 'function') showLoading('🚀 流水线 · ' + moduleNames[i] + '（' + (i+1) + '/' + modules.length + '）');
       }
       if(typeof updateLoadingProgress === 'function'){
@@ -4661,7 +4661,7 @@ window.generateDetailForVolume = async function(volNum) {
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
 
-    if(typeof resetLoading === 'function') resetLoading('正在生成第 ' + volNum + ' 卷细纲…');
+    if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…', true);
     else if(typeof showLoading === 'function') showLoading('正在生成第 ' + volNum + ' 卷细纲…');
     if(typeof updateLoadingProgress === 'function') updateLoadingProgress(10, '🔍 搜索题材市场趋势…');
 
@@ -4926,13 +4926,13 @@ function generateArchCardSingle(module, card, idea, callback){
   var taskType = module === 'world' ? 'novel_world' : module === 'chars' ? 'novel_characters' : module === 'outline' ? 'novel_outline' : 'novel_detail';
 
   var fullText = '';
-  if(typeof resetLoading === 'function') resetLoading('正在生成 · ' + card.label);
+  if(typeof showLoading === 'function') showLoading('正在生成 · ' + card.label, true);
   else if(typeof showLoading === 'function') showLoading('正在生成 · ' + card.label);
   if(typeof updateLoadingProgress === 'function') updateLoadingProgress(25, '正在生成 · ' + card.label);
 
   var apiCall = null;
   if (typeof callRealAPIWithFallback === 'function') {
-    apiCall = callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true);
+    apiCall = callRealAPIWithFallback(cardPrompt, null, taskType, cardTargetChars, true, true);
   } else if (typeof callRealAPI === 'function') {
     apiCall = callRealAPI(cardPrompt, null, {});
   }

@@ -203,6 +203,11 @@ window.startAutoLoadingProgress = function(targetPct, text) {
     _loadingIsVisible = true;
   }
   function tick() {
+    // 如果外部（updateLoadingProgress）已设置更高目标，停止虚拟推进
+    if (_loadingTarget > Math.min(_autoTargetPct, _loadingCurrent + 0.5)) {
+      _autoTimer = null;
+      return;
+    }
     // 每 400ms 推进一小段，最终缓慢趋近 _autoTargetPct
     var remaining = _autoTargetPct - _loadingCurrent;
     if (remaining <= 0.2) { _autoTimer = null; return; }

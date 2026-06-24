@@ -1,0 +1,15 @@
+# Cloudflare Pages _headers
+# HTML: 永远不缓存，确保用户每次看到最新内容
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# JS/CSS: no-cache=每次请求向源站验证，有更新则返回新内容
+/assets/*
+  Cache-Control: no-cache
+  Pragma: no-cache
+
+# favicon: 可缓存
+/favicon.ico
+  Cache-Control: public, max-age=86400

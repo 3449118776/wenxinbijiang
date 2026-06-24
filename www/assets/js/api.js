@@ -905,9 +905,12 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   let response, result = '';
 
   // v59: 检查缓存（provider + model + hash(prompt) 作为 key）
+  // v65: noCache 跳过缓存
   var _cacheModel = model || (DEFAULT_MODELS_BY_PROVIDER[provider] || '');
-  var _cached = _cacheGet(provider, _cacheModel, prompt);
-  if (_cached) return _cached;
+  if (!extraOpts || !extraOpts.noCache) {
+    var _cached = _cacheGet(provider, _cacheModel, prompt);
+    if (_cached) return _cached;
+  }
 
   // custom 模式：从 apiConfig 读取用户自定义的 URL 和模型名
   var targetUrl = providerConfig.url;
@@ -959,7 +962,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
           if (fdata && fdata.choices && fdata.choices[0] && fdata.choices[0].message && fdata.choices[0].message.content) {
             var _res = cleanAIOutput(fdata.choices[0].message.content);
             _callOnce._lastFinishReason = (fdata.choices[0].finish_reason || 'stop');
-            _cacheSet(provider, _cacheModel, prompt, _res);
+            if (!extraOpts || !extraOpts.noCache) {
+              _cacheSet(provider, _cacheModel, prompt, _res);
+            }
             return _res;
           }
         } catch (err) {
@@ -1088,7 +1093,9 @@ async function _callOnce(provider, key, prompt, model, signal, extraOpts) {
   }
   // v48: 统一清理 AI 对话语前缀/后缀
   var _finalRes = cleanAIOutput(result);
-  _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  if (!extraOpts || !extraOpts.noCache) {
+    _cacheSet(provider, _cacheModel, prompt, _finalRes);
+  }
   return _finalRes;
 }
 
@@ -1129,7 +1136,10 @@ async function callRealAPI(prompt, onProgress, opts) {
     let timeoutId = setTimeout(function() { aborted = true; ac.abort(); }, timeoutMs);
     try {
       // v48: 如果调用时指定了 maxTokens，优先使用它（覆盖 DEFAULT_MAX_TOKENS）
-      var extraOpts = opts.maxTokens ? { maxTokens: opts.maxTokens } : null;
+      var extraOpts = {};
+      if (opts.maxTokens) extraOpts.maxTokens = opts.maxTokens;
+      if (opts.noCache) extraOpts.noCache = true;
+      if (Object.keys(extraOpts).length === 0) extraOpts = null;
       const result = await _callOnce(provider, key, prompt, model, ac.signal, extraOpts);
       clearTimeout(timeoutId);
       if (!opts.silent) hideLoading();
@@ -1229,7 +1239,8 @@ var TASK_ROUTE = {
 // 任意服务商有 key 能产出结果即返回；**所有服务商所有 key 都失败时给出明确的总括提示**
 // v48: 第4个参数 targetChars（目标中文字数）用于动态设置 max_tokens，避免输出被截断
 // v49: 第5个参数 silent（true 时不在内部操作 loading，由外层统一管理）
-async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent) {
+// v65: 第6个参数 noCache（true 时跳过 AI 缓存）
+async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars, silent, noCache) {
   var isMessages = Array.isArray(prompt);
   taskType = taskType || 'default';
   // 根据目标字数动态计算 max_tokens
@@ -1288,6 +1299,7 @@ async function callRealAPIWithFallback(prompt, onProgress, taskType, targetChars
     // v48: 构建动态输出选项（如果提供了 targetChars，会覆盖 DEFAULT_MAX_TOKENS）
     var callOpts = { provider: provider, silent: silent || oi !== 0 };
     if (dynamicMaxTokens) callOpts.maxTokens = dynamicMaxTokens;
+    if (noCache) callOpts.noCache = true;
 
     if (oi === 0) {
       // 静默尝试首选，用户无感
