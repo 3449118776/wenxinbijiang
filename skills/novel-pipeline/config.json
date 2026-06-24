@@ -1,0 +1,37 @@
+{
+  "name": "小说创作流水线",
+  "version": "1.0.0",
+  "description": "专业的网文小说创作流水线，包含世界观、人设、大纲、细纲、正文生成",
+  "author": "文心笔匠",
+  "apiProvider": "deepseek",
+  "apiKey": "your-api-key-here",
+  "apiBase": "https://api.deepseek.com",
+  "model": "deepseek-chat",
+  "defaultGenre": "玄幻",
+  "defaultVolumes": 10,
+  "defaultChapters": 1500,
+  "outputDir": "./output",
+  "generationOptions": {
+    "world": {
+      "minChars": 30000,
+      "temperature": 0.7
+    },
+    "chars": {
+      "minChars": 20000,
+      "temperature": 0.7
+    },
+    "outline": {
+      "minChars": 50000,
+      "temperature": 0.6
+    },
+    "detail": {
+      "minChars": 10000,
+      "temperature": 0.7
+    },
+    "chapter": {
+      "minChars": 3000,
+      "targetChars": 4000,
+      "temperature": 0.8
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "novel-pipeline-skill",
+  "version": "1.0.0",
+  "description": "小说创作流水线 Skill - 世界观、人设、大纲、细纲、正文生成",
+  "main": "pipeline.js",
+  "scripts": {
+    "start": "node pipeline.js --interactive",
+    "world": "node pipeline.js --action generate_world",
+    "chars": "node pipeline.js --action generate_chars",
+    "outline": "node pipeline.js --action generate_outline",
+    "detail": "node pipeline.js --action generate_detail",
+    "chapter": "node pipeline.js --action write_chapter",
+    "status": "node pipeline.js --action status"
+  },
+  "keywords": [
+    "novel",
+    "writing",
+    "ai",
+    "skill",
+    "小说创作",
+    "网文生成"
+  ],
+  "author": "文心笔匠",
+  "license": "MIT"
+}
