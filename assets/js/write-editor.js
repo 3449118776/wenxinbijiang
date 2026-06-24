@@ -2855,7 +2855,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
         try {
           var worldIdx = VectorRAG.buildTextIndex(worldContent, { sectionName: '世界观', chunkSize: 400 });
-          var worldRetrieved = VectorRAG.retrieveText(worldIdx, retrievalQuery, 8, { threshold: 0.025 });
+          var worldRetrieved = VectorRAG.retrieveText(worldIdx, retrievalQuery, 8, { threshold: 0.04, diversity: 0.3 });
           if (worldRetrieved && worldRetrieved.length > 0) {
             var wBlock = '【世界观设定 · 检索相关片段】\n';
             for (var wi = 0; wi < worldRetrieved.length; wi++) {
@@ -2899,7 +2899,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
         try {
           var charsIdx = VectorRAG.buildTextIndex(charsContent, { sectionName: '人设', chunkSize: 500 });
-          var charsRetrieved = VectorRAG.retrieveText(charsIdx, retrievalQuery, 6, { threshold: 0.02 });
+          var charsRetrieved = VectorRAG.retrieveText(charsIdx, retrievalQuery, 6, { threshold: 0.035, diversity: 0.4 });
           if (charsRetrieved && charsRetrieved.length > 0) {
             var cBlock = '【人物人设 · 检索相关角色】\n';
             for (var ci = 0; ci < charsRetrieved.length; ci++) {
@@ -3016,7 +3016,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
         try {
           var outlineSumIdx = VectorRAG.buildTextIndex(outlineSum, { sectionName: '大纲摘要', chunkSize: 300 });
-          var outlineSumRetrieved = VectorRAG.retrieveText(outlineSumIdx, retrievalQuery, 6, { threshold: 0.02 });
+          var outlineSumRetrieved = VectorRAG.retrieveText(outlineSumIdx, retrievalQuery, 6, { threshold: 0.035, diversity: 0.4 });
           if (outlineSumRetrieved && outlineSumRetrieved.length > 0) {
             var osBlock = '【全书大纲摘要 · 检索相关主线节点】\n';
             for (var osi = 0; osi < outlineSumRetrieved.length; osi++) {
@@ -3061,7 +3061,7 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
       if (typeof VectorRAG !== 'undefined' && VectorRAG.buildTextIndex && VectorRAG.retrieveText) {
         try {
           var fullOutlineIdx = VectorRAG.buildTextIndex(work.outline, { sectionName: '全书大纲', chunkSize: 400 });
-          var fullOutlineRetrieved = VectorRAG.retrieveText(fullOutlineIdx, retrievalQuery, 8, { threshold: 0.025 });
+          var fullOutlineRetrieved = VectorRAG.retrieveText(fullOutlineIdx, retrievalQuery, 8, { threshold: 0.04, diversity: 0.3 });
           if (fullOutlineRetrieved && fullOutlineRetrieved.length > 0) {
             var foBlock = '【全书大纲 · 检索相关剧情节点】\n';
             for (var foi = 0; foi < fullOutlineRetrieved.length; foi++) {
@@ -6701,7 +6701,7 @@ function buildMemoryContext(w, idx, query) {
     try {
       var sumItems = summaries.map(function(s) { return { text: s.text, meta: { chapterIdx: s.chapterIdx } }; });
       var sumIdx = VectorRAG.buildMemoryItemIndex(sumItems);
-      var sumRetrieved = VectorRAG.retrieveText(sumIdx, query, 10, { threshold: 0.015 });
+      var sumRetrieved = VectorRAG.retrieveText(sumIdx, query, 10, { threshold: 0.03, diversity: 0.5 });
       if (sumRetrieved && sumRetrieved.length >= 5) {
         // 按章节号排序
         sumRetrieved.sort(function(a, b) { return (a.chunk.meta.chapterIdx||0) - (b.chunk.meta.chapterIdx||0); });
@@ -6771,7 +6771,7 @@ function buildMemoryContext(w, idx, query) {
       if (hasRAG && rs.length > 3000) {
         try {
           var rsIdx = VectorRAG.buildTextIndex(rs, { sectionName: '滚动摘要', chunkSize: 300 });
-          var rsRetrieved = VectorRAG.retrieveText(rsIdx, query, 6, { threshold: 0.02 });
+          var rsRetrieved = VectorRAG.retrieveText(rsIdx, query, 6, { threshold: 0.035, diversity: 0.3 });
           if (rsRetrieved && rsRetrieved.length >= 3) {
             sumText = rsRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n');
           } else {
@@ -6793,7 +6793,7 @@ function buildMemoryContext(w, idx, query) {
         if (hasRAG) {
           try {
             var msIdx = VectorRAG.buildTextIndex(rs.milestones, { sectionName: '里程碑', chunkSize: 200 });
-            var msRetrieved = VectorRAG.retrieveText(msIdx, query, 4, { threshold: 0.015 });
+            var msRetrieved = VectorRAG.retrieveText(msIdx, query, 4, { threshold: 0.03, diversity: 0.3 });
             if (msRetrieved && msRetrieved.length >= 2) {
               sumText += msRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n') + '\n\n';
             } else {
@@ -6809,7 +6809,7 @@ function buildMemoryContext(w, idx, query) {
         if (hasRAG && rs.recent.length > 2000) {
           try {
             var recentIdx = VectorRAG.buildTextIndex(rs.recent, { sectionName: '近期摘要', chunkSize: 250 });
-            var recentRetrieved = VectorRAG.retrieveText(recentIdx, query, 5, { threshold: 0.02 });
+            var recentRetrieved = VectorRAG.retrieveText(recentIdx, query, 5, { threshold: 0.035, diversity: 0.4 });
             if (recentRetrieved && recentRetrieved.length >= 3) {
               sumText += '【近期章节摘要 · 检索相关】\n' + recentRetrieved.map(function(r) { return r.chunk.text.trim(); }).join('\n') + '\n\n';
             } else {
@@ -6905,7 +6905,7 @@ function buildMemoryContext(w, idx, query) {
           return { text: (p.name||'') + ' ' + (p.coreTrait||'') + ' ' + (p.secret||'') + ' ' + (p.goal||'') + ' ' + (p.role||''), meta: p }; 
         });
         var cpIdx = VectorRAG.buildMemoryItemIndex(cpItems);
-        var cpRetrieved = VectorRAG.retrieveText(cpIdx, query, 5, { threshold: 0.015 });
+        var cpRetrieved = VectorRAG.retrieveText(cpIdx, query, 5, { threshold: 0.03, diversity: 0.4 });
         if (cpRetrieved && cpRetrieved.length >= 2) {
           selectedProfiles = cpRetrieved.map(function(r) { return r.chunk.meta; });
         } else {
@@ -6942,7 +6942,7 @@ function buildMemoryContext(w, idx, query) {
       try {
         var flItems = flPending2.map(function(f) { return { text: (f.content||f.text||'') + ' ' + (f.type||''), meta: f }; });
         var flIdx = VectorRAG.buildMemoryItemIndex(flItems);
-        var flRetrieved = VectorRAG.retrieveText(flIdx, query, 8, { threshold: 0.015 });
+        var flRetrieved = VectorRAG.retrieveText(flIdx, query, 8, { threshold: 0.03, diversity: 0.5 });
         if (flRetrieved && flRetrieved.length >= 3) {
           flPending2 = flRetrieved.map(function(r) { return r.chunk.meta; });
         } else {
@@ -6972,7 +6972,7 @@ function buildMemoryContext(w, idx, query) {
       try {
         var mdItems = highDebt2.map(function(d) { return { text: (d.content||d.text||'') + ' ' + (d.type||''), meta: d }; });
         var mdIdx = VectorRAG.buildMemoryItemIndex(mdItems);
-        var mdRetrieved = VectorRAG.retrieveText(mdIdx, query, 5, { threshold: 0.015 });
+        var mdRetrieved = VectorRAG.retrieveText(mdIdx, query, 5, { threshold: 0.03, diversity: 0.4 });
         if (mdRetrieved && mdRetrieved.length >= 2) {
           highDebt2 = mdRetrieved.map(function(r) { return r.chunk.meta; });
         } else {

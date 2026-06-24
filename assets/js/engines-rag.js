@@ -24,34 +24,30 @@ var VectorRAG = (function () {
   })();
 
   // ==========================================================================
-  // 1. 中文分词（最简策略：标点+空白切 + 2-gram 重叠词 + 字符 bigram
-  // 不依赖任何分词库，纯前端可用
+  // 1. 中文分词（增强版：2-gram + 3-gram + 字符 bigram
+  //    3-gram 对中文专有名词匹配更精准
   // ==========================================================================
   function tokenize(text, opts) {
     if (!text) return [];
     opts = opts || {};
     var minLen = opts.minLen || 1;
-    // 去除纯标点/空白
+    var use3gram = opts.use3gram !== false; // 默认启用3-gram
     text = text.replace(/[\s\u3000]+/g, ' ');
-    // 按标点分割句子边界拆分（保留中文字符串）
     var segments = text.split(/[，。！？！？：；、,.!?;:\s]+/).filter(function (s) { return s && s.trim(); });
     var tokens = [];
     for (var i = 0; i < segments.length; i++) {
       var seg = segments[i];
-      // 单字切 + 2-gram 重叠
       for (var j = 0; j < seg.length; j++) {
-        // 单字 token（去除纯数字/纯英文保留原词，不拆）
         if (seg[j].match(/[a-zA-Z0-9]/)) {
-          // 英文/数字作为整体 token
           var k = j;
           while (k < seg.length && seg[k].match(/[a-zA-Z0-9]/)) k++;
           var word = seg.substring(j, k);
           if (word.length >= minLen && !STOPWORDS[word]) tokens.push(word);
           j = k - 1;
         } else {
-          // 中文单字 + 2-gram
           tokens.push(seg[j]);
           if (j + 1 < seg.length) tokens.push(seg.substring(j, j + 2));
+          if (use3gram && j + 2 < seg.length) tokens.push(seg.substring(j, j + 3));
         }
       }
     }
@@ -96,29 +92,92 @@ var VectorRAG = (function () {
   }
 
   // ==========================================================================
-  // 3. 构建稀疏向量（TF-IDF 简化版：词频 + IDF 从文档频率）
-  // 不做完整 IDF，使用简单的 TF + 停用词过滤 + 字符长度归一化
+  // 3. 构建稀疏向量（TF-IDF 增强版：词频 + 长度加权 + 停用词过滤
+  //    3-gram 权重最高（2.5x），2-gram 次之（1.5x），单字最低（0.5x）
   // ==========================================================================
   function buildVector(tokens) {
     var freq = {};
+    var lenFreq = {}; // 按长度统计词频
     for (var i = 0; i < tokens.length; i++) {
       var t = tokens[i];
       if (STOPWORDS[t]) continue;
-      if (t.length < 2 && !t.match(/[a-zA-Z0-9]/)) continue; // 跳过单字（中文单字太泛）
+      if (t.length < 2 && !t.match(/[a-zA-Z0-9]/)) continue;
       freq[t] = (freq[t] || 0) + 1;
+      var len = t.length;
+      if (!lenFreq[len]) lenFreq[len] = 0;
+      lenFreq[len]++;
     }
-    // 归一化（向量长度归一化为1
     var vec = {};
     var norm = 0;
     for (var k in freq) {
-      // 对 2-gram 权重更高（2-gram 比单字更有意义）
-      var w = freq[k] * (k.length >= 2 ? 1.5 : 0.8);
+      var w = freq[k];
+      if (k.length >= 3) w *= 2.5; // 3-gram 权重最高
+      else if (k.length === 2) w *= 1.5; // 2-gram
+      else w *= 0.5; // 单字
       vec[k] = w;
       norm += w * w;
     }
     norm = Math.sqrt(norm) || 1;
     for (var k2 in vec) vec[k2] = vec[k2] / norm;
     return vec;
+  }
+  // ==========================================================================
+  // 3b. BM25 相似度计算（增强版检索排序
+  //    对长文本检索效果更好，考虑文档长度归一化
+  // ==========================================================================
+  function buildBM25Index(index) {
+    if (!index || !index.chunks || !index.chunks.length) return index;
+    if (index._bm25Ready) return index;
+    var N = index.chunks.length;
+    var avgdl = 0;
+    for (var i = 0; i < N; i++) {
+      avgdl += index.chunks[i].text.length;
+    }
+    avgdl = avgdl / N || 1;
+    var df = {};
+    for (var j = 0; j < N; j++) {
+      var seen = {};
+      var ctokens = index.chunks[j].tokens || [];
+      for (var k = 0; k < ctokens.length; k++) {
+        var t = ctokens[k];
+        if (STOPWORDS[t] || t.length < 2) continue;
+        if (!seen[t]) {
+          df[t] = (df[t] || 0) + 1;
+          seen[t] = true;
+        }
+      }
+    }
+    index._bm25 = { df: df, avgdl: avgdl, N: N };
+    index._bm25Ready = true;
+    return index;
+  }
+  function bm25Score(queryTokens, chunk, bm25Data, k1, b) {
+    k1 = k1 || 1.5;
+    b = b || 0.75;
+    var score = 0;
+    var dl = chunk.text.length;
+    var avgdl = bm25Data.avgdl;
+    var N = bm25Data.N;
+    var df = bm25Data.df;
+    var freq = {};
+    var ct = chunk.tokens || [];
+    for (var i = 0; i < ct.length; i++) {
+      var t = ct[i];
+      if (STOPWORDS[t] || t.length < 2) continue;
+      freq[t] = (freq[t] || 0) + 1;
+    }
+    for (var j = 0; j < queryTokens.length; j++) {
+      var qt = queryTokens[j];
+      if (STOPWORDS[qt] || qt.length < 2) continue;
+      var f = freq[qt] || 0;
+      if (f === 0) continue;
+      var dfi = df[qt] || 0;
+      var idf = Math.log(1 + (N - dfi + 0.5) / (dfi + 0.5));
+      var tfNum = f * (k1 + 1);
+      var tfDen = f + k1 * (1 - b + b * dl / avgdl);
+      score += idf * tfNum / tfDen;
+    }
+    return score;
   }
 
   // ==========================================================================
@@ -303,29 +362,154 @@ var VectorRAG = (function () {
   }
 
   // ==========================================================================
-  // 10. 通用文本检索（从 buildTextIndex 构建的索引中检索
+  // 10. 通用文本检索（增强版：余弦相似度 + BM25 混合排序 + 结果去重 + query扩展
   // ==========================================================================
   function retrieveText(index, queryText, topK, opts) {
     opts = opts || {};
     topK = topK || 5;
-    var threshold = opts.threshold || 0.03; // 提高阈值，减少噪声
-    
+    var threshold = opts.threshold || 0.04;
+    var useBM25 = opts.useBM25 !== false;
+    var deduplicate = opts.deduplicate !== false;
+    var diversity = opts.diversity || 0; // 0-1，多样性控制
+
     if (!index || !index.chunks || !index.chunks.length) return [];
-    
+
+    // v57: Query 扩展 — 从查询中提取关键名词/角色名并加权
     var qTokens = tokenize(queryText);
     var qVec = buildVector(qTokens);
-    
+
+    // 提取 query 中的关键词（长度>=2 的非停用词），用于 BM25 加权
+    var keyTerms = [];
+    var seenKey = {};
+    for (var qi = 0; qi < qTokens.length; qi++) {
+      var qt = qTokens[qi];
+      if (qt.length >= 2 && !STOPWORDS[qt] && !seenKey[qt]) {
+        keyTerms.push(qt);
+        seenKey[qt] = true;
+      }
+    }
+
+    // 构建 BM25 索引（只构建一次）
+    if (useBM25) {
+      buildBM25Index(index);
+    }
+
     var scored = [];
+    var maxBm25 = 0;
+    var tempResults = [];
+
     for (var i = 0; i < index.chunks.length; i++) {
       var chunk = index.chunks[i];
       var sim = cosineSimilarity(qVec, chunk.vector);
-      if (sim > threshold) {
-        scored.push({ chunk: chunk, score: sim });
+      if (sim <= threshold * 0.5) continue; // 粗筛
+
+      var finalScore = sim;
+
+      // BM25 混合排序
+      if (useBM25 && index._bm25) {
+        var bm25s = bm25Score(qTokens, chunk, index._bm25);
+        if (bm25s > maxBm25) maxBm25 = bm25s;
+        tempResults.push({ chunk: chunk, cosine: sim, bm25: bm25s });
+      } else {
+        if (sim > threshold) {
+          scored.push({ chunk: chunk, score: sim });
+        }
       }
     }
-    
-    scored.sort(function(a, b) { return b.score - a.score; });
+
+    // BM25 归一化后与余弦相似度混合
+    if (useBM25 && tempResults.length > 0) {
+      for (var ti = 0; ti < tempResults.length; ti++) {
+        var tr = tempResults[ti];
+        var normBm25 = maxBm25 > 0 ? tr.bm25 / maxBm25 : 0;
+        // 混合权重：余弦 0.6 + BM25 0.4
+        var mixed = tr.cosine * 0.6 + normBm25 * 0.4;
+        if (mixed > threshold) {
+          scored.push({ chunk: tr.chunk, score: mixed, _cosine: tr.cosine, _bm25: tr.bm25 });
+        }
+      }
+    }
+
+    scored.sort(function (a, b) { return b.score - a.score; });
+
+    // v57: 结果去重（相似度>0.9的视为重复，保留分高的）
+    if (deduplicate && scored.length > 1) {
+      var unique = [];
+      for (var si = 0; si < scored.length; si++) {
+        var candidate = scored[si];
+        var isDup = false;
+        for (var ui = 0; ui < unique.length; ui++) {
+          var existing = unique[ui];
+          // 用文本相似度判断重复
+          var dupSim = _textSimilarity(candidate.chunk.text, existing.chunk.text);
+          if (dupSim > 0.85) {
+            isDup = true;
+            break;
+          }
+          // 同一章节/同一段落的也去重
+          if (candidate.chunk.paraIdx !== undefined && candidate.chunk.paraIdx === existing.chunk.paraIdx &&
+              Math.abs(candidate.chunk.id - existing.chunk.id) <= 2) {
+            isDup = true;
+            break;
+          }
+        }
+        if (!isDup) {
+          unique.push(candidate);
+        }
+      }
+      scored = unique;
+    }
+
+    // v57: 多样性控制 — 避免同一类型/章节的结果扎堆
+    if (diversity > 0 && scored.length > topK) {
+      var diverse = [];
+      var usedSections = {};
+      var remaining = scored.slice();
+      while (diverse.length < topK && remaining.length > 0) {
+        var picked = null;
+        var pickedIdx = -1;
+        for (var ri = 0; ri < remaining.length; ri++) {
+          var item = remaining[ri];
+          var sec = item.chunk.section || item.chunk.paraIdx || 'default';
+          var secCount = usedSections[sec] || 0;
+          // 多样性惩罚：同一section的第n个，分数乘以 (1 - diversity * 0.2 * n)
+          var adjusted = item.score * (1 - diversity * 0.2 * secCount);
+          if (adjusted > (picked ? picked._adjusted : -1)) {
+            picked = item;
+            picked._adjusted = adjusted;
+            pickedIdx = ri;
+          }
+        }
+        if (picked) {
+          diverse.push(picked);
+          var s = picked.chunk.section || picked.chunk.paraIdx || 'default';
+          usedSections[s] = (usedSections[s] || 0) + 1;
+          remaining.splice(pickedIdx, 1);
+        } else {
+          break;
+        }
+      }
+      scored = diverse;
+    }
+
     return scored.slice(0, topK);
+  }
+
+  // 辅助：计算两段文本的相似度（用于去重
+  function _textSimilarity(t1, t2) {
+    if (!t1 || !t2) return 0;
+    if (t1 === t2) return 1;
+    var shorter = t1.length < t2.length ? t1 : t2;
+    var longer = t1.length < t2.length ? t2 : t1;
+    if (longer.length < 5) return 0;
+    // 用公共子串比例近似
+    var common = 0;
+    var step = Math.max(1, Math.floor(shorter.length / 20));
+    for (var i = 0; i < shorter.length - 2; i += step) {
+      var sub = shorter.substring(i, i + Math.min(4, shorter.length - i));
+      if (longer.indexOf(sub) >= 0) common++;
+    }
+    return common / Math.max(1, Math.floor(shorter.length / step));
   }
 
   // ==========================================================================
@@ -378,8 +562,11 @@ var VectorRAG = (function () {
     retrieveText: retrieveText,
     formatTextRetrieval: formatTextRetrieval,
     buildMemoryItemIndex: buildMemoryItemIndex,
+    buildBM25Index: buildBM25Index,
+    bm25Score: bm25Score,
     // 调试/测试用
     _buildVector: buildVector,
-    _extractMetadata: extractMetadata
+    _extractMetadata: extractMetadata,
+    _textSimilarity: _textSimilarity
   };
 })();
