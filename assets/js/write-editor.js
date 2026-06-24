@@ -8176,12 +8176,11 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
   sysMsg += '【作品】' + title + '\n';
   sysMsg += '【题材】' + genre + '\n';
   sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
-  sysMsg += '1. 本作品已有完整世界观和人设设定存储在记忆库中，设计大纲前必须先调用 get_memory 工具查询\n';
+  sysMsg += '1. 世界观和人物设定已在上方对话历史中，请仔细阅读并严格遵循\n';
   sysMsg += '2. 大纲必须完全基于已有世界观和人设，禁止凭空编造与设定冲突的剧情\n';
-  sysMsg += '3. 设计每一卷前，先查询相关世界观设定和人物设定，确保剧情合理\n';
-  sysMsg += '4. 需要查询世界观：memory_type = "worldview"\n';
-  sysMsg += '5. 需要查询人设：memory_type = "char_settings"\n';
-  sysMsg += '6. 禁止不查记忆就直接生成大纲，所有剧情必须基于已有设定\n\n';
+  sysMsg += '3. 设计每一卷时，确保与世界观力量体系、势力分布、人物设定完全一致\n';
+  sysMsg += '4. 如果对某个设定有疑问，可以调用 get_memory 工具查询确认\n';
+  sysMsg += '5. 所有剧情必须基于已有设定，确保世界观、人设、大纲三者自洽\n\n';
   
   // ===== 用户消息1：上下文 =====
   var ctxMsg = '';
@@ -8197,10 +8196,8 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
       '4. 保持原有结构和核心剧情不变\n' +
       '5. 输出完整的优化后大纲内容：\n\n';
   }
-  // v56: 不注入完整世界观，需要时通过 get_memory 工具查询
-  if (world && world.length > 50) {
-    ctxMsg += '【📚 记忆库可用】\n本作品已有完整世界观和人设设定，如需参考请调用 get_memory 工具查询：\n- 世界观：memory_type = "worldview"\n- 人物设定：memory_type = "char_settings"\n\n';
-  }
+  // v60: 世界观和人设已在对话上下文中，直接参考上方对话历史即可
+  // 工具保留作为兜底，需要确认时调用 get_memory
   
   // ===== 用户消息2：任务 =====
   var taskMsg = '请为这部作品设计完整的多卷大纲，目标规模：10-15卷、1500-2000章、5000万字以上。\n\n';
@@ -8249,10 +8246,11 @@ function buildCharsPrompt(work, userCommand, prevResult) {
   sysMsg += '【作品】' + title + '\n';
   sysMsg += '【题材】' + genre + '\n';
   sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
-  sysMsg += '1. 本作品已有完整世界观设定存储在记忆库中，设计人物前必须先调用 get_memory 工具查询世界观\n';
+  sysMsg += '1. 世界观设定已在上方对话历史中，请仔细阅读并严格遵循\n';
   sysMsg += '2. 人物设定必须与世界观完全一致，禁止凭空编造与世界观冲突的设定\n';
-  sysMsg += '3. 如果需要确认任何世界观细节，直接调用 get_memory 查询，memory_type 设为 "worldview"\n';
-  sysMsg += '4. 禁止不查记忆就直接生成，所有人物的背景、能力、身份都必须符合世界观设定\n\n';
+  sysMsg += '3. 角色的背景、能力、身份都必须符合世界观设定的力量体系和社会结构\n';
+  sysMsg += '4. 如果对某个世界观细节有疑问，可以调用 get_memory 工具查询确认\n';
+  sysMsg += '5. 确保所有人设与世界观自洽，角色行为逻辑合理\n\n';
   
   // ===== 用户消息1：上下文 =====
   var ctxMsg = '';
@@ -8268,10 +8266,8 @@ function buildCharsPrompt(work, userCommand, prevResult) {
       '4. 保持原有角色设定和关系不变\n' +
       '5. 输出完整的优化后人设内容：\n\n';
   }
-  // v56: 不注入完整世界观，需要时通过 get_memory 工具查询
-  if (world && world.length > 50) {
-    ctxMsg += '【📚 记忆库可用】\n本作品已有完整世界观设定，如需参考请调用 get_memory 工具查询，memory_type 设为 "worldview"。\n\n';
-  }
+  // v60: 世界观已在对话上下文中，直接参考上方对话历史即可
+  // 工具保留作为兜底，需要确认时调用 get_memory
   
   // ===== 用户消息2：任务 =====
   var taskMsg = '请为这部作品设计完整的人物体系，包含以下内容：\n\n';
@@ -8417,14 +8413,11 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
   sysMsg += '【题材】' + genre + '\n';
   sysMsg += '【目标卷】第' + (volumeIndex + 1) + '卷\n';
   sysMsg += '【⚠️ 核心规则 · 必须遵守】\n';
-  sysMsg += '1. 本作品已有完整世界观、人设、大纲设定存储在记忆库中，设计细纲前必须先调用 get_memory 工具查询\n';
+  sysMsg += '1. 世界观、人设、大纲已在上方对话历史中，请仔细阅读并严格遵循\n';
   sysMsg += '2. 细纲必须完全基于已有设定，禁止凭空编造与世界观/人设/大纲冲突的内容\n';
-  sysMsg += '3. 设计每章前，先查询本卷大纲、相关人物设定、相关世界观设定\n';
-  sysMsg += '4. 查询世界观：memory_type = "worldview"\n';
-  sysMsg += '5. 查询人设：memory_type = "char_settings"\n';
-  sysMsg += '6. 查询本卷大纲：memory_type = "outline"，query 写清"第X卷"\n';
-  sysMsg += '7. 查询细纲参考：memory_type = "detail_outline"\n';
-  sysMsg += '8. 禁止不查记忆就直接生成细纲，所有章节内容必须与已有设定一致\n\n';
+  sysMsg += '3. 设计每章时，确保与本卷大纲、相关人物设定、世界观设定完全一致\n';
+  sysMsg += '4. 如果对某个设定有疑问，可以调用 get_memory 工具查询确认\n';
+  sysMsg += '5. 确保细纲与世界观、人设、大纲四者自洽\n\n';
   sysMsg += '【题材专属模板】\n';
   sysMsg += '本作品为' + genre + '题材，请严格按照以下模板生成细纲：\n\n';
   sysMsg += '【数字面板格式】\n' + genreTemplate.digitalPanel + '\n\n';
@@ -8447,40 +8440,28 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
       '4. 保持原有章节结构和剧情不变\n' +
       '5. 输出完整的优化后细纲内容：\n\n';
   }
-  // v56: 不注入完整世界观/人设/大纲，需要时通过 get_memory 工具查询
-  var hasMemory = (world && world.length > 50) || (chars && chars.length > 50) || (outline && outline.length > 50);
-  if (hasMemory) {
-    ctxMsg += '【📚 记忆库可用】\n本作品已有完整设定，设计细纲时请主动调用 get_memory 工具查询相关内容：\n';
-    if (world && world.length > 50) ctxMsg += '- 世界观设定：memory_type = "worldview"\n';
-    if (chars && chars.length > 50) ctxMsg += '- 人物设定：memory_type = "char_settings"\n';
-    if (outline && outline.length > 50) {
-      ctxMsg += '- 全书大纲：memory_type = "outline"（查询本卷大纲请写清卷号）\n';
-      ctxMsg += '- 细纲参考：memory_type = "detail_outline"\n';
-    }
-    ctxMsg += '\n';
-    // 只注入本卷大纲的简要信息作为锚点，完整内容让AI自己查
-    if (outline && outline.length > 50) {
-      var outlineLines = outline.split('\n');
-      var volumeOutline = '';
-      var inVolume = false;
-      for (var i = 0; i < outlineLines.length; i++) {
-        var line = outlineLines[i];
-        if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
-          inVolume = true;
-        }
-        if (inVolume) {
-          volumeOutline += line + '\n';
-          if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
-            break;
-          }
+  // v60: 世界观、人设、大纲已在对话上下文中，直接参考上方对话历史即可
+  // 保留本卷大纲摘要作为精准定位（对话上下文里大纲是全文，这里只提取本卷关键信息）
+  if (outline && outline.length > 50) {
+    var outlineLines = outline.split('\n');
+    var volumeOutline = '';
+    var inVolume = false;
+    for (var i = 0; i < outlineLines.length; i++) {
+      var line = outlineLines[i];
+      if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
+        inVolume = true;
+      }
+      if (inVolume) {
+        volumeOutline += line + '\n';
+        if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
+          break;
         }
       }
-      if (volumeOutline.length > 50) {
-        // 只注入本卷大纲标题级别的信息，详细内容让AI查工具
-        var volTitleLines = volumeOutline.split('\n').filter(function(l){ return l.trim().length > 0 && (l.includes('卷') || l.includes('核心') || l.includes('任务') || l.includes('关键') || l.includes('钩子')); }).slice(0, 10);
-        if (volTitleLines.length > 2) {
-          ctxMsg += '【本卷大纲摘要】\n' + volTitleLines.join('\n') + '\n\n';
-        }
+    }
+    if (volumeOutline.length > 50) {
+      var volTitleLines = volumeOutline.split('\n').filter(function(l){ return l.trim().length > 0 && (l.includes('卷') || l.includes('核心') || l.includes('任务') || l.includes('关键') || l.includes('钩子')); }).slice(0, 10);
+      if (volTitleLines.length > 2) {
+        ctxMsg += '【本卷大纲要点】\n' + volTitleLines.join('\n') + '\n\n';
       }
     }
   }
