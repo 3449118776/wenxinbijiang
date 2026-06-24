@@ -2944,24 +2944,6 @@ window.generateArchModule = async function(opts){
     if (work._archCache) {
       work._archCache[module] = { content: result, timestamp: Date.now() };
     }
-    
-    // NEW: 从生成结果中提取本模块的记忆精要，存入 longMemory.moduleSummaries
-    try {
-      if(!work.longMemory) work.longMemory = {};
-      if(!work.longMemory.moduleSummaries) work.longMemory.moduleSummaries = {};
-      
-      var moduleSum = extractModuleSummary(module, result, allCards);
-      if(moduleSum && moduleSum.trim()){
-        work.longMemory.moduleSummaries[module] = moduleSum.trim();
-        // 保存到数据库（记忆精要会被后续模块的生成调用读取）
-        try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-      }
-    } catch(sumErr) { console.warn('[记忆精要提取] 异常:', sumErr); }
-    
-    try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
-
-    // 同步架构内容到长记忆（世界观/人设/大纲/细纲的关键信息写入longMemory）
-    try { syncArchToMemory(work, module); } catch(syncErr) { console.warn('[记忆同步] 异常:', syncErr); }
 
     // v55: 清除本模块的过期标记
     if(work._archStale && work._archStale[module]){
