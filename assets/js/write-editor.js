@@ -6911,7 +6911,53 @@ function buildMemoryContext(w, idx) {
       tryAdd(mdBlock2 + '\n');
     }
   }
-  
+
+  // L11: 倒排索引快速检索（写作时使用 searchInvertedIndex 查角色/物品/伏笔）
+  if (added < BUDGET && mem.invertedIndex && Object.keys(mem.invertedIndex).length > 0) {
+    // 自动从当前章节上下文提取关键词检索
+    var recentCh = w.chapters && w.chapters[idx - 1];
+    var queryText = '';
+    if (recentCh && recentCh.content) {
+      queryText = recentCh.content.slice(0, 500); // 上一章前500字作为查询源
+    } else if (recentCh && recentCh.title) {
+      queryText = recentCh.title;
+    }
+    if (queryText && typeof searchInvertedIndex === 'function') {
+      try {
+        var searchResults = searchInvertedIndex(mem, queryText, 8);
+        if (searchResults && searchResults.length > 0) {
+          var searchBlock = '【🔍 倒排索引检索结果（基于上一章内容的智能匹配）】\n';
+          searchResults.forEach(function(r) {
+            searchBlock += '  ■ [' + r.type + '] ' + r.text + '\n';
+          });
+          tryAdd(searchBlock + '\n');
+        }
+      } catch (siErr) { /* 静默失败，不影响主流程 */ }
+    }
+  }
+
+  // L12: 完整性自评（让AI知道哪些设定还不完整，可以主动补全）
+  if (added < BUDGET && mem.completeness) {
+    var comp2 = mem.completeness;
+    var compBlock2 = '【📊 记忆完整性自评】\n';
+    var hasComp2 = false;
+    ['world', 'chars', 'outline', 'detail'].forEach(function(m) {
+      if (comp2[m]) {
+        compBlock2 += '  ' + m + '：' + comp2[m].score + '%';
+        if (comp2[m].missing && comp2[m].missing.length > 0) {
+          compBlock2 += '（缺：' + comp2[m].missing.slice(0, 3).join('、') + '）';
+        }
+        compBlock2 += '\n';
+        hasComp2 = true;
+      }
+    });
+    if (comp2.consistency && comp2.consistency.conflicts && comp2.consistency.conflicts.length > 0) {
+      compBlock2 += '  ⚠️ 一致性冲突：' + comp2.consistency.conflicts.length + '条\n';
+      hasComp2 = true;
+    }
+    if (hasComp2) tryAdd(compBlock2 + '\n');
+  }
+
   return ctx;
 }
 

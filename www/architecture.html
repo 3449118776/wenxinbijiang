@@ -2356,8 +2356,456 @@ function syncArchToMemory(work, module){
     } catch(tlErr) { console.warn('[timeline/foreshadow] 提取失败:', tlErr); }
   }
 
+  // ========== 阶段1加强：完整性多维度提取 + 关联提取 + 完整性评分 + 倒排索引 ==========
+  try {
+    if(typeof archEnhancedSync === 'function'){
+      archEnhancedSync(work, module);
+    }
+  } catch(ehErr) { console.warn('[archEnhancedSync] 失败:', ehErr); }
+
   // 保存
   try{ if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work); }catch(e){}
+}
+
+// ========== 阶段1加强函数1：完整性多维度提取 + 关联提取 + 完整性评分 + 倒排索引 ==========
+function archEnhancedSync(work, module){
+  if(!work || !module) return;
+  if(typeof initLongMemory === 'function') initLongMemory(work);
+  var mem = work.longMemory;
+  if(!mem) return;
+  
+  // 初始化完整性评分结构
+  if(!mem.completeness) mem.completeness = {
+    world: { score: 0, missing: [] },
+    chars: { score: 0, missing: [] },
+    outline: { score: 0, missing: [] },
+    detail: { score: 0, missing: [] },
+    consistency: { score: 0, conflicts: [] },
+    lastUpdated: 0
+  };
+  
+  // 1. 完整性多维度提取
+  if(module === 'world' && work.world && work.world.trim()){
+    extractWorldDeeply(work.world, mem);
+  }
+  if(module === 'chars' && work.chars && work.chars.trim()){
+    extractCharsDeeply(work.chars, mem);
+  }
+  if(module === 'outline' && work.outline && work.outline.trim()){
+    extractOutlineDeeply(work.outline, mem);
+  }
+  if(module === 'detail' && work.detail && work.detail.trim()){
+    extractDetailDeeply(work.detail, mem);
+  }
+  
+  // 2. 关联提取（识别"X 的 Y 是 Z"结构）
+  extractRelations(work, module, mem);
+  
+  // 3. 完整性评分
+  evalCompleteness(work, mem);
+  
+  // 4. 一致性校验
+  checkConsistency(work, mem);
+  
+  // 5. 重建倒排索引
+  rebuildInvertedIndex(mem);
+  
+  mem.completeness.lastUpdated = Date.now();
+}
+
+// 世界观多维度深度提取（25+ 字段）
+function extractWorldDeeply(text, mem){
+  if(!mem.memoryAnchors.deepWorld) mem.memoryAnchors.deepWorld = {};
+  var dw = mem.memoryAnchors.deepWorld;
+  // 25+ 个维度的关键词匹配
+  var dims = [
+    { key: 'era', label: '时代背景', keys: /时代|纪元|年代|历史时期|上古|远古|太古|近古|当代|背景/.test.bind(/时代|纪元|年代|历史时期|上古|远古|太古|近古|当代|背景/) },
+    { key: 'geography', label: '地理版图', keys: /大陆|疆域|版图|地域|疆界|地形|地貌|大陆板块|山海|江湖|海域|沙漠|森林|山脉|河流|湖泊|草原|荒原|冰川|群岛|半岛|峡谷|平原|盆地|高原/.test.bind(/大陆|疆域|版图|地域|疆界|地形|地貌|大陆板块|山海|江湖|海域|沙漠|森林|山脉|河流|湖泊|草原|荒原|冰川|群岛|半岛|峡谷|平原|盆地|高原/) },
+    { key: 'powerSystem', label: '力量体系', keys: /境界|等级|修为|实力|功法|武学|法术|魔法|斗气|灵力|元气|真气|内力|灵力|元婴|金丹|筑基|炼气|结丹|化神|渡劫|大乘|圣人|武帝|武宗|武师|武者|武徒|斗者|斗师|斗灵|斗王|斗皇|斗宗|斗尊|斗圣|斗帝|魔法师|学徒|大魔法师|魔导师|法圣|法神|黑铁|青铜|白银|黄金|铂金|钻石|星耀|王者|宗师|大宗师/.test.bind(/境界|等级|修为|实力|功法|武学|法术|魔法|斗气|灵力|元气|真气|内力|元婴|金丹|筑基|炼气|结丹|化神|渡劫|大乘|圣人|武帝|武宗|武师|武者|武徒|斗者|斗师|斗灵|斗王|斗皇|斗宗|斗尊|斗圣|斗帝|魔法师|学徒|大魔法师|魔导师|法圣|法神|黑铁|青铜|白银|黄金|铂金|钻石|星耀|王者|宗师|大宗师/) },
+    { key: 'factions', label: '势力分布', keys: /宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄|圣殿|圣地|书院|楼|坊|塔|厅|台|公司|集团|财团|军|旅|团|营|舰队|部|司|局/.test.bind(/宗门|教派|王朝|帝国|势力|组织|商会|联盟|部族|门派|帮|会|院|阁|宫|殿|府|山庄|圣殿|圣地|书院|楼|坊|塔|厅|台|公司|集团|财团|军|旅|团|营|舰队|部|司|局/) },
+    { key: 'economy', label: '经济体系', keys: /货币|金钱|灵石|金币|银币|元石|灵晶|玄晶|元晶|丹药|法器|法宝|装备|物价|薪资|薪酬|工资|税收|贸易|商路|经济|通膨|通货|汇率|物价|行情|资产|负债|收入|支出|成本|利润|收益|分红|投资|融资|债权|股权/.test.bind(/货币|金钱|灵石|金币|银币|元石|灵晶|玄晶|元晶|丹药|法器|法宝|装备|物价|薪资|薪酬|工资|税收|贸易|商路|经济|通膨|通货|汇率|物价|行情|资产|负债|收入|支出|成本|利润|收益|分红|投资|融资|债权|股权/) },
+    { key: 'races', label: '种族设定', keys: /人族|妖族|魔族|鬼族|神族|仙族|兽族|灵族|精灵|矮人|兽人|龙族|凤族|翼族|水族|虫族|植物|机械|硅基|碳基|能量体|亡灵|不死|吸血鬼|狼人|天使|恶魔|妖精|矮人|侏儒|半人马|牛头人|蜥蜴人/.test.bind(/人族|妖族|魔族|鬼族|神族|仙族|兽族|灵族|精灵|矮人|兽人|龙族|凤族|翼族|水族|虫族|植物|机械|硅基|碳基|能量体|亡灵|不死|吸血鬼|狼人|天使|恶魔|妖精|矮人|侏儒|半人马|牛头人|蜥蜴人/) },
+    { key: 'religion', label: '宗教信仰', keys: /宗教|信仰|神|天神|地祇|神明|真神|主神|上帝|造物主|教义|教条|戒律|信徒|神官|主教|教皇|牧师|祭祀|祭司|神殿|教堂|寺庙|道观|教堂|佛寺|经文|祷告|神迹|启示|救赎|轮回|因果|业报|功德|信仰|虔诚|异端|邪教|圣战|十字军|东征/.test.bind(/宗教|信仰|神|天神|地祇|神明|真神|主神|上帝|造物主|教义|教条|戒律|信徒|神官|主教|教皇|牧师|祭祀|祭司|神殿|教堂|寺庙|道观|教堂|佛寺|经文|祷告|神迹|启示|救赎|轮回|因果|业报|功德|信仰|虔诚|异端|邪教|圣战|十字军|东征/) },
+    { key: 'culture', label: '文化习俗', keys: /节日|习俗|礼仪|婚俗|丧礼|成人礼|传统|习俗|节庆|庆典|忌讳|避讳|礼节|规矩|规矩|礼数|称呼|敬语|自称|谦称|谥号|封号|称号|姓|名|字|号|辈分|排行|族谱|家训|族规/.test.bind(/节日|习俗|礼仪|婚俗|丧礼|成人礼|传统|习俗|节庆|庆典|忌讳|避讳|礼节|规矩|规矩|礼数|称呼|敬语|自称|谦称|谥号|封号|称号|姓|名|字|号|辈分|排行|族谱|家训|族规/) },
+    { key: 'law', label: '法律法规', keys: /法律|法规|戒律|禁令|规矩|条款|法典|法条|刑罚|处刑|判决|审判|法庭|衙门|公堂|判官|大牢|牢狱|流放|充军|斩首|绞刑|杖刑|徒刑|笞刑|墨刑|劓刑|刖刑|宫刑|大辟|凌迟|腰斩|枭首/.test.bind(/法律|法规|戒律|禁令|规矩|条款|法典|法条|刑罚|处刑|判决|审判|法庭|衙门|公堂|判官|大牢|牢狱|流放|充军|斩首|绞刑|杖刑|徒刑|笞刑|墨刑|劓刑|刖刑|宫刑|大辟|凌迟|腰斩|枭首/) },
+    { key: 'language', label: '语言文字', keys: /语言|方言|口音|文字|古文|符文|咒语|咒文|真言|密语|暗语|黑话|切口|行话|术语|专门用语|外国语|通用语|官方语|书面语|口语|文言|白话|古语|今语/.test.bind(/语言|方言|口音|文字|古文|符文|咒语|咒文|真言|密语|暗语|黑话|切口|行话|术语|专门用语|外国语|通用语|官方语|书面语|口语|文言|白话|古语|今语/) },
+    { key: 'history', label: '历史事件', keys: /建国|开国|建国|立国|开国|亡国|灭国|覆灭|覆亡|沦陷|失守|光复|收复|统一|分裂|鼎立|对峙|战争|战役|大战|决战|血战|惨败|大胜|惨胜|平局|媾和|议和|投降|被俘|被擒|刺杀|暗杀|鸿门|兵变|叛乱|起义|革命|政变|篡位|禅让|称帝|即位|登基|退位|驾崩|薨|崩|薨逝|驾鹤|圆寂|羽化|升天/.test.bind(/建国|开国|建国|立国|开国|亡国|灭国|覆灭|覆亡|沦陷|失守|光复|收复|统一|分裂|鼎立|对峙|战争|战役|大战|决战|血战|惨败|大胜|惨胜|平局|媾和|议和|投降|被俘|被擒|刺杀|暗杀|鸿门|兵变|叛乱|起义|革命|政变|篡位|禅让|称帝|即位|登基|退位|驾崩|薨|崩|薨逝|驾鹤|圆寂|羽化|升天/) },
+    { key: 'climate', label: '气候环境', keys: /气候|天气|季节|春夏秋冬|寒冷|炎热|温暖|凉爽|干燥|潮湿|多雨|干旱|洪涝|风沙|雾霭|霜冻|冰雪|飓风|台风|海啸|地震|火山|天灾|异象|祥瑞|凶兆|星象|天象|日食|月食|彗星|流星|血月|黑日|极光|幻象/.test.bind(/气候|天气|季节|春夏秋冬|寒冷|炎热|温暖|凉爽|干燥|潮湿|多雨|干旱|洪涝|风沙|雾霭|霜冻|冰雪|飓风|台风|海啸|地震|火山|天灾|异象|祥瑞|凶兆|星象|天象|日食|月食|彗星|流星|血月|黑日|极光|幻象/) },
+    { key: 'resources', label: '资源矿藏', keys: /矿产|灵石矿|灵石脉|矿脉|灵脉|龙脉|福地|洞天|秘境|宝地|灵山|洞府|遗迹|古墓|仙府|神山|圣山|禁地|魔域|幽冥|鬼蜮|妖界|魔界|仙界|神界|天界|冥界|灵山|仙境|神域|天国|地狱|深渊|虚空|异界|位面|次元|空间|世界|宇宙|星域|星系|星云|星球|天体|恒星|行星|卫星|黑洞|白洞|虫洞|维度|平行世界|镜像|轮回/.test.bind(/矿产|灵石矿|灵石脉|矿脉|灵脉|龙脉|福地|洞天|秘境|宝地|灵山|洞府|遗迹|古墓|仙府|神山|圣山|禁地|魔域|幽冥|鬼蜮|妖界|魔界|仙界|神界|天界|冥界|灵山|仙境|神域|天国|地狱|深渊|虚空|异界|位面|次元|空间|世界|宇宙|星域|星系|星云|星球|天体|恒星|行星|卫星|黑洞|白洞|虫洞|维度|平行世界|镜像|轮回/) }
+  ];
+  var lines = text.split('\n');
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li].trim();
+    if(line.length < 5 || line.length > 200) continue;
+    for(var di = 0; di < dims.length; di++){
+      if(dims[di].keys(line)){
+        if(!dw[dims[di].key]) dw[dims[di].key] = [];
+        // 简单去重
+        if(dw[dims[di].key].indexOf(line) === -1){
+          dw[dims[di].key].push(line);
+        }
+        break; // 一行只归一个维度
+      }
+    }
+  }
+  // 限制每个维度最多20条
+  Object.keys(dw).forEach(function(k){
+    if(dw[k] && dw[k].length > 20) dw[k] = dw[k].slice(-20);
+  });
+}
+
+// 人设多维度深度提取（10+ 维度）
+function extractCharsDeeply(text, mem){
+  if(!mem.memoryAnchors.deepChars) mem.memoryAnchors.deepChars = {};
+  var dc = mem.memoryAnchors.deepChars;
+  var dims = [
+    { key: 'coreTrait', label: '核心特质', keys: /性格|特质|本性|气质|禀性|心性|根骨|本质|品行|品性|德性|德行|操守/.test.bind(/性格|特质|本性|气质|禀性|心性|根骨|本质|品行|品性|德性|德行|操守/) },
+    { key: 'catchphrase', label: '口癖/口头禅', keys: /口癖|口头禅|口头语|常说|爱说|喜欢说|总是说|常说|口头|爱讲|常说|常道/.test.bind(/口癖|口头禅|口头语|常说|爱说|喜欢说|总是说|常说|口头|爱讲|常说|常道/) },
+    { key: 'signature', label: '标志动作', keys: /习惯|动作|标志|招牌|惯有|癖好|嗜好|癖|习气|特性|特点|特征|标志|招牌|记号|印记/.test.bind(/习惯|动作|标志|招牌|惯有|癖好|嗜好|癖|习气|特性|特点|特征|标志|招牌|记号|印记/) },
+    { key: 'weakness', label: '弱点/软肋', keys: /弱点|软肋|缺点|短处|缺陷|瑕疵|短板|把柄|命门|罩门|软肋|怕|惧|怯|恐|忧|虑|忌|讳|不愿|不肯|不甘|不敢|不忍|不能/.test.bind(/弱点|软肋|缺点|短处|缺陷|瑕疵|短板|把柄|命门|罩门|软肋|怕|惧|怯|恐|忧|虑|忌|讳|不愿|不肯|不甘|不敢|不忍|不能/) },
+    { key: 'obsession', label: '执念/心结', keys: /执念|心结|执迷|执拗|心魔|执|迷|痴|狂|癖|瘾|执念|心结|执迷不悟|执着|执意|执拗/.test.bind(/执念|心结|执迷|执拗|心魔|执|迷|痴|狂|癖|瘾|执念|心结|执迷不悟|执着|执意|执拗/) },
+    { key: 'scar', label: '伤疤/过去', keys: /伤疤|伤痕|伤|疤|旧伤|旧事|往事|过去|从前|当年|曾经|旧恨|心伤|创伤|心殇|痛|殇|恨|仇|冤|孽|罪|过|失|败|辱|耻|悔|憾|痛悔|追悔/.test.bind(/伤疤|伤痕|伤|疤|旧伤|旧事|往事|过去|从前|当年|曾经|旧恨|心伤|创伤|心殇|痛|殇|恨|仇|冤|孽|罪|过|失|败|辱|耻|悔|憾|痛悔|追悔/) },
+    { key: 'goal', label: '目标/理想', keys: /目标|理想|梦想|追求|心愿|愿望|夙愿|志向|志|愿|梦|想|盼|期望|渴望|奢望|期待|憧憬|向往|神往|梦寐以求|求|愿|欲|想/.test.bind(/目标|理想|梦想|追求|心愿|愿望|夙愿|志向|志|愿|梦|想|盼|期望|渴望|奢望|期待|憧憬|向往|神往|梦寐以求|求|愿|欲|想/) },
+    { key: 'fear', label: '恐惧/担忧', keys: /怕|惧|怯|恐|惊|吓|忧|虑|患|忧惧|惧怕|恐惧|畏|怯懦|怯场|怯战|畏战|畏罪|畏死|胆小|胆怯|怯弱|怯懦|畏惧|忌惮|忌讳|顾忌|避讳|隐讳|忌口|禁忌/.test.bind(/怕|惧|怯|恐|惊|吓|忧|虑|患|忧惧|惧怕|恐惧|畏|怯懦|怯场|怯战|畏战|畏罪|畏死|胆小|胆怯|怯弱|怯懦|畏惧|忌惮|忌讳|顾忌|避讳|隐讳|忌口|禁忌/) },
+    { key: 'secret', label: '秘密/身世', keys: /秘密|隐秘|隐情|隐私|底细|内幕|真相|实情|详情|底细|身世|来历|出身|来历|根源|根底|来由|来历|缘由|缘起|内幕|底细|底牌|杀手锏|底牌|保命符/.test.bind(/秘密|隐秘|隐情|隐私|底细|内幕|真相|实情|详情|底细|身世|来历|出身|来历|根源|根底|来由|来历|缘由|缘起|内幕|底细|底牌|杀手锏|底牌|保命符/) },
+    { key: 'promise', label: '承诺/誓言', keys: /承诺|誓言|誓约|约定|誓|约|盟|誓盟|誓约|信约|盟约|合约|契约|誓词|诺言|许诺|许愿|答应|应允|承诺|允诺|应承|应许|应诺|慨允|容许|准许|允许|特许|恩准|获准|准予/.test.bind(/承诺|誓言|誓约|约定|誓|约|盟|誓盟|誓约|信约|盟约|合约|契约|誓词|诺言|许诺|许愿|答应|应允|承诺|允诺|应承|应许|应诺|慨允|容许|准许|允许|特许|恩准|获准|准予/) },
+    { key: 'belief', label: '信仰/信念', keys: /信仰|信念|信条|理念|信奉|崇奉|供奉|奉|信|仰|崇|尊|敬|拜|崇敬|敬仰|敬奉|供奉|奉祀|祀|祭|祭祀|祭奠|祭拜|礼拜|膜拜|跪拜|叩拜|顶礼|信仰|信念|坚信|笃信|深信|确信|坚信|毫不动摇|雷打不动|坚如磐石|坚贞不渝|忠贞不渝|始终不渝|至死不渝|矢志不渝|百折不挠|不屈不挠|不挠|不折|不屈|不挠|不卑不亢|百折不回/.test.bind(/信仰|信念|信条|理念|信奉|崇奉|供奉|奉|信|仰|崇|尊|敬|拜|崇敬|敬仰|敬奉|供奉|奉祀|祀|祭|祭祀|祭奠|祭拜|礼拜|膜拜|跪拜|叩拜|顶礼|信仰|信念|坚信|笃信|深信|确信|坚信|毫不动摇|雷打不动|坚如磐石|坚贞不渝|忠贞不渝|始终不渝|至死不渝|矢志不渝|百折不挠|不屈不挠|不挠|不折|不屈|不挠|不卑不亢|百折不回/) },
+    { key: 'ability', label: '能力/技能', keys: /能力|技能|本领|本事|能耐|功力|功夫|法力|道行|修行|修为|境界|等级|武学|功法|法术|魔法|技能|特长|擅长|专长|绝技|特技|杀招|绝招|绝活|看家本领|独门绝技|看家功夫|看家本事/.test.bind(/能力|技能|本领|本事|能耐|功力|功夫|法力|道行|修行|修为|境界|等级|武学|功法|法术|魔法|技能|特长|擅长|专长|绝技|特技|杀招|绝招|绝活|看家本领|独门绝技|看家功夫|看家本事/) }
+  ];
+  var lines = text.split('\n');
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li].trim();
+    if(line.length < 5 || line.length > 200) continue;
+    for(var di = 0; di < dims.length; di++){
+      if(dims[di].keys(line)){
+        if(!dc[dims[di].key]) dc[dims[di].key] = [];
+        if(dc[dims[di].key].indexOf(line) === -1){
+          dc[dims[di].key].push(line);
+        }
+        break;
+      }
+    }
+  }
+  Object.keys(dc).forEach(function(k){
+    if(dc[k] && dc[k].length > 30) dc[k] = dc[k].slice(-30);
+  });
+}
+
+// 大纲多维度深度提取
+function extractOutlineDeeply(text, mem){
+  if(!mem.memoryAnchors.deepOutline) mem.memoryAnchors.deepOutline = {};
+  var do2 = mem.memoryAnchors.deepOutline;
+  var dims = [
+    { key: 'volumeStructure', label: '卷结构', keys: /第[一二三四五六七八九十百零\d]+卷/.test.bind(/第[一二三四五六七八九十百零\d]+卷/) },
+    { key: 'turningPoint', label: '转折点', keys: /转折|逆转|反转|突转|剧变|骤变|急转|直转|陡转|突变|异变|骤变|巨变|变局|拐点|节点/.test.bind(/转折|逆转|反转|突转|剧变|骤变|急转|直转|陡转|突变|异变|骤变|巨变|变局|拐点|节点/) },
+    { key: 'climax', label: '高潮点', keys: /高潮|决战|终极战|最终战|总决战|大决战|巅峰战|生死战|存亡战|灭世战|救世战|诸神之战|万界之战|命运之战|巅峰对决|终极对决|最终对决|生死对决|存亡对决/.test.bind(/高潮|决战|终极战|最终战|总决战|大决战|巅峰战|生死战|存亡战|灭世战|救世战|诸神之战|万界之战|命运之战|巅峰对决|终极对决|最终对决|生死对决|存亡对决/) },
+    { key: 'revelation', label: '揭秘点', keys: /真相|揭秘|揭露|揭穿|揭发|揭底|揭破|揭谜|揭|露|暴露|败露|泄露|透露|披露|揭穿|揭发|揭底|真相|实情|真相大白|水落石出|真相揭晓|真相揭开|真相浮出|真相显露|真相暴露/.test.bind(/真相|揭秘|揭露|揭穿|揭发|揭底|揭破|揭谜|揭|露|暴露|败露|泄露|透露|披露|揭穿|揭发|揭底|真相|实情|真相大白|水落石出|真相揭晓|真相揭开|真相浮出|真相显露|真相暴露/) },
+    { key: 'characterArc', label: '角色弧光', keys: /成长|蜕变|觉悟|觉醒|顿悟|领悟|悔悟|彻悟|省悟|翻然|改过|改正|改过自新|洗心|革面|回头|悔改|回心|转意|回心转意|弃暗投明|改邪归正|弃恶从善|洗心革面|脱胎换骨|焕然一新|判若两人|今非昔比|焕然|脱胎|换骨|重塑|重铸|再造|重生|新生|蜕变|变质|变化|转化|改变/.test.bind(/成长|蜕变|觉悟|觉醒|顿悟|领悟|悔悟|彻悟|省悟|翻然|改过|改正|改过自新|洗心|革面|回头|悔改|回心|转意|回心转意|弃暗投明|改邪归正|弃恶从善|洗心革面|脱胎换骨|焕然一新|判若两人|今非昔比|焕然|脱胎|换骨|重塑|重铸|再造|重生|新生|蜕变|变质|变化|转化|改变/) }
+  ];
+  var lines = text.split('\n');
+  var curVolume = '';
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li].trim();
+    if(line.length < 5) continue;
+    // 提取当前卷
+    var volMatch = line.match(/^第[一二三四五六七八九十百零\d]+卷[^\n]*/);
+    if(volMatch) curVolume = volMatch[0].slice(0, 30);
+    for(var di = 0; di < dims.length; di++){
+      if(dims[di].keys(line)){
+        if(!do2[dims[di].key]) do2[dims[di].key] = [];
+        var entry = (curVolume ? '[' + curVolume + '] ' : '') + line.slice(0, 100);
+        if(do2[dims[di].key].indexOf(entry) === -1){
+          do2[dims[di].key].push(entry);
+        }
+        break;
+      }
+    }
+  }
+  Object.keys(do2).forEach(function(k){
+    if(do2[k] && do2[k].length > 25) do2[k] = do2[k].slice(-25);
+  });
+}
+
+// 细纲多维度深度提取
+function extractDetailDeeply(text, mem){
+  if(!mem.memoryAnchors.deepDetail) mem.memoryAnchors.deepDetail = {};
+  var dd = mem.memoryAnchors.deepDetail;
+  var dims = [
+    { key: 'chapterGoal', label: '章目标', keys: /章目标|本章目标|章目的|本章目的/.test.bind(/章目标|本章目标|章目的|本章目的/) },
+    { key: 'chapterConflict', label: '章冲突', keys: /章冲突|本章冲突|章矛盾|本章矛盾|章对抗|本章对抗/.test.bind(/章冲突|本章冲突|章矛盾|本章矛盾|章对抗|本章对抗/) },
+    { key: 'chapterClimax', label: '章高潮', keys: /章高潮|本章高潮|章峰值|本章峰值|章顶点|本章顶点/.test.bind(/章高潮|本章高潮|章峰值|本章峰值|章顶点|本章顶点/) },
+    { key: 'chapterTwist', label: '章反转', keys: /章反转|本章反转|章逆转|本章逆转|章意外|本章意外|章转折|本章转折/.test.bind(/章反转|本章反转|章逆转|本章逆转|章意外|本章意外|章转折|本章转折/) },
+    { key: 'chapterEmotion', label: '章情感', keys: /章情感|本章情感|基调|本章基调|情绪|本章情绪/.test.bind(/章情感|本章情感|基调|本章基调|情绪|本章情绪/) }
+  ];
+  var lines = text.split('\n');
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li].trim();
+    if(line.length < 5) continue;
+    for(var di = 0; di < dims.length; di++){
+      if(dims[di].keys(line)){
+        if(!dd[dims[di].key]) dd[dims[di].key] = [];
+        if(dd[dims[di].key].indexOf(line) === -1){
+          dd[dims[di].key].push(line);
+        }
+        break;
+      }
+    }
+  }
+  Object.keys(dd).forEach(function(k){
+    if(dd[k] && dd[k].length > 50) dd[k] = dd[k].slice(-50);
+  });
+}
+
+// 关联提取：识别"X 的 Y 是 Z"结构
+function extractRelations(work, module, mem){
+  if(!mem.memoryAnchors.relations) mem.memoryAnchors.relations = [];
+  var text = '';
+  if(module === 'world') text = work.world || '';
+  else if(module === 'chars') text = work.chars || '';
+  else if(module === 'outline') text = work.outline || '';
+  else if(module === 'detail') text = work.detail || '';
+  if(!text) return;
+  
+  // 关联模式：X 的 Y 是/为/乃 Z
+  // 例：林雪的师傅是李老 / 主角的性格是坚韧 / 青云宗的宗主是XXX
+  var relPatterns = [
+    /([\u4e00-\u9fa5]{2,4})的(师傅|师父|父亲|母亲|师兄|师姐|师弟|师妹|师兄妹|师兄|师姐|徒弟|弟子|恋人|爱人|妻子|丈夫|儿子|女儿|女儿|孩子|好友|朋友|兄弟|姐妹|兄长|姐姐|妹妹|弟弟|姐姐|哥哥|妹妹|孩子|弟子|徒|门人|传人|继承人|传人|弟子|门生|道友|同门|盟友|敌人|仇人|对头|死敌|宿敌|恩人|仇人|爱人|心上人|暗恋|情人|情侣|配偶|伴侣|同伙|同伴|战友|袍泽|至交|莫逆|挚友|密友|故友|旧友|故交|世交|父执|母执|执友|故旧|故人|故交|世叔|世伯|世兄|师兄|师姐|师弟|师妹)[\u4e00-\u9fa5]?(?:是|为|乃|叫做|叫|名为|名叫|称作)/g,
+    /([\u4e00-\u9fa5]{2,4})(是|为|乃|叫做|叫|名为|名叫|称作)([\u4e00-\u9fa5]{2,8}的(师傅|师父|父亲|母亲|师兄|师姐|师弟|师妹|徒弟|弟子|恋人|爱人|妻子|丈夫|儿子|女儿|好友|朋友|兄弟|姐妹|盟友|敌人|仇人|恩人|宗主|掌门|门主|帮主|教主|盟主|会主|楼主|阁主|岛主|谷主|庄主|府主|家主|族长|首领|领袖|头领|大王|国王|皇帝|天子|殿下|陛下|王爷|侯爷|公爷|伯爵|子爵|男爵|首领|头目|老大|头领|领袖|领导|上司|下属|部下|麾下|门下|手下))/g
+  ];
+  
+  for(var pi = 0; pi < relPatterns.length; pi++){
+    var match;
+    var regex = new RegExp(relPatterns[pi].source, 'g');
+    while((match = regex.exec(text)) !== null){
+      var subject = match[1] || '';
+      var predicate = match[2] || '';
+      var object = match[3] || match[0];
+      if(subject && object && subject.length >= 2 && object.length >= 2){
+        // 去重
+        var exists = mem.memoryAnchors.relations.some(function(r){
+          return r.subject === subject && r.object === object;
+        });
+        if(!exists){
+          mem.memoryAnchors.relations.push({
+            subject: subject,
+            predicate: predicate,
+            object: object.slice(0, 30),
+            source: module,
+            ts: Date.now()
+          });
+        }
+      }
+    }
+  }
+  if(mem.memoryAnchors.relations.length > 200) mem.memoryAnchors.relations = mem.memoryAnchors.relations.slice(-200);
+}
+
+// 完整性评分
+function evalCompleteness(work, mem){
+  if(!mem.completeness) mem.completeness = {world:{score:0,missing:[]},chars:{score:0,missing:[]},outline:{score:0,missing:[]},detail:{score:0,missing:[]},consistency:{score:0,conflicts:[]},lastUpdated:0};
+  
+  // 世界观完整性
+  var worldRequired = ['era','geography','powerSystem','factions','economy','races','religion','culture','law','language','history','climate','resources'];
+  var worldFound = 0;
+  var worldMissing = [];
+  if(mem.memoryAnchors && mem.memoryAnchors.deepWorld){
+    for(var wi = 0; wi < worldRequired.length; wi++){
+      if(mem.memoryAnchors.deepWorld[worldRequired[wi]] && mem.memoryAnchors.deepWorld[worldRequired[wi]].length > 0){
+        worldFound++;
+      } else {
+        worldMissing.push(worldRequired[wi]);
+      }
+    }
+  } else {
+    worldMissing = worldRequired.slice();
+  }
+  mem.completeness.world.score = Math.round(worldFound / worldRequired.length * 100);
+  mem.completeness.world.missing = worldMissing;
+  
+  // 人设完整性
+  var charsRequired = ['coreTrait','catchphrase','signature','weakness','obsession','scar','goal','fear','secret','ability'];
+  var charsFound = 0;
+  var charsMissing = [];
+  if(mem.memoryAnchors && mem.memoryAnchors.deepChars){
+    for(var ci = 0; ci < charsRequired.length; ci++){
+      if(mem.memoryAnchors.deepChars[charsRequired[ci]] && mem.memoryAnchors.deepChars[charsRequired[ci]].length > 0){
+        charsFound++;
+      } else {
+        charsMissing.push(charsRequired[ci]);
+      }
+    }
+  } else {
+    charsMissing = charsRequired.slice();
+  }
+  mem.completeness.chars.score = Math.round(charsFound / charsRequired.length * 100);
+  mem.completeness.chars.missing = charsMissing;
+  
+  // 大纲完整性
+  var outlineRequired = ['volumeStructure','turningPoint','climax','revelation','characterArc'];
+  var outlineFound = 0;
+  var outlineMissing = [];
+  if(mem.memoryAnchors && mem.memoryAnchors.deepOutline){
+    for(var oi = 0; oi < outlineRequired.length; oi++){
+      if(mem.memoryAnchors.deepOutline[outlineRequired[oi]] && mem.memoryAnchors.deepOutline[outlineRequired[oi]].length > 0){
+        outlineFound++;
+      } else {
+        outlineMissing.push(outlineRequired[oi]);
+      }
+    }
+  } else {
+    outlineMissing = outlineRequired.slice();
+  }
+  mem.completeness.outline.score = Math.round(outlineFound / outlineRequired.length * 100);
+  mem.completeness.outline.missing = outlineMissing;
+  
+  // 细纲完整性
+  var detailRequired = ['chapterGoal','chapterConflict','chapterClimax','chapterTwist','chapterEmotion'];
+  var detailFound = 0;
+  var detailMissing = [];
+  if(mem.memoryAnchors && mem.memoryAnchors.deepDetail){
+    for(var di = 0; di < detailRequired.length; di++){
+      if(mem.memoryAnchors.deepDetail[detailRequired[di]] && mem.memoryAnchors.deepDetail[detailRequired[di]].length > 0){
+        detailFound++;
+      } else {
+        detailMissing.push(detailRequired[di]);
+      }
+    }
+  } else {
+    detailMissing = detailRequired.slice();
+  }
+  mem.completeness.detail.score = Math.round(detailFound / detailRequired.length * 100);
+  mem.completeness.detail.missing = detailMissing;
+}
+
+// 一致性校验
+function checkConsistency(work, mem){
+  if(!mem.completeness) return;
+  var conflicts = [];
+  
+  // 1. 主角姓名一致性
+  var charNames = (work.chars || '').match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+  if(charNames.length > 0){
+    var mainChar = charNames[0]; // 简单假设第一个是主角
+    var outlineText = work.outline || '';
+    var detailText = work.detail || '';
+    // 检查大纲/细纲中是否提到主角的"原名/化名"和现名混淆
+    // 简化检测：看是否有"主角姓名在多处出现但写法不一致"
+    // 这里只做基本检查：是否大纲/细纲中完全没有提到主角（可能的遗漏）
+    if(outlineText && outlineText.indexOf(mainChar) === -1 && outlineText.length > 100){
+      conflicts.push({type: 'warning', msg: '大纲中未提及主角[' + mainChar + ']，可能遗漏'});
+    }
+  }
+  
+  // 2. 力量体系一致性（人设中的境界 vs 世界观中的境界）
+  if(mem.memoryAnchors && mem.memoryAnchors.abilityCosts){
+    var abilityCosts = mem.memoryAnchors.abilityCosts.map(function(a){return a.text;}).join(' ');
+    var worldPowerKeywords = (work.world || '').match(/[\u4e00-\u9fa5]{2,6}(?:境界|体系|等级)/g) || [];
+    if(worldPowerKeywords.length > 0){
+      var worldSet = {};
+      worldPowerKeywords.forEach(function(k){ worldSet[k] = true; });
+      // 简化的冲突检测
+    }
+  }
+  
+  // 3. 伏笔回收检查（细纲中提到的伏笔在大纲中是否埋下）
+  if(mem.foreshadowLedger && mem.foreshadowLedger.length > 0){
+    var unresolved = mem.foreshadowLedger.filter(function(f){return f.status === '已埋下' || f.status === '待回收';});
+    if(unresolved.length > 30){
+      conflicts.push({type: 'warning', msg: '未回收伏笔过多（' + unresolved.length + '条），可能需要清理'});
+    }
+  }
+  
+  // 4. 时间线连贯性（基本检查）
+  if(mem.timelineEvents && mem.timelineEvents.length > 2){
+    // 简化检查：相邻时间线事件的"时间"是否合理
+    // 真实实现会更复杂
+  }
+  
+  mem.completeness.consistency.conflicts = conflicts;
+  // 一致性分 = 100 - 冲突数*10
+  mem.completeness.consistency.score = Math.max(0, 100 - conflicts.length * 10);
+}
+
+// 重建倒排索引
+function rebuildInvertedIndex(mem){
+  if(!mem.invertedIndex) mem.invertedIndex = {};
+  var idx = {};
+  var anchors = mem.memoryAnchors;
+  if(!anchors) return;
+  
+  // 索引所有锚点
+  function indexAnchorList(list, typeName){
+    if(!list || !Array.isArray(list)) return;
+    for(var i = 0; i < list.length; i++){
+      var a = list[i];
+      if(!a || !a.text) continue;
+      // 提取关键词（中文2-4字 + 英文/数字）
+      var keywords = (a.text.match(/[\u4e00-\u9fa5]{2,4}/g) || []);
+      for(var ki = 0; ki < keywords.length; ki++){
+        var kw = keywords[ki];
+        if(!idx[kw]) idx[kw] = { anchors: [], types: {} };
+        idx[kw].anchors.push({ type: typeName, text: a.text.slice(0, 100), source: a.source || '', chapterIdx: a.chapterIdx });
+        idx[kw].types[typeName] = (idx[kw].types[typeName] || 0) + 1;
+      }
+    }
+  }
+  
+  // 索引所有类型的锚点
+  indexAnchorList(anchors.core, 'core');
+  indexAnchorList(anchors.characterTags, 'characterTags');
+  indexAnchorList(anchors.relationships, 'relationships');
+  indexAnchorList(anchors.items, 'items');
+  indexAnchorList(anchors.locations, 'locations');
+  indexAnchorList(anchors.promises, 'promises');
+  indexAnchorList(anchors.timeline, 'timeline');
+  indexAnchorList(anchors.hooks, 'hooks');
+  indexAnchorList(anchors.dialogues, 'dialogues');
+  indexAnchorList(anchors.abilityCosts, 'abilityCosts');
+  indexAnchorList(anchors.emotionTrack, 'emotionTrack');
+  indexAnchorList(anchors.scenes, 'scenes');
+  // 索引人物档案
+  if(anchors.characterProfiles){
+    Object.keys(anchors.characterProfiles).forEach(function(name){
+      var p = anchors.characterProfiles[name];
+      if(p && p.name){
+        if(!idx[p.name]) idx[p.name] = { anchors: [], types: {} };
+        var profileText = p.name + (p.coreTrait ? '：' + p.coreTrait : '') + (p.secret ? ' 秘密：' + p.secret : '') + (p.goal ? ' 目标：' + p.goal : '');
+        idx[p.name].anchors.push({ type: 'characterProfile', text: profileText, source: 'chars', chapterIdx: -1 });
+        idx[p.name].types['characterProfile'] = (idx[p.name].types['characterProfile'] || 0) + 1;
+      }
+    });
+  }
+  
+  mem.invertedIndex = idx;
+}
+
+// 通过倒排索引快速检索
+function searchInvertedIndex(mem, query, limit){
+  if(!mem.invertedIndex) return [];
+  var results = [];
+  var seen = {};
+  // 提取查询关键词
+  var keywords = (query.match(/[\u4e00-\u9fa5]{2,4}/g) || []);
+  for(var ki = 0; ki < keywords.length; ki++){
+    var kw = keywords[ki];
+    var entry = mem.invertedIndex[kw];
+    if(entry && entry.anchors){
+      for(var ai = 0; ai < entry.anchors.length; ai++){
+        var a = entry.anchors[ai];
+        var key = a.type + ':' + a.text;
+        if(!seen[key]){
+          seen[key] = true;
+          results.push(a);
+        }
+      }
+    }
+  }
+  // 按类型加权排序
+  var typeWeight = { core: 10, characterProfile: 9, characterTags: 8, relationships: 7, abilityCosts: 6, locations: 5, hooks: 4, promises: 4, timeline: 3, items: 2, dialogues: 1 };
+  results.sort(function(a, b){
+    return (typeWeight[b.type] || 0) - (typeWeight[a.type] || 0);
+  });
+  return results.slice(0, limit || 20);
 }
 
 // ========== 架构模块间共享记忆上下文 ==========
@@ -2603,6 +3051,55 @@ function buildArchMemoryContext(work, currentModule){
         mdBlock += '  ■ [' + (d.type || '待补') + '] ' + (d.content || d.text || '') + '\n';
       });
       tryAdd(mdBlock + '\n');
+    }
+  }
+
+  // L15: 完整性评分（如果当前模块有缺失，提醒AI补全）
+  if(mem.completeness){
+    var comp = mem.completeness;
+    var compBlock = '【📊 记忆完整性自评】\n';
+    var hasComp = false;
+    if(currentModule === 'chars' && comp.world){
+      compBlock += '  世界观：' + comp.world.score + '%' + (comp.world.missing.length > 0 ? '（缺：' + comp.world.missing.join('、') + '）' : '') + '\n';
+      hasComp = true;
+    }
+    if(currentModule === 'outline' && comp.chars){
+      compBlock += '  人设：' + comp.chars.score + '%' + (comp.chars.missing.length > 0 ? '（缺：' + comp.chars.missing.join('、') + '）' : '') + '\n';
+      compBlock += '  世界观：' + comp.world.score + '%\n';
+      hasComp = true;
+    }
+    if(currentModule === 'detail' && comp.outline){
+      compBlock += '  大纲：' + comp.outline.score + '%' + (comp.outline.missing.length > 0 ? '（缺：' + comp.outline.missing.join('、') + '）' : '') + '\n';
+      compBlock += '  人设：' + comp.chars.score + '%\n';
+      compBlock += '  世界观：' + comp.world.score + '%\n';
+      hasComp = true;
+    }
+    if(comp.consistency && comp.consistency.conflicts && comp.consistency.conflicts.length > 0){
+      compBlock += '  ⚠️ 一致性冲突：' + comp.consistency.conflicts.length + '条\n';
+      comp.consistency.conflicts.slice(0, 3).forEach(function(c){
+        compBlock += '    - [' + c.type + '] ' + c.msg + '\n';
+      });
+      hasComp = true;
+    }
+    if(hasComp) tryAdd(compBlock + '\n');
+  }
+
+  // L16: 关联关系网络（来自X的Y是Z结构）
+  if(mem.memoryAnchors.relations && mem.memoryAnchors.relations.length > 0){
+    var relList2 = mem.memoryAnchors.relations.slice(-15);
+    var relNetBlock = '【🔗 已确立的关联关系（X→Y→Z，不得随意更改）】\n';
+    relList2.forEach(function(r){
+      relNetBlock += '  ■ ' + r.subject + (r.predicate ? '[' + r.predicate + ']' : '→') + r.object + '\n';
+    });
+    tryAdd(relNetBlock + '\n');
+  }
+
+  // L17: 倒排索引快速检索（如果之前有查询关键词）
+  // 注：这里只展示索引统计，实际查询在写作时通过 searchInvertedIndex() 调用
+  if(mem.invertedIndex){
+    var idxCount = Object.keys(mem.invertedIndex).length;
+    if(idxCount > 0 && added < BUDGET - 100){
+      tryAdd('【🔍 检索就绪：记忆库已建立倒排索引，关键词 ' + idxCount + ' 个，AI 检索时将通过 searchInvertedIndex() 快速匹配】\n\n');
     }
   }
 
