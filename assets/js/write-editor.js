@@ -4505,16 +4505,18 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  // v60: 全部模型使用对话上下文模式，基础设定常驻对话历史
-  // 小模型自动按比例截断基础设定，保证上下文不溢出
+  // v60: 全部模型使用对话上下文模式，所有轮次都走对话模式
+  // 基础设定常驻对话历史，小模型自动按比例截断
   var useConversation = (typeof ConversationMgr !== 'undefined');
   var _msgPrompt;
-  if (useConversation && _writeIteration === 0) {
+  if (useConversation) {
     var sysMsg = '你是一位顶级网文写手，拥有十年网文创作经验，深谙读者心理和商业写作技巧。你的文字让读者欲罢不能，每章结尾都让读者忍不住点"下一章"。';
     ConversationMgr.setSystemPrompt(work, sysMsg);
     var messages = ConversationMgr.buildMessages(work, prompt, { keepAll: false });
     _msgPrompt = messages;
-    console.log('[ConversationMgr] 对话上下文模式，消息数: ' + messages.length + ', 地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
+    if (_writeIteration === 0) {
+      console.log('[ConversationMgr] 正文对话模式, 消息数: ' + messages.length + ', 地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
+    }
   } else {
     _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
   }
@@ -8627,10 +8629,11 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
   }
   
   try {
-    // v60: 架构生成也使用对话上下文，保证世界观→人设→大纲→细纲→正文的一致性
+    // v60: 架构生成使用对话上下文，所有轮次都走对话模式
+    // 保证世界观→人设→大纲→细纲→正文的全链路一致性
     // AI通过对话历史自然记得前面生成的内容，不会前后矛盾
     var archMessages;
-    if (typeof ConversationMgr !== 'undefined' && iteration === 0) {
+    if (typeof ConversationMgr !== 'undefined') {
       var archSys = '';
       if (type === 'world') archSys = '你是一位顶级世界观架构师，擅长构建宏大、自洽、富有想象力的小说世界观。';
       else if (type === 'chars') archSys = '你是一位顶级人物设计师，擅长塑造立体、鲜明、有成长弧光的角色。';
@@ -8638,7 +8641,7 @@ async function _archIterateGenerate(type, taskType, targetChars, minChars, statu
       else if (type === 'detail') archSys = '你是一位顶级细纲设计师，擅长把大纲细化为章章有爽点、卷卷有高潮的详细章节规划。';
       ConversationMgr.setSystemPrompt(work, archSys);
       archMessages = ConversationMgr.buildMessages(work, prompt, { keepAll: false });
-      console.log('[ConversationMgr] 架构生成对话模式: ' + type + ', 消息数: ' + archMessages.length);
+      console.log('[ConversationMgr] 架构生成对话模式: ' + type + ', 第' + (iteration + 1) + '轮, 消息数: ' + archMessages.length);
     } else {
       archMessages = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
     }
