@@ -517,6 +517,7 @@ body{display:flex;flex-direction:column;}
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
         <button class="sec-btn" onclick="saveArchModule()">💾 保存</button>
+        <button class="sec-btn" onclick="generateBookTitleAndDesc()" title="根据已有架构内容生成更贴合作品的书名和简介" style="background:#eef2ff;color:#4f46e5;">📖 生成书名</button>
         <div class="arch-more-wrap">
           <button class="sec-btn" onclick="toggleArchMenu('detail', this)">⋯ 更多</button>
         </div>
@@ -4997,6 +4998,116 @@ window.switchToFrontGen = function(){
   document.getElementById('detail-progress').style.display = '';
   var indicator = document.getElementById('bg-gen-indicator');
   if(indicator) indicator.style.display = 'none';
+};
+
+// ===== 根据细纲内容生成贴合作品的书名和简介 =====
+window.generateBookTitleAndDesc = async function(){
+  try {
+    var work = getCurrentWork();
+    if(!work){ showToast('请先选择作品',{error:true}); return; }
+    // 至少需要部分架构内容
+    if(!work.detail || !work.detail.trim()){
+      showToast('请先生成细纲内容',{error:true,duration:3000});
+      return;
+    }
+    if(typeof showLoading === 'function') showLoading('📖 AI正在根据作品内容生成书名与简介…');
+
+    // 用 chain 提供完整架构上下文
+    var messages = [];
+    if(typeof buildArchChatChain === 'function'){
+      var chain = buildArchChatChain(work, 'chapter');
+      if(chain && chain.length > 0) messages = chain;
+    }
+    // 兜底：没用 chain 时直接拼接已有内容
+    if(messages.length === 0){
+      var ctx = '【作品已有内容】\n';
+      if(work.world) ctx += '\n【世界观】\n' + work.world.substring(0, 2000) + '\n';
+      if(work.chars) ctx += '\n【人设】\n' + work.chars.substring(0, 2000) + '\n';
+      if(work.outline) ctx += '\n【大纲】\n' + work.outline.substring(0, 2000) + '\n';
+      if(work.detail) ctx += '\n【细纲】\n' + work.detail.substring(0, 3000) + '\n';
+      messages = [{ role: 'user', content: ctx }];
+    }
+
+    var genPrompt = '你是一位资深网文编辑。请根据以上完整的作品架构内容（世界观、人设、大纲、细纲），为这部小说生成一个贴合作品核心看点的书名和简介。\n\n';
+    genPrompt += '【要求】\n';
+    genPrompt += '1. 书名必须贴合作品的实际内容和题材，避免大而空的通用书名\n';
+    genPrompt += '2. 简介要抓住作品最核心的卖点、最吸引读者的钩子，控制在150字以内\n';
+    genPrompt += '3. 如果是同人作品，书名需体现同人属性但不侵权\n';
+    genPrompt += '4. 书名控制在4-12个字，简洁有力、有记忆点\n\n';
+    genPrompt += '【输出格式】\n';
+    genPrompt += '书名：《xxx》\n';
+    genPrompt += '简介：xxx\n';
+    genPrompt += '\n直接输出，不要加其他内容。';
+
+    messages.push({ role: 'user', content: genPrompt });
+
+    var result = await callRealAPIWithFallback(messages, null, 'default', 500, true);
+    if(typeof hideLoading === 'function') hideLoading();
+    if(!result || !result.trim()){ showToast('生成失败',{error:true}); return; }
+
+    // 解析结果
+    var titleMatch = result.match(/书名[：:]\s*《(.+?)》/);
+    var descMatch = result.match(/简介[：:]\s*(.+)/);
+    var newTitle = titleMatch ? titleMatch[1].trim() : '';
+    var newDesc = descMatch ? descMatch[1].trim() : result.trim().substring(0, 150);
+
+    if(!newTitle && !newDesc){ showToast('解析失败，请重试',{error:true}); return; }
+
+    // 弹窗让用户确认
+    var overlay = document.getElementById('title-confirm-overlay');
+    if(!overlay){
+      // 动态创建弹窗
+      var div = document.createElement('div');
+      div.id = 'title-confirm-overlay';
+      div.innerHTML = '<div class="modal-overlay" id="title-overlay-bg" style="display:flex;align-items:center;justify-content:center;z-index:9999;" onclick="if(event.target===this)closeTitleConfirm()">'
+        + '<div style="background:#fff;border-radius:14px;padding:24px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">'
+        + '<div style="font-size:16px;font-weight:700;margin-bottom:16px;">📖 AI 推荐的书名与简介</div>'
+        + '<div style="margin-bottom:12px;"><label style="font-size:12px;color:#888;">书名</label>'
+        + '<input id="gen-book-title" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:15px;font-weight:600;"></div>'
+        + '<div style="margin-bottom:16px;"><label style="font-size:12px;color:#888;">简介</label>'
+        + '<textarea id="gen-book-desc" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:80px;resize:vertical;"></textarea></div>'
+        + '<div style="display:flex;gap:10px;">'
+        + '<button onclick="closeTitleConfirm()" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;font-size:14px;">取消</button>'
+        + '<button onclick="applyBookTitle()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:14px;font-weight:600;">✅ 确认使用</button>'
+        + '</div></div></div>';
+      document.body.appendChild(div);
+    }
+    document.getElementById('gen-book-title').value = newTitle;
+    document.getElementById('gen-book-desc').value = newDesc;
+    document.getElementById('title-overlay-bg').style.display = 'flex';
+  } catch(err) {
+    if(typeof hideLoading === 'function') hideLoading();
+    console.error('[生成书名] 异常:', err);
+    showToast('生成失败：' + (err.message||err), {error:true});
+  }
+};
+
+window.closeTitleConfirm = function(){
+  var bg = document.getElementById('title-overlay-bg');
+  if(bg) bg.style.display = 'none';
+};
+
+window.applyBookTitle = function(){
+  try {
+    var work = getCurrentWork();
+    if(!work) return;
+    var newTitle = document.getElementById('gen-book-title').value.trim();
+    var newDesc = document.getElementById('gen-book-desc').value.trim();
+    if(!newTitle && !newDesc){ showToast('书名和简介不能同时为空',{error:true}); return; }
+    if(newTitle) work.title = newTitle;
+    work.desc = newDesc || '';
+    if(typeof DB !== 'undefined' && typeof DB.saveWork === 'function') DB.saveWork(work);
+    closeTitleConfirm();
+    // 更新页面标题
+    var titleEl = document.getElementById('detail-book-title');
+    if(titleEl) titleEl.textContent = newTitle || work.title;
+    var descEl = document.getElementById('detail-book-desc');
+    if(descEl) descEl.textContent = newDesc || '(无简介)';
+    showToast('✅ 书名与简介已更新');
+  } catch(e) {
+    console.error('[应用书名] 异常:', e);
+    showToast('保存失败', {error:true});
+  }
 };
 
 // ===== v48: 保存确认弹窗 =====
