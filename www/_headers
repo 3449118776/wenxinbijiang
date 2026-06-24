@@ -1,5 +1,4 @@
-# Cloudflare Pages _headers
-# HTML: 永远不缓存，确保用户每次看到最新内容
+# HTML: 不缓存（确保每次获取最新）
 /*.html
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache

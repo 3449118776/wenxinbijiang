@@ -183,6 +183,7 @@ function updateCat3(){
   }).join('');
 }
 function submitNewBook(){
+  console.log('[new-book] submit start, cat1=' + selectedCat1 + ' cat2=' + selectedCat2);
   try {
   var name=document.getElementById('book-name').value.trim();
   var desc=document.getElementById('book-desc').value.trim();
