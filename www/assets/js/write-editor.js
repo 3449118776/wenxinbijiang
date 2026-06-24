@@ -6619,7 +6619,7 @@ function compressChapterSummary(workId, chapterIdx, content) {
     // 确保 longMemory 存在
     if (!work.longMemory) work.longMemory = {};
     var mem = work.longMemory;
-    if (!Array.isArray(mem.memoryAnchors)) mem.memoryAnchors = {
+    if (!mem.memoryAnchors) mem.memoryAnchors = {
       core: [], characterTags: [], relationships: [], items: [],
       chapterContext: [], locations: [], promises: [], timeline: [], hooks: []
     };
