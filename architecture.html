@@ -4643,8 +4643,9 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
 }
 
 // ========== v56: 细纲专用 — 从大纲提取每一卷的核心目标（作为硬性约束）==========
+// v65: 扩展为可提取每卷的章数范围
 // 输入：work.outline 文本
-// 输出：Array<{ volIndex:number, volName:string, goal:string, rawBlock:string }> — 每卷一条
+// 输出：Array<{ volIndex:number, volName:string, goal:string, rawBlock:string, chStart?:number, chEnd?:number }> — 每卷一条
 // 如果提取不到，返回空数组，调用方会回退到"让 AI 自己根据大纲自由发挥"
 function extractOutlineTargetsV52(work){
   var targets = [];
@@ -4661,15 +4662,27 @@ function extractOutlineTargetsV52(work){
       if(!line) continue;
 
       // 识别卷标题行：支持"第N卷" / "第X卷"（中文数字），后面允许带括号阶段名
-      var volMatch = line.match(/^[■\*#\s【\[]*(第\s*[一二三四五六七八九十百零〇\d]+\s*卷[^【\[\n]*)/);
+      // v65: 同时匹配"第N卷（1-20章）"或"第N卷 引子与开局（1-15章）"这样的章数范围标注
+      var volMatch = line.match(/^[■\*#\s【\[]*(第\s*[一二三四五六七八九十百零〇\d]+\s*卷[^【\[\n（(]*)/);
       if(volMatch){
         // 结束上一卷
         if(currentVol){ targets.push(currentVol); }
+        
+        // v65: 尝试从卷标题中提取章数范围
+        var chStart = null, chEnd = null;
+        var rangeMatch = line.match(/[（(]\s*(\d+)\s*[-–—~至]\s*(\d+)\s*章?\s*[）)]/);
+        if(rangeMatch){
+          chStart = parseInt(rangeMatch[1]);
+          chEnd = parseInt(rangeMatch[2]);
+        }
+        
         currentVol = {
           volIndex: targets.length + 1,
           volName: volMatch[1].replace(/^[■\*#\s【\[【]+/, '').trim(),
           rawBlock: line + '\n',
-          goal: ''
+          goal: '',
+          chStart: chStart,
+          chEnd: chEnd
         };
         continue;
       }
@@ -4692,6 +4705,28 @@ function extractOutlineTargetsV52(work){
       }
     }
     if(currentVol){ targets.push(currentVol); }
+
+    // v65: 如果没有提取到任何章数范围，尝试从整个大纲文本中寻找"第X章"模式来推断
+    var allChapterMatches = outlineText.match(/第\s*(\d+)\s*章/g);
+    if(allChapterMatches && allChapterMatches.length > 0 && targets.length > 0){
+      var hasAnyRange = targets.some(function(t){ return t.chStart !== null && t.chEnd !== null; });
+      if(!hasAnyRange){
+        // 根据卷的数量均分章节范围
+        var totalChapters = 0;
+        allChapterMatches.forEach(function(m){
+          var num = parseInt(m.match(/\d+/)[0]);
+          if(num > totalChapters) totalChapters = num;
+        });
+        if(totalChapters > 0){
+          var chPerVol = Math.ceil(totalChapters / targets.length);
+          targets.forEach(function(t, idx){
+            t.chStart = idx * chPerVol + 1;
+            t.chEnd = Math.min((idx + 1) * chPerVol, totalChapters);
+            t._estimatedRange = true; // 标记为估算值
+          });
+        }
+      }
+    }
 
     // 如果没抓到显性"核心目标"关键词，把整卷 rawBlock 作为目标（让 AI 自行从中抽取）
     for(var ti = 0; ti < targets.length; ti++){
@@ -5692,15 +5727,26 @@ function initDetailPager() {
         var volSel = document.getElementById('vol-selector');
         if (volSel) {
           var volCount = volMatches.length;
-          var chPerVol = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / volCount)));
+          
+          // v65: 从大纲中提取每卷的实际章数范围
+          var volTargets = extractOutlineTargetsV52(work);
+          var hasValidRanges = volTargets && volTargets.some(function(t){ return t.chStart !== null && t.chEnd !== null; });
           
           // v65: 统一使用下拉选择器
           var selectHtml = '<select id="vol-select-dropdown" style="padding:8px 12px;border:1px solid #e0e7ff;border-radius:8px;font-size:13px;color:#4f46e5;background:#fff;cursor:pointer;min-width:160px;" onchange="handleVolSelectChange(this)">';
           selectHtml += '<option value="">— 选择要生成的卷 —</option>';
           for (var v = 1; v <= volCount; v++) {
-            var volStart = ((v - 1) * chPerVol) + 1;
-            var volEnd = v * chPerVol;
-            var volLabel = '第' + v + '卷 (' + volStart + '-' + volEnd + '章)';
+            var volLabel;
+            if(hasValidRanges && volTargets[v-1] && volTargets[v-1].chStart !== null){
+              // 使用大纲中的章数范围
+              volLabel = '第' + v + '卷 (' + volTargets[v-1].chStart + '-' + volTargets[v-1].chEnd + '章)';
+            } else {
+              // 使用计算值
+              var chPerVol = Math.max(15, Math.round(((parseInt(document.getElementById('ch-count-detail').value) || 3000) / volCount)));
+              var volStart = ((v - 1) * chPerVol) + 1;
+              var volEnd = v * chPerVol;
+              volLabel = '第' + v + '卷 (' + volStart + '-' + volEnd + '章)';
+            }
             selectHtml += '<option value="' + v + '">' + volLabel + '</option>';
           }
           selectHtml += '</select>';
@@ -5783,13 +5829,28 @@ window.generateDetailForVolume = async function(volNum) {
     // 检查卷号范围
     if (volNum < 1 || volNum > actualVols) { showToast('卷号超出范围 1-' + actualVols); return; }
     
-    // 使用计算出的每卷章数
+    // 使用计算出的每卷章数（如果没有从大纲提取到每卷范围）
     var chPerVol = Math.max(MIN_CH_PER_VOL, Math.min(MAX_CH_PER_VOL, Math.round(totalCh / actualVols)));
+    var chStart, chEnd;
+    
+    // v65: 从大纲中提取每卷的实际章数范围
+    var volTargetsForRange = extractOutlineTargetsV52(work);
+    var thisVolTargetInfo = volTargetsForRange && volTargetsForRange[volNum - 1];
+    if(thisVolTargetInfo && thisVolTargetInfo.chStart !== null && thisVolTargetInfo.chEnd !== null){
+      // 大纲中已有每卷章数范围，使用大纲的值
+      chStart = thisVolTargetInfo.chStart;
+      chEnd = thisVolTargetInfo.chEnd;
+      chPerVol = chEnd - chStart + 1;
+      console.log('[细纲] 第' + volNum + '卷使用大纲章数范围: ' + chStart + '-' + chEnd + '章');
+    } else {
+      // 无法从大纲提取，使用计算值
+      chStart = ((volNum - 1) * chPerVol) + 1;
+      chEnd = volNum * chPerVol;
+    }
+    
     // 同步计算后的卷数到输入框
     var volInputEl = document.getElementById('vol-count-detail');
     if (volInputEl) volInputEl.value = actualVols;
-    var chStart = ((volNum - 1) * chPerVol) + 1;
-    var chEnd = volNum * chPerVol;
 
     var ideaEl = document.getElementById('idea-detail');
     var idea = ideaEl ? ideaEl.value : '';
