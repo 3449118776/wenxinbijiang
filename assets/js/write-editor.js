@@ -7608,8 +7608,9 @@ function buildOutlinePrompt(work, userCommand, prevResult) {
       '4. 保持原有结构和核心剧情不变\n' +
       '5. 输出完整的优化后大纲内容：\n\n';
   }
+  // v56: 不注入完整世界观，需要时通过 get_memory 工具查询
   if (world && world.length > 50) {
-    ctxMsg += '【世界观】\n' + world + '\n\n';
+    ctxMsg += '【📚 记忆库可用】\n本作品已有完整世界观和人设设定，如需参考请调用 get_memory 工具查询：\n- 世界观：memory_type = "worldview"\n- 人物设定：memory_type = "char_settings"\n\n';
   }
   
   // ===== 用户消息2：任务 =====
@@ -7673,8 +7674,9 @@ function buildCharsPrompt(work, userCommand, prevResult) {
       '4. 保持原有角色设定和关系不变\n' +
       '5. 输出完整的优化后人设内容：\n\n';
   }
+  // v56: 不注入完整世界观，需要时通过 get_memory 工具查询
   if (world && world.length > 50) {
-    ctxMsg += '【世界观】\n' + world + '\n\n';
+    ctxMsg += '【📚 记忆库可用】\n本作品已有完整世界观设定，如需参考请调用 get_memory 工具查询，memory_type 设为 "worldview"。\n\n';
   }
   
   // ===== 用户消息2：任务 =====
@@ -7842,30 +7844,41 @@ function buildDetailPrompt(work, volumeIndex, userCommand, prevResult) {
       '4. 保持原有章节结构和剧情不变\n' +
       '5. 输出完整的优化后细纲内容：\n\n';
   }
-  if (world && world.length > 50) {
-    ctxMsg += '【世界观关键设定】\n' + world + '\n\n';
-  }
-  if (chars && chars.length > 50) {
-    ctxMsg += '【主要人物】\n' + chars + '\n\n';
-  }
-  if (outline && outline.length > 50) {
-    var outlineLines = outline.split('\n');
-    var volumeOutline = '';
-    var inVolume = false;
-    for (var i = 0; i < outlineLines.length; i++) {
-      var line = outlineLines[i];
-      if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
-        inVolume = true;
-      }
-      if (inVolume) {
-        volumeOutline += line + '\n';
-        if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
-          break;
+  // v56: 不注入完整世界观/人设/大纲，需要时通过 get_memory 工具查询
+  var hasMemory = (world && world.length > 50) || (chars && chars.length > 50) || (outline && outline.length > 50);
+  if (hasMemory) {
+    ctxMsg += '【📚 记忆库可用】\n本作品已有完整设定，设计细纲时请主动调用 get_memory 工具查询相关内容：\n';
+    if (world && world.length > 50) ctxMsg += '- 世界观设定：memory_type = "worldview"\n';
+    if (chars && chars.length > 50) ctxMsg += '- 人物设定：memory_type = "char_settings"\n';
+    if (outline && outline.length > 50) {
+      ctxMsg += '- 全书大纲：memory_type = "outline"（查询本卷大纲请写清卷号）\n';
+      ctxMsg += '- 细纲参考：memory_type = "detail_outline"\n';
+    }
+    ctxMsg += '\n';
+    // 只注入本卷大纲的简要信息作为锚点，完整内容让AI自己查
+    if (outline && outline.length > 50) {
+      var outlineLines = outline.split('\n');
+      var volumeOutline = '';
+      var inVolume = false;
+      for (var i = 0; i < outlineLines.length; i++) {
+        var line = outlineLines[i];
+        if (line.includes('第' + (volumeIndex + 1) + '卷') || line.includes('第' + ['一','二','三','四','五','六','七','八'][volumeIndex] + '卷')) {
+          inVolume = true;
+        }
+        if (inVolume) {
+          volumeOutline += line + '\n';
+          if (line.includes('第' + (volumeIndex + 2) + '卷') || line.match(/^[一-九]、/) || i === outlineLines.length - 1) {
+            break;
+          }
         }
       }
-    }
-    if (volumeOutline.length > 50) {
-      ctxMsg += '【本卷大纲】\n' + volumeOutline + '\n\n';
+      if (volumeOutline.length > 50) {
+        // 只注入本卷大纲标题级别的信息，详细内容让AI查工具
+        var volTitleLines = volumeOutline.split('\n').filter(function(l){ return l.trim().length > 0 && (l.includes('卷') || l.includes('核心') || l.includes('任务') || l.includes('关键') || l.includes('钩子')); }).slice(0, 10);
+        if (volTitleLines.length > 2) {
+          ctxMsg += '【本卷大纲摘要】\n' + volTitleLines.join('\n') + '\n\n';
+        }
+      }
     }
   }
   
