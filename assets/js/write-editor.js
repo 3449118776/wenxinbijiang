@@ -81,6 +81,70 @@ var PLATINUM_RULES = {
   'rhetoric_required': '【修辞强制要求】每章至少1个比喻（像/如/仿佛）、1处排比（连续3句相同结构）、1处感官交叉描写（视觉+听觉/触觉+嗅觉）。'
 };
 
+// ========== QUANTIFIED_CONSTRAINTS v71：量化约束模块（正向+反向规则）==========
+var QUANTIFIED_CONSTRAINTS = {
+  // 文风约束（锚定冷硬白描）
+  style: {
+    positive: [
+      '以动作、对白、场景细节推进叙事，不靠心理描写撑场',
+      '短句为主，单句平均15字以内，长句不超过25字',
+      '单段不超3行，段落长短交替制造视觉节奏',
+      '用精准动词替代通用修饰词（说→道/喊/低语，看→凝视/瞥见/端详）',
+      '加入少量生活化细节（烟火气/日常物件/环境质感）增强真实感'
+    ],
+    negative: [
+      '禁止大段心理活动（超过50字的内心独白必须拆分或删除）',
+      '禁止形容词堆砌（连续3个以上形容词必须删减）',
+      '禁止抒情议论（不要写"命运如此残酷""人生如梦"这类空泛感叹）',
+      '禁用"心想/暗道/心中暗自盘算"类直白心理表述',
+      '禁止排比句式（连续3句以上相同结构必须变换）'
+    ]
+  },
+  // 剧情约束（保障追读留存）
+  plot: {
+    positive: [
+      '每300字有一个小冲突或信息增量（不是注水日常）',
+      '章末100字内必须留下明确钩子：悬念/危机/反转/新人物登场',
+      '每章至少1个爽点（打脸/逆袭/金手指展现/关系突破）',
+      '高潮位置在章节70-85%（不是开头也不是结尾）',
+      '每10章安排1次重大转折（剧情推进不能原地踏步）'
+    ],
+    negative: [
+      '禁止无关日常水字数（吃饭睡觉走路超过100字必须删减）',
+      '禁止无目的对话（每句对话必须推进剧情或揭示信息）',
+      '禁止铺垫超过半章篇幅（铺垫超过500字必须立刻进入冲突）',
+      '禁止连续3章无爽点（读者会流失）',
+      '禁止章尾以"解决"收尾（必须停在未完成状态）'
+    ]
+  },
+  // 反同质化约束（降低AI检测率）
+  antiHomogenization: {
+    positive: [
+      '句长随机波动：穿插2-5字极短句与20字左右长句',
+      '段落长度不均匀：有1行短段，也有3-4行长段',
+      '用具体名词替代泛泛描述（不是"美丽的风景"，是"槐树下的石桌"）',
+      '对话穿插动作/表情（不是纯对话堆叠）',
+      '每章至少1个意外打断（敲门声/雷声/孩子哭声/紧急消息）'
+    ],
+    negative: [
+      '禁用"微微一笑/眼中精光一闪/嘴角勾起一抹"等网文套话',
+      '禁止均匀一致的段落长度（所有段落字数相近必须调整）',
+      '禁止连续5句对话无叙述穿插',
+      '禁止连续3句相同开头词（他...他...他...）',
+      '禁止"十分/非常/缓缓/默默"等通用修饰词'
+    ]
+  }
+};
+
+// ========== SELF_CHECK_RULES v71：自检闭环5条规则（正文生成后自动执行）==========
+var SELF_CHECK_RULES = [
+  '【自检1】删除所有冗余形容词、副词和心理描写。冗余定义：删除后不影响理解。',
+  '【自检2】将25字以上的长句拆分为短句。拆分原则：按"气口"断句，不是按语法。',
+  '【自检3】章末补充明确的悬念钩子。钩子类型：悬念/危机/反转/新人物登场。确保读者有追读欲。',
+  '【自检4】删掉"十分/非常/缓缓/默默/渐渐/淡淡"等通用修饰词。替换为精准动词或删除。',
+  '【自检5】调整段落长度，避免所有段落字数趋于一致。要求：有1行短段，也有3-4行长段。'
+];
+
 // ========== AI_TEMPLATE_BLACKLIST v70：AI腔/模板化表达黑名单（正文生成时强制禁止）==========
 var AI_TEMPLATE_BLACKLIST = {
   // 情绪模板（禁止使用，替换为具体动作或环境映射）
@@ -380,6 +444,144 @@ function analyzeWritingQuality(text) {
     issues: allIssues.slice(0, 15),
     summary: '模板表达 ' + templateResult.count + '处 | 句式多样性 ' + varietyResult.score + '/10 | 用词精准度 ' + precisionResult.score + '/10 | 修辞使用 ' + rhetoricResult.score + '/10'
   };
+}
+
+// ========== 分镜式场景拆解函数 v71（骨架→分镜→正文三步生成）==========
+async function generateSceneBreakdown(work, chapterIdx, skeleton) {
+  if (!skeleton) {
+    // 如果没有骨架，先从细纲中提取本章核心信息
+    var detailLine = getDetailLineForChapter(work, chapterIdx);
+    skeleton = {
+      coreConflict: '',
+      turningPoints: [],
+      hook: ''
+    };
+    // 从细纲中提取核心冲突
+    if (detailLine) {
+      var conflictMatch = detailLine.match(/(?:冲突|矛盾|危机|对抗|对峙)[：:]([^。\n]{5,50})/);
+      if (conflictMatch) skeleton.coreConflict = conflictMatch[1].trim();
+      var hookMatch = detailLine.match(/(?:钩子|悬念|结尾)[：:]([^。\n]{5,50})/);
+      if (hookMatch) skeleton.hook = hookMatch[1].trim();
+    }
+  }
+  
+  // 构建分镜生成prompt
+  var prompt = '你是资深网文分镜师。请为以下章节设计【分镜式场景拆解】，输出格式严格遵循示例。\n\n';
+  prompt += '【作品】' + (work.title || '') + '\n';
+  prompt += '【题材】' + getWorkGenre(work) + '\n\n';
+  
+  // 注入骨架信息
+  if (skeleton.coreConflict) {
+    prompt += '【本章核心冲突】' + skeleton.coreConflict + '\n';
+  }
+  if (skeleton.turningPoints && skeleton.turningPoints.length > 0) {
+    prompt += '【关键转折点】\n';
+    skeleton.turningPoints.forEach(function(tp, i) {
+      prompt += '  ' + (i+1) + '. ' + tp + '\n';
+    });
+  }
+  if (skeleton.hook) {
+    prompt += '【章末钩子】' + skeleton.hook + '\n';
+  }
+  
+  // 注入细纲信息
+  var detailLine = getDetailLineForChapter(work, chapterIdx);
+  if (detailLine) {
+    prompt += '\n【本章细纲】\n' + detailLine + '\n';
+  }
+  
+  // 注入角色信息（从chars中提取本章可能出现的角色）
+  if (work.chars) {
+    var charNames = extractMainCharacterNames(work);
+    if (charNames.length > 0) {
+      prompt += '\n【可能出现的角色】' + charNames.slice(0, 5).join('、') + '\n';
+    }
+  }
+  
+  // 分镜格式要求
+  prompt += '\n【分镜格式要求 — 必须严格遵循】\n';
+  prompt += '输出3-5个场景，每个场景包含以下4项（不要添加修饰内容）：\n';
+  prompt += '场景1：\n';
+  prompt += '  · 出场人物：列出角色名\n';
+  prompt += '  · 空间位置：具体地点（不是"某地"，是"天剑宗后山石台"）\n';
+  prompt += '  · 核心动作：1-2句话描述主要动作\n';
+  prompt += '  · 对白要点：关键对话内容（不是完整对话，是要点）\n';
+  prompt += '场景2：\n...（同上）\n';
+  prompt += '\n【禁止】\n';
+  prompt += '1. 不要写完整正文，只写分镜框架\n';
+  prompt += '2. 不要添加形容词/心理描写\n';
+  prompt += '3. 不要超过5个场景\n';
+  prompt += '4. 最后一个场景必须包含章末钩子\n';
+  
+  // 调用API生成分镜
+  var result = await callRealAPIWithFallback(prompt, null, 'skeleton', 800, true);
+  return result || '';
+}
+
+// ========== 自检闭环执行函数 v71（正文生成后自动执行）==========
+async function executeSelfCheckLoop(content) {
+  if (!content || content.length < 200) return content;
+  
+  // 构建自检prompt
+  var prompt = '你是资深网文改稿编辑。请按以下5条规则逐条检查上文，不合格处直接修改，不做解释。\n\n';
+  prompt += '【自检规则 — 必须逐条执行】\n';
+  SELF_CHECK_RULES.forEach(function(rule, i) {
+    prompt += (i+1) + '. ' + rule + '\n';
+  });
+  prompt += '\n【执行原则】\n';
+  prompt += '1. 每条规则必须检查并修改，不能跳过\n';
+  prompt += '2. 修改后输出完整正文，不要标注修改位置\n';
+  prompt += '3. 不要解释修改原因，直接输出修改后的正文\n';
+  prompt += '4. 保留原剧情、人物、设定，只修改文笔细节\n\n';
+  prompt += '【原文】\n' + content;
+  
+  // 调用API执行自检
+  var result = await callRealAPIWithFallback(prompt, null, 'fill', Math.floor(content.length * 1.1), true);
+  
+  // 如果自检结果太短，返回原文
+  if (!result || result.length < content.length * 0.8) {
+    console.warn('[SelfCheck] 自检结果过短，返回原文');
+    return content;
+  }
+  
+  return result;
+}
+
+// ========== 构建量化约束Prompt块 v71 ==========
+function buildQuantifiedConstraintsBlock() {
+  var block = '【量化约束 — 必须严格执行】\n\n';
+  
+  // 文风约束
+  block += '【文风约束（正向）】\n';
+  QUANTIFIED_CONSTRAINTS.style.positive.forEach(function(rule) {
+    block += '  ✓ ' + rule + '\n';
+  });
+  block += '\n【文风约束（反向）】\n';
+  QUANTIFIED_CONSTRAINTS.style.negative.forEach(function(rule) {
+    block += '  ✗ ' + rule + '\n';
+  });
+  
+  // 剧情约束
+  block += '\n【剧情约束（正向）】\n';
+  QUANTIFIED_CONSTRAINTS.plot.positive.forEach(function(rule) {
+    block += '  ✓ ' + rule + '\n';
+  });
+  block += '\n【剧情约束（反向）】\n';
+  QUANTIFIED_CONSTRAINTS.plot.negative.forEach(function(rule) {
+    block += '  ✗ ' + rule + '\n';
+  });
+  
+  // 反同质化约束
+  block += '\n【反同质化约束（正向）】\n';
+  QUANTIFIED_CONSTRAINTS.antiHomogenization.positive.forEach(function(rule) {
+    block += '  ✓ ' + rule + '\n';
+  });
+  block += '\n【反同质化约束（反向）】\n';
+  QUANTIFIED_CONSTRAINTS.antiHomogenization.negative.forEach(function(rule) {
+    block += '  ✗ ' + rule + '\n';
+  });
+  
+  return block;
 }
   'rhythm_instruct': '【节奏指令标注】AI最弱是"太均匀"——每段等长、每事件描写密度相同。必须在蓝图里写清楚：哪里快（短句为主）、哪里慢（长句铺氛围）、哪里急停（章末钩子前）。告诉AI"本章加快节奏"而不是让它自己猜。',
   'emotion_peak': '【情绪峰值设计】AI情绪值在-3到+3间平滑波动，像心电图挂了。真实情绪应从-8急拉到+7。手法：在情绪高涨时突然塞一句反情绪的话——"他咬着牙说恨她。但他把她照片塞进了钱包最深处。"这种撕裂感才是读者追读的原因。',
@@ -3137,6 +3339,9 @@ function buildChapterPrompt(work, chapterIdx, existingContent, userCommand) {
     prompt += '【白金作家创作法则（核心10条必选 + 2条随机）】\n' + platinumRules + '\n\n';
   }
 
+  // ===== v71: 量化约束模块 — 正向+反向规则 =====
+  prompt += buildQuantifiedConstraintsBlock() + '\n';
+
   // ===== v70: 文笔质量锚点 — 禁止模板表达 + 强制修辞要求 =====
   prompt += '【⚠️ 文笔质量锚点 — 本章必须遵守，违反视为不合格】\n';
   prompt += '■ 禁止模板情绪表达\n';
@@ -5066,7 +5271,26 @@ async function aiWriteChapter(opts){
       prompt = '【章纲骨架' + (skeletonPassed ? '（已通过自检）' : '（需修正）') + '】\n' + skFinalText + '\n\n' + prompt;
     }
 
-    // ✅ 缓存完整prompt（骨架+所有上下文），供后续迭代直接复用，不再重建
+    // ⭐ v71: 分镜式场景拆解 — 骨架→分镜→正文三步生成
+    if (typeof generateSceneBreakdown === 'function' && skFinalText) {
+      if (statusBar) {
+        statusBar.textContent = '🧠 ' + _stageInfo + ' 2.5/3 · 正在生成分镜式场景拆解…';
+      }
+      try {
+        var _sceneBreakdown = await generateSceneBreakdown(work, chapterIdx, { 
+          coreConflict: skFinalText.match(/核心冲突[：:]([^。\n]{5,50})/)?.[1]?.trim() || '',
+          hook: skFinalText.match(/钩子[：:]([^。\n]{5,50})/)?.[1]?.trim() || ''
+        });
+        if (_sceneBreakdown && _sceneBreakdown.length > 50) {
+          prompt = '【分镜式场景拆解】\n' + _sceneBreakdown + '\n\n' + prompt;
+          if (statusBar) {
+            statusBar.textContent = '✅ ' + _stageInfo + ' 2.5/3 · 分镜生成完成，开始正文生成…';
+          }
+        }
+      } catch(e) { console.warn('[分镜生成] 失败:', e); }
+    }
+
+    // ✅ 缓存完整prompt（骨架+分镜+所有上下文），供后续迭代直接复用，不再重建
     work._cachedChapterPrompt = prompt;
   } else {
     // ⚡ 第2/3轮：增量改进模式，基于上一轮结果进行优化
@@ -5338,6 +5562,23 @@ async function aiWriteChapter(opts){
     var _finalScore = _writeBest ? _writeBest.score : _currentScore;
     var _finalResult = _writeBest ? _writeBest.text : result;
     result = _finalResult;
+
+    // ⭐ v71: 自检闭环执行 — 正文生成后自动执行5条自检规则
+    if (typeof executeSelfCheckLoop === 'function' && result && result.length > 200 && _writeIteration === 0) {
+      if (statusBar) {
+        statusBar.textContent = '🔍 ' + _stageInfo + ' · 正在执行自检闭环（5条规则）…';
+      }
+      try {
+        var _selfCheckedResult = await executeSelfCheckLoop(result);
+        if (_selfCheckedResult && _selfCheckedResult.length > result.length * 0.8) {
+          result = _selfCheckedResult;
+          if (statusBar) {
+            statusBar.textContent = '✅ ' + _stageInfo + ' · 自检闭环完成，正文已优化';
+          }
+        }
+      } catch(e) { console.warn('[自检闭环] 失败:', e); }
+    }
+
     if (typeof updateLoadingProgress === 'function') {
       updateLoadingProgress(100, '✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮');
     }
