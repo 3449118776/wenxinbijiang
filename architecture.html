@@ -468,7 +468,8 @@ body{display:flex;flex-direction:column;}
       </div>
       <div class="page-count-selector" id="count-select-outline">
         <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
-        <span class="count-hint">（3-20卷）</span>
+        <span>约</span><input type="number" id="ch-count-outline" value="3000" min="1000" max="20000" step="100" title="总章数（用于计算每卷章数范围）">章
+        <span class="count-hint">（3-20卷，每卷约<span id="ch-per-vol-hint-outline">333</span>章）</span>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -1699,12 +1700,21 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleName = moduleName || '全书大纲';
     moduleBlock += '【模块目标：' + moduleName + '】\n';
     moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，每卷需包含：\n';
-    moduleBlock += '■ 卷名\n';
+    moduleBlock += '■ 卷名（格式：第N卷 名称（起始章-结束章章）），例如：第1卷 困兽之斗（1-50章）\n';
     moduleBlock += '■ 本卷核心冲突（主角的外部对手 + 内心挣扎；二者要相关）\n';
     moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；不要"成长"这种空泛词）\n';
     moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局）\n';
     moduleBlock += '■ 本卷结束后主角获得了什么 / 失去了什么 / 世界发生了什么变化\n';
     moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记）\n';
+    moduleBlock += '\n【⚠️ 章节范围说明】\n';
+    moduleBlock += '- 总章数约 ' + totalChapters + ' 章，共 ' + totalVols + ' 卷\n';
+    moduleBlock += '- 每卷章数建议：' + Math.round(totalChapters/totalVols * 0.8) + '-' + Math.round(totalChapters/totalVols * 1.2) + ' 章\n';
+    moduleBlock += '- 【重要】每卷标题后面必须标注章节范围，格式统一为"第N卷 名称（起始章-结束章章）"\n';
+    moduleBlock += '- 示例格式：\n';
+    moduleBlock += '  第1卷 引子与困局（1-' + Math.round(totalChapters/totalVols) + '章）\n';
+    moduleBlock += '  第2卷 觉醒与崛起（' + (Math.round(totalChapters/totalVols)+1) + '-' + (Math.round(totalChapters/totalVols)*2) + '章）\n';
+    moduleBlock += '  ...\n';
+    moduleBlock += '- 这个章节范围会被用于生成章节细纲，必须准确\n';
     moduleBlock += '\n【⚠️ 搬运强度：高 · 每卷内容将用于生成章节细纲】\n';
     moduleBlock += '- 全书主线必须清晰：主角从什么状态到什么状态\n';
     moduleBlock += '- 每卷必须有明确的"升级/成长/关系变化"\n';
