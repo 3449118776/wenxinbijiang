@@ -458,6 +458,23 @@ function loadWork(){
   renderMemory(work);
   // v56: 初始化 AI 记忆查询工具
   initMemoryToolExecutor(work);
+  // v60: 初始化对话上下文，把已有的架构内容加载为地基
+  if (typeof ConversationMgr !== 'undefined') {
+    var conv = ConversationMgr.get(work);
+    if (work.world && work.world.trim()) {
+      ConversationMgr.setFoundation(work, 'world', work.world);
+    }
+    if (work.chars && work.chars.trim()) {
+      ConversationMgr.setFoundation(work, 'chars', work.chars);
+    }
+    if (work.outline && work.outline.trim()) {
+      ConversationMgr.setFoundation(work, 'outline', work.outline);
+    }
+    if (work.detail && work.detail.trim()) {
+      ConversationMgr.setFoundation(work, 'detail', work.detail);
+    }
+    console.log('[ConversationMgr] 作品加载完成，地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
+  }
 }
 
 function updateArchStatus(work){
@@ -4488,8 +4505,19 @@ async function aiWriteChapter(opts){
     updateLoadingProgress(_startPct, '第' + (_writeIteration + 1) + '轮 · AI正在生成正文（输入约' + Math.round(prompt.length * 1.5 / 1000) + 'k tokens）…');
   }
   var aiCaller = (window.callMultiAI && DB.settings && DB.settings.multiAI) ? window.callMultiAI : window.callRealAPIWithFallback;
-  // v59: 转为 messages 数组，让服务商缓存固定前缀
-  var _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  // v60: 大上下文模型使用对话上下文模式，基础设定常驻
+  var archLimits = getArchTruncationLimits();
+  var useConversation = (archLimits === null && typeof ConversationMgr !== 'undefined');
+  var _msgPrompt;
+  if (useConversation && _writeIteration === 0) {
+    var sysMsg = '你是一位顶级网文写手，拥有十年网文创作经验，深谙读者心理和商业写作技巧。你的文字让读者欲罢不能，每章结尾都让读者忍不住点"下一章"。';
+    ConversationMgr.setSystemPrompt(work, sysMsg);
+    var messages = ConversationMgr.buildMessages(work, prompt, { keepAll: false });
+    _msgPrompt = messages;
+    console.log('[ConversationMgr] 使用对话上下文模式，消息数: ' + messages.length + ', 地基大小: ' + ConversationMgr.getFoundationSize(work) + '字');
+  } else {
+    _msgPrompt = Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }];
+  }
   let result = await aiCaller(_msgPrompt, null, 'write_normal', 40000); // 目标 15000-25000 字，大幅增加输出长度
 
   if(!_checkStillSameWork('正文生成中')) return;
@@ -4808,6 +4836,12 @@ async function aiWriteChapter(opts){
     }
     if(!_checkStillSameWork('保存章节')) return;
     DB.saveWork(work);
+    // v60: 大上下文模型下，将生成的正文加入对话上下文
+    if (useConversation && _writeIteration === 0 && typeof ConversationMgr !== 'undefined') {
+      var chTitle = work.chapters[chapterIdx]?.title || ('第' + (chapterIdx + 1) + '章');
+      ConversationMgr.addChapterMessage(work, chapterIdx, chTitle, ch.content || result, 'assistant');
+      console.log('[ConversationMgr] 正文已加入对话上下文: 第' + (chapterIdx + 1) + '章, 长度: ' + (ch.content?.length || result.length));
+    }
     showToast('✅ 生成完成 · 最终' + _finalScore + '分 · 共' + (_writeIteration + 1) + '轮', 6000);
     setTimeout(function(){ showPolishRecommend(); }, 500);
     
@@ -5441,6 +5475,143 @@ function extractChapterSummary(content, title) {
   }
   return summary.slice(0, 300);
 }
+
+// ========== v60: 对话上下文管理器 ==========
+// 每本书独立维护对话历史，世界观/人设/大纲/细纲作为地基常驻上下文
+// 正文生成时AI天然记得所有设定，无需每次重新注入
+var ConversationMgr = {
+  _conversations: {},
+
+  get: function(work) {
+    if (!work || !work.id) return null;
+    var wid = work.id;
+    if (!this._conversations[wid]) {
+      if (work.conversation) {
+        this._conversations[wid] = work.conversation;
+      } else {
+        this._conversations[wid] = {
+          system: '',
+          foundation: {
+            world: '',
+            chars: '',
+            outline: '',
+            detail: ''
+          },
+          recentChapters: [],
+          lastChapterIdx: -1,
+          createdAt: Date.now()
+        };
+      }
+    }
+    return this._conversations[wid];
+  },
+
+  save: function(work) {
+    var conv = this.get(work);
+    if (!conv) return;
+    work.conversation = conv;
+    if (typeof DB !== 'undefined' && DB.saveWork) DB.saveWork(work);
+  },
+
+  setSystemPrompt: function(work, systemMsg) {
+    var conv = this.get(work);
+    if (!conv) return;
+    conv.system = systemMsg;
+  },
+
+  setFoundation: function(work, type, content) {
+    var conv = this.get(work);
+    if (!conv) return;
+    if (!conv.foundation) conv.foundation = { world: '', chars: '', outline: '', detail: '' };
+    conv.foundation[type] = content;
+    this.save(work);
+    console.log('[ConversationMgr] 基础设定已更新: ' + type + ', 长度: ' + content.length);
+  },
+
+  addChapterMessage: function(work, chapterIdx, title, content, role) {
+    var conv = this.get(work);
+    if (!conv) return;
+    role = role || 'assistant';
+    conv.recentChapters.push({
+      idx: chapterIdx,
+      title: title,
+      role: role,
+      content: content,
+      timestamp: Date.now()
+    });
+    conv.lastChapterIdx = chapterIdx;
+    if (conv.recentChapters.length > 20) {
+      conv.recentChapters = conv.recentChapters.slice(-20);
+    }
+    this.save(work);
+  },
+
+  buildMessages: function(work, currentTask, opts) {
+    opts = opts || {};
+    var conv = this.get(work);
+    if (!conv) return [{ role: 'user', content: currentTask }];
+
+    var messages = [];
+    var found = conv.foundation || {};
+
+    var sysContent = conv.system || '你是一位顶级网文作家，擅长创作长篇小说。';
+    messages.push({ role: 'system', content: sysContent });
+
+    if (found.world && found.world.length > 0) {
+      messages.push({ role: 'user', content: '【世界观设定】\n' + found.world });
+      messages.push({ role: 'assistant', content: '已收到并记住世界观设定，我会严格基于此设定创作。' });
+    }
+    if (found.chars && found.chars.length > 0) {
+      messages.push({ role: 'user', content: '【人物设定】\n' + found.chars });
+      messages.push({ role: 'assistant', content: '已收到并记住人物设定，所有角色行为会符合人设。' });
+    }
+    if (found.outline && found.outline.length > 0) {
+      messages.push({ role: 'user', content: '【全书大纲】\n' + found.outline });
+      messages.push({ role: 'assistant', content: '已收到并记住全书大纲，剧情会严格按照大纲推进。' });
+    }
+    if (found.detail && found.detail.length > 0) {
+      messages.push({ role: 'user', content: '【细纲】\n' + found.detail });
+      messages.push({ role: 'assistant', content: '已收到并记住细纲，每章会按照细纲执行。' });
+    }
+
+    if (conv.recentChapters && conv.recentChapters.length > 0) {
+      var recent = opts.keepAll ? conv.recentChapters : conv.recentChapters.slice(-5);
+      for (var i = 0; i < recent.length; i++) {
+        var ch = recent[i];
+        messages.push({
+          role: ch.role || 'assistant',
+          content: '【第' + (ch.idx + 1) + '章 ' + (ch.title || '') + '】\n' + ch.content.slice(0, 2000)
+        });
+      }
+    }
+
+    if (currentTask && currentTask.length > 0) {
+      messages.push({ role: 'user', content: currentTask });
+    }
+
+    return messages;
+  },
+
+  getFoundationSize: function(work) {
+    var conv = this.get(work);
+    if (!conv || !conv.foundation) return 0;
+    var f = conv.foundation;
+    return (f.world || '').length + (f.chars || '').length + (f.outline || '').length + (f.detail || '').length;
+  },
+
+  reset: function(work) {
+    if (!work || !work.id) return;
+    this._conversations[work.id] = {
+      system: '',
+      foundation: { world: '', chars: '', outline: '', detail: '' },
+      recentChapters: [],
+      lastChapterIdx: -1,
+      createdAt: Date.now()
+    };
+    work.conversation = this._conversations[work.id];
+    this.save(work);
+  }
+};
 
 // ========== v56: AI 记忆查询工具 ==========
 // 允许 AI 通过 function calling 主动查询记忆，而非被动注入全部记忆
@@ -8485,18 +8656,31 @@ function applyArchResult(type, work, result) {
     case 'world':
       work.world = result;
       if (work._archCache) work._archCache.world = { content: result, timestamp: Date.now() };
+      // v60: 同步到对话上下文的地基
+      if (typeof ConversationMgr !== 'undefined') {
+        ConversationMgr.setFoundation(work, 'world', result);
+      }
       break;
     case 'outline':
       work.outline = result;
       if (work._archCache) work._archCache.outline = { content: result, timestamp: Date.now() };
+      if (typeof ConversationMgr !== 'undefined') {
+        ConversationMgr.setFoundation(work, 'outline', result);
+      }
       break;
     case 'chars':
       work.chars = result;
       if (work._archCache) work._archCache.chars = { content: result, timestamp: Date.now() };
+      if (typeof ConversationMgr !== 'undefined') {
+        ConversationMgr.setFoundation(work, 'chars', result);
+      }
       break;
     case 'detail':
       work.detail = (work.detail || '') + '\n\n' + result;
       if (work._archCache) work._archCache.detail = { content: work.detail, timestamp: Date.now() };
+      if (typeof ConversationMgr !== 'undefined') {
+        ConversationMgr.setFoundation(work, 'detail', work.detail);
+      }
       break;
   }
   DB.saveWork(work);
