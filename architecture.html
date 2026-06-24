@@ -3137,7 +3137,7 @@ function buildArchCardBatchesV48(module, work, idea){
       focus: '最终决战（对手是谁、在哪打、怎么赢的、赢的代价是什么，必须让读者觉得"值这个代价"）、所有伏笔回收清单（列出前' + userVolCount + '卷埋下的每条伏笔如何在本卷揭晓，每一条都要有明确的回收方式）、每个主要角色的结局（他们最终变成了什么样、得到了什么失去了什么、有没有留下遗憾）、尾声（主角最终的状态、世界变成了什么样、最后一个画面是什么——决定读者合上书时的感受）、支线收束（所有支线如何汇入主线或独立收尾，不能有烂尾的支线）、读者读完最后一行应该是什么感受（热血/感动/释然/惆怅？）'
     });
   } else if(module === 'detail'){
-    // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
+    // 细纲：按卷分批，每卷内再按章节分批（每5章一张卡片），确保每张卡片聚焦、不被截断
     // 读取用户设置的卷数和总章数
     var volumeCount = 9;
     var chaptersPerVolume = 10;
@@ -3169,21 +3169,30 @@ function buildArchCardBatchesV48(module, work, idea){
       }
     }
     
-    // 每卷生成一张细纲卡片
+    // 每卷按章节分批：每5章一张卡片
     var allPhases2 = ['起势','展开','上升','转折','深化','冲突','高潮','决战','收束','升华','终局'];
     for(var vi = 0; vi < volumeCount; vi++){
       var volNum = vi + 1;
-      var chStart = (vi * chaptersPerVolume) + 1;
-      var chEnd = (vi + 1) * chaptersPerVolume;
       var volPhase = allPhases2[Math.floor(vi * allPhases2.length / volumeCount)] || '发展';
+      var volChStart = (vi * chaptersPerVolume) + 1;
+      var volChEnd = (vi + 1) * chaptersPerVolume;
       
-      batches.push({
-        label: '第 ' + volNum + ' 卷（' + volPhase + '）· 细纲',
-        targetChars: 3000,
-        focus: '第 ' + volNum + ' 卷细纲：第 ' + chStart + ' 到第 ' + chEnd + ' 章（共 ' + chaptersPerVolume + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n卷级要求：\n- 章与章之间要有因果推进，每2章设计一个转折点并标注【转折】\n- 本卷前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 本卷最后一章必须设计卷末钩子，让读者忍不住点开下一卷\n- 本卷结束时必须达成大纲中定义的卷目标，并为下一卷埋下至少1条跨卷伏笔\n- 标注本卷的"情绪波浪"：哪几章是爽点、哪几章是虐点、哪几章是情感高潮',
-        volume: volNum,
-        chapterRange: chStart + '-' + chEnd + '章'
-      });
+      // 每卷拆分为多张卡片，每5章一张
+      var batchSize = 5; // 每张卡片包含5章
+      for(var bi = 0; bi < chaptersPerVolume; bi += batchSize){
+        var batchChStart = volChStart + bi;
+        var batchChEnd = Math.min(volChStart + bi + batchSize - 1, volChEnd);
+        var batchChCount = batchChEnd - batchChStart + 1;
+        
+        batches.push({
+          label: '第 ' + volNum + ' 卷（' + volPhase + '）· 第 ' + batchChStart + '-' + batchChEnd + ' 章',
+          targetChars: 1500 + batchChCount * 200, // 每章约200字细纲
+          focus: '第 ' + volNum + ' 卷（' + volPhase + '阶段）· 第 ' + batchChStart + ' 到第 ' + batchChEnd + ' 章（共 ' + batchChCount + ' 章）。\n\n⚠️ 请先回顾本卷大纲的核心冲突和阶段性目标（见上下文），确保细纲严格对齐大纲的卷结构。\n\n每章格式严格为：\n■ 第N章《标题》\n场景：具体地点+时间+氛围\n人物：出场角色（标注谁是视角人物）\n开场画面：用一个感官细节开场\n剧情节点（必须含起承转合4个节点，每个节点写清：发生了什么→角色反应→推动什么变化）\n情绪目标：读者读这章应该体验到什么情绪变化？（如：紧张→恐惧→希望→震撼）\n对话亮点：本章最精彩的一句对话\n爽点/虐点：具体是什么、读者情绪如何被调动\n爆点/悬念钩子：章末留下什么让读者必须翻下一章\n伏笔：本章埋了什么暗线（标注预计何时回收）\n\n批次要求：\n- 本批次第1章必须承接上一批次的结尾事件（因果链）\n- 本批次最后1章必须设计章末钩子，为下一批次铺垫\n- 每2章设计一个转折点并标注【转折】\n- 如果是本卷第一批次：前3章必须完成"开局炸弹"（第一卷）或"承接上卷悬念"（后续卷）\n- 如果是本卷最后一批次：最后1章必须设计卷末钩子，让读者忍不住点开下一卷',
+          volume: volNum,
+          chapterRange: batchChStart + '-' + batchChEnd + '章',
+          isDetailBatch: true
+        });
+      }
     }
   } else {
     // 其他未知模块：默认 1 张卡片
