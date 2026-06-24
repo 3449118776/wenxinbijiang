@@ -467,9 +467,9 @@ body{display:flex;flex-direction:column;}
         <button class="speech-btn" onclick="toggleSpeechInput('idea-outline')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
       </div>
       <div class="page-count-selector" id="count-select-outline">
-        <span>📚 全书</span><input type="number" id="vol-count-outline" value="9" min="3" max="20" title="卷数">卷
-        <span>约</span><input type="number" id="ch-count-outline" value="3000" min="1000" max="20000" step="100" title="总章数（用于计算每卷章数范围）">章
-        <span class="count-hint">（3-20卷，每卷约<span id="ch-per-vol-hint-outline">333</span>章）</span>
+        <span>📚 全书</span><input type="number" id="vol-count-outline" value="5" min="3" max="20" title="卷数">卷
+        <span>约</span><input type="number" id="ch-count-outline" value="1500" min="500" max="5000" step="100" title="总章数（用于计算每卷章数范围）">章
+        <span class="count-hint">（每卷约<span id="ch-per-vol-hint-outline">300</span>章）</span>
       </div>
       <div class="page-actions">
         <button class="main-btn" onclick="generateArchModule()">🤖 AI生成</button>
@@ -499,9 +499,9 @@ body{display:flex;flex-direction:column;}
         <button class="speech-btn" onclick="toggleSpeechInput('idea-detail')">🎤</button><button class="speech-btn" title="手动清空构思" onclick="clearCurrentIdea()">🗑</button>
       </div>
       <div class="page-count-selector" id="count-select-detail">
-        <span>📚 全书</span><input type="number" id="vol-count-detail" value="9" min="3" max="20" title="卷数（大纲已生成时会自动同步）">卷
-        <span>约</span><input type="number" id="ch-count-detail" value="3000" min="1000" max="20000" step="100" title="总章数">章
-        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">333</span>章）</span>
+        <span>📚 全书</span><input type="number" id="vol-count-detail" value="5" min="3" max="20" title="卷数（大纲已生成时会自动同步）">卷
+        <span>约</span><input type="number" id="ch-count-detail" value="1500" min="500" max="5000" step="100" title="总章数">章
+        <span class="count-hint">（每卷约<span id="ch-per-vol-hint">300</span>章）</span>
       </div>
       <!-- 选卷生成细纲 -->
       <div class="page-count-selector" style="flex-direction:column;align-items:stretch;gap:6px;">
@@ -1698,9 +1698,24 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '- 加能力式创新？（"会XX特殊能力"但这个能力对剧情和人物成长毫无影响）→ 如果是，要么删掉，要么让这个能力成为人物矛盾的核心\n';
   } else if(module === 'outline'){
     moduleName = moduleName || '全书大纲';
+    
+    // v65: 读取用户设置的卷数和章数
+    var totalVols = 5;
+    var totalChapters = 1500;
+    var volInputOutline = document.getElementById('vol-count-outline');
+    if(volInputOutline){
+      var vi = parseInt(volInputOutline.value);
+      if(vi >= 3 && vi <= 20) totalVols = vi;
+    }
+    var chInputOutline = document.getElementById('ch-count-outline');
+    if(chInputOutline){
+      var ci = parseInt(chInputOutline.value);
+      if(ci >= 500 && ci <= 5000) totalChapters = ci;
+    }
+    
     moduleBlock += '【模块目标：' + moduleName + '】\n';
-    moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，每卷需包含：\n';
-    moduleBlock += '■ 卷名（格式：第N卷 名称（起始章-结束章章）），例如：第1卷 困兽之斗（1-50章）\n';
+    moduleBlock += '请基于用户核心诉求，构建全书主线大纲。按"卷"划分，共 ' + totalVols + ' 卷，总计约 ' + totalChapters + ' 章。每卷需包含：\n';
+    moduleBlock += '■ 卷名（格式：第N卷 名称（第X-Y章）），例如：第1卷 困兽之斗（第1-300章）\n';
     moduleBlock += '■ 本卷核心冲突（主角的外部对手 + 内心挣扎；二者要相关）\n';
     moduleBlock += '■ 本卷主角阶段性目标（具体、可检验、可失败；不要"成长"这种空泛词）\n';
     moduleBlock += '■ 本卷核心事件（3-5 个关键转折点；每个转折点都应该改变主角选择或世界格局）\n';
@@ -1708,12 +1723,21 @@ function buildArchPrompt(module, idea, work, extraHint){
     moduleBlock += '■ 本卷伏笔钩子（留到后文回收的线索；每卷至少1-2个；请用【伏笔】标签标记）\n';
     moduleBlock += '\n【⚠️ 章节范围说明】\n';
     moduleBlock += '- 总章数约 ' + totalChapters + ' 章，共 ' + totalVols + ' 卷\n';
-    moduleBlock += '- 每卷章数建议：' + Math.round(totalChapters/totalVols * 0.8) + '-' + Math.round(totalChapters/totalVols * 1.2) + ' 章\n';
-    moduleBlock += '- 【重要】每卷标题后面必须标注章节范围，格式统一为"第N卷 名称（起始章-结束章章）"\n';
+    var chPerVol = Math.round(totalChapters / totalVols);
+    moduleBlock += '- 每卷章数：约 ' + chPerVol + ' 章\n';
+    moduleBlock += '- 【重要】每卷标题后面必须标注章节范围，格式统一为"第N卷 名称（第X-Y章）"\n';
     moduleBlock += '- 示例格式：\n';
-    moduleBlock += '  第1卷 引子与困局（1-' + Math.round(totalChapters/totalVols) + '章）\n';
-    moduleBlock += '  第2卷 觉醒与崛起（' + (Math.round(totalChapters/totalVols)+1) + '-' + (Math.round(totalChapters/totalVols)*2) + '章）\n';
-    moduleBlock += '  ...\n';
+    for(var exV = 1; exV <= Math.min(totalVols, 5); exV++){
+      var exStart = (exV - 1) * chPerVol + 1;
+      var exEnd = exV * chPerVol;
+      moduleBlock += '  第' + exV + '卷 ×××（第' + exStart + '-' + exEnd + '章）\n';
+    }
+    if(totalVols > 5){
+      moduleBlock += '  ...\n';
+      var lastStart = (totalVols - 1) * chPerVol + 1;
+      var lastEnd = totalVols * chPerVol;
+      moduleBlock += '  第' + totalVols + '卷 ×××（第' + lastStart + '-' + lastEnd + '章）\n';
+    }
     moduleBlock += '- 这个章节范围会被用于生成章节细纲，必须准确\n';
     moduleBlock += '\n【⚠️ 搬运强度：高 · 每卷内容将用于生成章节细纲】\n';
     moduleBlock += '- 全书主线必须清晰：主角从什么状态到什么状态\n';
@@ -4548,12 +4572,20 @@ function buildArchCardBatchesV48(module, work, idea){
       focus: '（1）恋爱对象/CP角色（如果有）：姓名、外貌、性格、与主角的相遇方式、感情线推进节奏（暧昧→确认→考验→结局）、两人关系中的核心矛盾（不是小三，而是价值观/立场/隐瞒的冲突）、如果BE/如果HE分别是什么结局。（2）导师/引路人（如果有）：姓名、身份、教给主角什么、对主角的期望、最终结局（牺牲/退隐/背叛？）。（3）家族/亲缘关系（如果有）：父母/兄弟姐妹/家族背景，这些关系如何影响主角的行为和选择。（4）完整人物关系网：画出所有主要角色间的张力线（至少10条），每条线标注：关系类型（爱情/亲情/师徒/敌对/合作/利用/暗恋）、当前状态（亲密/疏远/对立/暧昧）、冲突点（什么会让这条关系破裂或转变）、转折预期（这条关系最终走向何方）'
     });
   } else if(module === 'outline'){
-    // 大纲：读取用户设置的卷数，动态生成卷卡片
-    var userVolCount = 9;
+    // 大纲：读取用户设置的卷数和总章数
+    var userVolCount = 5;
+    var userChCount = 1500;
+    
     var volInputEl = document.getElementById('vol-count-outline');
     if(volInputEl){
       var v = parseInt(volInputEl.value);
       if(v >= 3 && v <= 20) userVolCount = v;
+    }
+    
+    var chInputEl = document.getElementById('ch-count-outline');
+    if(chInputEl){
+      var c = parseInt(chInputEl.value);
+      if(c >= 500 && c <= 5000) userChCount = c;
     }
     
     // 根据卷数动态生成阶段名称
@@ -4571,10 +4603,14 @@ function buildArchCardBatchesV48(module, work, idea){
     for(var vi = 0; vi < userVolCount; vi++){
       var volNum = vi + 1;
       var phase = volPhases[vi] || '';
+      // v65: 计算每卷的章数范围
+      var chPerVol = Math.round(userChCount / userVolCount);
+      var chStart = (volNum - 1) * chPerVol + 1;
+      var chEnd = volNum * chPerVol;
       batches.push({
-        label: '第 ' + volNum + ' 卷（' + phase + '）',
+        label: '第 ' + volNum + ' 卷（' + phase + '，第' + chStart + '-' + chEnd + '章）',
         targetChars: 2000,
-        focus: '第 ' + volNum + ' 卷（' + phase + '期）：【本卷核心冲突】主角外部对手是谁+内心挣扎是什么，两者必须交织。【本卷主角阶段性目标】具体可检验可失败的目标，不是"变强"而是"在XX之前拿到XX/阻止XX/救出XX"。【本卷核心事件】6-8个转折点，每个写清：触发原因→主角选择→后果→对后续影响，标注哪些是爽点/虐点/泪点。【本卷结束后】主角获得/失去了什么（物质+精神双重变化）、世界发生了什么变化、主角的处境是上升还是恶化。【本卷伏笔】至少3条跨卷伏笔，标注预计在哪一卷回收。【本卷爽点设计】完整的"压抑→爆发"链路，不是突然变强而是有铺垫。【本卷情感线推进】主角与关键角色的关系发生了什么变化。' + (volNum > 1 ? '【承接上卷】上卷末的状态如何延续到本卷，上卷的悬念如何在本卷解开或深化。' : ''),
+        focus: '【本卷章节范围：第' + chStart + '-' + chEnd + '章】第 ' + volNum + ' 卷（' + phase + '期）：【本卷核心冲突】主角外部对手是谁+内心挣扎是什么，两者必须交织。【本卷主角阶段性目标】具体可检验可失败的目标，不是"变强"而是"在XX之前拿到XX/阻止XX/救出XX"。【本卷核心事件】6-8个转折点，每个写清：触发原因→主角选择→后果→对后续影响，标注哪些是爽点/虐点/泪点。【本卷结束后】主角获得/失去了什么（物质+精神双重变化）、世界发生了什么变化、主角的处境是上升还是恶化。【本卷伏笔】至少3条跨卷伏笔，标注预计在哪一卷回收。【本卷爽点设计】完整的"压抑→爆发"链路，不是突然变强而是有铺垫。【本卷情感线推进】主角与关键角色的关系发生了什么变化。' + (volNum > 1 ? '【承接上卷】上卷末的状态如何延续到本卷，上卷的悬念如何在本卷解开或深化。' : ''),
         volume: volNum
       });
     }
@@ -4586,8 +4622,8 @@ function buildArchCardBatchesV48(module, work, idea){
   } else if(module === 'detail'){
     // 细纲：按卷分批，每卷独立生成，与大纲分卷结构一一对应
     // 读取用户设置的卷数和总章数
-    var volumeCount = 9;
-    var chaptersPerVolume = 10;
+    var volumeCount = 5;
+    var chaptersPerVolume = 300;
     
     var volInputEl2 = document.getElementById('vol-count-detail');
     if(volInputEl2){
@@ -4598,7 +4634,7 @@ function buildArchCardBatchesV48(module, work, idea){
     var chInputEl = document.getElementById('ch-count-detail');
     if(chInputEl){
       var c = parseInt(chInputEl.value);
-      if(c >= 1000 && c <= 20000) chaptersPerVolume = Math.max(10, Math.round(c / volumeCount));
+      if(c >= 500 && c <= 5000) chaptersPerVolume = Math.max(10, Math.round(c / volumeCount));
     }
     
     // 从大纲中提取实际分卷数（如果大纲已生成，优先使用大纲的卷数）
