@@ -2059,15 +2059,18 @@ function archUpdateCharRoles(work){
   });
 }
 
+// ========== 记忆系统默认值（统一入口，新增字段只需改此处）==========
+var _DEFAULT_MEMORY_ANCHORS = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[],historicalEvents:[],economy:[],culture:[],raceClass:[],worldConflicts:[],growthTrajectory:[],villainPlans:[],relationNetwork:[],volumeConflicts:[],emotionalPayoffs:[],romanceArc:[],chapterCast:[]};
+
 function syncArchToMemory(work, module){
   if(!work || !module) return;
   if(typeof initLongMemory === 'function'){
     initLongMemory(work);
   } else {
-    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:{core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[]}, chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}, charRoles:{}, _anchorDigest:{}};
+    if(!work.longMemory) work.longMemory = {charStates:[], plotThreads:[], foreshadows:[], charArcs:[], memoryAnchors:JSON.parse(JSON.stringify(_DEFAULT_MEMORY_ANCHORS)), chapterIndex:[], characterHistory:{}, rollingSummary:{recent:'',milestones:'',eras:'',ultraEras:'',megaEras:'',_old:''}, memoryDebt:[], lifecycle:{lastCompressedAt:-1,lastRebuildAt:0}, volumeMemories:[], characterProfiles:{}, foreshadowLedger:[], itemLedger:{}, factionGraph:{}, timelineEvents:[], ultraMeta:{volumeSize:50,lastUltraUpdateAt:-1}, charRoles:{}, _anchorDigest:{}};
   }
   var mem = work.longMemory;
-  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[],historicalEvents:[],economy:[],culture:[],raceClass:[],worldConflicts:[],growthTrajectory:[],villainPlans:[],relationNetwork:[],volumeConflicts:[],emotionalPayoffs:[],romanceArc:[],chapterCast:[]};
+  if(!mem.memoryAnchors) mem.memoryAnchors = JSON.parse(JSON.stringify(_DEFAULT_MEMORY_ANCHORS));
   if(!mem.charRoles) mem.charRoles = {};
   var anchors = mem.memoryAnchors;
 
@@ -2932,31 +2935,11 @@ function rebuildInvertedIndex(mem){
     }
   }
   
-  // 索引所有类型的锚点
-  indexAnchorList(anchors.core, 'core');
-  indexAnchorList(anchors.characterTags, 'characterTags');
-  indexAnchorList(anchors.relationships, 'relationships');
-  indexAnchorList(anchors.items, 'items');
-  indexAnchorList(anchors.locations, 'locations');
-  indexAnchorList(anchors.promises, 'promises');
-  indexAnchorList(anchors.timeline, 'timeline');
-  indexAnchorList(anchors.hooks, 'hooks');
-  indexAnchorList(anchors.dialogues, 'dialogues');
-  indexAnchorList(anchors.abilityCosts, 'abilityCosts');
-  indexAnchorList(anchors.emotionTrack, 'emotionTrack');
-  indexAnchorList(anchors.scenes, 'scenes');
-  indexAnchorList(anchors.historicalEvents, 'historicalEvents');
-  indexAnchorList(anchors.economy, 'economy');
-  indexAnchorList(anchors.culture, 'culture');
-  indexAnchorList(anchors.raceClass, 'raceClass');
-  indexAnchorList(anchors.worldConflicts, 'worldConflicts');
-  indexAnchorList(anchors.growthTrajectory, 'growthTrajectory');
-  indexAnchorList(anchors.villainPlans, 'villainPlans');
-  indexAnchorList(anchors.relationNetwork, 'relationNetwork');
-  indexAnchorList(anchors.volumeConflicts, 'volumeConflicts');
-  indexAnchorList(anchors.emotionalPayoffs, 'emotionalPayoffs');
-  indexAnchorList(anchors.romanceArc, 'romanceArc');
-  indexAnchorList(anchors.chapterCast, 'chapterCast');
+  // 索引所有类型的锚点（由 _DEFAULT_MEMORY_ANCHORS 的 key 驱动）
+  var anchorTypeNames = Object.keys(_DEFAULT_MEMORY_ANCHORS);
+  for(var ti = 0; ti < anchorTypeNames.length; ti++){
+    indexAnchorList(anchors[anchorTypeNames[ti]], anchorTypeNames[ti]);
+  }
   // 索引人物档案
   if(anchors.characterProfiles){
     Object.keys(anchors.characterProfiles).forEach(function(name){
@@ -3012,7 +2995,7 @@ function buildArchMemoryContext(work, currentModule){
   }
   var mem = work.longMemory;
   if(!mem) return '';
-  if(!mem.memoryAnchors) mem.memoryAnchors = {core:[],characterTags:[],relationships:[],items:[],locations:[],promises:[],timeline:[],hooks:[],dialogues:[],abilityCosts:[],emotionTrack:[],scenes:[],historicalEvents:[],economy:[],culture:[],raceClass:[],worldConflicts:[],growthTrajectory:[],villainPlans:[],relationNetwork:[],volumeConflicts:[],emotionalPayoffs:[],romanceArc:[],chapterCast:[]};
+  if(!mem.memoryAnchors) mem.memoryAnchors = JSON.parse(JSON.stringify(_DEFAULT_MEMORY_ANCHORS));
   var anchors = mem.memoryAnchors;
   var charRoles = mem.charRoles || {};
 
@@ -3044,6 +3027,24 @@ function buildArchMemoryContext(work, currentModule){
   function roleTag(a){
     if(a.charRole && a.charRole !== '龙套') return '[' + a.charRole + '] ';
     return '';
+  }
+
+  // 辅助：简单锚点区块（filter + slice + format 重复模式提取）
+  function _addAnchorSection(list, label, limit){
+    if(!list || !list.length) return;
+    var filtered = null;
+    // 如果元素有 source 字段，跳过当前模块的来源
+    if(list.length > 0 && typeof list[0] !== 'string' && list[0].source !== undefined){
+      filtered = list.filter(function(a){ return a.source !== currentModule; });
+    } else {
+      filtered = list;
+    }
+    if(!filtered || !filtered.length) return;
+    var block = label + '\n';
+    filtered.slice(0, limit * _itemMult).forEach(function(a){
+      block += '  ■ ' + (a.text || a) + '\n';
+    });
+    tryAdd(block + '\n');
   }
 
   // 模块名映射
@@ -3088,74 +3089,25 @@ function buildArchMemoryContext(work, currentModule){
   }
 
   // L3: 势力与关系（来自世界观）
-  var relList = (anchors.relationships || []).filter(function(a){ return a.source !== currentModule; });
-  if(relList.length > 0){
-    var relBlock = '【⚔️ 已确立的势力/关系（不得改名或新增冲突设定）】\n';
-    relList.slice(0, 18 * _itemMult).forEach(function(a){
-      relBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(relBlock + '\n');
-  }
+  _addAnchorSection(anchors.relationships, '【⚔️ 已确立的势力/关系（不得改名或新增冲突设定）】', 18);
 
   // L3.5: 能力代价/限制（来自世界观/正文）— v51新增
-  var abilityList = (anchors.abilityCosts || []).filter(function(a){ return a.source !== currentModule; });
-  if(abilityList.length > 0){
-    var abilityBlock = '【⚡ 已确立的能力代价/限制（防止无限开挂，必须遵守）】\n';
-    abilityList.slice(0, 15 * _itemMult).forEach(function(a){
-      abilityBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(abilityBlock + '\n');
-  }
+  _addAnchorSection(anchors.abilityCosts, '【⚡ 已确立的能力代价/限制（防止无限开挂，必须遵守）】', 15);
 
   // L4: 地点（来自世界观）
-  var locList = (anchors.locations || []).filter(function(a){ return a.source !== currentModule; });
-  if(locList.length > 0){
-    var locBlock = '【🗺️ 已确立的地点（地名必须一致）】\n';
-    locList.slice(0, 18 * _itemMult).forEach(function(a){
-      locBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(locBlock + '\n');
-  }
+  _addAnchorSection(anchors.locations, '【🗺️ 已确立的地点（地名必须一致）】', 18);
 
   // L4.1: 历史重大事件（来自世界观）
-  var histList = (anchors.historicalEvents || []).filter(function(a){ return a.source !== currentModule; });
-  if(histList.length > 0){
-    var histBlock = '【📜 历史重大事件（影响世界格局的关键节点）】\n';
-    histList.slice(0, 10 * _itemMult).forEach(function(a){
-      histBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(histBlock + '\n');
-  }
+  _addAnchorSection(anchors.historicalEvents, '【📜 历史重大事件（影响世界格局的关键节点）】', 10);
 
   // L4.2: 经济与资源体系（来自世界观）
-  var econList = (anchors.economy || []).filter(function(a){ return a.source !== currentModule; });
-  if(econList.length > 0){
-    var econBlock = '【💰 经济与资源体系（货币/贸易/稀有资源）】\n';
-    econList.slice(0, 10 * _itemMult).forEach(function(a){
-      econBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(econBlock + '\n');
-  }
+  _addAnchorSection(anchors.economy, '【💰 经济与资源体系（货币/贸易/稀有资源）】', 10);
 
   // L4.3: 文化与文明特征（来自世界观）
-  var cultList = (anchors.culture || []).filter(function(a){ return a.source !== currentModule; });
-  if(cultList.length > 0){
-    var cultBlock = '【🎭 文化与文明特征（节日/禁忌/宗教/语言）】\n';
-    cultList.slice(0, 10 * _itemMult).forEach(function(a){
-      cultBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(cultBlock + '\n');
-  }
+  _addAnchorSection(anchors.culture, '【🎭 文化与文明特征（节日/禁忌/宗教/语言）】', 10);
 
   // L4.4: 种族与社会阶层（来自世界观）
-  var raceList = (anchors.raceClass || []).filter(function(a){ return a.source !== currentModule; });
-  if(raceList.length > 0){
-    var raceBlock = '【👥 种族与社会阶层（阶层结构/族群关系）】\n';
-    raceList.slice(0, 8 * _itemMult).forEach(function(a){
-      raceBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(raceBlock + '\n');
-  }
+  _addAnchorSection(anchors.raceClass, '【👥 种族与社会阶层（阶层结构/族群关系）】', 8);
 
   // L5: 伏笔/钩子（来自大纲/细纲）
   var hookList = (anchors.hooks || []).filter(function(a){ return a.source !== currentModule; });
@@ -3169,34 +3121,13 @@ function buildArchMemoryContext(work, currentModule){
   }
 
   // L6: 承诺/约定（来自大纲）
-  var promiseList = (anchors.promises || []).filter(function(a){ return a.source !== currentModule; });
-  if(promiseList.length > 0){
-    var promiseBlock = '【📜 已确立的承诺/约定/禁忌（必须遵守）】\n';
-    promiseList.slice(0, 15 * _itemMult).forEach(function(a){
-      promiseBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(promiseBlock + '\n');
-  }
+  _addAnchorSection(anchors.promises, '【📜 已确立的承诺/约定/禁忌（必须遵守）】', 15);
 
   // L6.1: 世界观核心矛盾与暗线（来自世界观）
-  var worldConflictList = (anchors.worldConflicts || []).filter(function(a){ return a.source !== currentModule; });
-  if(worldConflictList.length > 0){
-    var wcBlock = '【🌍 世界观核心矛盾与暗线（深层冲突/未解之谜/隐藏势力）】\n';
-    worldConflictList.slice(0, 8 * _itemMult).forEach(function(a){
-      wcBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(wcBlock + '\n');
-  }
+  _addAnchorSection(anchors.worldConflicts, '【🌍 世界观核心矛盾与暗线（深层冲突/未解之谜/隐藏势力）】', 8);
 
   // L7: 时间线（来自细纲）
-  var tlList = (anchors.timeline || []).filter(function(a){ return a.source !== currentModule; });
-  if(tlList.length > 0){
-    var tlBlock = '【⏰ 已确立的时间线（必须连续，不得矛盾）】\n';
-    tlList.slice(0, 15 * _itemMult).forEach(function(a){
-      tlBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(tlBlock + '\n');
-  }
+  _addAnchorSection(anchors.timeline, '【⏰ 已确立的时间线（必须连续，不得矛盾）】', 15);
 
   // L8: 章节衍生记忆（如果已有正文，注入角色状态/情节线索/伏笔）
   if(mem.charStates && mem.charStates.length > 0){
@@ -3228,24 +3159,10 @@ function buildArchMemoryContext(work, currentModule){
   }
 
   // L8.1: 章级场景（来自细纲，具体地点+氛围）
-  var sceneList = (anchors.scenes || []).filter(function(a){ return a.source !== currentModule; });
-  if(sceneList.length > 0){
-    var scBlock = '【🎬 章级场景（细纲中的地点+时间+氛围）】\n';
-    sceneList.slice(0, 15 * _itemMult).forEach(function(a){
-      scBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(scBlock + '\n');
-  }
+  _addAnchorSection(anchors.scenes, '【🎬 章级场景（细纲中的地点+时间+氛围）】', 15);
 
   // L8.2: 章级出场人物（来自细纲，每章哪些角色出场）
-  var castList = (anchors.chapterCast || []).filter(function(a){ return a.source !== currentModule; });
-  if(castList.length > 0){
-    var castBlock = '【👥 章级出场人物（细纲中各章出场角色）】\n';
-    castList.slice(0, 15 * _itemMult).forEach(function(a){
-      castBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(castBlock + '\n');
-  }
+  _addAnchorSection(anchors.chapterCast, '【👥 章级出场人物（细纲中各章出场角色）】', 15);
 
   // L9: 人物档案摘要（来自人设/正文，深度角色信息）
   if(mem.characterProfiles && Object.keys(mem.characterProfiles).length > 0){
@@ -3289,34 +3206,13 @@ function buildArchMemoryContext(work, currentModule){
   }
 
   // L11.1: 各卷核心冲突与目标（来自大纲）
-  var volConflictList = (anchors.volumeConflicts || []).filter(function(a){ return a.source !== currentModule; });
-  if(volConflictList.length > 0){
-    var vcBlock = '【⚔️ 各卷核心冲突与目标（每卷必须解决的核心问题）】\n';
-    volConflictList.slice(0, 10 * _itemMult).forEach(function(a){
-      vcBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(vcBlock + '\n');
-  }
+  _addAnchorSection(anchors.volumeConflicts, '【⚔️ 各卷核心冲突与目标（每卷必须解决的核心问题）】', 10);
 
   // L11.2: 爽点与情绪设计（来自大纲）
-  var payoffList = (anchors.emotionalPayoffs || []).filter(function(a){ return a.source !== currentModule; });
-  if(payoffList.length > 0){
-    var epBlock = '【💥 爽点与情绪设计（高潮/反转/打脸/泪点分布）】\n';
-    payoffList.slice(0, 10 * _itemMult).forEach(function(a){
-      epBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(epBlock + '\n');
-  }
+  _addAnchorSection(anchors.emotionalPayoffs, '【💥 爽点与情绪设计（高潮/反转/打脸/泪点分布）】', 10);
 
   // L11.3: 情感线推进（来自大纲/人设）
-  var romanceList = (anchors.romanceArc || []).filter(function(a){ return a.source !== currentModule; });
-  if(romanceList.length > 0){
-    var romBlock = '【💕 情感线推进（恋爱/亲情/师徒关系变化）】\n';
-    romanceList.slice(0, 8 * _itemMult).forEach(function(a){
-      romBlock += '  ■ ' + a.text + '\n';
-    });
-    tryAdd(romBlock + '\n');
-  }
+  _addAnchorSection(anchors.romanceArc, '【💕 情感线推进（恋爱/亲情/师徒关系变化）】', 8);
 
   // L12: 时间线事件（来自大纲/细纲，结构化时间线）
   if(mem.timelineEvents && mem.timelineEvents.length > 0){
