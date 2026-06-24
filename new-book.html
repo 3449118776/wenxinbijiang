@@ -118,6 +118,7 @@ textarea {min-height:80px;resize:none;line-height:1.6;}
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/db.js"></script>
+<script src="assets/js/architecture.js"></script>
 <script src="assets/js/cloud-sync.js"></script>
 <script src="assets/js/ui.js"></script>
 <script src="assets/js/nav-helper.js"></script>
@@ -208,6 +209,21 @@ function submitNewBook(){
   }
 
   var work = DB.createWork(name,desc,{cat1:selectedCat1,cat2:selectedCat2,styles:selectedStylesArr(selectedStyles)});
+
+  // ===== 创建时检测同人模式 =====
+  // 从作品名和简介中检测是否写同人，命中后存到 work 上，
+  // 后续架构页/写文页直接读 work._fanficMode，无需重复扫描
+  try {
+    if (typeof _detectFanficIP === 'function') {
+      var _detectSrc = name + ' ' + desc;
+      var _ip = _detectFanficIP(_detectSrc);
+      if (_ip) {
+        work._fanficMode = true;
+        work._fanficIP = _ip;
+        console.log('[同人模式] 自动检测: ' + _ip);
+      }
+    }
+  } catch(fdErr) { console.warn('[同人检测] 异常:', fdErr); }
 
   work.genre = selectedCat1;
   work.plotType = selectedCat2;

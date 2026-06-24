@@ -3238,14 +3238,14 @@ function buildArchCardPromptV48(module, card, work, idea, prevCards, extraHint, 
       }
     }
 
-    // ===== 同人模式检测：用户指令含同人+已知IP时，告诉AI用已知知识 =====
+    // ===== 同人模式：先读创建时标记，再尝试从指令中检测 =====
     var _fanficIP = null;
-    if(/同人|二创|同人作品/.test(idea)){
-      for(var _ip in _FANFIC_IPS){
-        if(idea.indexOf(_ip) >= 0){ _fanficIP = _ip; break; }
-      }
+    if(work && work._fanficMode && work._fanficIP){
+      _fanficIP = work._fanficIP;
+    } else if(typeof _detectFanficIP === 'function'){
+      _fanficIP = _detectFanficIP(idea);
     }
-    if(_fanficIP){
+    if(_fanficIP && _fanficIP !== '_unknown'){
       prompt += '【📖 同人模式 · ' + _fanficIP + '】\n';
       prompt += '用户要写的是《' + _fanficIP + '》同人作品。你熟悉这部作品的全部设定，请直接基于原著已知知识展开。\n';
       prompt += '规则：\n';
@@ -3422,14 +3422,14 @@ function buildArchSinglePromptV52(module, batches, work, idea, extraHint, market
   sysMsg += '发布平台：' + platform + '\n';
   sysMsg += '当前模块：' + moduleName + '\n';
 
-  // ===== 同人模式检测（仅世界观模块生效，其他模块由 chain 继承上下文）=====
+  // ===== 同人模式：先读创建时标记，再尝试从指令中检测 =====
   var _fanficIP = null;
-  if(idea && /同人|二创|同人作品/.test(idea)){
-    for(var _ip in _FANFIC_IPS){
-      if(idea.indexOf(_ip) >= 0){ _fanficIP = _ip; break; }
-    }
+  if(work && work._fanficMode && work._fanficIP){
+    _fanficIP = work._fanficIP;
+  } else if(typeof _detectFanficIP === 'function'){
+    _fanficIP = _detectFanficIP(idea);
   }
-  if(_fanficIP){
+  if(_fanficIP && _fanficIP !== '_unknown'){
     sysMsg += '\n【📖 同人模式 · ' + _fanficIP + '】\n';
     sysMsg += '用户要写的是《' + _fanficIP + '》同人作品。你熟悉这部作品的全部设定，请直接基于原著已知知识展开。\n';
     sysMsg += '规则：\n';

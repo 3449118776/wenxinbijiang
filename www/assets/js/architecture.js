@@ -111,6 +111,18 @@ var _FANFIC_IPS = {
   '三体影视': true, '流浪地球': true
 };
 
+// 从文本中检测同人 IP，返回匹配的 IP 名称或 null
+// 可在创建作品时、填写指令时复用
+function _detectFanficIP(text) {
+  if (!text || !text.trim()) return null;
+  // 必须有同人关键词
+  if (!/同人|二创|同人作品/.test(text)) return null;
+  for (var _ip in _FANFIC_IPS) {
+    if (text.indexOf(_ip) >= 0) return _ip;
+  }
+  return '_unknown'; // 有同人意向但未匹配已知 IP
+}
+
 // 构建前序模块的对话链 messages 数组
 // currentModule 为 'chapter' 时包含所有架构模块 + 之前章节
 // currentModule 为 'world' 时返回空数组
