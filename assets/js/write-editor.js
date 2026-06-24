@@ -4927,27 +4927,37 @@ async function aiWriteChapter(opts){
         statusBar.textContent = '🔄 自动迭代中 · 当前' + _currentScore + '分 · 第' + (_writeIteration + 1) + '/3轮 · 目标90+';
       }
       var _nextHint = '';
-      var _hintLines = [];
-      _hintLines.push('当前评分 ' + _currentScore + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
-      if (_qReport.dimensions && _qReport.dimensions.length) {
-        var _dimCount = 0;
-        for (var _di3 = 0; _di3 < _qReport.dimensions.length; _di3++) {
-          var _dim3 = _qReport.dimensions[_di3];
-          if (_dim3 && (_dim3.score / _dim3.max) < 0.85 && _dimCount < 3) {
-            if (_dim3.issues && _dim3.issues.length) {
-              _hintLines.push('- ' + _dim3.name + '：' + _dim3.issues.slice(0, 1).join('；'));
-              _dimCount++;
+      
+      // ⭐ v70: 使用 QualityDriver 生成针对性迭代提示
+      if (typeof QualityEngine !== 'undefined' && typeof QualityEngine.buildModuleEnhancePrompt === 'function') {
+        _nextHint = QualityEngine.buildModuleEnhancePrompt('chapter', _qReport, result, '');
+      }
+      
+      // 如果 QualityDriver 未生成提示，使用通用回退逻辑
+      if (!_nextHint || !_nextHint.trim()) {
+        var _hintLines = [];
+        _hintLines.push('当前评分 ' + _currentScore + '/100' + (_cmdFollowScore < 6 ? '（用户指令遵循度' + _cmdFollowScore + '/10）' : '') + '，请针对以下问题进行优化：');
+        if (_qReport.dimensions && _qReport.dimensions.length) {
+          var _dimCount = 0;
+          for (var _di3 = 0; _di3 < _qReport.dimensions.length; _di3++) {
+            var _dim3 = _qReport.dimensions[_di3];
+            if (_dim3 && (_dim3.score / _dim3.max) < 0.85 && _dimCount < 3) {
+              if (_dim3.issues && _dim3.issues.length) {
+                _hintLines.push('- ' + _dim3.name + '：' + _dim3.issues.slice(0, 1).join('；'));
+                _dimCount++;
+              }
             }
           }
         }
+        if (_cmdFollowScore < 6 && work._lastUserCmd) {
+          _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
+        }
+        if (_qReport.strengths && _qReport.strengths.length) {
+          _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
+        }
+        _nextHint = _hintLines.join('\n');
       }
-      if (_cmdFollowScore < 6 && work._lastUserCmd) {
-        _hintLines.push('- 必须严格体现用户指令：' + work._lastUserCmd);
-      }
-      if (_qReport.strengths && _qReport.strengths.length) {
-        _hintLines.push('\n【本轮已做得好的地方请继续保持：' + _qReport.strengths.slice(0, 2).join('；'));
-      }
-      _nextHint = _hintLines.join('\n');
+      
       // ⚡ 递归调用：增量改进模式，传递上一轮结果供AI优化
       return aiWriteChapter({
         _iteration: _writeIteration + 1,
